@@ -36,7 +36,7 @@ export function registerSessionShortcuts({ windowSessions, isWorkspaceShown, fal
   // new tab, launch menu, close, and next/previous cycling.
   onMount(() =>
     registerTabShortcuts({
-      newTab: () => {
+      newTab() {
         if (!isWorkspaceShown()) {
           return;
         }
@@ -48,7 +48,7 @@ export function registerSessionShortcuts({ windowSessions, isWorkspaceShown, fal
       },
       // Open the launch dropdown with the first agent focused, so
       // Enter fires it and Esc light-dismisses (native popover handles both).
-      launchMenu: () => {
+      launchMenu() {
         if (!isWorkspaceShown()) {
           return;
         }
@@ -67,7 +67,7 @@ export function registerSessionShortcuts({ windowSessions, isWorkspaceShown, fal
       // Ctrl+number - jump straight to a tab by position (Ctrl+9 = the last one).
       // The matcher only ever hands back an index that exists, so the guard is
       // belt-and-suspenders; selection reuses the same make-active path as a click.
-      selectTab: index => {
+      selectTab(index) {
         const session = windowSessions.sessions[index];
         if (session) {
           windowSessions.select(session.id);

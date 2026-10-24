@@ -60,7 +60,7 @@ describe("createSessionActivity", () => {
   });
 
   it("stays exited and seeds an attached session as ready", () => {
-    const attached = createSessionActivity({ onSettled: () => {} });
+    const attached = createSessionActivity({ onSettled() {} });
     attached.markAttached();
     expect(attached.status).toBe(SessionStatus.enum.ready);
 

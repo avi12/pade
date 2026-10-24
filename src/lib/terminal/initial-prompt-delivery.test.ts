@@ -21,7 +21,7 @@ function deliveryFor({ prompt = PROMPT, isWorking = false }: {
   const state = { isWorking };
   const delivery = createInitialPromptDelivery({
     prompt: () => prompt,
-    write: async data => {
+    async write(data) {
       written.push(data);
     },
     isWorking: () => state.isWorking

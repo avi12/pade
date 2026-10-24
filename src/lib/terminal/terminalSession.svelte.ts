@@ -86,7 +86,7 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
     viewport: () => elViewport,
     // Fire-and-forget resize: the session may have exited between measuring and
     // resizing, and a dropped resize on a dead PTY is harmless.
-    resizeAgent: async ({ columns, rows }) => {
+    async resizeAgent({ columns, rows }) {
       try {
         await sendMessage(Command.ptyResize, {
           id: session().id,
@@ -103,7 +103,7 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
   });
   const screenSampler = createScreenSampler({
     intervalMs: CONTEXT_SCREEN_SAMPLE_MS,
-    sample: () => {
+    sample() {
       if (!terminal) {
         return;
       }
@@ -122,11 +122,11 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
     }
   });
   const output = createTerminalOutputScheduler({
-    write: queued => {
+    write(queued) {
       terminal?.write(queued, () => screenSampler.request());
       fit.noteRepaintProgress();
     },
-    flushContext: () => {
+    flushContext() {
       const buffer = terminal?.buffer.active;
       const isReadingScrollback = buffer !== undefined && buffer.type !== Screen.Alternate
         && buffer.viewportY < buffer.baseY;
@@ -228,10 +228,10 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
     keepListening(
       await listenForFileDrops({
         element: () => elPane,
-        onHoverChange: isOver => {
+        onHoverChange(isOver) {
           isFileDragOver = isOver;
         },
-        onDrop: paths => {
+        onDrop(paths) {
           grid.paste(pathsAsPromptText(paths));
           grid.focus();
         }

@@ -28,7 +28,7 @@ describe("createPtyWriter", () => {
     });
     const write = createPtyWriter({
       send,
-      onTransportLost: () => {}
+      onTransportLost() {}
     });
 
     const a = write("a");

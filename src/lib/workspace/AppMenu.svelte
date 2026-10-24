@@ -162,7 +162,7 @@
 
     await runListTransition({
       elList: elSwitchList,
-      mutate: async () => {
+      async mutate() {
         listed = next;
       }
     });
@@ -293,7 +293,7 @@
 
       await runListTransition({
         elList: elWindowList,
-        mutate: async () => {
+        async mutate() {
           windowRows = openWindows;
           await tick();
         }
