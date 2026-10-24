@@ -12,7 +12,7 @@
   } = $props();
 </script>
 
-<iframe class="render" aria-label={label} sandbox="" srcdoc={document}></iframe>
+<iframe class="render" sandbox="" srcdoc={document} title={label}></iframe>
 
 <style>
   /* Themed background shows while the isolated document loads (and behind a

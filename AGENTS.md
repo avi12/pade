@@ -267,7 +267,9 @@ These are non-negotiable for all work in this repo.
      (`data-tooltip="…"`, the global `[data-tooltip]` bubble in `theme.css`),
      never the native `title` tooltip, which ignores the theme and lags. A
      component prop that happens to be named `title` (a dialog's heading) is not
-     the attribute and stays.
+     the attribute and stays. The one exception is an `<iframe>`'s `title`: it
+     is the frame's required accessible name, and hovering a frame shows its
+     content, never a tooltip.
    - Inline single-use event handlers: a function that handles an event and has
      exactly one use - bound to a DOM `on*` attribute, a `<svelte:window>` /
      `<svelte:document>` event or a component's `on*`/callback prop, or passed
