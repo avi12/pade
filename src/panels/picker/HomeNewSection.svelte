@@ -5,9 +5,9 @@
   import { THROWAWAY_LABEL } from "@/panels/picker/home-composer";
   import { tick } from "svelte";
 
-  // The composer menu's New section, pinned to the foot of the scrolling list
-  // so it is one glance away however long the list runs: a new project under
-  // each root, or a throwaway workspace.
+  // The composer menu's New section, the foot under the scrolling list so it
+  // is one glance away however long the list runs: a new project under each
+  // root, or a throwaway workspace.
   const { menuId, roots, isSeparated, isTempPicked, nameFieldId, onnew, ontemp }: {
     menuId: string;
     roots: readonly string[];
@@ -28,7 +28,7 @@
   // the name field.
   async function startNew(e: MouseEvent, root: string) {
     if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.closest("ul")?.hidePopover();
+      e.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
     }
 
     onnew(root);
@@ -37,7 +37,7 @@
   }
 </script>
 
-<li class="new-section" class:separator={isSeparated}>
+<div class="new-section" class:separator={isSeparated}>
   <span class="head" aria-hidden="true">New</span>
   <div class="roots">
     {#each newTargets as root (root)}
@@ -62,20 +62,15 @@
     <Icon name="plus" size={15} />
     <span class="menu-item-text">{THROWAWAY_LABEL}</span>
   </button>
-</li>
+</div>
 
 <style>
-  /* Stays at the foot of the scrolling list, over the rows that scroll
-     beneath it, in the menu's own surface. It pins to the menu's very edge
-     and fills the menu's bottom padding, so no row shows through below it. */
+  /* The menu's non-scrolling foot (HomeProjectMenu lays the menu out as a
+     column): it keeps its full size while the list above it scrolls. */
   .new-section {
-    position: sticky;
-    inset-block-end: calc(-1 * var(--popover-menu-padding));
     display: flex;
+    flex: none;
     flex-direction: column;
-    margin-block-end: calc(-1 * var(--popover-menu-padding));
-    padding-block-end: var(--popover-menu-padding);
-    background: var(--surface-2);
   }
 
   /* With four roots or more, three and a half rows show and the rest scroll,
