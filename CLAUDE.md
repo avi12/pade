@@ -259,6 +259,11 @@ These are non-negotiable for all work in this repo.
      `ICON_NAMES` in `Icon.svelte`, then reference it by name. (Bare typographic
      affordances like a `▾` disclosure caret or a `\` path separator are text, not
      icons, and stay as-is.)
+   - No `title` attribute: a hover hint is the app's CSS tooltip
+     (`data-tooltip="…"`, the global `[data-tooltip]` bubble in `theme.css`),
+     never the native `title` tooltip, which ignores the theme and lags. A
+     component prop that happens to be named `title` (a dialog's heading) is not
+     the attribute and stays.
    - Inline single-use event handlers: a function that handles an event and has
      exactly one use - bound to a DOM `on*` attribute, a `<svelte:window>` /
      `<svelte:document>` event or a component's `on*`/callback prop, or passed
