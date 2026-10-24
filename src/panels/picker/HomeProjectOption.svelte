@@ -1,10 +1,12 @@
 <script lang="ts">
   import { tooltip } from "@/lib/ui/truncation-tooltip";
-  import { projectRootName } from "@/lib/util/paths";
+  import { isTemporaryWorkspace, projectRootName } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/RootedName.svelte";
+  import TempBadge from "@/lib/workspace/TempBadge.svelte";
 
-  // One project in the composer's menu: its root and name ("avi/pade"), a
-  // tick when picked, and its path in the shared top-layer bubble - never a
+  // One project in the composer's menu: its root and name ("avi/pade"), the
+  // TEMP badge for a throwaway workspace, a tick when picked, and its path in
+  // the shared top-layer bubble - never a
   // `data-tooltip` pseudo, whose box would widen the scrolling list into a
   // sideways scrollbar.
   const { menuId, path, name, isPicked, onpick }: {
@@ -28,6 +30,9 @@
     type="button"
   >
     <span class="menu-item-text"><RootedName {name} root={projectRootName(path)} /></span>
+    {#if isTemporaryWorkspace(path)}
+      <TempBadge />
+    {/if}
     {#if isPicked}
       <span class="tick" aria-hidden="true">✓</span>
     {/if}
