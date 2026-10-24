@@ -369,7 +369,7 @@ export type CreditBalance = z.infer<typeof CreditBalance>;
 /** Live account usage - every rate-limit window the endpoint returns (session,
  *  weekly, and any per-model or other windows), plus the plan label. `null` when
  *  offline / the local token is missing or expired. */
-export const AccountUsage = z.object({
+const AccountUsage = z.object({
   windows: z.array(UsageWindow).default([]),
   plan: z.string(),
   source: z.string(),
@@ -389,6 +389,29 @@ export const AccountUsage = z.object({
   uncappedSpend: CreditBalance.nullish()
 });
 export type AccountUsage = z.infer<typeof AccountUsage>;
+
+/** Why an account has no reading (`usage.rs`'s `NoReadingReason`): PADE has no
+ *  usage source for the agent; it isn't signed in; the vendor rejected its
+ *  sign-in or it expired; or the vendor didn't answer (offline, a refusal). */
+export const NoReadingReason = z.enum(["no_source", "signed_out", "sign_in_expired", "unreachable"]);
+export type NoReadingReason = z.infer<typeof NoReadingReason>;
+
+/** Why the latest ask brought no reading, and the CLI that fixes a sign-in
+ *  problem (`codex` - also for opencode, which reads Codex's sign-in). */
+const NoReading = z.object({
+  reason: NoReadingReason,
+  signInCommand: z.string().nullable()
+});
+export type NoReading = z.infer<typeof NoReading>;
+
+/** The account command's answer: the reading to show - fresh, or the last good
+ *  one held over while the vendor fails - and, when the latest ask brought
+ *  none, why. */
+export const AccountReading = z.object({
+  account: AccountUsage.nullable(),
+  noReading: NoReading.nullable()
+});
+export type AccountReading = z.infer<typeof AccountReading>;
 
 /** A free usage-limit reset Claude's account can spend now - a grant (a launch
  *  promotion) that clears its limits once, on demand. */

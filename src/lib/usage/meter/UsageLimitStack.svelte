@@ -1,7 +1,13 @@
 <script lang="ts">
   import { growInline } from "@/lib/ui/motion";
   import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
-  import { isJustReset, limitTooltip, NO_READING, severityClass } from "@/lib/usage/meter/usage-meter";
+  import {
+    isJustReset,
+    limitTooltip,
+    NO_READING,
+    noReadingFace,
+    severityClass
+  } from "@/lib/usage/meter/usage-meter";
   import type { AgentGroup } from "@/lib/usage/usage-groups";
 
   // One agent's limits as compact stacks - the mono kind letter over its
@@ -12,6 +18,8 @@
     /** Limits that just started over, whose numbers flash. */
     justReset?: ReadonlySet<string>;
   } = $props();
+
+  const face = $derived(noReadingFace(group));
 </script>
 
 {#if group.limits.length > 0}
@@ -34,6 +42,14 @@
       </span>
     {/each}
   </span>
+{:else if face}
+  <!-- Why there is no reading, and the fix on hover (top-layer, like the
+       limits above, since this sits in scrolling menus). -->
+  <span
+    class="dash"
+    class:state={face.isState}
+    {@attach tooltip(() => face.hint)}
+  >{face.label}</span>
 {:else}
   <span class="dash">{NO_READING}</span>
 {/if}
@@ -73,5 +89,14 @@
     color: var(--on-surface-variant);
     font-weight: 700;
     font-size: 0.6875rem;
+    white-space: nowrap;
+
+    /* A named state ("Sign in expired") asks for action: it reads in the
+       warning colour, quieter than a limit's number. */
+    &.state {
+      color: var(--warning);
+      font-weight: 600;
+      font-size: 0.625rem;
+    }
   }
 </style>

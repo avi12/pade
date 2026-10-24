@@ -1,4 +1,4 @@
-import { CreditsState, SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
+import { CreditsState, NoReadingReason, SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
 import type { AccountUsage, UsageWindow } from "@/lib/types";
 import {
   buildGroups,
@@ -331,6 +331,23 @@ describe("buildGroups", () => {
     expect(codex.limits).toEqual([]);
     expect(codex.plan).toBe("");
     expect(codex.shortName).toBe("Codex");
+  });
+
+  it("carries why an unknown agent has no reading, and drops it once a reading stands in", () => {
+    const expired = {
+      reason: NoReadingReason.enum.sign_in_expired,
+      signInCommand: "codex"
+    };
+    const noReadings = new Map([["codex", expired], ["claude", expired]]);
+    const groups = buildGroups({
+      accounts: accountsFor({ claude: makeAccount() }),
+      noReadings,
+      sessions: [makeSession({ agentId: "codex" }), claudeSession()],
+      now
+    });
+
+    expect(groups.find(group => group.id === "codex")?.noReading).toEqual(expired);
+    expect(groups.find(group => group.id === "claude")?.noReading).toBeNull();
   });
 
   it("populates any agent (e.g. Codex) with real limits + plan from its account", () => {

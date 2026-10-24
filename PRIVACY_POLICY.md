@@ -1,6 +1,6 @@
 # PADE Privacy Policy
 
-_Last updated: October 24, 2026_
+_Last updated: October 25, 2026_
 
 PADE is a desktop application that runs entirely on your own computer. It has
 no server component, no account system, and no analytics or telemetry of any
@@ -34,6 +34,14 @@ yourself. When you use them, **their** privacy policies apply:
 - **AI coding agents** (for example Claude Code, Codex, OpenCode, Copilot
   CLI): prompts and code you submit through an agent's terminal session are
   sent to that agent's provider under your own account and their terms.
+- **Usage meter**: to show how much of an agent's plan is left, PADE reads it
+  from that agent's own provider with the sign-in the agent already stored on
+  your computer (Anthropic for Claude Code, OpenAI's ChatGPT for Codex and
+  OpenCode, GitHub for Copilot CLI), or asks the agent's own CLI to print it
+  (`muse usage` for Muse Code, which asks Meta). These requests read your
+  usage and send nothing about your projects; the sign-in never leaves your
+  computer other than to its own provider, and PADE never refreshes or stores
+  it.
 - **Copilot naming and summaries** (Windows): to name a live session, and to
   summarize it on the agents dashboard, PADE sends a short excerpt of its
   terminal transcript to Microsoft Copilot (copilot.com) as the personal

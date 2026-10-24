@@ -146,7 +146,7 @@ fn request_offer() -> Result<Option<LimitReset>, OfferUnanswered> {
         json_body: None,
         timeout_seconds: RESET_REQUEST_TIMEOUT_SECONDS,
     })
-    .ok_or(OfferUnanswered)?;
+    .map_err(|_| OfferUnanswered)?;
     let response: serde_json::Value = serde_json::from_str(&body).map_err(|_| OfferUnanswered)?;
     Ok(response
         .get(RESET_PROGRAM)
@@ -189,7 +189,7 @@ fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
         json_body: Some(&body),
         timeout_seconds: RESET_REQUEST_TIMEOUT_SECONDS,
     })
-    .ok_or("the reset request failed")?;
+    .map_err(|_| "the reset request failed")?;
     forget_offer();
     serde_json::from_str(&response).map_err(|error| error.to_string())
 }

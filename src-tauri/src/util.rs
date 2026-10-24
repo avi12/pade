@@ -2,8 +2,9 @@
 
 use std::collections::HashSet;
 use std::ffi::OsStr;
+use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Directories no project walk is ever interested in: dependency trees and
@@ -124,19 +125,81 @@ pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
 /// and the answer is `false`. The caller owns the child's streams - one that
 /// reads its output does so on another thread while this waits.
 pub fn exits_successfully_within(child: &mut Child, timeout: Duration) -> bool {
+    exit_within(child, timeout).is_some_and(|status| status.success())
+}
+
+/// Wait for a spawned `child` under a hard deadline, answering how it exited. On
+/// deadline (or a failed wait) the child is killed and reaped and the answer is
+/// `None`.
+fn exit_within(child: &mut Child, timeout: Duration) -> Option<ExitStatus> {
     let deadline = Instant::now() + timeout;
     loop {
         match child.try_wait() {
-            Ok(Some(status)) => return status.success(),
+            Ok(Some(status)) => return Some(status),
             Ok(None) if Instant::now() < deadline => std::thread::sleep(CHILD_WAIT_POLL),
-            // Deadline reached or the wait itself failed: reap and report no.
+            // Deadline reached or the wait itself failed: reap and report nothing.
             Ok(None) | Err(_) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return false;
+                return None;
             }
         }
     }
+}
+
+/// How long a cleanly exited child's output may take to finish draining. A
+/// descendant that outlived the child can hold the pipe open; the output is
+/// then abandoned rather than waited on forever.
+const OUTPUT_DRAIN_GRACE: Duration = Duration::from_secs(1);
+
+/// What a [`capture_within`] run printed, and whether it exited successfully.
+pub(crate) struct CapturedRun {
+    pub(crate) is_success: bool,
+    pub(crate) stdout: String,
+    pub(crate) stderr: String,
+}
+
+/// Run `command` under a hard deadline, capturing stdout and stderr. stdin is
+/// closed so a CLI that expects input gets EOF instead of hanging. `None` when
+/// it couldn't start, or didn't finish in time (it is killed and reaped).
+///
+/// Both streams drain on their own threads while the child runs: a child
+/// blocked on a full pipe never exits, so reading only after the exit would
+/// stall any output bigger than the pipe buffer until the deadline killed it.
+pub(crate) fn capture_within(mut command: Command, timeout: Duration) -> Option<CapturedRun> {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command.spawn().ok()?;
+    let stdout = drain(child.stdout.take());
+    let stderr = drain(child.stderr.take());
+    let status = exit_within(&mut child, timeout)?;
+    Some(CapturedRun {
+        is_success: status.success(),
+        stdout: stdout.recv_timeout(OUTPUT_DRAIN_GRACE).ok()?.ok()?,
+        stderr: stderr
+            .recv_timeout(OUTPUT_DRAIN_GRACE)
+            .ok()
+            .and_then(Result::ok)
+            .unwrap_or_default(),
+    })
+}
+
+/// Read `stream` to its end on a thread of its own, answering on the returned
+/// channel - its text, or the read error (a stream that isn't UTF-8).
+fn drain(
+    stream: Option<impl Read + Send + 'static>,
+) -> std::sync::mpsc::Receiver<std::io::Result<String>> {
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut text = String::new();
+        let read = stream
+            .map_or(Ok(0), |mut stream| stream.read_to_string(&mut text))
+            .map(|_| text);
+        let _ = sender.send(read);
+    });
+    receiver
 }
 
 /// Spawn `program args` as a process that fully **outlives** ADE - used only for
@@ -772,10 +835,51 @@ mod project_encoding_tests {
 mod tests {
     #[cfg(windows)]
     use super::expand_environment_variables;
-    use super::{find_in, owner_access, strip_jsonc_sugar, OwnerAccess};
+    use super::{capture_within, find_in, owner_access, strip_jsonc_sugar, OwnerAccess};
     use std::fs;
     use std::path::PathBuf;
     use std::slice;
+    use std::time::{Duration, Instant};
+
+    /// Output bigger than any OS pipe buffer (64 KB on Windows and Linux).
+    const OVERSIZED_OUTPUT_BYTES: usize = 128 * 1024;
+    const CAPTURE_TIMEOUT: Duration = Duration::from_secs(20);
+
+    /// A shell line printing more than [`OVERSIZED_OUTPUT_BYTES`] of text.
+    fn oversized_output_command() -> String {
+        if cfg!(windows) {
+            "for /L %i in (1,1,2500) do @echo 0123456789012345678901234567890123456789012345678901234567890123"
+                .to_string()
+        } else {
+            format!("yes 0123456789 | head -c {}", OVERSIZED_OUTPUT_BYTES + 1)
+        }
+    }
+
+    /// The reader used to start only after the exit, so output that filled the
+    /// pipe blocked the child until the timeout killed it and nothing came back.
+    #[test]
+    fn output_bigger_than_the_pipe_buffer_is_captured_without_waiting_out_the_timeout() {
+        let started = Instant::now();
+        let run = capture_within(
+            super::shell_command(&oversized_output_command()),
+            CAPTURE_TIMEOUT,
+        )
+        .expect("a clean exit returns its whole output");
+        assert!(run.is_success);
+        assert!(run.stdout.len() > OVERSIZED_OUTPUT_BYTES);
+        assert!(started.elapsed() < CAPTURE_TIMEOUT);
+    }
+
+    #[test]
+    fn a_failed_run_still_answers_what_it_printed_to_stderr() {
+        let run = capture_within(
+            super::shell_command("echo not logged in 1>&2 && exit 3"),
+            CAPTURE_TIMEOUT,
+        )
+        .expect("the run finishes");
+        assert!(!run.is_success);
+        assert!(run.stderr.contains("not logged in"), "{}", run.stderr);
+    }
 
     /// A scratch directory populated with empty, executable `files`.
     fn scratch(name: &str, files: &[&str]) -> PathBuf {

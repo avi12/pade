@@ -17,6 +17,7 @@ import type {
   Agent,
   AgentSession,
   CreditBalance,
+  NoReading,
   UsageWindow
 } from "@/lib/types";
 import { formatPercent } from "@/lib/util/format";
@@ -96,6 +97,9 @@ export type AgentGroup = {
   /** True when ADE has no trustworthy local usage signal for this agent, so it
    *  shows no numbers (only Claude Code exposes its limits locally today). */
   isUnknown: boolean;
+  /** Why an unknown agent has no reading (signed out, sign-in expired, …), when
+   *  the backend said; `null` for an agent with a reading. */
+  noReading: NoReading | null;
   limits: Limit[];
 };
 
@@ -457,11 +461,13 @@ function buildLimits({ account, now }: {
 
 // One group per agent: an agent with a resolved account gets its real limits +
 // plan; an agent with none is `unknown` with no limits (ADE has no honest local
-// usage signal for it). No agent is special-cased - the account decides. The
-// composer's LLM menu builds one per installed agent, running or not.
-export function buildAgentGroup({ agent, account, now }: {
+// usage signal for it), carrying why when the backend said. No agent is
+// special-cased - the account decides. The composer's LLM menu builds one per
+// installed agent, running or not.
+export function buildAgentGroup({ agent, account, noReading = null, now }: {
   agent: Agent;
   account: AccountUsage | null;
+  noReading?: NoReading | null;
   now: number;
 }) {
   const hasUsage = account !== null;
@@ -472,6 +478,7 @@ export function buildAgentGroup({ agent, account, now }: {
     plan: hasUsage ? account.plan : "",
     icon: agentIconName(agent.id),
     isUnknown: !hasUsage,
+    noReading: hasUsage ? null : noReading,
     limits: hasUsage ? buildLimits({
       account,
       now
@@ -509,8 +516,10 @@ function sortWorstFirst(groups: AgentGroup[]) {
  *  one ChatGPT subscription) collapse into the first-seen agent's group - one
  *  account is never shown twice. Each agent reads its own windows from
  *  `accounts` (missing/`null` ⇒ an unknown group). Sorted worst-first. */
-export function buildGroups({ accounts, sessions, now }: {
+export function buildGroups({ accounts, noReadings = new Map(), sessions, now }: {
   accounts: ReadonlyMap<string, AccountUsage | null>;
+  /** Why each agent without an account has no reading, by agent id. */
+  noReadings?: ReadonlyMap<string, NoReading>;
   sessions: AgentSession[];
   now: number;
 }) {
@@ -539,6 +548,7 @@ export function buildGroups({ accounts, sessions, now }: {
       buildAgentGroup({
         agent: session.agent,
         account,
+        noReading: noReadings.get(agentId) ?? null,
         now
       })
     );

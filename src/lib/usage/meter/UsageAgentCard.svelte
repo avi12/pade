@@ -1,8 +1,9 @@
 <script lang="ts">
   import { AgentId } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
+  import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import LimitResetOffer from "@/lib/usage/limit-reset/LimitResetOffer.svelte";
-  import { groupSeverityClass, isJustReset } from "@/lib/usage/meter/usage-meter";
+  import { groupSeverityClass, isJustReset, planCaption } from "@/lib/usage/meter/usage-meter";
   import UsageLimitRow from "@/lib/usage/meter/UsageLimitRow.svelte";
   import type { AgentGroup } from "@/lib/usage/usage-groups";
 
@@ -13,14 +14,14 @@
     justReset: ReadonlySet<string>;
   } = $props();
 
-  const plan = $derived(group.plan || "usage not available locally");
+  const plan = $derived(planCaption(group));
 </script>
 
 <li class={["agent-card severity", groupSeverityClass(group)]} class:unknown={group.isUnknown}>
   <div class="agent-head">
     <span class="agent-icon"><Icon name={group.icon} /></span>
     <span class="agent-name">{group.name}</span>
-    <span class="agent-plan">{plan}</span>
+    <span class="agent-plan" {@attach truncationTooltip({ tooltip: () => plan })}>{plan}</span>
   </div>
   {#if group.limits.length > 0}
     <div class="limits">

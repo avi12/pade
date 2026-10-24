@@ -570,7 +570,7 @@ export function createAutoHandoff(host: HandoffHost) {
       promise: sendMessage(Command.usageGet, { agent }),
       fallback: null
     });
-    const account = await settledValue({
+    const reading = await settledValue({
       promise: sendMessage(Command.usageAccountAgent, {
         agent,
         forceRefresh: false
@@ -579,7 +579,7 @@ export function createAutoHandoff(host: HandoffHost) {
     });
     return hasUsageHeadroom({
       usedPercentage: quota?.usedPct,
-      credits: account?.credits
+      credits: reading?.account?.credits
     });
   }
 
