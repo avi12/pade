@@ -4,7 +4,6 @@
   // (PacingDetails) that says why, what it runs now and when it reverts, with
   // the overrides right there.
 
-  import { effective } from "@/lib/settings/prefs.svelte";
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
   import PacingDetails from "@/lib/usage/PacingDetails.svelte";
 
@@ -15,12 +14,7 @@
     isMeasuring?: boolean;
   } = $props();
 
-  const status = $derived(
-    pacingStatus({
-      id: sessionId,
-      settings: effective.pacing
-    })
-  );
+  const status = $derived(pacingStatus(sessionId));
   const popoverId = $derived(`pacing-${sessionId}`);
   const anchorName = $derived(`--pacing-${sessionId}`);
   const popoverTarget = $derived.by(() => {

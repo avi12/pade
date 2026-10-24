@@ -231,16 +231,27 @@ writes.
 - R1.6a.5 ✅ **Usage pacing** (`lib/stores/usage/usagePacing.svelte.ts`) - a
   working agent on track to run out of a usage window well before it resets is
   held back, so the account isn't locked out for hours at the end of the window.
-  Each paced window (the session, the weekly cap) is judged without assuming its
-  length - a vendor can shorten its session window any day - from when it
-  resets and how fast it is spent while its agents work (the burn rate, from the
-  account readings each minute): runway = what's left / burn rate. Past 60%
-  used, a window on track to run out more than the chosen margin (**Act when on
+  The two paced windows are each judged by how far ahead of pace they spend
+  (`lib/usage/usage-pace.ts`). The **session** window is judged without
+  assuming its length - a vendor can shorten it any day - from when it resets
+  and how fast it is spent while its agents work (the burn rate, from the
+  account readings each minute): runway = what's left / burn rate; it is over
+  pace when on track to run out more than the chosen margin (**Act when on
   track to run out** 15 min / 30 min / 1 h / 2 h **early**) before 10 minutes
-  ahead of its reset is over pace (`lib/usage/usage-pace.ts`). Usage credits
-  don't turn pacing off - going over costs real money.
-  The Config panel's **Usage pacing** card (`prefs.pacing`,
-  `lib/usage/pacing-policy.ts`) is a **Strength** preset - Off, Gentle (effort
+  ahead of its reset. The **weekly** window is spread over days with nights and
+  breaks, so a working burn rate would always look too fast; it is judged
+  against an even spend from its start to its reset instead, and is over pace
+  when more than the chosen margin (**Act when ahead of an even spend by** 6 h
+  / 12 h (default) / 1 d / 2 d) ahead of it. Either way nothing is paced under
+  60% used. Usage credits don't turn pacing off - going over costs real money.
+  The Config panel's **Usage pacing** card has a **This workspace / Global**
+  scope switch over one block per window (**Session window**, **Weekly
+  window**), each with its own settings (`lib/usage/pacing-scope.ts`): global
+  ones in `prefs.pacing` (settings saved before the split read as the session
+  window's), a workspace's own in `prefs.pacingProjects[project]`, per window.
+  A workspace window shows **Global** while it follows the global settings,
+  stops following them the moment it is changed there, and goes back with
+  **Use global**. Each block is a **Strength** preset - Off, Gentle (effort
   only), Balanced (default: effort, model, rests), Strict (all four, the stop
   asking first), or Custom once a step is edited - over a numbered list of
   steps PADE climbs one at a time while the agent stays too fast: **1 Lower
@@ -250,10 +261,14 @@ writes.
   out to a lasting pace - rest = stretch × (time left / runway − 1), at least 5
   minutes - while that needs no more rest than work, or always when Stop is
   off), **4 Stop until there's room** (with **Ask me / Continue** for once it
-  has room). A live line shows the active agent's window, its spend, when it
-  runs out and resets, and what pacing would do now. Every step undoes itself
-  as room comes back (a cheaper effort or model steps back up once the runway
-  reaches 1.5 times the time left), and everything reverts as the window is
+  has room), the margin and steps folded under **Fine-tune**. A live line per
+  window shows the active agent's spend (weekly: with a tick where an even
+  spend would be), when it runs out and resets, and what pacing would do now.
+  The steps, margin and stop behaviour that apply are those of the window
+  holding the agent. Every step undoes itself as room comes back (a cheaper
+  effort or model steps back up once a session runway reaches 1.5 times the
+  time left, or the week is back on its even spend), and everything reverts as
+  the window is
   about to reset; a choice the user makes in between is theirs to keep.
   While pacing holds an agent its tab shows **PACED n/m** (active steps of the
   allowed ones); the badge opens why, what it runs now, when it reverts and

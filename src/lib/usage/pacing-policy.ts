@@ -8,11 +8,11 @@
 // and all of it reverts as the window is about to reset. A preset is just a set
 // of steps; any other set reads as Custom.
 
-import { PacingStep, PacingStopThen } from "@/lib/types";
-import type { PacingSettings, UsageWindowKind } from "@/lib/types";
+import { PacedWindowKind, PacingStep, PacingStopThen } from "@/lib/types";
+import type { PacingByWindow, PacingSettings, UsageWindowKind } from "@/lib/types";
 import { resetCountdown } from "@/lib/usage/usage-groups";
 import { isForecastOverPace, windowName } from "@/lib/usage/usage-pace";
-import type { paceForecast } from "@/lib/usage/usage-pace";
+import type { MarginOf, PaceForecast } from "@/lib/usage/usage-pace";
 import { formatPercent } from "@/lib/util/format";
 
 /** Every step, in the order pacing climbs them. */
@@ -46,9 +46,45 @@ export const PACING_STEP_TEXT: Record<PacingStep, {
   }
 };
 
-/** How early a forecast run-out has to be before pacing acts, in minutes. */
-export const PACING_EARLY_OPTIONS = [15, 30, 60, 120] as const;
-const DEFAULT_EARLY_MINUTES = 30;
+const MINUTES_PER_HOUR = 60;
+const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
+
+/** How far ahead of pace a window may run before pacing acts, in minutes, per
+ *  window - a session is judged in minutes, a week in hours and days. */
+export const PACING_EARLY_OPTIONS: Record<PacedWindowKind, readonly number[]> = {
+  [PacedWindowKind.enum.session]: [15, 30, 60, 120],
+  [PacedWindowKind.enum.weekly]: [6 * MINUTES_PER_HOUR, 12 * MINUTES_PER_HOUR, MINUTES_PER_DAY, 2 * MINUTES_PER_DAY]
+};
+
+/** A margin as the Config panel names it - "30 min", "6 h", "1 d". */
+export function marginLabel(minutes: number) {
+  if (minutes < MINUTES_PER_HOUR) {
+    return `${minutes} min`;
+  }
+
+  return minutes < MINUTES_PER_DAY ? `${minutes / MINUTES_PER_HOUR} h` : `${minutes / MINUTES_PER_DAY} d`;
+}
+
+/** How the Config panel heads each window, and how its trigger reads. */
+export const PACED_WINDOW_TEXT: Record<PacedWindowKind, {
+  title: string;
+  hint: string;
+  trigger: string;
+  triggerEnd: string;
+}> = {
+  [PacedWindowKind.enum.session]: {
+    title: "Session window",
+    hint: "Judged by how fast it burns while agents work",
+    trigger: "Act when on track to run out",
+    triggerEnd: "early"
+  },
+  [PacedWindowKind.enum.weekly]: {
+    title: "Weekly window",
+    hint: "Judged against an even spend over the week",
+    trigger: "Act when ahead of an even spend by",
+    triggerEnd: ""
+  }
+};
 
 export const PacingPreset = {
   Off: "off",
@@ -69,13 +105,27 @@ const PRESET_STEPS: Record<(typeof NAMED_PRESETS)[number], readonly PacingStep[]
   [PacingPreset.Strict]: PACING_STEP_ORDER
 };
 
-/** The settings pacing runs on until the user changes them: Balanced. */
-export const DEFAULT_PACING: PacingSettings = {
-  isOn: true,
-  steps: [...PRESET_STEPS[PacingPreset.Balanced]],
-  stopThen: PacingStopThen.enum.ask,
-  earlyMinutes: DEFAULT_EARLY_MINUTES
+/** The settings each window is paced on until the user changes them: Balanced,
+ *  with a margin that suits the window. */
+export const DEFAULT_PACING: PacingByWindow = {
+  [PacedWindowKind.enum.session]: {
+    isOn: true,
+    steps: [...PRESET_STEPS[PacingPreset.Balanced]],
+    stopThen: PacingStopThen.enum.ask,
+    earlyMinutes: 30
+  },
+  [PacedWindowKind.enum.weekly]: {
+    isOn: true,
+    steps: [...PRESET_STEPS[PacingPreset.Balanced]],
+    stopThen: PacingStopThen.enum.ask,
+    earlyMinutes: 12 * MINUTES_PER_HOUR
+  }
 };
+
+/** Whether pacing watches any window at all. */
+export function isPacingOn(pacing: PacingByWindow) {
+  return PacedWindowKind.options.some(kind => pacing[kind].isOn);
+}
 
 /** Every preset with what it does, for the Config panel's strength row. */
 export const PACING_PRESETS = [
@@ -164,6 +214,12 @@ export function allowedSteps(settings: PacingSettings) {
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 
+/** How far ahead of pace each window may run, from its settings - null for a
+ *  window whose pacing is off. */
+export function pacingMargins(pacing: PacingByWindow): MarginOf {
+  return kind => pacing[kind].isOn ? pacing[kind].earlyMinutes * MILLISECONDS_PER_MINUTE : null;
+}
+
 const CLOCK = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
 const DAY = new Intl.DateTimeFormat(undefined, { dateStyle: "short" });
 const DAY_AND_CLOCK = new Intl.DateTimeFormat(undefined, {
@@ -189,6 +245,7 @@ export function pacingFacts({ verdict, choice, restUntil, revertsAt, now }: {
     windowKind: UsageWindowKind;
     utilization: number;
     runOutAt: number;
+    readyAt: number;
   } | null;
   choice: {
     current: string;
@@ -200,11 +257,12 @@ export function pacingFacts({ verdict, choice, restUntil, revertsAt, now }: {
 }) {
   const facts: string[] = [];
   if (verdict !== null) {
-    const runsOut = resetCountdown({
-      iso: new Date(verdict.runOutAt).toISOString(),
-      now
-    });
-    facts.push(`${windowName(verdict.windowKind)} window at ${formatPercent(verdict.utilization)} - on track to run out ${runsOut}, before its reset`);
+    facts.push(
+      verdictText({
+        verdict,
+        now
+      })
+    );
   }
 
   if (choice !== null) {
@@ -232,11 +290,43 @@ export function pacingFacts({ verdict, choice, restUntil, revertsAt, now }: {
   return facts;
 }
 
-/** The Config panel's live line for an account's forecast (`paceForecast`):
- *  the window, how much is spent, when it runs out and resets, and what pacing
- *  would do about it right now. A null forecast is an agent not yet watched. */
+/** Why a window holds a session: a session window runs out before its reset;
+ *  a weekly one spends ahead of an even week. */
+function verdictText({ verdict, now }: {
+  verdict: NonNullable<Parameters<typeof pacingFacts>[0]["verdict"]>;
+  now: number;
+}) {
+  const spent = `${windowName(verdict.windowKind)} window at ${formatPercent(verdict.utilization)}`;
+  if (verdict.windowKind === PacedWindowKind.enum.weekly) {
+    return `${spent} - ahead of an even spend, back on pace ${countdownTo({
+      time: verdict.readyAt,
+      now
+    })}`;
+  }
+
+  return `${spent} - on track to run out ${countdownTo({
+    time: verdict.runOutAt,
+    now
+  })}, before its reset`;
+}
+
+/** How long until `time`, as the usage meter says it - "in 2h 5m". */
+function countdownTo({ time, now }: {
+  time: number;
+  now: number;
+}) {
+  return resetCountdown({
+    iso: new Date(time).toISOString(),
+    now
+  });
+}
+
+/** The Config panel's live line for one window's forecast (`paceForecasts`):
+ *  the window, how much is spent (and, weekly, where an even spend would be),
+ *  when it runs out and resets, and what pacing would do about it right now. A
+ *  null forecast is a window not yet watched. */
 export function pacingPreview({ forecast, settings, now }: {
-  forecast: ReturnType<typeof paceForecast>;
+  forecast: PaceForecast | null;
   settings: PacingSettings;
   now: number;
 }) {
@@ -247,17 +337,25 @@ export function pacingPreview({ forecast, settings, now }: {
     };
   }
 
-  const countdown = (time: number) => resetCountdown({
-    iso: new Date(time).toISOString(),
-    now
-  });
+  const parts = [formatPercent(forecast.window.utilization)];
+  if (forecast.evenPercentage !== null) {
+    parts.push(`even spend ${formatPercent(forecast.evenPercentage)}`);
+  }
+
+  parts.push(
+    runOutText({
+      forecast,
+      now
+    }), `resets ${countdownTo({
+      time: forecast.resetAt,
+      now
+    })}`
+  );
   const meter = {
     name: `${windowName(forecast.window.kind)} window`,
     utilization: forecast.window.utilization,
-    detail: `${formatPercent(forecast.window.utilization)} · ${runOutText({
-      forecast,
-      countdown
-    })} · resets ${countdown(forecast.resetAt)}`
+    evenPercentage: forecast.evenPercentage,
+    detail: parts.join(" · ")
   };
   return {
     meter,
@@ -269,19 +367,26 @@ export function pacingPreview({ forecast, settings, now }: {
   };
 }
 
-function runOutText({ forecast, countdown }: {
-  forecast: NonNullable<ReturnType<typeof paceForecast>>;
-  countdown: (time: number) => string;
+function runOutText({ forecast, now }: {
+  forecast: PaceForecast;
+  now: number;
 }) {
   if (!forecast.isMeasured) {
     return "pace not measured yet";
   }
 
-  return forecast.runOutAt === null ? "nothing spent lately" : `runs out ${countdown(forecast.runOutAt)}`;
+  if (forecast.runOutAt === null) {
+    return "nothing spent lately";
+  }
+
+  return `runs out ${countdownTo({
+    time: forecast.runOutAt,
+    now
+  })}`;
 }
 
 function wouldDoText({ forecast, settings, now }: {
-  forecast: NonNullable<ReturnType<typeof paceForecast>>;
+  forecast: PaceForecast;
   settings: PacingSettings;
   now: number;
 }) {
@@ -291,7 +396,7 @@ function wouldDoText({ forecast, settings, now }: {
 
   const isOverPace = isForecastOverPace({
     forecast,
-    earlyMs: settings.earlyMinutes * MILLISECONDS_PER_MINUTE,
+    margin: settings.earlyMinutes * MILLISECONDS_PER_MINUTE,
     now
   });
   const firstStep = allowedSteps(settings)[0];

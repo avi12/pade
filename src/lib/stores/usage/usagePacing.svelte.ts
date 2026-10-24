@@ -1,8 +1,10 @@
 // Usage pacing: an agent on track to run out of its usage window well before the
 // window resets is held back, so the account doesn't sit locked out for hours at
-// the end of it. The formula - runway against time left, with no window length
-// assumed - is lib/usage/usage-pace; the steps and presets are
-// lib/usage/pacing-policy. This module measures each account's burn rate from
+// the end of it. The formula - how far ahead of pace each window spends, the
+// session by its burn, the week against an even spend - is lib/usage/usage-pace;
+// the steps and presets are lib/usage/pacing-policy, and which settings apply to
+// this window's workspace is lib/usage/pacing-scope, each paced window (session,
+// weekly) with its own. This module measures each account's burn rate from
 // its readings while its agents work, and climbs the user's allowed steps one at
 // a time while an agent stays too fast, each agent against its own account:
 //
@@ -32,22 +34,28 @@ import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { adaptedChoice, adaptedSteps, createUsageAdapter } from "@/lib/stores/usage/usageAdapt.svelte";
 import type { AdaptHost } from "@/lib/stores/usage/usageAdapt.svelte";
 import { CONTINUE_PROMPT, hasUsageLimit, readAccount } from "@/lib/stores/usage/usageResume.svelte";
-import { PacingStep, PacingStopThen, SessionStatus, UsageWindowKind } from "@/lib/types";
-import type { AccountUsage, AgentSession, PacingSettings, UsageWindow } from "@/lib/types";
-import { allowedSteps, PACING_STEP_ORDER, spokenTime } from "@/lib/usage/pacing-policy";
+import { PacedWindowKind, PacingStep, PacingStopThen, SessionStatus } from "@/lib/types";
+import type { AccountUsage, AgentSession, PacingByWindow, UsageWindow } from "@/lib/types";
+import {
+  allowedSteps,
+  isPacingOn,
+  PACING_STEP_ORDER,
+  pacingMargins,
+  spokenTime
+} from "@/lib/usage/pacing-policy";
 import {
   assessPace,
   burnRate,
   hasRoomToSpare,
   isRestEnough,
   MINIMUM_RATE_SPAN_MS,
-  paceForecast,
+  paceForecasts,
   pauseRequest,
   RATE_HISTORY_MS,
   slowRestUntil,
   windowName
 } from "@/lib/usage/usage-pace";
-import type { UsageSample } from "@/lib/usage/usage-pace";
+import type { PaceForecast, UsageSample } from "@/lib/usage/usage-pace";
 import { afterDelay } from "@/lib/util/delay";
 import { formatPercent } from "@/lib/util/format";
 import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
@@ -98,7 +106,7 @@ const PacePhase = z.enum(["pausing", "paused", "ready", "overridden"]);
 /** One paused session, as remembered across a reload of its window. */
 const PaceState = z.object({
   phase: PacePhase,
-  windowKind: UsageWindowKind,
+  windowKind: PacedWindowKind,
   utilization: z.number(),
   /** When PADE asked the session to stop. */
   pausedAt: z.number(),
@@ -129,9 +137,10 @@ function pacingStorageKey() {
 const paced = new SvelteMap<string, PaceState>();
 /** Why each held session is held: the window that holds it, and its numbers. */
 const verdicts = new SvelteMap<string, {
-  windowKind: UsageWindowKind;
+  windowKind: PacedWindowKind;
   utilization: number;
   runOutAt: number;
+  readyAt: number;
   resetAt: number;
 }>();
 /** What pacing did to each session, newest last. */
@@ -141,8 +150,10 @@ const histories = new SvelteMap<string, {
 }[]>();
 /** Sessions the user told pacing to leave alone, and until when. */
 const skippedUntil = new SvelteMap<string, number>();
-/** The forecast for each agent's account, for the Config panel's live line. */
-const forecasts = new SvelteMap<string, ReturnType<typeof paceForecast>>();
+/** Each agent's account forecast per window, for the Config panel's live lines. */
+const forecasts = new SvelteMap<string, Partial<Record<PacedWindowKind, PaceForecast>>>();
+/** The live loop's settings, so a badge counts the steps its window allows. */
+let pacingSource: (() => PacingByWindow) | null = null;
 /** When each working session's current stretch of work began - how long a
  *  resting session has just worked, which sizes its rest. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
@@ -257,7 +268,7 @@ function forgetSamples(accountKey: string | undefined) {
     return;
   }
 
-  for (const key of [...samples.keys()]) {
+  for (const key of samples.keys()) {
     if (key.startsWith(`${accountKey}:`)) {
       samples.delete(key);
     }
@@ -322,13 +333,21 @@ function activeSteps(id: string) {
   return PACING_STEP_ORDER.filter(step => taken.includes(step));
 }
 
+/** How many steps the window holding a session allows it - the session window
+ *  when nothing names one yet. */
+function allowedStepCount(id: string) {
+  if (pacingSource === null) {
+    return 0;
+  }
+
+  const kind = paced.get(id)?.windowKind ?? verdicts.get(id)?.windowKind ?? PacedWindowKind.enum.session;
+  return allowedSteps(pacingSource()[kind]).length;
+}
+
 /** Everything a session's pacing badge shows (reactive): which steps are active
  *  out of the allowed ones, why, what it runs now, when it reverts, and what
  *  pacing did. Null when pacing isn't touching the session. */
-export function pacingStatus({ id, settings }: {
-  id: string;
-  settings: PacingSettings;
-}) {
+export function pacingStatus(id: string) {
   const steps = activeSteps(id);
   if (steps.length === 0) {
     return null;
@@ -337,7 +356,7 @@ export function pacingStatus({ id, settings }: {
   const state = paced.get(id);
   return {
     steps,
-    allowedCount: allowedSteps(settings).length,
+    allowedCount: allowedStepCount(id),
     verdict: verdicts.get(id) ?? null,
     isStopped: state !== undefined,
     restUntil: state?.restUntil ?? null,
@@ -346,10 +365,13 @@ export function pacingStatus({ id, settings }: {
   };
 }
 
-/** The forecast for an agent's account, for the Config panel - null until the
- *  agent has worked while pacing watched (reactive). */
-export function agentForecast(agentId: string) {
-  return forecasts.get(agentId) ?? null;
+/** One window's forecast for an agent's account, for the Config panel - null
+ *  until pacing has read that account (reactive). */
+export function agentForecast({ agentId, kind }: {
+  agentId: string;
+  kind: PacedWindowKind;
+}) {
+  return forecasts.get(agentId)?.[kind] ?? null;
 }
 
 /** The overrides a badge offers, wired to the live pacing loop. */
@@ -378,7 +400,8 @@ export async function resumePacing(id: string) {
  *  applies without a restart, and the model switch stepping rides on. */
 export interface PacingHost extends AdaptHost {
   sessions: () => AgentSession[];
-  settings: () => PacingSettings;
+  /** This window's workspace's settings, per paced window. */
+  settings: () => PacingByWindow;
   /** Whether the auto-handoff flow owns the session right now. */
   isHandingOff: (id: string) => boolean;
 }
@@ -408,8 +431,10 @@ export function createUsagePacing(host: PacingHost) {
     samples.set(key, readings);
   }
 
-  function earlyMs() {
-    return host.settings().earlyMinutes * MILLISECONDS_PER_MINUTE;
+  pacingSource = host.settings;
+
+  function margins() {
+    return pacingMargins(host.settings());
   }
 
   function sessionOf(id: string) {
@@ -422,8 +447,9 @@ export function createUsagePacing(host: PacingHost) {
     return agentReportsBusy(id) || sessionStatus(id) === SessionStatus.enum.working;
   }
 
-  async function pause({ session, window, rate, readyAt, continueAt, isResting }: {
+  async function pause({ session, kind, window, rate, readyAt, continueAt, isResting }: {
     session: AgentSession;
+    kind: PacedWindowKind;
     window: UsageWindow;
     rate: number;
     readyAt: number;
@@ -441,7 +467,7 @@ export function createUsagePacing(host: PacingHost) {
       id: session.id,
       state: {
         phase: PacePhase.enum.pausing,
-        windowKind: window.kind,
+        windowKind: kind,
         utilization: window.utilization,
         pausedAt: now,
         readyAt,
@@ -515,7 +541,7 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    const shouldContinue = host.settings().stopThen === PacingStopThen.enum.continue
+    const shouldContinue = host.settings()[state.windowKind].stopThen === PacingStopThen.enum.continue
       || state.isContinuingWhenReady
       || state.restUntil !== null;
     if (shouldContinue) {
@@ -533,9 +559,10 @@ export function createUsagePacing(host: PacingHost) {
   }
 
   // Still over pace: note the step finishing, or the user taking over.
-  function hold({ id, state, window, rate, readyAt, continueAt }: {
+  function hold({ id, state, kind, window, rate, readyAt, continueAt }: {
     id: string;
     state: PaceState;
+    kind: PacedWindowKind;
     window: UsageWindow;
     rate: number;
     readyAt: number;
@@ -554,7 +581,7 @@ export function createUsagePacing(host: PacingHost) {
       state: {
         ...state,
         phase,
-        windowKind: window.kind,
+        windowKind: kind,
         utilization: window.utilization,
         readyAt,
         continueAt,
@@ -599,7 +626,7 @@ export function createUsagePacing(host: PacingHost) {
     accountKey: string;
     binding: PaceBinding;
   }) {
-    const allowed = allowedSteps(host.settings());
+    const allowed = allowedSteps(host.settings()[binding.kind]);
     for (const step of allowed) {
       if (MODEL_STEPS.has(step)) {
         const hasStepped = await stepModel({
@@ -641,15 +668,19 @@ export function createUsagePacing(host: PacingHost) {
     accountKey: string;
   }) {
     const now = Date.now();
-    const rateOf = (window: UsageWindow) => liveRate({
-      accountKey,
-      window
-    });
+    function rateOf(window: UsageWindow) {
+      return liveRate({
+        accountKey,
+        window
+      });
+    }
+
+    const marginOf = margins();
     const binding = assessPace({
       account,
       now,
       isPaused: false,
-      earlyMs: earlyMs(),
+      marginOf,
       rateOf
     });
     if (binding === null) {
@@ -657,6 +688,7 @@ export function createUsagePacing(host: PacingHost) {
       const canStepUp = adapter.isSteppedDown(session.id) && hasRoomToSpare({
         account,
         now,
+        marginOf,
         rateOf
       });
       if (canStepUp) {
@@ -672,9 +704,10 @@ export function createUsagePacing(host: PacingHost) {
     }
 
     verdicts.set(session.id, {
-      windowKind: binding.window.kind,
+      windowKind: binding.kind,
       utilization: binding.window.utilization,
       runOutAt: now + (binding.continueAt - binding.readyAt),
+      readyAt: binding.readyAt,
       resetAt: binding.continueAt
     });
     await climb({
@@ -726,7 +759,7 @@ export function createUsagePacing(host: PacingHost) {
       account,
       now,
       isPaused: true,
-      earlyMs: earlyMs(),
+      marginOf: margins(),
       rateOf: window => state.rates[window.key] ?? liveRate({
         accountKey,
         window
@@ -806,7 +839,7 @@ export function createUsagePacing(host: PacingHost) {
       now
     });
     forecasts.set(
-      session.agent.id, paceForecast({
+      session.agent.id, paceForecasts({
         account,
         now,
         rateOf: window => liveRate({
@@ -891,7 +924,7 @@ export function createUsagePacing(host: PacingHost) {
   // Pacing turned off: let every paused session be, and put stepped-down ones
   // back on their own choice.
   async function standDown() {
-    for (const id of [...paced.keys()]) {
+    for (const id of paced.keys()) {
       await resume(id);
     }
 
@@ -910,7 +943,7 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    if (host.settings().isOn) {
+    if (isPacingOn(host.settings())) {
       await scan();
     } else {
       await standDown();
@@ -983,7 +1016,7 @@ export function createUsagePacing(host: PacingHost) {
         }
 
         const isReady = state.phase === PacePhase.enum.ready;
-        const isContinuingWhenReady = host.settings().stopThen === PacingStopThen.enum.continue
+        const isContinuingWhenReady = host.settings()[state.windowKind].stopThen === PacingStopThen.enum.continue
           || state.isContinuingWhenReady
           || state.restUntil !== null;
         pauses.push({
@@ -1024,6 +1057,7 @@ export function createUsagePacing(host: PacingHost) {
     dispose() {
       isDisposed = true;
       controller = null;
+      pacingSource = null;
       clearTimeout(timer);
       timer = undefined;
     }

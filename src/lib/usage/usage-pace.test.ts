@@ -1,4 +1,4 @@
-import { CreditsState, UsageWindowKind } from "@/lib/types";
+import { CreditsState, PacedWindowKind, UsageWindowKind } from "@/lib/types";
 import type { UsageWindow } from "@/lib/types";
 import {
   assessPace,
@@ -6,10 +6,11 @@ import {
   hasRoomToSpare,
   isRestEnough,
   PACE_FLOOR_PERCENTAGE,
-  paceForecast,
+  paceForecasts,
   pauseRequest,
   RESET_GRACE_MS,
-  slowRestUntil
+  slowRestUntil,
+  WEEKLY_WINDOW_MS
 } from "@/lib/usage/usage-pace";
 import type { UsageSample } from "@/lib/usage/usage-pace";
 import { describe, expect, it } from "vitest";
@@ -133,7 +134,7 @@ describe("assessPace", () => {
       account: account(windows),
       now: NOW,
       isPaused,
-      earlyMs,
+      marginOf: () => earlyMs,
       rateOf: () => rate
     });
   }
@@ -287,7 +288,7 @@ describe("assessPace", () => {
         },
         now: NOW,
         isPaused: false,
-        earlyMs: EARLY_MS,
+        marginOf: () => EARLY_MS,
         rateOf: () => perHour(60)
       })
     ).not.toBeNull();
@@ -299,16 +300,83 @@ describe("assessPace", () => {
         account: null,
         now: NOW,
         isPaused: false,
-        earlyMs: EARLY_MS,
+        marginOf: () => EARLY_MS,
         rateOf: () => perHour(60)
+      })
+    ).toBeNull();
+  });
+
+  it("leaves a window alone while its pacing is off", () => {
+    const windows = [weeklyWindow({
+      utilization: 90,
+      resetsIn: 3 * DAY_MS
+    })];
+    expect(
+      assessPace({
+        account: account(windows),
+        now: NOW,
+        isPaused: false,
+        marginOf: kind => kind === PacedWindowKind.enum.weekly ? null : EARLY_MS,
+        rateOf: () => perHour(2)
       })
     ).toBeNull();
   });
 });
 
-describe("paceForecast", () => {
-  it("names the window closest to running dry before its reset", () => {
-    const forecast = paceForecast({
+describe("assessPace, weekly", () => {
+  const TWELVE_HOURS_MS = 12 * HOUR_MS;
+
+  function assessWeekly({ utilization, resetsIn, isPaused = false }: {
+    utilization: number;
+    resetsIn: number;
+    isPaused?: boolean;
+  }) {
+    return assessPace({
+      account: account([weeklyWindow({
+        utilization,
+        resetsIn
+      })]),
+      now: NOW,
+      isPaused,
+      marginOf: () => TWELVE_HOURS_MS,
+      rateOf: () => null
+    });
+  }
+
+  it("needs no burn rate - it is judged against an even spend over the week", () => {
+    // Four days in: an even spend reaches 90% in 2.3 more days.
+    const pace = assessWeekly({
+      utilization: 90,
+      resetsIn: 3 * DAY_MS
+    });
+    expect(pace?.kind).toBe(PacedWindowKind.enum.weekly);
+    expect(pace?.readyAt).toBe(NOW - 4 * DAY_MS + 0.9 * WEEKLY_WINDOW_MS);
+  });
+
+  it("lets a week run on within the margin of an even spend, however fast it burned today", () => {
+    // Five days in, an even spend is at 71%; 75% is about seven hours ahead.
+    expect(
+      assessWeekly({
+        utilization: 75,
+        resetsIn: 2 * DAY_MS
+      })
+    ).toBeNull();
+  });
+
+  it("holds a paused session until the even spend catches up", () => {
+    expect(
+      assessWeekly({
+        utilization: 75,
+        resetsIn: 2 * DAY_MS,
+        isPaused: true
+      })
+    ).not.toBeNull();
+  });
+});
+
+describe("paceForecasts", () => {
+  it("forecasts each paced window by its own measure", () => {
+    const forecasts = paceForecasts({
       account: account([
         sessionWindow({
           utilization: 70,
@@ -320,22 +388,24 @@ describe("paceForecast", () => {
         })
       ]),
       now: NOW,
-      rateOf: window => window.kind === UsageWindowKind.enum.session ? perHour(30) : perHour(1)
+      rateOf: window => window.kind === UsageWindowKind.enum.session ? perHour(30) : null
     });
-    expect(forecast?.window.kind).toBe(UsageWindowKind.enum.session);
-    expect(forecast?.runOutAt).toBe(NOW + HOUR_MS);
+    expect(forecasts.session?.runOutAt).toBe(NOW + HOUR_MS);
+    // 30% in four days lasts another 9.3 days at that pace - past the reset.
+    expect(forecasts.weekly?.runOutAt).toBeGreaterThan(NOW + 3 * DAY_MS);
+    expect(forecasts.weekly?.evenPercentage).toBeCloseTo(400 / 7);
   });
 
-  it("has no run-out time before the burn is measured", () => {
+  it("has no run-out time before a session's burn is measured", () => {
     expect(
-      paceForecast({
+      paceForecasts({
         account: account([sessionWindow({
           utilization: 70,
           resetsIn: 3 * HOUR_MS
         })]),
         now: NOW,
         rateOf: () => null
-      })?.runOutAt
+      }).session?.runOutAt
     ).toBeNull();
   });
 });
@@ -370,6 +440,7 @@ describe("hasRoomToSpare", () => {
         resetsIn: 2 * HOUR_MS + RESET_GRACE_MS
       })]),
       now: NOW,
+      marginOf: () => EARLY_MS,
       rateOf: () => rate
     });
   }

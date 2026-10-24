@@ -20,6 +20,7 @@ import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { createUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
 import { createUsageResume } from "@/lib/stores/usage/usageResume.svelte";
 import type { Agent, AgentSession } from "@/lib/types";
+import { resolvedPacing } from "@/lib/usage/pacing-scope";
 import { onDestroy, onMount } from "svelte";
 
 export function createSessionAutomation({ windowSessions, project, availableAgents, projectLabel }: {
@@ -151,7 +152,10 @@ export function createSessionAutomation({ windowSessions, project, availableAgen
   // back up as the Config settings say (lib/stores/usage/usagePacing).
   const usagePacing = createUsagePacing({
     sessions: () => windowSessions.sessions,
-    settings: () => effective.pacing,
+    settings: () => resolvedPacing({
+      prefs: settings.prefs,
+      project: project()
+    }),
     isHandingOff: id => autoHandoff.isHandingOff(id),
     switchModel: async pick => await modelSwitcher.request(pick),
     announce: message => showToast(message)

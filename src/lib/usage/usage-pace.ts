@@ -1,25 +1,34 @@
 // The usage-pacing formula - pure, DOM-free and rune-free, so every rule is
 // tested on its own (lib/stores/usage/usagePacing applies it to live sessions).
 //
-// No window length is assumed - a vendor can shorten its session window any
-// day - so each paced window (the session, the weekly cap) is judged from two
-// things only: when it resets, and how fast it is being spent while its agents
-// work (the burn rate). What is left at that pace is the runway:
+// Each paced window is judged by one question: if its agents stopped now, when
+// would it be back on pace (`onPaceAt`)? How far ahead of now that lies is how
+// far ahead of pace the window is spending. The two windows answer it their own
+// way, because they are spent differently:
 //
-//     runway    = (100% - used) / burn rate
-//     time left = reset - now - RESET_GRACE_MS
+//   session - worked through in one sitting, so it is judged by its burn rate
+//             while its agents work, with no window length assumed (a vendor
+//             can shorten it any day). What is left at that pace is the runway:
 //
-// Past PACE_FLOOR_PERCENTAGE used, a window on track to run out more than the
-// user's chosen margin (`earlyMs`) before its time is up is over pace; a paused
-// session is ready once its runway covers all of the time left; a stepped-down
-// one can afford its dearer choice again once the runway reaches
-// SPARE_RUNWAY_FRACTION of it. Near a reset a
-// window paces no one - it is about to come back anyway. Usage credits that
-// would carry an agent past a spent window don't change any of this: going over
-// costs real money, which is exactly what pacing is there to save.
+//                 runway   = (100% - used) / burn rate
+//                 onPaceAt = reset - RESET_GRACE_MS - runway
+//
+//   weekly  - spread over days with nights and breaks between, so a working
+//             burn rate would always look too fast. It is judged against an
+//             even spend from the window's start to its reset instead:
+//
+//                 onPaceAt = start + used × WEEKLY_WINDOW_MS
+//
+// Past PACE_FLOOR_PERCENTAGE used, a window more than the user's chosen margin
+// ahead of pace is over pace; a paused session is ready once it is back on
+// pace; a stepped-down one can afford its dearer choice again once it is well
+// behind. Near a reset a window paces no one - it is about to come back anyway.
+// Usage credits that would carry an agent past a spent window don't change any
+// of this: going over costs real money, which is exactly what pacing is there
+// to save.
 
-import { UsageWindowKind } from "@/lib/types";
-import type { AccountUsage, UsageWindow } from "@/lib/types";
+import { PacedWindowKind } from "@/lib/types";
+import type { AccountUsage, UsageWindow, UsageWindowKind } from "@/lib/types";
 import { resetCountdown, usageResetTime } from "@/lib/usage/usage-groups";
 import { formatPercent } from "@/lib/util/format";
 
@@ -43,16 +52,26 @@ export const RATE_HISTORY_MS = 45 * 60_000;
 /** The shortest rest a slowed session takes - a rest of seconds is all
  *  interruption and no saving. */
 const MINIMUM_REST_MS = 5 * 60_000;
+/** How long a weekly window runs, start to reset - the length its even spend
+ *  is drawn over. */
+export const WEEKLY_WINDOW_MS = 7 * 24 * 60 * 60_000;
 
-/** The windows paced, with what a person calls each. A window of another kind
- *  (a per-model cap, extra usage) is never paced. */
-const PACED_WINDOWS: Partial<Record<UsageWindowKind, string>> = {
-  [UsageWindowKind.enum.session]: "session",
-  [UsageWindowKind.enum.weekly]: "weekly"
+/** What a person calls each paced window. A window of another kind (a
+ *  per-model cap, extra usage) is never paced. */
+const PACED_WINDOW_NAMES: Record<PacedWindowKind, string> = {
+  [PacedWindowKind.enum.session]: "session",
+  [PacedWindowKind.enum.weekly]: "weekly"
 };
 
+/** The paced kind a window is, or null for a window pacing never watches. */
+function pacedKind(kind: UsageWindowKind) {
+  const parsed = PacedWindowKind.safeParse(kind);
+  return parsed.success ? parsed.data : null;
+}
+
 export function windowName(kind: UsageWindowKind) {
-  return PACED_WINDOWS[kind] ?? kind;
+  const paced = pacedKind(kind);
+  return paced === null ? kind : PACED_WINDOW_NAMES[paced];
 }
 
 /** One reading of a window's usage, taken while one of its agents was working. */
@@ -86,19 +105,32 @@ export function burnRate(samples: readonly UsageSample[]) {
   return span >= MINIMUM_RATE_SPAN_MS ? spent / span : null;
 }
 
-/** When a window runs free: RESET_GRACE_MS before its reset, or null when it
- *  isn't paced now - an unpaced kind, an unknown or near reset, or usage under
- *  the floor. */
-function freeTime({ window, now }: {
+/** How far ahead of pace each paced window may run before pacing acts, in
+ *  milliseconds - null for a window whose pacing is off. */
+export type MarginOf = (kind: PacedWindowKind) => number | null;
+
+/** A paced window being watched now: its kind, when it runs free
+ *  (RESET_GRACE_MS before its reset) and the user's margin for it. Null when it
+ *  isn't paced now - an unpaced or switched-off kind, an unknown or near reset,
+ *  or usage under the floor. */
+function watchedWindow({ window, now, marginOf }: {
   window: UsageWindow;
   now: number;
+  marginOf: MarginOf;
 }) {
+  const kind = pacedKind(window.kind);
+  const margin = kind === null ? null : marginOf(kind);
   const freeAt = usageResetTime(window.resetsAt) - RESET_GRACE_MS;
-  const isPacedNow = PACED_WINDOWS[window.kind] !== undefined
+  const isPacedNow = kind !== null
+    && margin !== null
     && Number.isFinite(freeAt)
     && freeAt > now
     && window.utilization >= PACE_FLOOR_PERCENTAGE;
-  return isPacedNow ? freeAt : null;
+  return isPacedNow ? {
+    kind,
+    freeAt,
+    margin
+  } : null;
 }
 
 function runwayOf({ window, rate }: {
@@ -108,50 +140,112 @@ function runwayOf({ window, rate }: {
   return rate > 0 ? (FULL_PERCENTAGE - window.utilization) / rate : Number.POSITIVE_INFINITY;
 }
 
-/** The trigger: a window that runs out more than `earlyMs` before it runs free
- *  (RESET_GRACE_MS before its reset) is over pace. */
-function runsOutTooEarly({ runOutAt, freeAt, earlyMs, now }: {
-  runOutAt: number;
+/** Where the window would stand with an even spend from its start to its
+ *  reset, and when that even spend reaches what is used now. */
+function evenSpend({ window, now }: {
+  window: UsageWindow;
+  now: number;
+}) {
+  const startAt = usageResetTime(window.resetsAt) - WEEKLY_WINDOW_MS;
+  return {
+    percentage: (now - startAt) / WEEKLY_WINDOW_MS * FULL_PERCENTAGE,
+    reachedAt: startAt + window.utilization / FULL_PERCENTAGE * WEEKLY_WINDOW_MS
+  };
+}
+
+/** When a window would be back on pace if its agents stopped now, by its own
+ *  measure (see the top of this file) - null while a session window's burn
+ *  rate isn't measured yet. */
+function onPaceTime({ kind, window, freeAt, rate, now }: {
+  kind: PacedWindowKind;
+  window: UsageWindow;
   freeAt: number;
-  earlyMs: number;
+  rate: number | null;
+  now: number;
+}) {
+  if (kind === PacedWindowKind.enum.weekly) {
+    return evenSpend({
+      window,
+      now
+    }).reachedAt;
+  }
+
+  return rate === null ? null : freeAt - runwayOf({
+    window,
+    rate
+  });
+}
+
+/** The trigger: a window more than `margin` ahead of pace. */
+function isTooFarAhead({ onPaceAt, freeAt, margin, now }: {
+  onPaceAt: number;
+  freeAt: number;
+  margin: number;
   now: number;
 }) {
   // A margin longer than the time left can never be met - "2 h early" with 16
   // minutes to go would leave the window unpaced right when it runs dry - so it
   // shrinks to at most a share of the time left.
-  const margin = Math.min(earlyMs, (freeAt - now) * MAXIMUM_MARGIN_SHARE);
-  return runOutAt < freeAt - margin;
+  const reachable = Math.min(margin, (freeAt - now) * MAXIMUM_MARGIN_SHARE);
+  return onPaceAt - now > reachable;
 }
 
-/** Whether a forecast (`paceForecast`) is over pace now - what the Config
- *  panel's live line asks, by the same rule the pacing loop acts on. */
-export function isForecastOverPace({ forecast, earlyMs, now }: {
-  forecast: NonNullable<ReturnType<typeof paceForecast>>;
-  earlyMs: number;
+/** How far behind pace a window has to fall before a stepped-down session may
+ *  climb back: a session window, well clear of where it stepped down so it
+ *  doesn't see-saw; a weekly window, back on its even spend - the margin it
+ *  stepped down at is band enough over days. */
+function spareMs({ kind, freeAt, now }: {
+  kind: PacedWindowKind;
+  freeAt: number;
   now: number;
 }) {
-  const isPacedNow = forecast.window.utilization >= PACE_FLOOR_PERCENTAGE && forecast.runOutAt !== null;
-  return isPacedNow && runsOutTooEarly({
-    runOutAt: forecast.runOutAt ?? Number.POSITIVE_INFINITY,
-    freeAt: forecast.resetAt - RESET_GRACE_MS,
-    earlyMs,
+  return kind === PacedWindowKind.enum.weekly ? 0 : (freeAt - now) * (SPARE_RUNWAY_FRACTION - 1);
+}
+
+/** One paced window's live line for the Config panel (`paceForecasts`). */
+export interface PaceForecast {
+  window: UsageWindow;
+  resetAt: number;
+  /** When it runs out at its pace, or null while that isn't measured (or
+   *  nothing is being spent). */
+  runOutAt: number | null;
+  /** Whether enough working time is behind the pace to judge it. */
+  isMeasured: boolean;
+  /** When it would be back on pace if its agents stopped now. */
+  onPaceAt: number | null;
+  /** A weekly window's even spend by now, in percent - null for a session. */
+  evenPercentage: number | null;
+}
+
+/** Whether a forecast is over pace now - what the Config panel's live line
+ *  asks, by the same rule the pacing loop acts on. */
+export function isForecastOverPace({ forecast, margin, now }: {
+  forecast: PaceForecast;
+  margin: number;
+  now: number;
+}) {
+  const freeAt = forecast.resetAt - RESET_GRACE_MS;
+  const isPacedNow = forecast.window.utilization >= PACE_FLOOR_PERCENTAGE && freeAt > now;
+  return isPacedNow && forecast.onPaceAt !== null && isTooFarAhead({
+    onPaceAt: forecast.onPaceAt,
+    freeAt,
+    margin,
     now
   });
 }
 
-/** Judge an account's pace from each window's measured burn (`rateOf`). A
- *  window is over pace once it is on track to run out more than `earlyMs`
- *  before its time is up. The window that holds the session longest is the one
- *  reported: when it may go on (`readyAt`, once its runway reaches the time
- *  left) and when its reset is close enough to continue on its own
- *  (`continueAt`). `isPaused` holds a paused session until its runway covers
- *  all of the time left. Null when no window holds it - and always before a
- *  burn rate is known. */
-export function assessPace({ account, now, isPaused, earlyMs, rateOf }: {
+/** Judge an account's pace, each window by its own measure (`rateOf` gives a
+ *  session window's measured burn). A window is over pace once it runs more
+ *  than its margin ahead (`marginOf`). The window that holds the session
+ *  longest is the one reported: when it may go on (`readyAt`, once it is back
+ *  on pace) and when its reset is close enough to continue on its own
+ *  (`continueAt`). `isPaused` holds a paused session until it is back on pace.
+ *  Null when no window holds it. */
+export function assessPace({ account, now, isPaused, marginOf, rateOf }: {
   account: AccountUsage | null;
   now: number;
   isPaused: boolean;
-  earlyMs: number;
+  marginOf: MarginOf;
   rateOf: (window: UsageWindow) => number | null;
 }) {
   if (!account) {
@@ -159,39 +253,48 @@ export function assessPace({ account, now, isPaused, earlyMs, rateOf }: {
   }
 
   let binding: {
+    kind: PacedWindowKind;
     window: UsageWindow;
     rate: number;
     readyAt: number;
     continueAt: number;
   } | null = null;
   for (const window of account.windows) {
-    const freeAt = freeTime({
+    const watched = watchedWindow({
       window,
-      now
+      now,
+      marginOf
     });
-    const rate = rateOf(window);
-    if (freeAt === null || rate === null) {
+    if (watched === null) {
       continue;
     }
 
-    const runway = runwayOf({
+    const rate = rateOf(window);
+    const onPaceAt = onPaceTime({
+      ...watched,
       window,
-      rate
-    });
-    const isOverPace = runsOutTooEarly({
-      runOutAt: now + runway,
-      freeAt,
-      earlyMs: isPaused ? 0 : earlyMs,
+      rate,
       now
     });
-    const readyAt = Math.max(now, freeAt - runway);
+    if (onPaceAt === null) {
+      continue;
+    }
+
+    const isOverPace = isTooFarAhead({
+      onPaceAt,
+      freeAt: watched.freeAt,
+      margin: isPaused ? 0 : watched.margin,
+      now
+    });
+    const readyAt = Math.max(now, onPaceAt);
     const isHolding = isOverPace && (binding === null || readyAt > binding.readyAt);
     if (isHolding) {
       binding = {
+        kind: watched.kind,
         window,
-        rate,
+        rate: rate ?? 0,
         readyAt,
-        continueAt: freeAt
+        continueAt: watched.freeAt
       };
     }
   }
@@ -199,47 +302,54 @@ export function assessPace({ account, now, isPaused, earlyMs, rateOf }: {
   return binding;
 }
 
-/** The window closest to running out before its reset at the measured burn -
- *  for the Config panel's live line. `runOutAt` is null while its burn is not
- *  yet measured (or nothing is being spent). Null when no window is paced. */
-export function paceForecast({ account, now, rateOf }: {
+/** Every paced window's forecast, by kind - for the Config panel's live
+ *  lines. A session window's comes from its measured burn; a weekly window's
+ *  from its average spend since it started. */
+export function paceForecasts({ account, now, rateOf }: {
   account: AccountUsage | null;
   now: number;
   rateOf: (window: UsageWindow) => number | null;
 }) {
-  let worst: {
-    window: UsageWindow;
-    resetAt: number;
-    runOutAt: number | null;
-    /** Whether enough working time is behind the pace to judge it. */
-    isMeasured: boolean;
-  } | null = null;
-  let worstMargin = Number.POSITIVE_INFINITY;
+  const forecasts: Partial<Record<PacedWindowKind, PaceForecast>> = {};
   for (const window of account?.windows ?? []) {
+    const kind = pacedKind(window.kind);
     const resetAt = usageResetTime(window.resetsAt);
-    const isPacedKind = PACED_WINDOWS[window.kind] !== undefined && Number.isFinite(resetAt) && resetAt > now;
-    if (!isPacedKind) {
+    const isForecastable = kind !== null
+      && forecasts[kind] === undefined
+      && Number.isFinite(resetAt)
+      && resetAt > now;
+    if (!isForecastable) {
       continue;
     }
 
-    const rate = rateOf(window);
-    const runOutAt = rate === null || rate <= 0 ? null : now + runwayOf({
+    const freeAt = resetAt - RESET_GRACE_MS;
+    const even = kind === PacedWindowKind.enum.weekly ? evenSpend({
       window,
-      rate
-    });
-    const margin = (runOutAt ?? Number.POSITIVE_INFINITY) - resetAt;
-    if (worst === null || margin < worstMargin) {
-      worst = {
+      now
+    }) : null;
+    const elapsed = Math.max(MINIMUM_RATE_SPAN_MS, now - (resetAt - WEEKLY_WINDOW_MS));
+    const averageRate = even === null ? null : window.utilization / elapsed;
+    const rate = averageRate ?? rateOf(window);
+    forecasts[kind] = {
+      window,
+      resetAt,
+      runOutAt: rate === null || rate <= 0 ? null : now + runwayOf({
         window,
-        resetAt,
-        runOutAt,
-        isMeasured: rate !== null
-      };
-      worstMargin = margin;
-    }
+        rate
+      }),
+      isMeasured: rate !== null,
+      onPaceAt: onPaceTime({
+        kind,
+        window,
+        freeAt,
+        rate,
+        now
+      }),
+      evenPercentage: even?.percentage ?? null
+    };
   }
 
-  return worst;
+  return forecasts;
 }
 
 /** Whether resting can bring a session back on pace - it needs no more rest
@@ -255,12 +365,13 @@ export function isRestEnough({ readyAt, continueAt, now }: {
   return timeLeft <= 2 * runway;
 }
 
-/** Whether an account could afford a dearer effort or model again: every paced
- *  window has a measured runway reaching well past its reset. A window with no
- *  measured burn yet can't vouch for it. */
-export function hasRoomToSpare({ account, now, rateOf }: {
+/** Whether an account could afford a dearer effort or model again: every
+ *  watched window is far enough behind pace. A session window with no measured
+ *  burn yet can't vouch for it. */
+export function hasRoomToSpare({ account, now, marginOf, rateOf }: {
   account: AccountUsage | null;
   now: number;
+  marginOf: MarginOf;
   rateOf: (window: UsageWindow) => number | null;
 }) {
   if (!account) {
@@ -268,19 +379,25 @@ export function hasRoomToSpare({ account, now, rateOf }: {
   }
 
   for (const window of account.windows) {
-    const freeAt = freeTime({
+    const watched = watchedWindow({
       window,
-      now
+      now,
+      marginOf
     });
-    if (freeAt === null) {
+    if (watched === null) {
       continue;
     }
 
-    const rate = rateOf(window);
-    const isShort = rate === null || runwayOf({
+    const onPaceAt = onPaceTime({
+      ...watched,
       window,
-      rate
-    }) < (freeAt - now) * SPARE_RUNWAY_FRACTION;
+      rate: rateOf(window),
+      now
+    });
+    const isShort = onPaceAt === null || now - onPaceAt < spareMs({
+      ...watched,
+      now
+    });
     if (isShort) {
       return false;
     }

@@ -35,7 +35,7 @@
     </SettingsCard>
 
     <SettingsCard title="Usage pacing">
-      <UsagePacingSettings {agent} />
+      <UsagePacingSettings {agent} {project} />
     </SettingsCard>
 
     <SettingsCard isCompact title="Session tabs">
