@@ -9,6 +9,7 @@
 //! its conversation (`resume`), reading its live model and effort
 //! (`running_model`) and its context fill (`session_context`).
 
+pub(crate) mod conversation_watch;
 pub(crate) mod conversations;
 pub(crate) mod copilot;
 pub(crate) mod naming;
@@ -49,6 +50,17 @@ pub(crate) fn codex_home() -> Option<PathBuf> {
     resolve_codex_home(
         std::env::var_os(CODEX_HOME_VARIABLE),
         crate::util::home_directory(),
+    )
+}
+
+/// `~/.claude/projects`, where Claude Code keeps one folder of transcripts per
+/// project (named by `encode_project`). The one lookup every module reading
+/// Claude's transcripts goes through.
+pub(crate) fn claude_projects_directory() -> Option<PathBuf> {
+    Some(
+        crate::util::home_directory()?
+            .join(".claude")
+            .join("projects"),
     )
 }
 

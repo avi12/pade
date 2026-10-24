@@ -845,6 +845,14 @@ export const RecordedConversation = z.object({
 });
 export type RecordedConversation = z.infer<typeof RecordedConversation>;
 
+/** An agent's conversation store changed: `project` is the listed project it
+ *  concerns, as a window asked about it, or null when the store names no
+ *  project (Codex, Copilot) and every listed one should re-read. */
+export const RecordedConversationsChanged = z.object({
+  project: z.string().nullable()
+});
+export type RecordedConversationsChanged = z.infer<typeof RecordedConversationsChanged>;
+
 /** One model an agent offers to switch to, as its own local catalog describes
  *  it - effort levels lowest first (with the agent's labels), empty for a
  *  model without one. */

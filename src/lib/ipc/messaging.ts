@@ -36,6 +36,7 @@ import {
   PtySession,
   PullOutcome,
   RecordedConversation,
+  RecordedConversationsChanged,
   RelocateProgress,
   RestoreCandidate,
   RunnerData,
@@ -203,6 +204,7 @@ export enum EventType {
   ptyData = "pty://data",
   ptyExit = "pty://exit",
   agentModelChanged = "agent-model://changed",
+  agentConversationsChanged = "agent-conversations://changed",
   feedChange = "feed://change",
   feedIgnoreChanged = "feed://ignore-changed",
   mcpChanged = "mcp://changed",
@@ -654,6 +656,9 @@ interface EventProtocolMap {
    *  (`sessionId` is its conversation id), or a settings file every session of
    *  an agent reads changed (`sessionId` null). */
   [EventType.agentModelChanged]: (data: RunningModelChanged) => void;
+  /** An agent's recorded conversations may have changed (started, renamed,
+   *  grown, replaced) - throttled per project in the backend. */
+  [EventType.agentConversationsChanged]: (data: RecordedConversationsChanged) => void;
   [EventType.feedChange]: (data: ChangeEvent) => void;
   /** The ignore rules changed (a `.gitignore` edit, a mid-session `git init`) -
    *  re-ask `feed_ignored` about the events already shown. */
@@ -820,6 +825,7 @@ const EVENT_PAYLOAD_SCHEMAS = {
   [EventType.ptyData]: PtyChunk,
   [EventType.ptyExit]: PtyExit,
   [EventType.agentModelChanged]: RunningModelChanged,
+  [EventType.agentConversationsChanged]: RecordedConversationsChanged,
   [EventType.feedChange]: ChangeEvent,
   [EventType.feedIgnoreChanged]: z.null(),
   [EventType.mcpChanged]: McpChange,

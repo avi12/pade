@@ -393,6 +393,9 @@ writes.
   a check on this window's project or a mark on one another window has open)
   with its chats and recorded agent conversations nested under it, a + for a
   new chat and a kebab (pin, relabel, rename folder, remove, delete directory).
+  The recorded conversations stay live: a conversation started, renamed,
+  grown or handed off to a successor shows up within about a second, without
+  reopening anything.
   A long name wraps to two lines instead of clipping, and the row's hover
   bubble carries the full name and the path. A search on top filters by name
   or path (Ctrl+P focuses it from anywhere, Enter opens the first match), and

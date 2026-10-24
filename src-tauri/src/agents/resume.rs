@@ -16,10 +16,10 @@ use crate::agents::{codex_home, program, ID_CODEX, ID_OPENCODE};
 use crate::util::{command, json_string_field, same_path};
 
 /// The folder under Codex's home that holds its rollout files.
-const CODEX_SESSIONS_DIRECTORY: &str = "sessions";
+pub(super) const CODEX_SESSIONS_DIRECTORY: &str = "sessions";
 /// The rollout file extension and the `session_meta` fields read off its first
 /// line.
-const ROLLOUT_EXTENSION: &str = "jsonl";
+pub(super) const ROLLOUT_EXTENSION: &str = "jsonl";
 const SOURCE_FIELD: &str = "source";
 const CWD_FIELD: &str = "cwd";
 const SESSION_ID_FIELD: &str = "session_id";

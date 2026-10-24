@@ -128,13 +128,18 @@
     })
   );
 
-  // Re-read the agents' recorded conversations when the listed projects
-  // change, or a chat opens or closes (a closed chat lives on as a recorded
-  // conversation). One joined key of both, so a registry save that leaves
-  // them as they were doesn't re-read anything.
-  const refreshKey = $derived([sessions.length, elsewhereSessions.length, ...projectOrder].join("\n"));
+  // Hand the store the listed projects to read (it re-reads them itself when
+  // an agent's store changes), again whenever they change or a live chat -
+  // here or in another window - is swapped for another: a closed or
+  // handed-off chat lives on as a recorded conversation, at the same chat
+  // count. One joined key of both, so a registry save that leaves them as
+  // they were doesn't re-read anything.
+  const liveConversationKey = $derived(
+    [...sessions, ...elsewhereSessions].map(session => session.conversationId ?? session.id).join(" ")
+  );
+  const refreshKey = $derived([liveConversationKey, ...projectOrder].join("\n"));
   $effect(() => {
-    const [, , ...projects] = refreshKey.split("\n");
+    const [, ...projects] = refreshKey.split("\n");
     refreshRecordedConversations(projects);
   });
 
