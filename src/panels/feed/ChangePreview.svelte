@@ -1,9 +1,9 @@
 <script lang="ts">
   import type { DiffLine } from "@/lib/code/diff";
   import SandboxedPreview from "@/lib/code/SandboxedPreview.svelte";
-  import Icon from "@/lib/Icon.svelte";
   import { cardView, CardViewKind } from "@/lib/feed/card-view";
   import type { FeedPreviews } from "@/lib/feed/feed-previews";
+  import Icon from "@/lib/Icon.svelte";
   import type { ChangeEvent, Ide } from "@/lib/types";
   import { baseName } from "@/lib/util/paths";
   import DiffPreview from "@/panels/feed/DiffPreview.svelte";

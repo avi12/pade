@@ -34,18 +34,19 @@
     <div
       class="line"
       class:error={line.stream === RunnerStream.enum.stderr}
-    >{#each linkSegments(parseAnsi(line.text)) as segment, iSegment (iSegment)}{#if segment.url}{@const url = segment.url}<a
-      style:color={segment.color}
-      style:background={segment.background}
-      class:bold={segment.bold}
-      class:dim={segment.dim}
-      class:italic={segment.italic}
-      href={url}
-      onclick={async (e) => {
-        e.preventDefault();
-        await openTerminalLink(url);
-      }}
-    >{segment.text}</a>{:else}<span
+    >{#each linkSegments(parseAnsi(line.text)) as segment, iSegment (iSegment)}{#if segment.url}
+      {@const url = segment.url}<a
+        style:color={segment.color}
+        style:background={segment.background}
+        class:bold={segment.bold}
+        class:dim={segment.dim}
+        class:italic={segment.italic}
+        href={url}
+        onclick={async e => {
+          e.preventDefault();
+          await openTerminalLink(url);
+        }}
+      >{segment.text}</a>{:else}<span
       style:color={segment.color}
       style:background={segment.background}
       class:bold={segment.bold}

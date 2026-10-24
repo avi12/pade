@@ -521,7 +521,10 @@ function rowSpans(urlCells: CellPosition[]) {
  *  both the terminal's link provider and the plain-HTML runner output use, so
  *  they agree on what is a link and where it ends. */
 export function findUrls(text: string) {
-  const urls: { url: string; start: number }[] = [];
+  const urls: {
+    url: string;
+    start: number;
+  }[] = [];
   for (const match of text.matchAll(URL_PATTERN_GLOBAL)) {
     if (isUrl(match[0])) {
       urls.push({

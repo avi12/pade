@@ -20,13 +20,15 @@ describe("linkSegments", () => {
 
   it("links every piece of a URL that crosses a style change", () => {
     const url = "http://localhost:5173/";
-    expect(linkSegments([
-      { text: "at http://localhost:" },
-      {
-        text: "5173/ now",
-        bold: true
-      }
-    ])).toEqual([
+    expect(
+      linkSegments([
+        { text: "at http://localhost:" },
+        {
+          text: "5173/ now",
+          bold: true
+        }
+      ])
+    ).toEqual([
       { text: "at " },
       {
         text: "http://localhost:",
