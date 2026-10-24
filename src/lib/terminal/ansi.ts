@@ -51,7 +51,7 @@ export function stripAnsi(text: string) {
 
 /** A run of text sharing one set of SGR styles. Colours resolve to `var(--terminal-*)`
  *  references from the shared palette, so they follow the OS light/dark scheme. */
-interface AnsiSegment {
+export interface AnsiSegment {
   text: string;
   color?: string;
   background?: string;

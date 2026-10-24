@@ -1,9 +1,7 @@
 // Building a pane's xterm instance: its options, its theme and its links.
 
-import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { effective } from "@/lib/settings/prefs.svelte";
-import { showToast } from "@/lib/stores/ui/toast.svelte";
-import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal/terminal-link-target";
+import { openTerminalLink } from "@/lib/terminal/open-terminal-link";
 import { registerWrappedLinkProvider } from "@/lib/terminal/terminal-links";
 import { rootTokenReader, xtermTheme } from "@/lib/terminal/terminal-theme";
 import { Terminal } from "@xterm/xterm";
@@ -27,27 +25,6 @@ export function terminalFontSize() {
  *  decision. */
 export function currentXtermTheme() {
   return xtermTheme({ readToken: rootTokenReader() });
-}
-
-// Open a terminal hyperlink in the appropriate OS surface. Codex uses OSC-8
-// `file:` links for paths it reports; those are local folders/files, not URLs
-// the browser bridge accepts. Web links retain the browser path.
-async function openTerminalLink(uri: string) {
-  const destination = terminalLinkDestination(uri);
-  if (!destination) {
-    showToast("Couldn't open that link");
-    return;
-  }
-
-  try {
-    if (destination.kind === TerminalLinkTarget.Explorer) {
-      await sendMessage(Command.openInExplorer, { path: destination.value });
-    } else {
-      await sendMessage(Command.openUrl, { url: destination.value });
-    }
-  } catch {
-    showToast("Couldn't open that link");
-  }
 }
 
 /** A themed xterm, opened into `host`, whose links open in the OS. */

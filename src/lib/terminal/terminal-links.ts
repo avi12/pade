@@ -517,6 +517,23 @@ function rowSpans(urlCells: CellPosition[]) {
 // own single row (so xterm's hit-testing stays tight - a self-wrapping agent's
 // blank padding, outside any span, is never clickable); `spans` is the whole URL
 // across all its rows, so hovering any part can underline the entire address.
+/** Every valid http(s) URL in `text` with its start offset - the one matcher
+ *  both the terminal's link provider and the plain-HTML runner output use, so
+ *  they agree on what is a link and where it ends. */
+export function findUrls(text: string) {
+  const urls: { url: string; start: number }[] = [];
+  for (const match of text.matchAll(URL_PATTERN_GLOBAL)) {
+    if (isUrl(match[0])) {
+      urls.push({
+        url: match[0],
+        start: match.index
+      });
+    }
+  }
+
+  return urls;
+}
+
 interface WrappedLink extends ILink {
   spans: RowSpan[];
 }
@@ -542,13 +559,8 @@ export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
     anchorRow: bufferLineNumber - 1
   });
   const links: WrappedLink[] = [];
-  for (const match of text.matchAll(URL_PATTERN_GLOBAL)) {
-    const uri = match[0];
-    if (!isUrl(uri)) {
-      continue;
-    }
-
-    const spans = rowSpans(cells.slice(match.index, match.index + uri.length));
+  for (const { url: uri, start } of findUrls(text)) {
+    const spans = rowSpans(cells.slice(start, start + uri.length));
     for (const span of spans) {
       links.push({
         text: uri,

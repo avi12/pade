@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { linkSegments } from "@/lib/runners/runner-links";
   import type { RunnerRow } from "@/lib/stores/tasks/runners.svelte";
   import { parseAnsi } from "@/lib/terminal/ansi";
+  import { openTerminalLink } from "@/lib/terminal/open-terminal-link";
   import { RunnerStream } from "@/lib/types";
 
   // A spawned runner's streamed output, its SGR styling kept and stderr tinted,
@@ -32,14 +34,25 @@
     <div
       class="line"
       class:error={line.stream === RunnerStream.enum.stderr}
-    >{#each parseAnsi(line.text) as segment, iSegment (iSegment)}<span
+    >{#each linkSegments(parseAnsi(line.text)) as segment, iSegment (iSegment)}{#if segment.url}{@const url = segment.url}<a
+      style:color={segment.color}
+      style:background={segment.background}
+      class:bold={segment.bold}
+      class:dim={segment.dim}
+      class:italic={segment.italic}
+      href={url}
+      onclick={async (e) => {
+        e.preventDefault();
+        await openTerminalLink(url);
+      }}
+    >{segment.text}</a>{:else}<span
       style:color={segment.color}
       style:background={segment.background}
       class:bold={segment.bold}
       class:dim={segment.dim}
       class:italic={segment.italic}
       class:underline={segment.underline}
-    >{segment.text || " "}</span>{/each}</div>
+    >{segment.text || " "}</span>{/if}{/each}</div>
   {/each}
 </div>
 
@@ -84,6 +97,17 @@
 
     .underline {
       text-decoration: underline;
+    }
+
+    /* A URL keeps its SGR colour and reads as a link only on hover, like a
+       terminal pane's. */
+    a {
+      color: inherit;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
     }
   }
 </style>
