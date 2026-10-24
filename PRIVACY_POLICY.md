@@ -50,7 +50,9 @@ yourself. When you use them, **their** privacy policies apply:
   not running or the toggle is off.
 - **Update check** (on by default, Config → Updates): a released PADE reads a
   small file from PADE's GitHub repository every few hours and, when it names a
-  newer version, downloads that release from GitHub. The requests carry PADE's
+  newer version, downloads that release from GitHub (a copy installed with
+  winget instead asks GitHub which versions winget holds, and lets winget
+  install the newer one). The requests carry PADE's
   version in their user agent and nothing about you or your projects; GitHub's
   privacy statement applies. Turning **Check for updates** off stops them.
 - **Design tools**: the Design menu opens third-party web tools in a separate

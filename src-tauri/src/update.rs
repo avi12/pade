@@ -15,17 +15,24 @@
 //! published exe updates itself: a debug build or one run from a checkout's
 //! `target` folder never does, and the `autoUpdate` preference turns the check -
 //! and every connection it makes - off.
+//!
+//! A copy installed through winget updates through winget instead (`winget`
+//! submodule), so winget's own record of what it installed stays true.
 
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager, State};
+
+mod winget;
+
+use winget::AfterUpgrade;
 
 /// The manifest every published copy polls.
 const FEED_URL: &str = "https://raw.githubusercontent.com/avi12/pade/main/docs/updates.json";
@@ -36,9 +43,7 @@ const AUTO_UPDATE_PREFERENCE: &str = "autoUpdate";
 /// Announced once a newer release is downloaded and checked.
 const READY_EVENT: &str = "update://ready";
 
-/// How often the watch wakes; it only goes to the network every `CHECK_EVERY`,
-/// but a requested check is seen within a tick.
-const TICK: Duration = Duration::from_secs(60);
+/// How often the watch looks for a release; `update_check` looks at once.
 const CHECK_EVERY: Duration = Duration::from_hours(6);
 /// After a failed check (no network at sign-in, GitHub down).
 const RETRY_AFTER: Duration = Duration::from_mins(30);
@@ -123,18 +128,28 @@ fn offer_from(manifest: &str, current: Version) -> Option<Offer> {
     })
 }
 
-/// A newer release downloaded and checked, waiting to be swapped in.
+/// How a ready release reaches this copy.
 #[derive(Debug, Clone)]
-struct Ready {
-    offer: Offer,
-    file: PathBuf,
+enum Delivery {
+    /// A portable copy: the downloaded, checked exe swapped in for the running one.
+    Download { file: PathBuf, sha256: String },
+    /// A winget install: `winget upgrade`, once PADE has closed.
+    Winget,
 }
 
-/// The watch's shared state: what is ready, and whether a check was asked for.
+/// A newer release ready to install.
+#[derive(Debug, Clone)]
+struct Ready {
+    version: Version,
+    delivery: Delivery,
+}
+
+/// The watch's shared state: what is ready, and whether it was already handed
+/// over (a restart applies it, then exits - which must not apply it again).
 #[derive(Default)]
 pub struct UpdateState {
     ready: Mutex<Option<Ready>>,
-    is_check_requested: AtomicBool,
+    is_applied: AtomicBool,
 }
 
 impl UpdateState {
@@ -163,7 +178,7 @@ pub struct UpdateStatus {
 fn status(state: &UpdateState) -> UpdateStatus {
     UpdateStatus {
         current: env!("CARGO_PKG_VERSION").to_string(),
-        ready: state.ready().map(|ready| ready.offer.version.to_string()),
+        ready: state.ready().map(|ready| ready.version.to_string()),
         is_supported: is_published_executable(),
     }
 }
@@ -225,12 +240,36 @@ fn is_digest_of(path: &Path, sha256: &str) -> bool {
     file_sha256(path).is_ok_and(|actual| actual == sha256)
 }
 
-/// Read the manifest and, when it offers something newer than what is ready,
-/// download and check it. Answers the release now ready, if any.
+fn is_winget_install() -> bool {
+    running_executable().is_some_and(|path| winget::is_installed_by_winget(&path))
+}
+
+/// Look for a release newer than both the running one and any already ready:
+/// winget's repository for a winget install, the manifest otherwise (downloading
+/// and checking the exe). Answers the release now ready, if any.
 fn check(state: &UpdateState) -> Result<Option<Ready>, String> {
     let Some(current) = Version::running() else {
         return Ok(None);
     };
+    let floor = state
+        .ready()
+        .map_or(current, |ready| ready.version.max(current));
+    let ready = if is_winget_install() {
+        winget::newer_release(floor, &user_agent())?.map(|version| Ready {
+            version,
+            delivery: Delivery::Winget,
+        })
+    } else {
+        downloaded_release(floor)?
+    };
+    if let Some(ready) = &ready {
+        state.set_ready(ready.clone());
+    }
+    Ok(ready)
+}
+
+/// The manifest's release, downloaded and checked, when it is newer than `floor`.
+fn downloaded_release(floor: Version) -> Result<Option<Ready>, String> {
     let manifest = ureq::get(&feed_url())
         .header("User-Agent", &user_agent())
         .call()
@@ -238,19 +277,17 @@ fn check(state: &UpdateState) -> Result<Option<Ready>, String> {
         .body_mut()
         .read_to_string()
         .map_err(|error| error.to_string())?;
-    let Some(offer) = offer_from(&manifest, current) else {
+    let Some(offer) = offer_from(&manifest, floor) else {
         return Ok(None);
     };
-    let is_already_ready = state
-        .ready()
-        .is_some_and(|ready| ready.offer.version >= offer.version);
-    if is_already_ready {
-        return Ok(None);
-    }
     let file = download(&offer)?;
-    let ready = Ready { offer, file };
-    state.set_ready(ready.clone());
-    Ok(Some(ready))
+    Ok(Some(Ready {
+        version: offer.version,
+        delivery: Delivery::Download {
+            file,
+            sha256: offer.sha256,
+        },
+    }))
 }
 
 /// Fetch the offered exe into PADE's updates folder, checked against its digest
@@ -354,16 +391,33 @@ fn delete_leftovers(running: &Path) {
     }
 }
 
-/// Swap in a ready release, if there is one. Called as PADE exits and before a
-/// restart into the new version.
+/// Install a ready release, once: swap the exe in for a portable copy, or have
+/// winget upgrade a winget install once this process has ended (then start
+/// PADE again when `after` asks).
+fn apply(state: &UpdateState, after: AfterUpgrade) -> Result<(), String> {
+    let Some(ready) = state.ready() else {
+        return Ok(());
+    };
+    if state.is_applied.load(Ordering::Acquire) {
+        return Ok(());
+    }
+    match &ready.delivery {
+        Delivery::Download { file, sha256 } => {
+            let running = running_executable().ok_or("cannot find PADE's own exe")?;
+            install(file, &running, sha256)?;
+        }
+        Delivery::Winget => winget::upgrade_after_exit(after)?,
+    }
+    state.is_applied.store(true, Ordering::Release);
+    Ok(())
+}
+
+/// Install a ready release as PADE exits, so the next start is the new version.
 pub fn apply_pending(app: &AppHandle) -> Result<(), String> {
     let Some(state) = app.try_state::<Arc<UpdateState>>() else {
         return Ok(());
     };
-    let (Some(ready), Some(running)) = (state.ready(), running_executable()) else {
-        return Ok(());
-    };
-    install(&ready.file, &running, &ready.offer.sha256)
+    apply(&state, AfterUpgrade::Stay)
 }
 
 /// Start the watch: clean up after an earlier swap, then check at start and
@@ -382,14 +436,8 @@ pub fn init(app: &AppHandle) {
 }
 
 fn watch(app: &AppHandle, state: &UpdateState) {
-    let mut next_check = Instant::now();
     loop {
-        let is_requested = state.is_check_requested.swap(false, Ordering::Relaxed);
-        let is_due = is_requested || Instant::now() >= next_check;
-        if is_due {
-            next_check = Instant::now() + check_once(app, state);
-        }
-        std::thread::sleep(TICK);
+        std::thread::sleep(check_once(app, state));
     }
 }
 
@@ -434,14 +482,21 @@ pub async fn update_check(app: AppHandle) -> Result<UpdateStatus, String> {
     .map_err(|error| error.to_string())?
 }
 
-/// Swap the ready release in and restart into it.
+/// Install the ready release and restart into it. A portable copy swaps its exe
+/// and restarts; a winget install exits so winget can replace it, and the
+/// upgrade starts PADE again.
 #[tauri::command]
 pub async fn update_restart(app: AppHandle) -> Result<(), String> {
-    let handle = app.clone();
-    tauri::async_runtime::spawn_blocking(move || apply_pending(&handle))
+    let state = Arc::clone(app.state::<Arc<UpdateState>>().inner());
+    let is_winget = is_winget_install();
+    tauri::async_runtime::spawn_blocking(move || apply(&state, AfterUpgrade::Relaunch))
         .await
         .map_err(|error| error.to_string())??;
-    app.request_restart();
+    if is_winget {
+        app.exit(0);
+    } else {
+        app.request_restart();
+    }
     Ok(())
 }
 
