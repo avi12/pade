@@ -272,6 +272,17 @@ describe("buildGroups", () => {
       now
     });
     expect(used.limits.map(limit => limit.kindShort)).toEqual(["S", "W", "G"]);
+
+    // An untouched opaque cap that is the account's only limit (Copilot's
+    // premium interactions) still shows, at 0%, rather than no reading.
+    const [only] = buildGroups({
+      accounts: accountsFor({
+        opencode: makeAccount({ windows: [sparkCap(0)] })
+      }),
+      sessions: [makeSession({ agentId: "opencode" })],
+      now
+    });
+    expect(only.limits.map(limit => limit.reading)).toEqual(["0%"]);
   });
 
   it("populates the Claude group with real limits + plan from the account", () => {

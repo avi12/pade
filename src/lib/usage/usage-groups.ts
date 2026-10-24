@@ -378,13 +378,16 @@ function uncappedCreditsWindows(account: AccountUsage) {
 // session window is a real limit worth surfacing. An OPAQUE feature cap at 0%
 // is hidden until it gains real usage, matching the vendor's own usage page
 // (ChatGPT lists only the weekly cap while its endpoint also returns untouched
-// per-feature limits like a Codex-Spark window).
+// per-feature limits like a Codex-Spark window) - unless it is the account's
+// only limit (Copilot's premium interactions), which then reads as the 0% it
+// is rather than as no reading at all.
 function buildLimits({ account, now }: {
   account: AccountUsage;
   now: number;
 }) {
   const limits: Limit[] = [];
   const windows: UsageWindow[] = [...account.windows, ...uncappedCreditsWindows(account)];
+  const hasOtherLimits = windows.length > 1;
   for (const window of windows) {
     // A utilization belongs to the window that ended at `resetsAt`. Once that
     // boundary passes, retaining it is knowingly stale; render the new window's
@@ -396,7 +399,7 @@ function buildLimits({ account, now }: {
       ? 0
       : clampPercentage(window.utilization);
     const isUntouchedFeatureCap = window.kind === UsageWindowKind.enum.opaque && percentage === 0;
-    if (isUntouchedFeatureCap) {
+    if (isUntouchedFeatureCap && hasOtherLimits) {
       continue;
     }
 
