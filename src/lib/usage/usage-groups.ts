@@ -427,8 +427,9 @@ function buildLimits({ account, now }: {
 
 // One group per agent: an agent with a resolved account gets its real limits +
 // plan; an agent with none is `unknown` with no limits (ADE has no honest local
-// usage signal for it). No agent is special-cased - the account decides.
-function buildAgentGroup({ agent, account, now }: {
+// usage signal for it). No agent is special-cased - the account decides. The
+// composer's LLM menu builds one per installed agent, running or not.
+export function buildAgentGroup({ agent, account, now }: {
   agent: Agent;
   account: AccountUsage | null;
   now: number;

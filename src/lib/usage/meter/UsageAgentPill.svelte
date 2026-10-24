@@ -2,7 +2,8 @@
   import { AgentId } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import { growInline } from "@/lib/ui/motion";
-  import { groupSeverityClass, isJustReset, NO_READING, severityClass } from "@/lib/usage/meter/usage-meter";
+  import { groupSeverityClass } from "@/lib/usage/meter/usage-meter";
+  import UsageLimitStack from "@/lib/usage/meter/UsageLimitStack.svelte";
   import type { AgentGroup } from "@/lib/usage/usage-groups";
   import type { Snippet } from "svelte";
 
@@ -26,26 +27,7 @@
     <span class="agent-icon"><Icon name={group.icon} /></span>
     <span class="agent-pill-name">{group.shortName}</span>
   </span>
-  {#if group.limits.length > 0}
-    <span class="agent-pill-limits">
-      {#each group.limits as limit (limit.label)}
-        <span
-          class={["agent-pill-limit severity", severityClass(limit.level)]}
-          class:just-reset={isJustReset({
-            justReset,
-            agentId: group.id,
-            limit
-          })}
-          transition:growInline
-        >
-          <span class="agent-pill-kind">{limit.kindShort}</span>
-          <span class="agent-pill-percent">{limit.reading}</span>
-        </span>
-      {/each}
-    </span>
-  {:else}
-    <span class="agent-pill-dash">{NO_READING}</span>
-  {/if}
+  <UsageLimitStack {group} {justReset} />
   {#if showsResetSlot}
     <span class="reset-face reset-slot" aria-hidden="true" transition:growInline>{@render resetLabel()}</span>
   {/if}
@@ -89,42 +71,6 @@
     font-size: 11px;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .agent-pill-limits {
-    display: inline-flex;
-    gap: 8px;
-    align-items: stretch;
-  }
-
-  .agent-pill-limit {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 1px;
-    align-items: center;
-    border-radius: var(--radius-small);
-    line-height: 1;
-    white-space: nowrap;
-
-    .agent-pill-kind {
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      font-weight: 800;
-      font-size: 8px;
-      letter-spacing: 0.02em;
-    }
-
-    .agent-pill-percent {
-      color: var(--severity-color);
-      font-weight: 700;
-      font-size: 12px;
-    }
-  }
-
-  .agent-pill-dash {
-    color: var(--on-surface-variant);
-    font-weight: 700;
-    font-size: 11px;
   }
 
   .reset-slot {
