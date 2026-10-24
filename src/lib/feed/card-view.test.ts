@@ -59,8 +59,8 @@ describe("cardView for a video", () => {
         path: "demo.mp4"
       })
     ).toEqual({
-      kind: CardViewKind.Message,
-      text: "Transcoding preview…"
+      kind: CardViewKind.Loading,
+      text: "Preparing the video preview"
     });
   });
 
@@ -139,8 +139,8 @@ describe("cardView for a document", () => {
         pane: PreviewPane.Preview
       })
     ).toEqual({
-      kind: CardViewKind.Message,
-      text: "Rendering preview…"
+      kind: CardViewKind.Loading,
+      text: "Rendering the preview"
     });
     expect(
       cardView({

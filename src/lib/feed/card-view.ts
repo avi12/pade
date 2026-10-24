@@ -9,6 +9,7 @@ import type { FeedVideo } from "@/lib/types";
 
 export const CardViewKind = {
   Message: "message",
+  Loading: "loading",
   Image: "image",
   Video: "video",
   Document: "document",
@@ -23,7 +24,7 @@ export interface MediaView {
 
 type CardView =
   | {
-    kind: typeof CardViewKind.Message;
+    kind: typeof CardViewKind.Message | typeof CardViewKind.Loading;
     text: string;
   }
   | MediaView
@@ -48,6 +49,14 @@ interface CardPreviews {
 function message(text: string) {
   return {
     kind: CardViewKind.Message,
+    text
+  } satisfies CardView;
+}
+
+// A preview still on its way, drawn with a loading animation.
+function loading(text: string) {
+  return {
+    kind: CardViewKind.Loading,
     text
   } satisfies CardView;
 }
@@ -79,7 +88,7 @@ function imageView({ imageUrl, isErrored }: CardPreviews) {
 
 function videoView({ video, isErrored }: CardPreviews) {
   if (video === undefined) {
-    return message("Transcoding preview…");
+    return loading("Preparing the video preview");
   }
 
   if (video?.kind === FeedVideoKind.enum.ready) {
@@ -102,7 +111,7 @@ function videoView({ video, isErrored }: CardPreviews) {
 
 function documentView({ documentSource, isErrored }: CardPreviews) {
   if (documentSource === undefined) {
-    return message("Rendering preview…");
+    return loading("Rendering the preview");
   }
 
   if (documentSource) {

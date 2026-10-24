@@ -22,6 +22,31 @@ export const PreviewPane = {
 } as const;
 export type PreviewPane = (typeof PreviewPane)[keyof typeof PreviewPane];
 
+// A video card usually opens while the agent is still writing the file, and
+// ffmpeg can't read a half-written MP4 (its index lands last). So an empty
+// transcode is retried a few times before the card gives up on it.
+const VIDEO_TRANSCODE_ATTEMPTS = 5;
+const VIDEO_RETRY_DELAY_MS = 1500;
+
+function delay(milliseconds: number) {
+  return new Promise(resolve => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+async function transcodeVideo(path: string) {
+  for (let attempt = 1; attempt < VIDEO_TRANSCODE_ATTEMPTS; attempt += 1) {
+    const video = await sendMessage(Command.feedVideo, { path });
+    if (video) {
+      return video;
+    }
+
+    await delay(VIDEO_RETRY_DELAY_MS);
+  }
+
+  return sendMessage(Command.feedVideo, { path });
+}
+
 interface CardFile {
   id: string;
   path: string;
@@ -44,7 +69,7 @@ export function createFeedPreviews() {
   // show (gone, or over its size cap).
   const imageCache = new SvelteMap<string, string | null>();
   // Transcoded clips. A transcode takes a moment, so a video card expands at
-  // once and shows a "Transcoding…" state until its entry lands.
+  // once and shows a loading state until its entry lands.
   const videoCache = new SvelteMap<string, FeedVideo | null>();
   // The sandbox-ready srcdoc (a full HTML document for markdown, the raw file
   // text for HTML), or `null` when its text couldn't be fetched.
@@ -91,7 +116,7 @@ export function createFeedPreviews() {
       await loadOnce({
         cache: videoCache,
         id,
-        load: () => sendMessage(Command.feedVideo, { path })
+        load: () => transcodeVideo(path)
       });
       return;
     }
