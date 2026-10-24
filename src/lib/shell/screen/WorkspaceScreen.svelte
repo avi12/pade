@@ -25,11 +25,16 @@
   import type { ComponentProps } from "svelte";
 
   type SidebarProps = ComponentProps<typeof ProjectSidebar>;
+  type ChromeProps = ComponentProps<typeof ShellChrome>;
 
   // The workspace screen: the top bar (chrome row + session tabs), the terminal
   // panes beside the side panel, the runner dock and the transient overlays. The
   // shell owns the sessions, the project and the side panel's choice; this lays
-  // them out and keeps only the in-flight drag state to itself.
+  // them out and keeps only the in-flight drag state to itself. The window
+  // holds sessions from several projects: the tab strip shows the front
+  // project's (the left rail switches between projects and their sessions),
+  // while every session's terminal stays mounted so switching never restarts
+  // or reflows one behind a view transition.
   let {
     windowSessions,
     automation,
@@ -44,7 +49,9 @@
     sidePanelWidth = $bindable(),
     elPanes = $bindable(),
     chatRegistry,
+    elsewhereSessions,
     ondelete,
+    onmerge,
     onopen,
     onrenamefolder,
     onreroot,
@@ -73,7 +80,11 @@
     elPanes?: HTMLElement;
     /** Every project's persisted chats, for the left rail. */
     chatRegistry: StoredChatRegistry;
+    /** The sessions the other PADE windows run, for the left rail. */
+    elsewhereSessions: SidebarProps["elsewhereSessions"];
     ondelete: SidebarProps["ondeleteproject"];
+    /** Merge this window into another open one (top bar's window menu). */
+    onmerge: ChromeProps["onmerge"];
     onopen: SidebarProps["onopenproject"];
     onrenamefolder: SidebarProps["onrenamefolder"];
     /** The saved temp workspace now lives at `path` - the window follows it. */
@@ -107,6 +118,7 @@
 <div class="shell">
   <ProjectSidebar
     activeId={windowSessions.activeId}
+    {elsewhereSessions}
     {ondeletechat}
     ondeleteproject={ondelete}
     {onnewchat}
@@ -126,13 +138,14 @@
         activeSession={windowSessions.activeSession}
         {isTemp}
         label={projectLabel}
+        {onmerge}
         onsavetemp={async ({ name, root }) => await saveTempWorkspace({
           name,
           root,
           host: {
             project,
-            sessionIds: windowSessions.sessions.map(session => session.id),
-            continuing: windowSessions.activeSession ?? windowSessions.sessions[0],
+            sessionIds: windowSessions.projectSessions.map(session => session.id),
+            continuing: windowSessions.activeSession ?? windowSessions.projectSessions[0],
             writeHandoffDoc: automation.writeHandoffDoc,
             reroot: onreroot,
             launch: windowSessions.launch,
@@ -216,7 +229,7 @@
         }}
         paneIds={windowSessions.paneIds}
         popPaneActive={isPaneDragOverTabs}
-        sessions={windowSessions.sessions}
+        sessions={windowSessions.projectSessions}
       />
     </header>
 

@@ -65,6 +65,7 @@ const SESSION: AgentSession = {
     command: "claude",
     reordersBidi: true
   },
+  project: TEMP,
   conversationId: "conversation-a"
 };
 

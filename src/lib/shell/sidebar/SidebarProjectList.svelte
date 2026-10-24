@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { SidebarProject } from "@/lib/session/chat-registry";
+  import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";
   import type { sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
   import SidebarProjectGroup from "@/lib/shell/sidebar/SidebarProjectGroup.svelte";
-  import type { RecordedConversation, WindowInfo } from "@/lib/types";
+  import type { WindowInfo } from "@/lib/types";
   import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";
   import ProjectSection from "@/lib/workspace/switcher/ProjectSection.svelte";
 
@@ -43,14 +44,8 @@
       event: MouseEvent;
     }) => void;
     onnewchat: (project: string) => void;
-    onselectchat: (target: {
-      project: string;
-      chatId: string;
-    }) => void;
-    onresumeconversation: (target: {
-      project: string;
-      conversation: RecordedConversation;
-    }) => void;
+    onselectchat: (target: ChatPick) => void;
+    onresumeconversation: (target: ConversationPick) => void;
     ondeletechat: (target: {
       project: string;
       chatId: string;
@@ -122,13 +117,13 @@
       event: e
     })}
     {onreorderpins}
-    onresumeconversation={conversation => onresumeconversation({
+    onresumeconversation={picked => onresumeconversation({
       project: entry.project,
-      conversation
+      ...picked
     })}
-    onselectchat={chatId => onselectchat({
+    onselectchat={picked => onselectchat({
       project: entry.project,
-      chatId
+      ...picked
     })}
   />
 {/snippet}

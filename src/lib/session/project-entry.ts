@@ -1,11 +1,20 @@
-// Which chats a project shows when it is entered or returned to: its
-// persisted chats restored, a recorded conversation resumed (or brought
-// forward when a chat already runs it), a picked chat focused, and a fresh
-// chat started only when one is wanted. The app shell lends the session
-// actions and how it launches a fresh chat; this owns the decisions.
+// Which chats a project shows when it is entered: its persisted chats
+// restored into an empty window, or - in a window already running sessions,
+// which a project entry never stops - one session started beside them: a
+// recorded conversation resumed (or brought forward when a chat already runs
+// it), a picked chat focused or relaunched, a fresh chat, or the project's own
+// live session brought forward. The app shell lends the session actions and
+// how it launches a fresh chat; this owns the decisions.
 
-import { launchArgumentsFrom, restoreProjectChats, shouldStartFreshChat } from "@/lib/session/chat-restore";
+import { persistedChat } from "@/lib/session/chat-registry";
+import {
+  launchArgumentsFrom,
+  restoreChat,
+  restoreProjectChats,
+  shouldStartFreshChat
+} from "@/lib/session/chat-restore";
 import type { ChatRestoreHost } from "@/lib/session/chat-restore";
+import { sessionToFocus } from "@/lib/session/session-projects";
 import type { AgentSession, OpenTarget, RecordedConversation } from "@/lib/types";
 
 type RestoreLaunchOptions = Parameters<ChatRestoreHost["launch"]>[0];
@@ -17,7 +26,7 @@ type ChatLaunchOptions = Omit<RestoreLaunchOptions, "sessionId"> & Partial<Pick<
 /** What the app shell provides for entering a project. */
 export interface ProjectEntryHost extends Omit<ChatRestoreHost, "launch"> {
   launch: (options: ChatLaunchOptions) => string;
-  sessions: () => readonly Pick<AgentSession, "id" | "conversationId">[];
+  sessions: () => readonly Pick<AgentSession, "id" | "conversationId" | "project">[];
   launchFreshChat: (options: {
     path: string;
     agentId?: string;
@@ -40,11 +49,12 @@ function labelWithTitle({ host, id, title }: {
   });
 }
 
-/** Reopen a recorded conversation: bring it forward when a chat already
- *  runs it, else launch its agent on it, titled the way the agent titled
- *  it. Nothing happens when its agent is not installed. */
-export function resumeRecordedConversation({ host, conversation }: {
+/** Reopen a recorded conversation of `project`: bring it forward when a chat
+ *  already runs it, else launch its agent on it, titled the way the agent
+ *  titled it. Nothing happens when its agent is not installed. */
+export function resumeRecordedConversation({ host, project, conversation }: {
   host: ProjectEntryHost;
+  project: string;
   conversation: RecordedConversation;
 }) {
   const runningChat = host.sessions().find(session => session.conversationId === conversation.conversationId);
@@ -60,6 +70,7 @@ export function resumeRecordedConversation({ host, conversation }: {
 
   const id = host.launch({
     agent,
+    project,
     conversationId: conversation.conversationId,
     args: launchArgumentsFrom(conversation.resumeArguments)
   });
@@ -70,47 +81,93 @@ export function resumeRecordedConversation({ host, conversation }: {
   });
 }
 
-/** The picked chat of `target` when it is still open, else none. */
-function openPickedChat({ host, target }: {
-  host: ProjectEntryHost;
+/** What entering a project beside running sessions does with its target. */
+export const JoinStep = {
+  Resume: "resume",
+  SelectChat: "select-chat",
+  RelaunchChat: "relaunch-chat",
+  FreshChat: "fresh-chat",
+  SelectLive: "select-live"
+} as const;
+type JoinStep = (typeof JoinStep)[keyof typeof JoinStep];
+
+/** The one step entering `target` takes in a window that already runs
+ *  sessions: resume the picked conversation; bring the picked chat forward,
+ *  or relaunch it when it is persisted but not running; start a fresh chat
+ *  when one was asked for (a new-chat click, a first prompt) or the project
+ *  has nothing running here; else bring its live session forward. */
+export function joinStep({ target, isPickedChatOpen, isPickedChatPersisted, hasLiveSession }: {
   target: OpenTarget;
-}) {
-  const pickedChatId = target.chatId;
-  if (pickedChatId === undefined || !host.isOpen(pickedChatId)) {
-    return undefined;
+  isPickedChatOpen: boolean;
+  isPickedChatPersisted: boolean;
+  hasLiveSession: boolean;
+}): JoinStep {
+  if (target.resume !== undefined) {
+    return JoinStep.Resume;
   }
 
-  return pickedChatId;
+  if (target.chatId !== undefined && isPickedChatOpen) {
+    return JoinStep.SelectChat;
+  }
+
+  if (target.chatId !== undefined && isPickedChatPersisted) {
+    return JoinStep.RelaunchChat;
+  }
+
+  const wantsFreshChat = target.newChat === true || target.initialPrompt !== undefined || !hasLiveSession;
+  if (wantsFreshChat) {
+    return JoinStep.FreshChat;
+  }
+
+  return JoinStep.SelectLive;
 }
 
-/** What a return to the open project does with its target: resume the
- *  picked conversation, bring the picked chat to the front, or launch a
- *  fresh chat beside the live ones when one was asked for. */
-export function focusReturnedProject({ host, target }: {
+/** Enter a project in a window that already runs sessions - from any project
+ *  - without stopping any of them: one session is started or brought forward
+ *  as `joinStep` decides, and the window's project context follows it. */
+export async function joinProjectChats({ host, target }: {
   host: ProjectEntryHost;
   target: OpenTarget;
 }) {
-  if (target.resume !== undefined) {
+  const pickedChat = target.chatId === undefined
+    ? undefined
+    : persistedChat({
+      registry: host.registry,
+      project: target.path,
+      chatId: target.chatId
+    });
+  const focusId = sessionToFocus({
+    sessions: host.sessions(),
+    project: target.path,
+    lastActiveId: host.registry.activeChatByProject[target.path]
+  });
+  const step = joinStep({
+    target,
+    isPickedChatOpen: target.chatId !== undefined && host.isOpen(target.chatId),
+    isPickedChatPersisted: pickedChat !== undefined,
+    hasLiveSession: focusId !== undefined
+  });
+  if (step === JoinStep.Resume && target.resume !== undefined) {
     resumeRecordedConversation({
       host,
+      project: target.path,
       conversation: target.resume
     });
-    return;
-  }
-
-  const pickedChatId = openPickedChat({
-    host,
-    target
-  });
-  if (pickedChatId !== undefined) {
-    host.select(pickedChatId);
-    return;
-  }
-
-  if (target.newChat === true) {
+  } else if (step === JoinStep.SelectChat && target.chatId !== undefined) {
+    host.select(target.chatId);
+  } else if (step === JoinStep.RelaunchChat && pickedChat !== undefined) {
+    await restoreChat({
+      host,
+      project: target.path,
+      chat: pickedChat
+    });
+  } else if (step === JoinStep.SelectLive && focusId !== undefined) {
+    host.select(focusId);
+  } else {
     host.launchFreshChat({
       path: target.path,
-      agentId: target.agent
+      agentId: target.agent,
+      initialPrompt: target.initialPrompt
     });
   }
 }
@@ -132,8 +189,9 @@ async function restoreExistingChats({ host, target }: {
   });
 }
 
-/** Enter a project: restore its persisted chats, resume the picked
- *  conversation, and start a fresh chat as `shouldStartFreshChat` says. */
+/** Enter a project in an empty window: restore its persisted chats, resume
+ *  the picked conversation, and start a fresh chat as `shouldStartFreshChat`
+ *  says. */
 export async function enterProjectChats({ host, target }: {
   host: ProjectEntryHost;
   target: OpenTarget;
@@ -145,6 +203,7 @@ export async function enterProjectChats({ host, target }: {
   if (target.resume !== undefined) {
     resumeRecordedConversation({
       host,
+      project: target.path,
       conversation: target.resume
     });
   }

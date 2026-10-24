@@ -21,7 +21,7 @@ export function registerSessionShortcuts({ windowSessions, isWorkspaceShown, fal
 }) {
   // A new tab copies the last session's kind (mirrors the "+" button).
   function agentForNewTab() {
-    return windowSessions.sessions.at(-1)?.agent ?? fallbackAgent();
+    return windowSessions.projectSessions.at(-1)?.agent ?? fallbackAgent();
   }
 
   // Ctrl+W / Ctrl+F4 - close the active session.
@@ -64,16 +64,17 @@ export function registerSessionShortcuts({ windowSessions, isWorkspaceShown, fal
       closeTab: closeActiveTab,
       next: () => windowSessions.step(1),
       previous: () => windowSessions.step(-1),
-      // Ctrl+number - jump straight to a tab by position (Ctrl+9 = the last one).
-      // The matcher only ever hands back an index that exists, so the guard is
-      // belt-and-suspenders; selection reuses the same make-active path as a click.
+      // Ctrl+number - jump straight to a tab of the strip by position (Ctrl+9 =
+      // the last one). The matcher only ever hands back an index that exists, so
+      // the guard is belt-and-suspenders; selection reuses the same make-active
+      // path as a click.
       selectTab(index) {
-        const session = windowSessions.sessions[index];
+        const session = windowSessions.projectSessions[index];
         if (session) {
           windowSessions.select(session.id);
         }
       },
-      tabCount: () => windowSessions.sessions.length
+      tabCount: () => windowSessions.projectSessions.length
     }));
 
   // Pane shortcuts, active while a tab is split into panes: Ctrl+[ / Ctrl+]

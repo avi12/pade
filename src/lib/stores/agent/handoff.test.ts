@@ -312,7 +312,8 @@ describe("createAutoHandoff", () => {
         command: "claude",
         reordersBidi: true
       },
-      cwd: "C:/repositories/pade"
+      cwd: "C:/repositories/pade",
+      project: "C:/repositories/pade"
     };
     let sessions = [predecessor];
     const lifecycle: string[] = [];
@@ -374,7 +375,8 @@ describe("createAutoHandoff", () => {
         command: "claude",
         reordersBidi: true
       },
-      cwd: "C:/repositories/pade"
+      cwd: "C:/repositories/pade",
+      project: "C:/repositories/pade"
     };
     let sessions = [predecessor];
 
@@ -430,7 +432,8 @@ describe("createAutoHandoff", () => {
         command: "claude",
         reordersBidi: true
       },
-      cwd: "C:/repositories/pade"
+      cwd: "C:/repositories/pade",
+      project: "C:/repositories/pade"
     };
     let sessions = [predecessor];
     const launched: string[] = [];
@@ -491,7 +494,8 @@ describe("createAutoHandoff", () => {
         command: "claude",
         reordersBidi: true
       },
-      cwd: "C:/repositories/pade"
+      cwd: "C:/repositories/pade",
+      project: "C:/repositories/pade"
     };
 
     // The waits here are minutes long; fake timers run them in place.
@@ -571,7 +575,8 @@ describe("createAutoHandoff", () => {
         command: "claude",
         reordersBidi: true
       },
-      cwd: "C:/repositories/pade"
+      cwd: "C:/repositories/pade",
+      project: "C:/repositories/pade"
     };
     observeAgentActivity({
       id: session.id,
@@ -656,7 +661,8 @@ const scannedSession: AgentSession = {
     command: "claude",
     reordersBidi: true
   },
-  cwd: "C:/repositories/pade"
+  cwd: "C:/repositories/pade",
+  project: "C:/repositories/pade"
 };
 
 function scanHost(session: AgentSession) {

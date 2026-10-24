@@ -19,6 +19,14 @@ describe("windowRouteFor", () => {
     });
   });
 
+  it("boots a hand-off window into its project to take the sessions handed to it", () => {
+    expect(windowRouteFor(`?w=handoff&path=${encodeURIComponent(PROJECT)}`)).toEqual({
+      kind: WindowRoute.Handoff,
+      path: PROJECT
+    });
+    expect(windowRouteFor("?w=handoff")).toEqual({ kind: WindowRoute.LaunchContext });
+  });
+
   it("falls back to the launch context for an open window without a usable path", () => {
     expect(windowRouteFor("?w=open")).toEqual({ kind: WindowRoute.LaunchContext });
     expect(windowRouteFor("?w=open&path=%20%20")).toEqual({ kind: WindowRoute.LaunchContext });

@@ -5,17 +5,23 @@
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { RecordedConversation } from "@/lib/types";
   import { rovingMenu } from "@/lib/ui/roving-menu";
+  import { isNewWindowClick } from "@/lib/workspace/open-windows";
 
   // One chat row in the left rail, with the right-click menu that belongs to
   // it - open it, start another in its project, or delete it for good. The
-  // menu hangs at the pointer that opened it, not at the row.
+  // menu hangs at the pointer that opened it, not at the row. A row another
+  // PADE window runs wears that window's mark. Ctrl, Cmd or Shift asks for the
+  // chat in a new window, as on a project row.
   const { chat, isActive, onselect, onresume, ondelete, onnew }: {
     chat: SidebarChat;
     isActive: boolean;
-    /** Bring up a PADE chat. */
-    onselect: () => void;
+    /** Bring up a PADE chat - here, or in a new window. */
+    onselect: (opensNewWindow: boolean) => void;
     /** Reopen a recorded conversation on its own transcript. */
-    onresume: (conversation: RecordedConversation) => void;
+    onresume: (target: {
+      conversation: RecordedConversation;
+      opensNewWindow: boolean;
+    }) => void;
     /** Delete a PADE chat - never offered for a recorded conversation, whose
      *  transcript is the agent's, not PADE's to delete. */
     ondelete: () => void;
@@ -23,16 +29,25 @@
   } = $props();
 
   const menuId = $derived(`project-chat-menu-${chat.id}`);
-  const isDeletable = $derived(chat.resume === undefined);
+  // Another window's session is that window's to end, never this rail's.
+  const isDeletable = $derived(chat.resume === undefined && chat.windowLabel === undefined);
+
+  const ELSEWHERE_NOTE = "Running in another window";
+  const isElsewhere = $derived(chat.windowLabel !== undefined);
+  const status = $derived(chat.status ?? sessionStatus(chat.id));
 
   // Shared by the row's click and its menu's "Open chat".
-  function open() {
+  function open(e: MouseEvent) {
+    const opensNewWindow = isNewWindowClick(e);
     if (chat.resume !== undefined) {
-      onresume(chat.resume);
+      onresume({
+        conversation: chat.resume,
+        opensNewWindow
+      });
       return;
     }
 
-    onselect();
+    onselect(opensNewWindow);
   }
   let elMenu = $state<HTMLElement | null>(null);
   let menuPosition = $state({
@@ -60,10 +75,14 @@
   <span class="agent-icon">
     <Icon name={agentIconName(chat.agentId)} size={14} />
     {#if chat.isLive}
-      <span class="status-dot {sessionStatus(chat.id)}" aria-hidden="true"></span>
+      <span class="status-dot {status}" aria-hidden="true"></span>
     {/if}
   </span>
   <span class="chat-label">{chat.label}</span>
+  <span class="elsewhere" hidden={!isElsewhere}>
+    <Icon name="external" size={12} />
+    <span class="elsewhere-note">{ELSEWHERE_NOTE}</span>
+  </span>
 </button>
 
 <div
@@ -78,7 +97,7 @@
 >
   <button
     class="menu-item"
-    onclick={open}
+    onclick={e => open(e)}
     popovertarget={menuId}
     popovertargetaction="hide"
     role="menuitem"
@@ -154,6 +173,26 @@
       overflow: hidden;
       min-inline-size: 0;
       text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .elsewhere {
+      display: inline-flex;
+      flex: none;
+      color: var(--on-surface-variant);
+
+      &[hidden] {
+        display: none;
+      }
+    }
+
+    /* Spoken, not shown - the window glyph says it to the eye. */
+    .elsewhere-note {
+      position: absolute;
+      overflow: hidden;
+      block-size: 1px;
+      inline-size: 1px;
+      clip-path: inset(50%);
       white-space: nowrap;
     }
   }

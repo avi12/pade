@@ -790,6 +790,10 @@ export type RelocateProgress = z.infer<typeof RelocateProgress>;
 export interface AgentSession {
   id: string;
   agent: Agent;
+  /** The project root this session belongs to. A window holds sessions from
+   *  several projects at once; the window's project context (top bar, Change
+   *  Feed, repository, tasks) follows the active session's project. */
+  project: string;
   initialPrompt?: string;
   /** Working dir override - a per-branch git worktree, when set. */
   cwd?: string;

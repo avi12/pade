@@ -59,6 +59,7 @@ export interface RelocateHost {
   /** Resume one displaced live session's conversation on its remapped cwd. */
   relaunch: (options: {
     agent: Agent;
+    project: string;
     cwd: string;
     conversationId?: string;
     args: string[];
@@ -89,7 +90,7 @@ export function createRelocator(host: RelocateHost) {
     }
 
     const locking = host.sessions().filter(session => isUnderDirectory({
-      directory: session.cwd ?? host.currentProject(),
+      directory: session.cwd ?? session.project,
       base: from
     }));
     // Capture the live ones, their conversation and where they were working, to
@@ -98,7 +99,8 @@ export function createRelocator(host: RelocateHost) {
       .filter(session => sessionStatus(session.id) !== SessionStatus.enum.exited)
       .map(session => ({
         agent: session.agent,
-        oldDirectory: session.cwd ?? host.currentProject(),
+        project: session.project,
+        oldDirectory: session.cwd ?? session.project,
         conversationId: session.conversationId,
         modelChoice: session.modelChoice,
         isMidTurn: sessionStatus(session.id) === SessionStatus.enum.working
@@ -141,8 +143,19 @@ export function createRelocator(host: RelocateHost) {
         cwd,
         conversationId: entry.conversationId
       });
+      const isProjectMoved = isUnderDirectory({
+        directory: entry.project,
+        base: from
+      });
       host.relaunch({
         agent: entry.agent,
+        project: isProjectMoved
+          ? remapDirectory({
+            directory: entry.project,
+            from,
+            to
+          })
+          : entry.project,
         cwd,
         conversationId: entry.conversationId,
         args,

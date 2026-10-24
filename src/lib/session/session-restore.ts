@@ -34,9 +34,12 @@ function snapshotStorageKey() {
 /** One persisted session - `AgentSession` minus `initialPrompt`, which was
  *  already submitted into the live conversation (restoring it would make the
  *  re-attached terminal send it again). */
-const SnapshotSession = z.object({
+export const SnapshotSession = z.object({
   id: z.string(),
   agent: Agent,
+  // The project the session belongs to - a window holds several. A snapshot
+  // written before sessions carried one falls back to the snapshot's project.
+  project: z.string().min(1).optional(),
   cwd: z.string().optional(),
   branch: z.string().optional(),
   args: z.array(z.string()).optional(),
@@ -48,8 +51,43 @@ const SnapshotSession = z.object({
   modelChoice: ModelChoice.optional()
 });
 
-/** What a window needs to re-attach after a reload: the open project and the
- *  session/pane layout it was showing. */
+/** The persisted shape of one session, as a snapshot or a hand-off carries it. */
+export function snapshotSessionOf({
+  id,
+  agent,
+  project,
+  cwd,
+  branch,
+  args,
+  conversationId,
+  modelChoice
+}: AgentSession) {
+  return {
+    id,
+    agent,
+    project,
+    cwd,
+    branch,
+    args,
+    conversationId,
+    modelChoice
+  } satisfies z.infer<typeof SnapshotSession>;
+}
+
+/** A persisted session back as a live one, in `fallbackProject` when it was
+ *  saved without its own. */
+export function liveSessionOf({ saved, fallbackProject }: {
+  saved: z.infer<typeof SnapshotSession>;
+  fallbackProject: string;
+}): AgentSession {
+  return {
+    ...saved,
+    project: saved.project ?? fallbackProject
+  };
+}
+
+/** What a window needs to re-attach after a reload: the project in front and
+ *  the session/pane layout it was showing. */
 const SessionSnapshot = z.object({
   project: z.string().min(1),
   sessions: z.array(SnapshotSession).min(1),
@@ -74,15 +112,7 @@ export function saveSessionSnapshot({ project, sessions, paneIds, activeId }: {
 
   const snapshot: SessionSnapshot = {
     project,
-    sessions: sessions.map(({ id, agent, cwd, branch, args, conversationId, modelChoice }) => ({
-      id,
-      agent,
-      cwd,
-      branch,
-      args,
-      conversationId,
-      modelChoice
-    })),
+    sessions: sessions.map(snapshotSessionOf),
     paneIds: [...paneIds],
     activeId
   };
@@ -112,7 +142,12 @@ export function pruneToLive({ snapshot, liveIds }: {
   snapshot: SessionSnapshot;
   liveIds: ReadonlySet<string>;
 }) {
-  const sessions = snapshot.sessions.filter(session => liveIds.has(session.id));
+  const sessions = snapshot.sessions
+    .filter(session => liveIds.has(session.id))
+    .map(saved => liveSessionOf({
+      saved,
+      fallbackProject: snapshot.project
+    }));
   if (sessions.length === 0) {
     return null;
   }

@@ -3,14 +3,19 @@
   import type { WindowInfo } from "@/lib/types";
   import { isTemporaryWorkspace, shortDisplayName } from "@/lib/util/paths";
   import ProjectKindIcon from "@/lib/workspace/ProjectKindIcon.svelte";
+  import MergeIntoButton from "@/lib/workspace/switcher/MergeIntoButton.svelte";
+  import MergeIntoItem from "@/lib/workspace/switcher/MergeIntoItem.svelte";
   import ReorderGrip from "@/lib/workspace/switcher/ReorderGrip.svelte";
   import { windowRowTransitionName } from "@/lib/workspace/switcher/switcher-rows";
   import TempBadge from "@/lib/workspace/TempBadge.svelte";
 
   // The switcher's "Open windows" section - every PADE window in creation
   // order, which is also the cycle order for Ctrl+Alt+[ / ]. Click a non-current
-  // one to focus its window; drag a grip to reorder them.
-  let { windowRows, labels, elList = $bindable(null), onreorder, onfocuswindow }: {
+  // one to focus its window; drag a grip to reorder them. With another window
+  // open, this one can merge into it: its sessions move there still running,
+  // and this window closes - from that window's row, or from the one item
+  // below the list when there is exactly one other window.
+  let { windowRows, labels, elList = $bindable(null), onreorder, onfocuswindow, onmerge }: {
     windowRows: WindowInfo[];
     labels: Record<string, string>;
     /** The rows' own container, so the switcher's scoped view transition morphs
@@ -21,6 +26,8 @@
     onreorder: (windowLabels: string[]) => void;
     /** Focus another window by its label. */
     onfocuswindow: (windowLabel: string) => void;
+    /** Merge this window into the window `windowLabel`. */
+    onmerge: (windowLabel: string) => void;
   } = $props();
 
   // A lone window can't be reordered - mirror the pins guard so the grip only
@@ -72,9 +79,11 @@
           <span class="open-window-row-focus" aria-hidden="true"><Icon name="external" size={14} /></span>
         {/if}
       </button>
+      <MergeIntoButton {onmerge} {windowRow} />
     </div>
   {/each}
 </div>
+<MergeIntoItem {labels} {onmerge} {windowRows} />
 
 <style>
   /* A window row: a drag grip (when reorderable) beside its focus button, laid out

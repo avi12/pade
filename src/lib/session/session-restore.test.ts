@@ -54,6 +54,7 @@ function session(id: string, extra: Partial<AgentSession> = {}) {
       command: "claude",
       reordersBidi: true
     },
+    project: "C:\\repos\\pade",
     ...extra
   };
 }

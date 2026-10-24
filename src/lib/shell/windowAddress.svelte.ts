@@ -1,8 +1,11 @@
 // What a window says about itself, kept true as the user moves on: the session
-// snapshot a reload re-attaches from, the `w=` address it re-routes off, and the
-// OS window title. All three follow the shell's state; none of them is read back
-// until the next boot (or by the OS).
+// snapshot a reload re-attaches from, the `w=` address it re-routes off (and
+// the crash recovery is armed with), the project it registers with the other
+// windows, and the OS window title. All of them follow the project in front -
+// the active session's - and none is read back until the next boot (or by the
+// OS and the other windows).
 
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { setWindowTitle } from "@/lib/ipc/platform";
 import { saveSessionSnapshot } from "@/lib/session/session-restore";
 import { settings } from "@/lib/settings/settings.svelte";
@@ -42,6 +45,8 @@ export function syncWindowAddress({ isBooted, project, isUnnamedTemp, windowSess
   // (the incident), a `?w=temp` one minted a second throwaway. Keep the query
   // telling the truth - the project on screen, else the picker - so even a
   // snapshot-less reload (all sessions had exited) lands on the right screen.
+  // A crash rebuild reopens the address it was armed with, so the arming
+  // follows the address (duplicate arms on one webview are harmless).
   $effect(() => {
     if (!isBooted()) {
       return;
@@ -50,8 +55,28 @@ export function syncWindowAddress({ isBooted, project, isUnnamedTemp, windowSess
     const query = windowQueryFor(project());
     if (location.search !== query) {
       history.replaceState(null, "", query);
+      armRecoveryAtAddress();
     }
   });
+
+  async function armRecoveryAtAddress() {
+    await Promise.allSettled([sendMessage(Command.recoveryArm, { url: location.href })]);
+  }
+
+  // Tell the other windows which project this one has in front - the project
+  // of its active session, so it follows every switch - letting their pickers
+  // and rails focus this window instead of opening that project twice.
+  $effect(() => {
+    if (!isBooted()) {
+      return;
+    }
+
+    registerProject(project());
+  });
+
+  async function registerProject(path: string) {
+    await Promise.allSettled([sendMessage(Command.windowRegisterProject, { path })]);
+  }
 
   // Name the OS window (title bar + taskbar) `PADE - <workspace>`, where the
   // workspace is the open project's own folder name - the part after the slash,

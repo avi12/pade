@@ -27,7 +27,8 @@ function makeSession({ agentId, label, sessionId }: {
       label: label ?? agentId,
       command: agentId,
       reordersBidi: false
-    }
+    },
+    project: "C:\\repositories\\pade"
   };
 }
 

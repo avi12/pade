@@ -32,6 +32,11 @@ const BoardAgent = z.object({
   agentLabel: z.string(),
   /** The tab's name - its AI or hand-given label, else the agent's. */
   name: z.string(),
+  /** The project the session belongs to - a window holds several. */
+  project: z.string(),
+  /** The conversation it runs, so another window's rail never also offers it
+   *  as one to resume. */
+  conversationId: z.string().optional(),
   status: SessionStatus,
   isAwaitingChoice: z.boolean(),
   /** The running model and effort as the tab's tag says it. */
@@ -55,10 +60,14 @@ const BoardWindow = z.object({
 });
 export type BoardWindow = z.infer<typeof BoardWindow>;
 
-export const BoardMessageKind = z.enum(["dashboardOpen", "dashboardClosed", "window", "windowGone", "focus"]);
+export const BoardMessageKind = z.enum(["dashboardOpen", "dashboardClosed", "rollCall", "window", "windowGone", "focus"]);
+export type BoardMessageKind = z.infer<typeof BoardMessageKind>;
 
 const BoardMessage = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal(BoardMessageKind.enum.dashboardOpen) }),
+  // A project window that just opened asks the others what they run, for its
+  // left rail - without counting as a watching dashboard (no summaries paid).
+  z.object({ kind: z.literal(BoardMessageKind.enum.rollCall) }),
   z.object({ kind: z.literal(BoardMessageKind.enum.dashboardClosed) }),
   z.object({
     kind: z.literal(BoardMessageKind.enum.window),
@@ -79,6 +88,67 @@ export type BoardMessage = z.infer<typeof BoardMessage>;
 /** Another window's message is a trust boundary like any other. */
 export function parseBoardMessage(raw: unknown) {
   return BoardMessage.safeParse(raw);
+}
+
+/** The board before any window has reported. */
+export const NO_BOARD_WINDOWS: ReadonlyMap<string, BoardWindow> = new Map();
+
+/** The windows known to the board after `message`: a snapshot replaces its
+ *  window's last one, a goodbye drops it, anything else changes nothing. */
+export function windowsAfterMessage({ windows, message }: {
+  windows: ReadonlyMap<string, BoardWindow>;
+  message: BoardMessage;
+}) {
+  if (message.kind === BoardMessageKind.enum.window) {
+    return new Map(windows).set(message.window.label, message.window);
+  }
+
+  if (message.kind === BoardMessageKind.enum.windowGone && windows.has(message.label)) {
+    const next = new Map(windows);
+    next.delete(message.label);
+    return next;
+  }
+
+  return windows;
+}
+
+/** The windows still open - one that closed without saying goodbye (a crash,
+ *  a kill) leaves the board once `window_list` no longer lists it. */
+export function windowsStillOpen({ windows, openLabels }: {
+  windows: ReadonlyMap<string, BoardWindow>;
+  openLabels: readonly string[];
+}) {
+  const isEveryWindowOpen = [...windows.keys()].every(label => openLabels.includes(label));
+  if (isEveryWindowOpen) {
+    return windows;
+  }
+
+  return new Map([...windows].filter(([label]) => openLabels.includes(label)));
+}
+
+/** A session another PADE window runs, with the window it runs in. */
+export type ElsewhereSession = BoardAgent & { windowLabel: string };
+
+/** Every session the other windows run, for this window's left rail. */
+export function elsewhereSessions({ windows, ownLabel }: {
+  windows: ReadonlyMap<string, BoardWindow>;
+  ownLabel: string;
+}) {
+  const sessions: ElsewhereSession[] = [];
+  for (const [label, board] of windows) {
+    if (label === ownLabel) {
+      continue;
+    }
+
+    for (const agent of board.agents) {
+      sessions.push({
+        ...agent,
+        windowLabel: label
+      });
+    }
+  }
+
+  return sessions;
 }
 
 /** What an agent amounts to at a glance, most urgent first. */

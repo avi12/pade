@@ -34,7 +34,6 @@ const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);
 /** What the shell does on the re-themer's behalf. */
 interface AgentRethemeHost {
   sessions: () => readonly AgentSession[];
-  currentProject: () => string;
   /** Hand a session the args that resume its conversation, before a restart
    *  remounts it. A no-op for an empty list. */
   applyResumeArgs: (options: {
@@ -102,7 +101,7 @@ export function createAgentRetheme(host: AgentRethemeHost) {
         id: target.id,
         args: await sendMessage(Command.agentResumeArgs, {
           command: target.agent.command,
-          cwd: target.cwd ?? host.currentProject()
+          cwd: target.cwd ?? target.project
         })
       }))
     );

@@ -16,6 +16,7 @@ export interface ChatRestoreHost {
   agents: readonly Agent[];
   launch: (options: {
     agent: Agent;
+    project: string;
     cwd?: string;
     branch?: string;
     conversationId?: string;
@@ -59,7 +60,9 @@ export function launchArgumentsFrom(resumeArguments: string[]) {
   return resumeArguments;
 }
 
-async function restoreOneChat({ host, project, chat }: {
+/** Relaunch one persisted chat on its own conversation, beside whatever the
+ *  window already runs. Its session id is kept, so the chat stays itself. */
+export async function restoreChat({ host, project, chat }: {
   host: ChatRestoreHost;
   project: string;
   chat: PersistedChat;
@@ -72,6 +75,7 @@ async function restoreOneChat({ host, project, chat }: {
   });
   const restoredId = host.launch({
     agent,
+    project,
     cwd: chat.cwd,
     branch: chat.branch,
     conversationId: chat.conversationId,
@@ -114,7 +118,11 @@ export async function restoreProjectChats({ host, project, chatId }: {
   }
 
   for (const chat of chats) {
-    await restoreOneChat({
+    if (host.isOpen(chat.id)) {
+      continue;
+    }
+
+    await restoreChat({
       host,
       project,
       chat

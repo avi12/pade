@@ -39,14 +39,17 @@ writes.
   hands the window, which sessionStorage did not - that gap orphaned live PTYs
   behind a freshly spawned agent. Still never across an app restart: the backend
   kills all PTYs on exit, so the intersection is empty and the snapshot cleared.
-- R1.1.8 ✅ **Intent-based leave** - a deliberate leave (project switch, back to
-  the picker, closing the window) kills the project's agents *gracefully*: it
+- R1.1.8 ✅ **Intent-based leave** - a deliberate leave (back to the picker,
+  closing the window) kills the window's agents - of every project it holds -
+  *gracefully*: it
   waits per session for the idle prompt (`sessionStatus === ready`, the
   output-quiet signal - never child-process counting, which mis-reads persistent
   MCP servers), capped at 30s, so nothing mid-flight is severed; the agent's
   auto-save + `/resume` cover continuity. The window close is intercepted
   (`onCloseRequested`) so the X waits the same way before the window is
-  destroyed. An accidental reload records no leave and re-attaches instead.
+  destroyed, and the backend ends whatever PTYs a closed window still owned, so
+  no agent outlives its window. An accidental reload records no leave and
+  re-attaches instead. Opening another project is not a leave: nothing stops.
 - R1.1.9 ✅ Agent UI themes match PADE from the first process in a new project.
   Each agent registry entry owns its verified safe channel: launch arguments,
   environment, a PADE-owned TUI config, native system following, or terminal
@@ -395,9 +398,35 @@ writes.
   or path (Ctrl+P focuses it from anywhere, Enter opens the first match), and
   the head's menu holds Open a project, Rename this folder, Empty window,
   Throwaway workspace and Agents dashboard. Picking a project focuses the
-  window that already has it; Ctrl/Shift-click opens it in a new window. The
+  window that has it in front; Ctrl/Shift-click opens it in a new window. The
   top bar's project chip keeps only what has no other home: saving a temp
   workspace and the open-windows list.
+- R1.9.11 ✅ **Many projects per window.** Picking a project row (or its +)
+  starts a new agent session in that project beside every session already open
+  - even when the project already runs one - and brings it to the front;
+  nothing is stopped. Picking a recorded conversation resumes it in a new
+  session (or selects the session already running it), a persisted chat is
+  relaunched on its conversation, a live chat is selected. The window's project
+  context - top bar, Change Feed, repository, tasks, editor launcher, title,
+  address - follows the active session; switching never restarts a terminal.
+  The tab strip shows the front project's sessions; the rail is the switcher
+  across projects. Closing a project's last session hands the front to another
+  project; only the window's very last session returns it to the picker or
+  respawns an agent.
+- R1.9.12 ✅ **Every live session in the rail, across windows.** The rail marks
+  each project's live sessions - this window's, and the ones other PADE windows
+  run (with the window glyph and their status) - and never also offers a running
+  session as one to resume. Clicking a session another window runs focuses that
+  window and brings the session forward there; when a window closes, its
+  sessions turn back into resumable rows at once.
+- R1.9.13 ✅ **Move sessions between windows.** Ctrl/Shift-click on a live
+  session moves it - the same process, still running - into a new window;
+  on a persisted chat or recorded conversation it opens a new window on its
+  project that relaunches or resumes just that one. With more than one window
+  open, the top bar's open-windows list offers "Merge into" on every other
+  window's row (and one "Merge into {window}" item when exactly one other is
+  open): every session of this window moves there still running, the
+  previously active one in front, and this window closes.
 
 ### 1.10 External tool launchers (✅)
 - R1.10.1 **IDE menu** - open the active project in an installed editor (`ide.rs`;

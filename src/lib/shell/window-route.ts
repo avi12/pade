@@ -16,6 +16,9 @@ export const WindowRoute = {
   Picker: "picker",
   /** A named project folder. */
   Project: "project",
+  /** A window spawned to receive sessions another window handed it, in the
+   *  named project folder (lib/shell/window-handoff). */
+  Handoff: "handoff",
   /** No usable address - the plain main window's launch-context boot. */
   LaunchContext: "launch-context"
 } as const;
@@ -39,7 +42,8 @@ export function windowRouteFor(search: string) {
     return { kind: WindowRoute.Picker } as const;
   }
 
-  const path = mode === WindowMode.enum.open
+  const isProjectMode = mode === WindowMode.enum.open || mode === WindowMode.enum.handoff;
+  const path = isProjectMode
     ? parseInput({
       schema: FolderPath,
       raw: query.get(PATH_PARAMETER)
@@ -47,6 +51,13 @@ export function windowRouteFor(search: string) {
     : null;
   if (path === null) {
     return { kind: WindowRoute.LaunchContext } as const;
+  }
+
+  if (mode === WindowMode.enum.handoff) {
+    return {
+      kind: WindowRoute.Handoff,
+      path
+    } as const;
   }
 
   return {

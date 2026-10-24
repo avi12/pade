@@ -42,7 +42,7 @@ export function createSessionAutomation({ windowSessions, project, availableAgen
     isOptedOut: () => settings.prefs.autoHandoff === false,
     thresholdPercentage: () => effective.handoffPercentage,
     slugSource: projectLabel,
-    projectDirectory: project,
+    projectDirectory: session => session.project,
     // Announced close: without the flag, this kill's own exit event reaches the
     // session-exit path as "the agent quit on its own" and respawns a
     // replacement - a bare extra tab that also steals the active pane from the
@@ -62,6 +62,7 @@ export function createSessionAutomation({ windowSessions, project, availableAgen
       const isSameAgent = predecessor?.agent.id === agent.id;
       const successorId = windowSessions.launch({
         agent,
+        project: predecessor?.project,
         cwd,
         initialPrompt,
         modelChoice: predecessor !== undefined && isSameAgent ? choiceForSuccessor(predecessor) : undefined
@@ -103,7 +104,7 @@ export function createSessionAutomation({ windowSessions, project, availableAgen
         id,
         args: await sendMessage(Command.agentResumeArgs, {
           command: target.agent.command,
-          cwd: target.cwd ?? project(),
+          cwd: target.cwd ?? target.project,
           conversationId: target.conversationId
         })
       });
@@ -196,8 +197,7 @@ export function createSessionAutomation({ windowSessions, project, availableAgen
     unlistenMcp = await onMessage(EventType.mcpChanged, async ({ data: change }) => {
       const targets = mcpRestartTargets({
         sessions: windowSessions.sessions,
-        change,
-        currentProject: project()
+        change
       });
       if (targets.length === 0) {
         return;

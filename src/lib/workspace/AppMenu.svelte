@@ -15,10 +15,11 @@
   // The top bar's project chip and its window menu. Switching projects lives in
   // the left rail; this menu keeps what has no other home: saving a throwaway
   // workspace as a real project, and every open PADE window (jump between them,
-  // drag them into the Ctrl+Alt+[ / ] cycle order). Up/Down walk the window
+  // drag them into the Ctrl+Alt+[ / ] cycle order, or merge this window into
+  // one - its sessions move there, still running). Up/Down walk the window
   // rows: every stop is tagged `data-arrow-stop`, and `arrowFocus` moves focus
   // between them.
-  const { path, label, isTemp, remoteRepository, roots, labels, onsavetemp, onaddroot }: {
+  const { path, label, isTemp, remoteRepository, roots, labels, onsavetemp, onaddroot, onmerge }: {
     path: string;
     label: string;
     isTemp: boolean;
@@ -37,6 +38,9 @@
     /** Add an existing folder as a project root - the no-roots save path.
      *  Persisted by the parent into shared settings. */
     onaddroot: (path: string) => Promise<AddRootOutcome>;
+    /** Move every session of this window into the window `windowLabel`
+     *  (still running there), then close this one. */
+    onmerge: (windowLabel: string) => Promise<void>;
   } = $props();
 
   const MENU_ID = "application-menu";
@@ -143,6 +147,10 @@
       onfocuswindow={async windowLabel => {
         hide();
         await sendMessage(Command.windowFocusLabel, { label: windowLabel });
+      }}
+      onmerge={async windowLabel => {
+        hide();
+        await onmerge(windowLabel);
       }}
       onreorder={async windowLabels => {
         // Persist the new order to the one backend source (which drives both

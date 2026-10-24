@@ -220,9 +220,9 @@ export interface HandoffHost {
   thresholdPercentage: () => number;
   /** Source text for the handoff-doc slug (workspace label or short dir). */
   slugSource: () => string;
-  /** The open project's root dir - where the handoff doc lands (and is
+  /** The session's project root - where its handoff doc lands (and is
    *  deleted from once the successor has consumed it). */
-  projectDirectory: () => string;
+  projectDirectory: (session: AgentSession) => string;
   /** End a session's process as a DELIBERATE close.
    *
    *  It must go through the shell, not `pty_kill` from here: the shell treats an
@@ -404,8 +404,11 @@ export function createAutoHandoff(host: HandoffHost) {
     clearTimeout(timer);
   }
 
-  function docPathOf(name: string) {
-    return `${host.projectDirectory()}/${name}`;
+  function docPathOf({ session, name }: {
+    session: AgentSession;
+    name: string;
+  }) {
+    return `${host.projectDirectory(session)}/${name}`;
   }
 
   // Resolve `true` once the doc named `name` exists in the project, `false` when
@@ -414,9 +417,15 @@ export function createAutoHandoff(host: HandoffHost) {
   // `continue-*.md` never emits, which used to strand the cycle on the full
   // timeout), and a direct disk poll (authoritative regardless of ignore rules).
   // Whichever sees it first wins.
-  function waitForFile(name: string) {
+  function waitForFile({ session, name }: {
+    session: AgentSession;
+    name: string;
+  }) {
     return new Promise<boolean>(resolve => {
-      const docPath = docPathOf(name);
+      const docPath = docPathOf({
+        session,
+        name
+      });
       let unlisten: UnlistenFn | undefined;
       let settleTimer: ReturnType<typeof setTimeout> | undefined;
       let pollTimer: ReturnType<typeof setTimeout> | undefined;
@@ -583,7 +592,10 @@ export function createAutoHandoff(host: HandoffHost) {
     doc: string;
     reason: HandoffReason;
   }) {
-    const docPath = docPathOf(doc);
+    const docPath = docPathOf({
+      session,
+      name: doc
+    });
     if (await isFileOnDisk(docPath)) {
       return true;
     }
@@ -597,7 +609,10 @@ export function createAutoHandoff(host: HandoffHost) {
     // The watcher can simply have missed the write (an ignored path, a
     // torn-down subscription), so a timeout gets one direct disk probe before
     // giving up.
-    return await waitForFile(doc) || await isFileOnDisk(docPath);
+    return await waitForFile({
+      session,
+      name: doc
+    }) || await isFileOnDisk(docPath);
   }
 
   // Never cycle without the doc actually on disk: killing the session and
@@ -711,7 +726,7 @@ export function createAutoHandoff(host: HandoffHost) {
     const isConsumed = await waitForFirstTurn(successorId);
     if (isConsumed) {
       await sendMessage(Command.handoffDocDelete, {
-        dir: host.projectDirectory(),
+        dir: host.projectDirectory(session),
         name: doc
       });
     }

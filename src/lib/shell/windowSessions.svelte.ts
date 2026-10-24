@@ -10,6 +10,7 @@ import { startingModelChoice } from "@/lib/model/agent-model-scope";
 import { layoutWithoutSession, layoutWithoutSessions, wrappedIndex } from "@/lib/session/pane-layout";
 import type { PaneLayout } from "@/lib/session/pane-layout";
 import { didFailToStart } from "@/lib/session/session-exit";
+import { frontProject, sessionsOfProject } from "@/lib/session/session-projects";
 import { rekeyLayout } from "@/lib/session/session-restart";
 import { settings } from "@/lib/settings/settings.svelte";
 import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
@@ -34,6 +35,8 @@ const GRACEFUL_LEAVE_TIMEOUT_MS = 30_000;
 
 interface LaunchOptions {
   agent: Agent;
+  /** The project the session belongs to - the active project when absent. */
+  project?: string;
   /** Reuse this session id instead of minting one - restoring a persisted
    *  chat keeps its identity (and its snapshot entry) across a relaunch. */
   sessionId?: string;
@@ -60,6 +63,7 @@ function newSession({ options, project }: {
   const session: AgentSession = {
     id: options.sessionId ?? crypto.randomUUID(),
     agent: options.agent,
+    project,
     initialPrompt: options.initialPrompt,
     modelChoice: startingModelChoice({
       explicit: options.modelChoice,
@@ -69,8 +73,8 @@ function newSession({ options, project }: {
     }),
     // Never leave an agent to inherit the backend process cwd: another PADE
     // window may switch that shared process to a different project while this
-    // terminal is mounting. Worktrees still override the window project, and a
-    // multi-part workspace starts its agents in the member the top bar points
+    // terminal is mounting. Worktrees still override the session's project, and
+    // a multi-part workspace starts its agents in the member the top bar points
     // at - the root until you pick another (see stores/workspaceMembers).
     cwd: options.cwd ?? activeMemberIn(project),
     branch: options.branch,
@@ -85,15 +89,18 @@ function newSession({ options, project }: {
 
 /** What the shell lends its sessions. */
 interface WindowSessionsHost {
-  /** The window's open project. */
-  project: () => string;
   /** Spring a pane that just joined a split in. */
   animateIn: (id: string) => void;
   /** A session was launched - the workspace is on screen. */
   onLaunched: () => void;
-  /** The workspace's last session just ended; the shell decides what next. */
+  /** A session id left for good - closed by hand, quit on its own, replaced
+   *  by a handoff successor or re-keyed by a restart - rather than left with
+   *  the window or moved to another one. */
+  onRetired: (session: AgentSession) => void;
+  /** The window's last session just ended; the shell decides what next. */
   onEmptied: (ended: {
     agent: Agent;
+    project: string;
     isFailedStart: boolean;
   }) => void;
 }
@@ -105,6 +112,26 @@ export function createWindowSessions(host: WindowSessionsHost) {
   let paneIds = $state<string[]>([]);
   let activeId = $state<string | null>(null);
   const activeSession = $derived(sessions.find(session => session.id === activeId));
+  // The project the window points at while no session is in front: the one
+  // it entered, or the one its last session left.
+  let fallbackProject = $state("");
+  // The window's one project context: the active session's project. Every
+  // project-scoped surface (top bar, Change Feed, repository, tasks, address)
+  // reads this, so switching sessions across projects switches them all.
+  const activeProject = $derived(
+    frontProject({
+      activeSession,
+      fallbackProject
+    })
+  );
+  // The front project's sessions - what the tab strip shows. Every session
+  // stays mounted (its terminal live) whichever project is in front.
+  const projectSessions = $derived(
+    sessionsOfProject({
+      sessions,
+      project: activeProject
+    })
+  );
 
   // When each session launched, so a self-exit right after reads as a failed
   // start (lib/session/session-exit) and is not respawned into a loop.
@@ -122,39 +149,45 @@ export function createWindowSessions(host: WindowSessionsHost) {
   // the rest get a zero-duration outro.
   const collapsingSplitPanes = new SvelteSet<string>();
 
-  // Whether this window names its session tabs with AI - the project's own choice
-  // when it has one, else the global default (lib/agent/ai-naming-scope).
-  const namesWithAi = $derived(
-    aiNamingEnabled({
+  // Whether a project names its session tabs with AI - its own choice when it
+  // has one, else the global default (lib/agent/ai-naming-scope).
+  function namesWithAi(project: string) {
+    return aiNamingEnabled({
       prefs: settings.prefs,
-      project: host.project()
-    })
+      project
+    });
+  }
+
+  // The naming settings as one comparable key, so the effect below re-runs only
+  // when one of them really changes.
+  const namingSettingsKey = $derived(
+    JSON.stringify([settings.prefs.aiSessionNaming, settings.prefs.aiSessionNamingProjects])
   );
 
-  // Apply that setting to every tab already open, and again whenever it changes -
-  // including when this window switches project, since the new project may answer
-  // differently. `sessions` is read untracked on purpose: this effect exists to
-  // follow the SETTING, and re-running it on every tab open or close would undo a
-  // ✦ the user had just flipped by hand. New tabs are seeded in `launch` instead.
+  // Apply that setting to every tab already open, each under its own project,
+  // and again whenever it changes. `sessions` is read untracked on purpose: this
+  // effect exists to follow the SETTING, and re-running it on every tab open or
+  // close would undo a ✦ the user had just flipped by hand. New tabs are seeded
+  // in `launch` instead.
   $effect(() => {
     applyNamingToAll({
       sessions: untrack(() => sessions),
-      isOn: namesWithAi
+      isOnFor: project => namingSettingsKey !== "" && namesWithAi(project)
     });
   });
 
   function launch(options: LaunchOptions) {
     const session = newSession({
       options,
-      project: host.project()
+      project: options.project ?? activeProject
     });
     sessions.push(session);
-    // A new tab is born under the window's setting - the same one the effect
+    // A new tab is born under its project's setting - the same one the effect
     // above applies to the tabs already open.
     setNaming({
       id: session.id,
       agent: session.agent.command,
-      isOn: namesWithAi
+      isOn: namesWithAi(session.project)
     });
     sessionLaunchedAt.set(session.id, Date.now());
     activeId = session.id;
@@ -178,18 +211,27 @@ export function createWindowSessions(host: WindowSessionsHost) {
     paneIds = [id];
   }
 
-  // Ctrl+Tab / Alt+Arrow - cycle the active tab, wrapping at the ends.
+  // Ctrl+Tab / Alt+Arrow - cycle the active tab among the front project's
+  // tabs (the ones the strip shows), wrapping at the ends.
   function step(delta: number) {
-    if (sessions.length === 0) {
+    if (projectSessions.length === 0) {
       return;
     }
 
     const iNext = wrappedIndex({
-      index: sessions.findIndex(session => session.id === activeId),
+      index: projectSessions.findIndex(session => session.id === activeId),
       delta,
-      count: sessions.length
+      count: projectSessions.length
     });
-    select(sessions[iNext].id);
+    select(projectSessions[iNext].id);
+  }
+
+  // The window keeps pointing at the project its last session leaves.
+  function keepProjectOfLastSession(id: string) {
+    const isLastSession = sessions.length === 1 && sessions[0].id === id;
+    if (isLastSession) {
+      fallbackProject = sessions[0].project;
+    }
   }
 
   // The caller kills the PTY and decides the empty-workspace policy.
@@ -197,6 +239,8 @@ export function createWindowSessions(host: WindowSessionsHost) {
     if (paneIds.length > 1 && paneIds.includes(id)) {
       collapsingSplitPanes.add(id);
     }
+
+    keepProjectOfLastSession(id);
 
     ({ sessions, paneIds, activeId } = layoutWithoutSession({
       layout: {
@@ -275,12 +319,16 @@ export function createWindowSessions(host: WindowSessionsHost) {
 
     detach(session.id);
     closingByHand.delete(session.id);
+    host.onRetired(session);
 
-    // A hand-close is never a failed start: a real project replaces its final
-    // tab with a fresh one rather than dropping the user into onboarding.
+    // A hand-close is never a failed start: a real project replaces the
+    // window's final tab with a fresh one rather than dropping the user into
+    // onboarding. A project's last tab closing while other projects' sessions
+    // stay open just hands the front to one of them.
     if (sessions.length === 0) {
       host.onEmptied({
         agent: session.agent,
+        project: session.project,
         isFailedStart: false
       });
     }
@@ -306,10 +354,12 @@ export function createWindowSessions(host: WindowSessionsHost) {
     detach(id);
     // Reap the backend record; the child is already gone, so a failure is moot.
     await Promise.allSettled([sendMessage(Command.ptyKill, { id })]);
+    host.onRetired(session);
 
     if (wasLastSession) {
       host.onEmptied({
         agent: session.agent,
+        project: session.project,
         isFailedStart: isExitFailedStart
       });
     }
@@ -342,6 +392,7 @@ export function createWindowSessions(host: WindowSessionsHost) {
       sessionLaunchedAt.delete(target.id);
       agentRetheme.forget(target.id);
       closingByHand.delete(target.id);
+      host.onRetired(target);
     }
 
     const relaid = rekeyLayout({
@@ -376,7 +427,6 @@ export function createWindowSessions(host: WindowSessionsHost) {
   // are respawned on their own conversation once idle.
   const agentRetheme = createAgentRetheme({
     sessions: () => sessions,
-    currentProject: host.project,
     applyResumeArgs,
     restartSessions: restart
   });
@@ -404,6 +454,19 @@ export function createWindowSessions(host: WindowSessionsHost) {
     },
     get activeSession() {
       return activeSession;
+    },
+    /** The window's project context - the active session's project. */
+    get activeProject() {
+      return activeProject;
+    },
+    /** The front project's sessions, as the tab strip shows them. */
+    get projectSessions() {
+      return projectSessions;
+    },
+    /** Point the window at `project` while no session of it is in front yet -
+     *  entering it, or going back to the picker (empty). */
+    enter(project: string) {
+      fallbackProject = project;
     },
     collapsingSplitPanes,
     launch,
@@ -445,8 +508,45 @@ export function createWindowSessions(host: WindowSessionsHost) {
         closingByHand.delete(id);
       }
     },
+    /** Let go of sessions another window now owns (moved there with their PTYs
+     *  still running): dropped from this window without a kill, and without
+     *  ending them - their chats live on in the receiving window. */
+    release(ids: readonly string[]) {
+      for (const id of ids) {
+        detach(id);
+      }
+    },
+    /** Take in sessions another window handed over, their PTYs already moved
+     *  here and still running: each terminal re-attaches through its usual
+     *  path (spawn is a no-op for a live session, `pty_history` replays it). */
+    adopt({ adopted, activeId: adoptedActiveId }: {
+      adopted: readonly AgentSession[];
+      activeId: string | null;
+    }) {
+      const newcomers = adopted.filter(session => !sessions.some(current => current.id === session.id));
+      sessions.push(...newcomers);
+      for (const session of newcomers) {
+        sessionLaunchedAt.set(session.id, Date.now());
+        setNaming({
+          id: session.id,
+          agent: session.agent.command,
+          isOn: namesWithAi(session.project)
+        });
+      }
+
+      const front = newcomers.find(session => session.id === adoptedActiveId) ?? newcomers.at(-1);
+      if (front !== undefined) {
+        select(front.id);
+        host.onLaunched();
+      }
+    },
     /** Drop one session handed off to a successor, leaving the active pane alone. */
     removeHandedOff(id: string) {
+      const handedOff = sessions.find(session => session.id === id);
+      if (handedOff !== undefined) {
+        host.onRetired(handedOff);
+      }
+
       sessions = sessions.filter(session => session.id !== id);
       paneIds = paneIds.filter(paneId => paneId !== id);
       closingByHand.delete(id);

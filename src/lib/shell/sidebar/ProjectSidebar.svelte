@@ -1,9 +1,11 @@
 <script lang="ts">
+  import type { ElsewhereSession } from "@/lib/dashboard/agent-board";
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import type { StoredChatRegistry } from "@/lib/session/chat-registry";
   import { sidebarProjects } from "@/lib/session/chat-registry";
   import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
+  import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";
   import { firstListedProject, sidebarProjectOrder, sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
   import SidebarHeader from "@/lib/shell/sidebar/SidebarHeader.svelte";
   import SidebarProjectList from "@/lib/shell/sidebar/SidebarProjectList.svelte";
@@ -14,10 +16,9 @@
   import { revalidateProjectKinds } from "@/lib/stores/workspace/projectKinds.svelte";
   import { revalidateProjectLanguages } from "@/lib/stores/workspace/projectLanguages.svelte";
   import { WindowMode } from "@/lib/types";
-  import type { AgentSession, RecordedConversation, WindowInfo } from "@/lib/types";
+  import type { AgentSession, WindowInfo } from "@/lib/types";
   import { isNewWindowClick, otherWindowWith } from "@/lib/workspace/open-windows";
   import FolderWatch from "@/lib/workspace/switcher/FolderWatch.svelte";
-  import { isCurrentProject } from "@/lib/workspace/switcher/switcher-rows";
   import SwitcherDialogs from "@/lib/workspace/switcher/SwitcherDialogs.svelte";
   import SwitcherFilter from "@/lib/workspace/switcher/SwitcherFilter.svelte";
   import type { Relocator } from "@/lib/workspace/workspace-relocate";
@@ -25,15 +26,17 @@
   import { onDestroy, onMount } from "svelte";
 
   // The left rail - the one place for projects. A search on top (Ctrl P), then
-  // every project as the switcher's rich row (pins first, then this window's
-  // project, the recents and any other holding chats) with its chats grouped
-  // under it - live sessions for the open project, the persisted ones
-  // elsewhere, reopened on their own conversations when picked. The project
-  // actions (picker, rename, new windows) hang off the head.
+  // every project as the switcher's rich row (pins first, then the project in
+  // front, the recents and any other holding chats) with its chats grouped
+  // under it - its live sessions, in this window or another, then the
+  // persisted and recorded ones, reopened on their own conversations when
+  // picked. The project actions (picker, rename, new windows) hang off the
+  // head.
   const {
     registry,
     project,
     sessions,
+    elsewhereSessions,
     activeId,
     onopenproject,
     onswitch,
@@ -45,12 +48,15 @@
     onnewchat
   }: {
     registry: StoredChatRegistry;
-    /** The project this window has open - its chats are the live sessions.
-     *  Empty while the picker is up. */
+    /** The project in front - the active session's. Empty while the picker
+     *  is up. */
     project: string;
+    /** Every session this window holds, whatever its project. */
     sessions: AgentSession[];
+    /** The sessions the other PADE windows run. */
+    elsewhereSessions: readonly ElsewhereSession[];
     activeId: string | null;
-    /** Switch this window to `project` (in place). */
+    /** Start a new session in `project`, beside the ones already open. */
     onopenproject: (project: string) => void;
     /** Open the full picker - absent where the picker is already on screen. */
     onswitch?: () => void;
@@ -59,14 +65,8 @@
     ondeleteproject: (project: string) => Promise<void>;
     /** Rename a project's folder on disk where it stands. */
     onrenamefolder: Relocator["renameFolder"];
-    onselectchat: (target: {
-      project: string;
-      chatId: string;
-    }) => void;
-    onresumeconversation: (target: {
-      project: string;
-      conversation: RecordedConversation;
-    }) => void;
+    onselectchat: (target: ChatPick) => void;
+    onresumeconversation: (target: ConversationPick) => void;
     ondeletechat: (target: {
       project: string;
       chatId: string;
@@ -105,9 +105,10 @@
     sidebarProjects({
       registry,
       projectOrder,
-      currentProject: project,
+      activeProject: project,
       liveSessions: sessions,
       liveLabels,
+      elsewhereSessions,
       recordedConversations
     })
   );
@@ -125,9 +126,9 @@
   // change, or a chat opens or closes (a closed chat lives on as a recorded
   // conversation). One joined key of both, so a registry save that leaves
   // them as they were doesn't re-read anything.
-  const refreshKey = $derived([sessions.length, ...projectOrder].join("\n"));
+  const refreshKey = $derived([sessions.length, elsewhereSessions.length, ...projectOrder].join("\n"));
   $effect(() => {
-    const [, ...projects] = refreshKey.split("\n");
+    const [, , ...projects] = refreshKey.split("\n");
     refreshRecordedConversations(projects);
   });
 
@@ -139,20 +140,14 @@
     }
   }
 
-  /** Bring a project up: this window's own is already here, one another window
-   *  has open is focused there, Ctrl/Cmd/Shift opens a new window, and anything
-   *  else switches this window to it. */
+  /** Bring a project up: one another window has in front is focused there,
+   *  Ctrl/Cmd/Shift opens a new window, and anything else starts a new session
+   *  in it here, beside the ones already open - even in the project in front,
+   *  the same as its new-chat button. */
   async function pickProject({ project: picked, opensNewWindow }: {
     project: string;
     opensNewWindow: boolean;
   }) {
-    if (isCurrentProject({
-      project: picked,
-      current: project
-    })) {
-      return;
-    }
-
     const openWindow = otherWindowWith({
       windowRows,
       path: picked

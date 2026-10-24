@@ -147,24 +147,25 @@ export function toggleNaming({ id, agent }: {
   });
 }
 
-/** Apply the window's naming setting to every session it currently holds. This
- *  is deliberately a bulk assignment, not a default that per-tab ✦ toggles layer
- *  on top of: changing the setting is the user saying "these tabs", so it also
- *  overrules a tab they had flipped by hand. */
-export function applyNamingToAll({ sessions, isOn }: {
+/** Apply the naming setting to every session the window holds, each under its
+ *  own project's answer. This is deliberately a bulk assignment, not a default
+ *  that per-tab ✦ toggles layer on top of: changing the setting is the user
+ *  saying "these tabs", so it also overrules a tab they had flipped by hand. */
+export function applyNamingToAll({ sessions, isOnFor }: {
   sessions: readonly {
     id: string;
+    project: string;
     agent: {
       command: string;
     };
   }[];
-  isOn: boolean;
+  isOnFor: (project: string) => boolean;
 }) {
   for (const session of sessions) {
     setNaming({
       id: session.id,
       agent: session.agent.command,
-      isOn
+      isOn: isOnFor(session.project)
     });
   }
 }

@@ -22,6 +22,7 @@ function session(id: string): AgentSession {
   return {
     id,
     agent: CLAUDE,
+    project: "C:\\repositories\\pade",
     conversationId: `conversation-${id}`
   };
 }
@@ -198,6 +199,21 @@ describe("layoutWithoutSession", () => {
     });
     expect(ids(layout.sessions)).toEqual(["a"]);
     expect(layout.paneIds).toEqual(["a"]);
+    expect(layout.activeId).toBe("a");
+  });
+
+  it("hands the front to the leaving session's own project while it has another", () => {
+    const layout = layoutWithoutSession({
+      layout: {
+        sessions: [session("a"), {
+          ...session("other"),
+          project: "C:\\repositories\\poll"
+        }, session("b")],
+        paneIds: ["b"],
+        activeId: "b"
+      },
+      id: "b"
+    });
     expect(layout.activeId).toBe("a");
   });
 

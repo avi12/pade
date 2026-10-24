@@ -25,6 +25,12 @@ export function focusWindow() {
   return getCurrentWindow().setFocus();
 }
 
+/** Close this window the way its title-bar X does - through the close
+ *  interception below, so whatever it still holds ends gracefully. */
+export function closeWindow() {
+  return getCurrentWindow().close();
+}
+
 /** Intercept this window's close (the title-bar X): the handler runs to
  *  completion first - the graceful-leave hook - and only then is the window
  *  destroyed (Tauri's own onCloseRequested contract when nothing prevents).

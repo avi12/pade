@@ -13,15 +13,14 @@ import { normalizePath } from "@/lib/util/paths";
 /** The sessions an MCP-config change should hand off: those running an agent the
  *  config governs, whose working directory IS the directory that changed (a
  *  per-branch worktree keeps its own config, so a root change leaves it alone). */
-export function mcpRestartTargets({ sessions, change, currentProject }: {
+export function mcpRestartTargets({ sessions, change }: {
   sessions: readonly AgentSession[];
   change: McpChange;
-  currentProject: string;
 }) {
   const changedRoot = normalizePath(change.root);
   return sessions.filter(session => {
     const isGovernedAgent = change.agents.includes(session.agent.id);
-    return isGovernedAgent && normalizePath(session.cwd ?? currentProject) === changedRoot;
+    return isGovernedAgent && normalizePath(session.cwd ?? session.project) === changedRoot;
   });
 }
 

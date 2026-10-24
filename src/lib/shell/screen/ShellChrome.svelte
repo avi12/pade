@@ -27,6 +27,7 @@
     activeSession,
     side = $bindable(),
     onsavetemp,
+    onmerge,
     onterminaleditor
   }: {
     project: string;
@@ -37,6 +38,7 @@
     activeSession: AgentSession | undefined;
     side: Side | null;
     onsavetemp: ComponentProps<typeof AppMenu>["onsavetemp"];
+    onmerge: ComponentProps<typeof AppMenu>["onmerge"];
     onterminaleditor: ComponentProps<typeof IdeMenu>["onterminaleditor"];
   } = $props();
 
@@ -63,6 +65,7 @@
       path: rootPath,
       create: false
     })}
+    {onmerge}
     {onsavetemp}
     path={project}
     {remoteRepository}

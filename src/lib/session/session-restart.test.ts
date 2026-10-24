@@ -15,9 +15,12 @@ const codex = {
   reordersBidi: false
 };
 
+const project = "C:\\repositories\\avi\\poll-avi";
+
 function session(overrides: Partial<AgentSession> & { id: string }) {
   return {
     agent: claude,
+    project,
     conversationId: `conv-${overrides.id}`,
     ...overrides
   };
@@ -31,15 +34,13 @@ const change: McpChange = {
   removed: [],
   membershipChanged: true
 };
-const project = "C:\\repositories\\avi\\poll-avi";
 
 describe("mcpRestartTargets", () => {
   it("selects sessions of the governed agent in the changed directory", () => {
     const sessions = [session({ id: "a" }), session({ id: "b" })];
     const targets = mcpRestartTargets({
       sessions,
-      change,
-      currentProject: project
+      change
     });
     expect(targets.map(session => session.id)).toEqual(["a", "b"]);
   });
@@ -51,8 +52,7 @@ describe("mcpRestartTargets", () => {
     }), session({ id: "b" })];
     const targets = mcpRestartTargets({
       sessions,
-      change,
-      currentProject: project
+      change
     });
     expect(targets.map(session => session.id)).toEqual(["b"]);
   });
@@ -64,8 +64,7 @@ describe("mcpRestartTargets", () => {
     });
     const targets = mcpRestartTargets({
       sessions: [worktree],
-      change,
-      currentProject: project
+      change
     });
     expect(targets).toEqual([]);
   });
@@ -77,8 +76,7 @@ describe("mcpRestartTargets", () => {
     });
     const targets = mcpRestartTargets({
       sessions: [matchingSession],
-      change,
-      currentProject: project
+      change
     });
     expect(targets.map(target => target.id)).toEqual(["s"]);
   });
@@ -97,8 +95,7 @@ describe("mcpRestartTargets", () => {
         ...change,
         path: `${project}\\.cursor\\mcp.json`,
         agents: ["cursor"]
-      },
-      currentProject: project
+      }
     });
     expect(targets.map(target => target.id)).toEqual(["cursor"]);
   });
@@ -110,8 +107,7 @@ describe("mcpRestartTargets", () => {
     });
     const targets = mcpRestartTargets({
       sessions: [sessionWithoutConversation],
-      change,
-      currentProject: project
+      change
     });
     expect(targets.map(target => target.id)).toEqual(["s"]);
   });

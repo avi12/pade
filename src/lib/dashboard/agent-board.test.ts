@@ -1,14 +1,18 @@
 import {
   agentState,
   AgentState,
+  BoardMessageKind,
   BoardSort,
   boardTally,
   changedFiles,
+  elsewhereSessions,
   isDashboardOpen,
   isSummaryDue,
   orderedWindows,
   parseBoardMessage,
-  windowFacts
+  windowFacts,
+  windowsAfterMessage,
+  windowsStillOpen
 } from "@/lib/dashboard/agent-board";
 import type { BoardAgent, BoardWindow } from "@/lib/dashboard/agent-board";
 import { SessionStatus } from "@/lib/types";
@@ -23,6 +27,7 @@ function agent(overrides: Partial<BoardAgent> = {}) {
     agentId: "claude",
     agentLabel: "Claude",
     name: "fix-toast",
+    project: "C:\\pade",
     status: SessionStatus.enum.ready,
     isAwaitingChoice: false,
     model: null,
@@ -264,5 +269,101 @@ describe("parseBoardMessage", () => {
       }).success
     ).toBe(true);
     expect(parseBoardMessage({ kind: "focus" }).success).toBe(false);
+  });
+
+  it("accepts a roll call", () => {
+    expect(parseBoardMessage({ kind: BoardMessageKind.enum.rollCall }).success).toBe(true);
+  });
+});
+
+describe("the board's windows", () => {
+  const first = window({
+    projectLabel: "w-1",
+    agents: [agent({ id: "a" })]
+  });
+  const second = window({
+    projectLabel: "w-2",
+    agents: [agent({
+      id: "b",
+      project: "C:\\poll",
+      conversationId: "conversation-b"
+    })]
+  });
+
+  it("keeps each window's latest snapshot", () => {
+    const withFirst = windowsAfterMessage({
+      windows: new Map(),
+      message: {
+        kind: BoardMessageKind.enum.window,
+        window: first
+      }
+    });
+    const updated = windowsAfterMessage({
+      windows: withFirst,
+      message: {
+        kind: BoardMessageKind.enum.window,
+        window: {
+          ...first,
+          agents: []
+        }
+      }
+    });
+    expect(updated.get("w-1")?.agents).toEqual([]);
+  });
+
+  it("drops a window that said goodbye, so other rails stop showing its sessions live", () => {
+    const windows = new Map([["w-1", first], ["w-2", second]]);
+    const after = windowsAfterMessage({
+      windows,
+      message: {
+        kind: BoardMessageKind.enum.windowGone,
+        label: "w-2"
+      }
+    });
+    expect([...after.keys()]).toEqual(["w-1"]);
+    expect(
+      elsewhereSessions({
+        windows: after,
+        ownLabel: "w-1"
+      })
+    ).toEqual([]);
+  });
+
+  it("drops a window that closed without a goodbye once it is no longer open", () => {
+    const windows = new Map([["w-1", first], ["w-2", second]]);
+    expect([
+      ...windowsStillOpen({
+        windows,
+        openLabels: ["w-1"]
+      }).keys()
+    ]).toEqual(["w-1"]);
+    expect(
+      windowsStillOpen({
+        windows,
+        openLabels: ["w-1", "w-2"]
+      })
+    ).toBe(windows);
+  });
+
+  it("changes nothing on a message that carries no snapshot", () => {
+    const windows = new Map([["w-1", first]]);
+    expect(
+      windowsAfterMessage({
+        windows,
+        message: {
+          kind: BoardMessageKind.enum.rollCall
+        }
+      })
+    ).toBe(windows);
+  });
+
+  it("lists the other windows' sessions with the window each runs in", () => {
+    const sessions = elsewhereSessions({
+      windows: new Map([["w-1", first], ["w-2", second]]),
+      ownLabel: "w-1"
+    });
+    expect(sessions.map(session => [session.id, session.windowLabel, session.project])).toEqual([
+      ["b", "w-2", "C:\\poll"]
+    ]);
   });
 });

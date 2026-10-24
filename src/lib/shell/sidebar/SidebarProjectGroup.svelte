@@ -47,8 +47,14 @@
     onpick: (e: MouseEvent) => void;
     onreorderpins: (paths: string[]) => void;
     onnewchat: () => void;
-    onselectchat: (chatId: string) => void;
-    onresumeconversation: (conversation: NonNullable<SidebarChat["resume"]>) => void;
+    onselectchat: (target: {
+      chatId: string;
+      opensNewWindow: boolean;
+    }) => void;
+    onresumeconversation: (target: {
+      conversation: NonNullable<SidebarChat["resume"]>;
+      opensNewWindow: boolean;
+    }) => void;
     ondeletechat: (chatId: string) => void;
   } = $props();
 
@@ -60,8 +66,8 @@
       labels
     })
   );
-  // Only this window's project has live sessions, so only its chat can be the
-  // focused one.
+  // The focused session belongs to the project in front, so only its chat can
+  // be the focused one.
   const activeChatId = $derived.by(() => {
     if (group.isCurrent) {
       return activeId;
@@ -107,7 +113,10 @@
           ondelete={() => ondeletechat(chat.id)}
           onnew={onnewchat}
           onresume={onresumeconversation}
-          onselect={() => onselectchat(chat.id)}
+          onselect={opensNewWindow => onselectchat({
+            chatId: chat.id,
+            opensNewWindow
+          })}
         />
       </li>
     {:else}

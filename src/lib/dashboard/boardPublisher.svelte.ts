@@ -1,8 +1,10 @@
 // A project window's side of the agents dashboard (lib/dashboard/agent-board):
 // publish a snapshot of this window's agents whenever any of it changes, answer
-// a dashboard that just opened, bring a session's tab forward when the dashboard
-// asks, and - only while a dashboard is open - keep each agent's AI summary
-// fresh. Summaries cost a model call, so no one pays for them unwatched.
+// a dashboard that just opened or a window asking for a roll call (its left
+// rail shows every window's sessions), bring a session's tab forward when the
+// dashboard or another window's rail asks, and - only while a dashboard is open
+// - keep each agent's AI summary fresh. Summaries cost a model call, so no one
+// pays for them unwatched.
 
 import {
   BOARD_CHANNEL,
@@ -72,6 +74,8 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
       agentId: session.agent.id,
       agentLabel: session.agent.label,
       name: sessionLabel(session.id) ?? session.agent.label,
+      project: session.project,
+      conversationId: session.conversationId,
       status: sessionStatus(session.id),
       isAwaitingChoice: awaitingChoice(session.id),
       model: running && modelLabel(running),
@@ -186,25 +190,29 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
     }
   }
 
-  function receive(message: BoardMessage) {
-    if (message.kind === BoardMessageKind.enum.dashboardOpen) {
+  // What each payload-free board signal does here.
+  const signalReceivers: Partial<Record<BoardMessageKind, () => void>> = {
+    [BoardMessageKind.enum.dashboardOpen]() {
       dashboardSeenAt = Date.now();
       now = dashboardSeenAt;
       publish();
-      return;
-    }
-
-    if (message.kind === BoardMessageKind.enum.dashboardClosed) {
+    },
+    [BoardMessageKind.enum.rollCall]: publish,
+    [BoardMessageKind.enum.dashboardClosed]() {
       dashboardSeenAt = null;
-      return;
     }
+  };
 
+  function receive(message: BoardMessage) {
     if (message.kind === BoardMessageKind.enum.focus) {
       focusSession({
         target: message.label,
         sessionId: message.sessionId
       });
+      return;
     }
+
+    signalReceivers[message.kind]?.();
   }
 
   onMount(() => {

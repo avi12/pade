@@ -24,6 +24,7 @@ interface SaveTempHost {
   reroot: (path: string) => void;
   launch: (options: {
     agent: Agent;
+    project: string;
     cwd: string;
     initialPrompt?: string;
   }) => void;
@@ -59,6 +60,7 @@ export async function saveTempWorkspace({ name, root, host }: {
   if (host.continuing) {
     host.launch({
       agent: host.continuing.agent,
+      project: migration.path,
       cwd: migration.path,
       initialPrompt: handoffDoc ? successorPrompt(handoffDoc) : undefined
     });
