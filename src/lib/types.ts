@@ -199,6 +199,14 @@ export type OpenTarget = {
   /** The directory was just created empty, so editor detection should wait for
    *  the agent's first project marker instead of keeping the generic fallback. */
   created?: true;
+  /** A persisted chat to bring to the front when the project opens (the
+   *  sidebar's chat pick). Its project's other chats come back with it. */
+  chatId?: string;
+  /** Open with a fresh chat added to the ones the project already has. */
+  newChat?: boolean;
+  /** A recorded conversation to resume when the project opens (the
+   *  sidebar's `/resume` list). */
+  resume?: RecordedConversation;
 };
 
 /** One runnable task parsed from a project manifest. */
@@ -820,6 +828,18 @@ export const SessionContext = z.object({
   windowTokens: z.number().nullable()
 });
 export type SessionContext = z.infer<typeof SessionContext>;
+
+/** One conversation an agent recorded for a project - what its own `/resume`
+ *  picker lists. `resumeArguments` reopen it for an agent PADE can't pin by
+ *  `conversationId` at spawn (Codex). */
+export const RecordedConversation = z.object({
+  agentId: z.string(),
+  conversationId: z.string(),
+  title: z.string().nullable(),
+  updatedAt: z.number(),
+  resumeArguments: z.array(z.string())
+});
+export type RecordedConversation = z.infer<typeof RecordedConversation>;
 
 /** One model an agent offers to switch to, as its own local catalog describes
  *  it - effort levels lowest first (with the agent's labels), empty for a

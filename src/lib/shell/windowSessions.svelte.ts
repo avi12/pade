@@ -34,6 +34,9 @@ const GRACEFUL_LEAVE_TIMEOUT_MS = 30_000;
 
 interface LaunchOptions {
   agent: Agent;
+  /** Reuse this session id instead of minting one - restoring a persisted
+   *  chat keeps its identity (and its snapshot entry) across a relaunch. */
+  sessionId?: string;
   initialPrompt?: string;
   cwd?: string;
   branch?: string;
@@ -55,7 +58,7 @@ function newSession({ options, project }: {
   project: string;
 }) {
   const session: AgentSession = {
-    id: crypto.randomUUID(),
+    id: options.sessionId ?? crypto.randomUUID(),
     agent: options.agent,
     initialPrompt: options.initialPrompt,
     modelChoice: startingModelChoice({

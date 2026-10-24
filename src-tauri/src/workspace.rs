@@ -1408,23 +1408,51 @@ pub async fn workspace_delete(path: String) -> Result<Settings, String> {
     })
 }
 
-/// Delete ANY project directory from disk and forget it - the switcher's "Delete
-/// directory" action. Unlike `workspace_delete` this is not gated to ADE-owned
-/// workspaces, so it can remove a real project the user points at; the UI raises
-/// an explicit, path-naming confirmation before calling it, and the caller (the
-/// relocator) kills the sessions holding the folder first.
-#[tauri::command]
-pub async fn workspace_delete_directory(path: String) -> Result<Settings, String> {
-    let settings = load();
-    let target = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
+/// May `workspace_delete_directory` remove this directory? Only a project a
+/// PADE surface actually shows: one it remembers (recent or pinned, the
+/// switcher's lists), one it owns, or one its home page lists - a project
+/// folder directly under a saved root, which is exactly what
+/// `workspace_scan` returns. Anything else (an arbitrary path, a plain folder
+/// under a root, a root itself) is refused, so this ungated removal can never
+/// be pointed at a directory the user never saw as a project.
+fn is_deletable_project(settings: &Settings, path: &str, target: &Path) -> bool {
+    if is_ade_owned(settings, path) {
+        return true;
+    }
+
     let is_remembered = settings
         .recent_projects
         .iter()
         .chain(&settings.pinned_projects)
         .filter_map(|remembered| std::fs::canonicalize(remembered).ok())
         .any(|remembered| remembered == target);
-    if !is_remembered {
-        return Err("only a project shown in the switcher can be deleted".into());
+    if is_remembered {
+        return true;
+    }
+
+    let is_scanned_under_a_root = settings
+        .roots
+        .iter()
+        .filter_map(|root| std::fs::canonicalize(root).ok())
+        .any(|root| target.parent() == Some(root.as_path()));
+    is_scanned_under_a_root && is_project(target)
+}
+
+/// Delete ANY project directory from disk and forget it - the switcher's and
+/// the home page's "Delete directory" action. Unlike `workspace_delete` this
+/// is not gated to ADE-owned workspaces, so it can remove a real project the
+/// user points at; it is gated to projects a PADE surface shows (see
+/// [`is_deletable_project`]), the UI raises an explicit, path-naming
+/// confirmation before calling it, and the caller (the relocator) kills the
+/// sessions holding the folder first.
+#[tauri::command]
+pub async fn workspace_delete_directory(path: String) -> Result<Settings, String> {
+    let settings = load();
+    let target = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
+    if !is_deletable_project(&settings, &path, &target) {
+        return Err(
+            "only a project shown on the home page or in the switcher can be deleted".into(),
+        );
     }
     delete_directory(&path)?;
     update_settings(|settings| {
@@ -1593,9 +1621,9 @@ pub fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Se
 mod tests {
     use super::{
         apply_label, apply_prefs_patch, canonical_dedup, canonical_path,
-        copy_tree_skipping_dependencies, expired_temps, is_temp_workspace_in, manual_label,
-        retry_through_sharing_race, validated_child_path, LabelSource, Prefs, Settings,
-        SettingsRepository, MILLISECONDS_PER_DAY,
+        copy_tree_skipping_dependencies, expired_temps, is_deletable_project, is_temp_workspace_in,
+        manual_label, retry_through_sharing_race, validated_child_path, LabelSource, Prefs,
+        Settings, SettingsRepository, MILLISECONDS_PER_DAY,
     };
     use crate::test_support::assert_empty;
     use std::collections::BTreeMap;
@@ -1806,6 +1834,87 @@ mod tests {
         assert!(!is_temp("elsewhere/temp-4"));
         assert!(!is_temp("workspaces/temp-missing"));
         std::fs::remove_dir_all(scratch).expect("scratch cleanup");
+    }
+
+    #[test]
+    fn a_project_scanned_under_a_root_can_be_deleted_from_the_home_page() {
+        let base = std::env::temp_dir().join(format!("pade-delete-home-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let root = base.join("roots");
+        let project = root.join("project");
+        std::fs::create_dir_all(&project).expect("create project");
+        std::fs::write(project.join("package.json"), "{}").expect("write manifest");
+        let mut settings = Settings::default();
+        settings.roots.push(root.to_string_lossy().into_owned());
+        let canonical = std::fs::canonicalize(&project).expect("canonical project");
+
+        assert!(is_deletable_project(
+            &settings,
+            &project.to_string_lossy(),
+            &canonical
+        ));
+
+        std::fs::remove_dir_all(&base).expect("clean delete fixture");
+    }
+
+    #[test]
+    fn a_directory_the_home_page_never_shows_cannot_be_deleted() {
+        let base =
+            std::env::temp_dir().join(format!("pade-delete-unlisted-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let root = base.join("roots");
+        let plain_folder = root.join("plain-folder");
+        let outside = base.join("outside");
+        std::fs::create_dir_all(&plain_folder).expect("create plain folder");
+        std::fs::create_dir_all(&outside).expect("create outside folder");
+        std::fs::write(outside.join("package.json"), "{}").expect("write manifest");
+        let mut settings = Settings::default();
+        settings.roots.push(root.to_string_lossy().into_owned());
+
+        // A folder under a root without a project marker is never listed.
+        let canonical_plain = std::fs::canonicalize(&plain_folder).expect("canonical plain");
+        assert!(!is_deletable_project(
+            &settings,
+            &plain_folder.to_string_lossy(),
+            &canonical_plain
+        ));
+        // A real project outside every root and list is never listed either.
+        let canonical_outside = std::fs::canonicalize(&outside).expect("canonical outside");
+        assert!(!is_deletable_project(
+            &settings,
+            &outside.to_string_lossy(),
+            &canonical_outside
+        ));
+        // The root itself is a container, not one of its projects.
+        let canonical_root = std::fs::canonicalize(&root).expect("canonical root");
+        assert!(!is_deletable_project(
+            &settings,
+            &root.to_string_lossy(),
+            &canonical_root
+        ));
+
+        std::fs::remove_dir_all(&base).expect("clean unlisted fixture");
+    }
+
+    #[test]
+    fn a_remembered_project_can_be_deleted_even_outside_every_root() {
+        let base = std::env::temp_dir().join(format!("pade-delete-recent-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let project = base.join("project");
+        std::fs::create_dir_all(&project).expect("create project");
+        let mut settings = Settings::default();
+        settings
+            .recent_projects
+            .push(project.to_string_lossy().into_owned());
+        let canonical = std::fs::canonicalize(&project).expect("canonical project");
+
+        assert!(is_deletable_project(
+            &settings,
+            &project.to_string_lossy(),
+            &canonical
+        ));
+
+        std::fs::remove_dir_all(&base).expect("clean recent fixture");
     }
 
     #[test]

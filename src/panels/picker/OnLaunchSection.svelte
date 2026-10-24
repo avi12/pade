@@ -1,5 +1,6 @@
 <script lang="ts">
   import { globalNaming } from "@/lib/agent/ai-naming-scope";
+  import { effective } from "@/lib/settings/prefs.svelte";
   import { StartMode, TEMP_CLEANUP_DAY_CHOICES } from "@/lib/types";
   import type { Prefs } from "@/lib/types";
   import { rovingTablist } from "@/lib/ui/roving-tabs";
@@ -18,7 +19,7 @@
     onainaming: (on: boolean) => void;
   } = $props();
 
-  const startMode = $derived(prefs.startMode ?? StartMode.enum.temp);
+  const startMode = $derived(effective.startMode);
   const tempCleanupDays = $derived(prefs.tempCleanupDays ?? null);
   const autoName = $derived(prefs.autoNameTemp !== false);
   const aiNaming = $derived(globalNaming(prefs));

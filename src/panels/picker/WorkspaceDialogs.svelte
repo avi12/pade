@@ -14,11 +14,28 @@
   } = $props();
 
   const relabelTargetLabel = $derived(labels[lifecycle.relabelTarget ?? ""] ?? "");
+  const isDeleteTargetOwned = $derived(
+    lifecycle.deleteTarget !== null && lifecycle.isOwned(lifecycle.deleteTarget)
+  );
+  const deleteConfirmLabel = $derived.by(() => {
+    if (isDeleteTargetOwned) {
+      return "Delete workspace";
+    }
+
+    return "Delete directory";
+  });
+  const deleteTitle = $derived.by(() => {
+    if (isDeleteTargetOwned) {
+      return "Delete this workspace?";
+    }
+
+    return "Delete this project directory?";
+  });
 </script>
 
 {#if lifecycle.deleteTarget}
   <WorkspaceDeleteDialog
-    confirmLabel="Delete workspace"
+    confirmLabel={deleteConfirmLabel}
     error={lifecycle.deleteError}
     isBusy={lifecycle.isDeleting}
     isSkipTipShown
@@ -26,7 +43,7 @@
     oncancel={() => lifecycle.cancelDelete()}
     onconfirm={async () => await lifecycle.confirmDelete()}
     path={lifecycle.deleteTarget}
-    title="Delete this workspace?"
+    title={deleteTitle}
   />
 {/if}
 

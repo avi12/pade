@@ -11,12 +11,48 @@ function host(overrides: Partial<LifecycleHost> = {}) {
     onmove: vi.fn(async () => ""),
     onrename: vi.fn(async () => ""),
     ondelete: vi.fn(),
+    ondeleteproject: vi.fn(),
     onrenamefolder: vi.fn(async () => RENAMED),
     openWindows: vi.fn(async () => []),
     refresh: vi.fn(async () => {}),
     ...overrides
   };
 }
+
+describe("delete", () => {
+  it("deletes a project PADE does not own through the project deletion", async () => {
+    const lifecycleHost = host();
+    const lifecycle = createWorkspaceLifecycle(lifecycleHost);
+    lifecycle.requestDelete(PROJECT);
+    await lifecycle.confirmDelete();
+    expect(lifecycleHost.ondeleteproject).toHaveBeenCalledWith(PROJECT);
+    expect(lifecycleHost.ondelete).not.toHaveBeenCalled();
+    expect(lifecycleHost.refresh).toHaveBeenCalledOnce();
+    expect(lifecycle.deleteTarget).toBeNull();
+  });
+
+  it("deletes an owned workspace through the owned deletion", async () => {
+    const lifecycleHost = host({ isOwned: () => true });
+    const lifecycle = createWorkspaceLifecycle(lifecycleHost);
+    lifecycle.requestDelete(PROJECT);
+    await lifecycle.confirmDelete();
+    expect(lifecycleHost.ondelete).toHaveBeenCalledWith(PROJECT);
+    expect(lifecycleHost.ondeleteproject).not.toHaveBeenCalled();
+  });
+
+  it("keeps the confirmation open with the reason when a project deletion fails", async () => {
+    const lifecycleHost = host({
+      ondeleteproject: vi.fn(async () => {
+        throw new Error("folder is in use");
+      })
+    });
+    const lifecycle = createWorkspaceLifecycle(lifecycleHost);
+    lifecycle.requestDelete(PROJECT);
+    await lifecycle.confirmDelete();
+    expect(lifecycle.deleteTarget).toBe(PROJECT);
+    expect(lifecycle.deleteError).toBe("folder is in use");
+  });
+});
 
 describe("folder rename", () => {
   it("renames through the relocator, then refreshes the lists", async () => {

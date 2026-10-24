@@ -168,6 +168,7 @@ pub fn run() {
             platform::recovery::recovery_arm,
             terminal::theming::agent_theme_publish,
             agents::resume::agent_resume_args,
+            agents::conversations::agent_conversations,
             agents::session_context::agent_session_context,
             agents::running_model::agent_running_model,
             agents::running_model::agent_model_options,

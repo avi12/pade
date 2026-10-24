@@ -52,7 +52,7 @@ fn codex_session_for_cwd(cwd: &str) -> Option<String> {
 }
 
 /// Every rollout `.jsonl` under the sessions tree, with its modified time.
-fn rollout_files(directory: &Path) -> Vec<(std::time::SystemTime, PathBuf)> {
+pub(super) fn rollout_files(directory: &Path) -> Vec<(std::time::SystemTime, PathBuf)> {
     let mut found = Vec::new();
     let Ok(entries) = std::fs::read_dir(directory) else {
         return found;
@@ -79,7 +79,7 @@ fn rollout_files(directory: &Path) -> Vec<(std::time::SystemTime, PathBuf)> {
     found
 }
 
-fn first_line(path: &Path) -> Option<String> {
+pub(super) fn first_line(path: &Path) -> Option<String> {
     let file = File::open(path).ok()?;
     let mut line = String::new();
     BufReader::new(file).read_line(&mut line).ok()?;
@@ -92,7 +92,7 @@ fn first_line(path: &Path) -> Option<String> {
 /// Field extraction over full JSON parsing: the meta line drags in the entire
 /// base-instructions prompt, and two string fields don't justify a serde model
 /// of Codex's private schema.
-fn interactive_session_id(metadata_line: &str, wanted_cwd: &str) -> Option<String> {
+pub(super) fn interactive_session_id(metadata_line: &str, wanted_cwd: &str) -> Option<String> {
     let is_oneshot =
         json_string_field(metadata_line, SOURCE_FIELD).is_some_and(|source| source == EXEC_SOURCE);
     if is_oneshot {

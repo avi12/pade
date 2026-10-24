@@ -2,6 +2,16 @@
   import { publishToBoard } from "@/lib/dashboard/boardPublisher.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { onWindowCloseRequested } from "@/lib/ipc/platform";
+  import {
+    chatsForProject,
+    loadChatRegistry,
+    persistedChatsFromSessions,
+    registryWithoutChat,
+    registryWithProjectChats,
+    saveChatRegistry
+  } from "@/lib/session/chat-registry";
+  import type { StoredChatRegistry } from "@/lib/session/chat-registry";
+  import { restoreProjectChats, shouldStartFreshChat } from "@/lib/session/chat-restore";
   import { EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session/session-exit";
   import { clearSessionSnapshot, restoreLiveSnapshot } from "@/lib/session/session-restore";
   import { effective } from "@/lib/settings/prefs.svelte";
@@ -11,6 +21,7 @@
   import { clearDiscordPresence } from "@/lib/shell/discord-presence";
   import BootSplash from "@/lib/shell/screen/BootSplash.svelte";
   import { animatePaneIn } from "@/lib/shell/screen/pane-dom";
+  import ProjectSidebar from "@/lib/shell/screen/ProjectSidebar.svelte";
   import WorkspaceScreen from "@/lib/shell/screen/WorkspaceScreen.svelte";
   import { registerSessionShortcuts } from "@/lib/shell/session-shortcuts";
   import { createSessionAutomation } from "@/lib/shell/sessionAutomation.svelte";
@@ -20,6 +31,7 @@
   import WindowEvents from "@/lib/shell/WindowEvents.svelte";
   import { startWindowServices } from "@/lib/shell/windowServices.svelte";
   import { createWindowSessions } from "@/lib/shell/windowSessions.svelte";
+  import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
   import { stopAllRunners } from "@/lib/stores/tasks/runners.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import {
@@ -28,14 +40,14 @@
     initNewProjectDetection
   } from "@/lib/stores/workspace/new-project-detection";
   import { StartMode, realAgents as toRealAgents } from "@/lib/types";
-  import type { Agent, OpenTarget } from "@/lib/types";
+  import type { Agent, OpenTarget, RecordedConversation } from "@/lib/types";
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
   import { isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
   import { createRelocator } from "@/lib/workspace/workspace-relocate";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
-  import { onDestroy, onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick, untrack } from "svelte";
 
   // Which top-level screen is showing. A closed set defined once, compared
   // against by member so no bare literal leaks into the flow logic.
@@ -49,6 +61,9 @@
   let phase = $state<Phase>(Phase.Loading);
   let agents = $state<Agent[]>([]);
   let currentProject = $state<string>("");
+  // Every project's persisted chats (lib/session/chat-registry) - the left
+  // rail's memory, loaded once and kept in sync with the live sessions below.
+  let chatRegistry = $state<StoredChatRegistry>(loadChatRegistry());
   // Carried through the agent picker so a new-project prompt survives onboarding.
   let pendingPrompt = $state<string | undefined>();
   // The panes container, so a drop's pointer can be hit-tested against the panes.
@@ -119,6 +134,37 @@
       pendingPrompt = undefined;
       phase = Phase.Onboarding;
     }
+  });
+
+  // Keep the persisted chat registry in step with this window's live
+  // sessions, labels included, so a relaunch can list and resume them. An
+  // empty session list never overwrites: leaving a project passes through
+  // empty, and its stored chats must survive that.
+  $effect(() => {
+    if (currentProject === "" || windowSessions.sessions.length === 0) {
+      return;
+    }
+
+    const chats = persistedChatsFromSessions({
+      project: currentProject,
+      sessions: windowSessions.sessions,
+      labels: Object.fromEntries(
+        windowSessions.sessions.map(session => [session.id, sessionLabel(session.id)] as const)
+      ),
+      now: Date.now()
+    });
+    if (chats.length === 0) {
+      return;
+    }
+
+    const next = registryWithProjectChats({
+      registry: untrack(() => chatRegistry),
+      project: currentProject,
+      chats,
+      activeChatId: windowSessions.activeId
+    });
+    chatRegistry = next;
+    saveChatRegistry(next);
   });
 
   // Handoff, model switching, usage resume and pacing, API-error retry, MCP
@@ -223,15 +269,21 @@
     const context = await sendMessage(Command.launchContext);
     if (context.hasProject) {
       await sendMessage(Command.workspaceOpen, { path: context.cwd }); // records it in recent history
-      startAgentFlow({ path: context.cwd });
+      await startAgentFlow({ path: context.cwd });
       await repository.load();
       return;
     }
 
-    // Opt-in: show the project picker instead of starting in a temp workspace.
-    const prefersPicker = settings.prefs.startMode === StartMode.enum.picker;
+    // Default: show the homescreen (the project picker). Starting straight
+    // in a temp workspace, resuming the last project on the way, is the
+    // opt-in the picker's "On launch" section offers instead.
+    const prefersPicker = effective.startMode === StartMode.enum.picker;
     if (prefersPicker) {
       phase = Phase.Project;
+      return;
+    }
+
+    if (await restoreLastProject()) {
       return;
     }
 
@@ -240,8 +292,31 @@
     await startInTempWorkspace();
   }
 
+  // Continue where the last session left off: reopen the project the user
+  // last worked in, with its chats restored, when it still has any and is
+  // still on disk. False when there is nothing to continue, or it is gone.
+  async function restoreLastProject() {
+    const lastProject = chatRegistry.lastProject;
+    const hasLastChats = lastProject !== "" && chatsForProject({
+      registry: chatRegistry,
+      project: lastProject
+    }).length > 0;
+    if (!hasLastChats) {
+      return false;
+    }
+
+    try {
+      await sendMessage(Command.workspaceOpen, { path: lastProject });
+      await startAgentFlow({ path: lastProject });
+      await repository.load();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function startInTempWorkspace() {
-    startAgentFlow({
+    await startAgentFlow({
       path: await sendMessage(Command.workspaceTemp),
       isNewProject: true
     });
@@ -367,6 +442,86 @@
     await windowSessions.closeAllGracefully();
   }
 
+  // Launch a fresh chat in `path` on its preferred agent (a create-form
+  // pick, else the per-project/default one, else the best installed).
+  function launchFreshChat({ path, agentId, initialPrompt }: {
+    path: string;
+    agentId?: string;
+    initialPrompt?: string;
+  }) {
+    windowSessions.launch({
+      agent: preferredAgentFor({
+        path,
+        agentId
+      }) ?? bestAgent,
+      initialPrompt
+    });
+  }
+
+  // Reopen a conversation from the sidebar's `/resume` list: bring it
+  // forward when a chat already runs it, else launch its agent on it,
+  // titled the way the agent titled it.
+  function resumeRecordedConversation(conversation: RecordedConversation) {
+    const runningChat = windowSessions.sessions.find(session => session.conversationId === conversation.conversationId);
+    if (runningChat !== undefined) {
+      windowSessions.select(runningChat.id);
+      return;
+    }
+
+    const agent = agents.find(candidate => candidate.id === conversation.agentId);
+    if (agent === undefined) {
+      return;
+    }
+
+    const id = windowSessions.launch({
+      agent,
+      conversationId: conversation.conversationId,
+      args: conversation.resumeArguments.length > 0 ? conversation.resumeArguments : undefined
+    });
+    if (conversation.title !== null) {
+      setSessionLabel({
+        id,
+        label: conversation.title
+      });
+    }
+  }
+
+  // What a return to the open project does with its target: bring the
+  // picked chat to the front, or launch a fresh one beside the live chats.
+  function focusReturnedProject(target: OpenTarget) {
+    if (target.resume !== undefined) {
+      resumeRecordedConversation(target.resume);
+      return;
+    }
+
+    if (target.chatId !== undefined && windowSessions.isOpen(target.chatId)) {
+      windowSessions.select(target.chatId);
+      return;
+    }
+
+    if (target.newChat === true) {
+      launchFreshChat({
+        path: target.path,
+        agentId: target.agent
+      });
+    }
+  }
+
+  // Picking the project this window already has open is a return, not a
+  // reopen - the live sessions stay exactly as they were. True when this
+  // handled the open.
+  function returnToOpenProject(target: OpenTarget) {
+    const isReturnToCurrent =
+      normalizePath(target.path) === normalizePath(currentProject) && windowSessions.sessions.length > 0;
+    if (!isReturnToCurrent) {
+      return false;
+    }
+
+    focusReturnedProject(target);
+    phase = Phase.Ready;
+    return true;
+  }
+
   async function openProject(target: OpenTarget) {
     // If another window already has this project open, focus it instead of
     // opening a second copy here - the picker window stays put.
@@ -374,43 +529,75 @@
       return;
     }
 
-    // Picking the project this window already has open is a return, not a
-    // reopen - the live sessions stay exactly as they were.
-    const isReturnToCurrent =
-      normalizePath(target.path) === normalizePath(currentProject) && windowSessions.sessions.length > 0;
-    if (isReturnToCurrent) {
-      phase = Phase.Ready;
+    if (returnToOpenProject(target)) {
       return;
     }
 
     // Switching this window to another project: the old project's agents don't
     // come along. Kill them before entering, so no session keeps running - and
-    // cwd-locking - a workspace this window has left.
+    // cwd-locking - a workspace this window has left. Their chats stay in the
+    // registry, so coming back resumes them.
     await runExclusiveLeave(async () => {
       await closeWorkspaceGracefully();
 
       await sendMessage(Command.workspaceOpen, { path: target.path });
       await sendSettingsMessage(Command.settingsGet); // pick up the updated recent history
-      startAgentFlow({
+      await startAgentFlow({
         path: target.path,
         initialPrompt: target.initialPrompt,
         agentId: target.agent,
-        isNewProject: target.created === true
+        isNewProject: target.created === true,
+        chatId: target.chatId,
+        wantNewChat: target.newChat === true,
+        resume: target.resume
       });
       await repository.load();
     });
   }
 
-  // Decide how to enter a project: honor a saved per-project/default agent,
-  // else launch the best installed agent outright - opening a project always
-  // lands in the workspace, never on a blocking chooser. The agent picker
-  // still appears after a hand-closed or exited last session, where "what
-  // next?" is a genuine question. (Reused for every entry path.)
-  function startAgentFlow({ path, initialPrompt, agentId, isNewProject = false }: {
+  // Restore a project's persisted chats through this window's sessions.
+  async function restoreChatsForProject({ path, chatId }: {
+    path: string;
+    chatId?: string;
+  }) {
+    return await restoreProjectChats({
+      host: {
+        registry: chatRegistry,
+        agents,
+        launch: windowSessions.launch,
+        select: windowSessions.select,
+        isOpen: windowSessions.isOpen,
+        setLabel: setSessionLabel
+      },
+      project: path,
+      chatId
+    });
+  }
+
+  // Decide how to enter a project: bring its persisted chats back when it
+  // has any, else honor a saved per-project/default agent and launch the
+  // best installed agent outright - opening a project always lands in the
+  // workspace, never on a blocking chooser. A first prompt (the home
+  // composer) or an explicit new-chat request starts a fresh chat alongside
+  // the restored ones. The agent picker still appears after a hand-closed
+  // or exited last session, where "what next?" is a genuine question.
+  // (Reused for every entry path.)
+  async function startAgentFlow({
+    path,
+    initialPrompt,
+    agentId,
+    isNewProject = false,
+    chatId,
+    wantNewChat = false,
+    resume
+  }: {
     path: string;
     initialPrompt?: string;
     agentId?: string;
     isNewProject?: boolean;
+    chatId?: string;
+    wantNewChat?: boolean;
+    resume?: RecordedConversation;
   }) {
     currentProject = path;
 
@@ -420,13 +607,29 @@
 
     // Let other windows' pickers focus this one instead of reopening the project.
     sendMessage(Command.windowRegisterProject, { path });
-    windowSessions.launch({
-      agent: preferredAgentFor({
+
+    const hasRestoredChats = isNewProject
+      ? false
+      : await restoreChatsForProject({
         path,
-        agentId
-      }) ?? bestAgent,
-      initialPrompt
+        chatId
+      });
+    if (resume !== undefined) {
+      resumeRecordedConversation(resume);
+    }
+
+    const wantsFreshChat = shouldStartFreshChat({
+      initialPrompt,
+      wantNewChat,
+      hasRestoredChats: hasRestoredChats || resume !== undefined
     });
+    if (wantsFreshChat) {
+      launchFreshChat({
+        path,
+        agentId,
+        initialPrompt
+      });
+    }
   }
 
   // A create-form agent pick wins outright; otherwise honor the per-project
@@ -443,6 +646,70 @@
     document.startViewTransition(async () => {
       phase = Phase.Project;
       await tick();
+    });
+  }
+
+  // ── Left rail: switch, start and delete chats ─────────────────────────────
+  // Picking a chat in the open project just brings it to the front; picking
+  // one elsewhere opens its project and restores its chats with that one in
+  // front. Deleting forgets the chat first, then closes it if it is live -
+  // the registry sync would keep it otherwise. A new chat in the open
+  // project launches beside the ones there; elsewhere it opens the project
+  // with a fresh chat added to its restored ones.
+  function selectChat({ project, chatId }: {
+    project: string;
+    chatId: string;
+  }) {
+    if (normalizePath(project) === normalizePath(currentProject) && windowSessions.isOpen(chatId)) {
+      windowSessions.select(chatId);
+      phase = Phase.Ready;
+      return;
+    }
+
+    openProject({
+      path: project,
+      chatId
+    });
+  }
+
+  async function deleteChat({ project, chatId }: {
+    project: string;
+    chatId: string;
+  }) {
+    const next = registryWithoutChat({
+      registry: chatRegistry,
+      project,
+      chatId
+    });
+    chatRegistry = next;
+    saveChatRegistry(next);
+
+    if (normalizePath(project) !== normalizePath(currentProject)) {
+      return;
+    }
+
+    const liveSession = windowSessions.sessions.find(session => session.id === chatId);
+    if (liveSession !== undefined) {
+      await windowSessions.close(liveSession);
+    }
+  }
+
+  // A recorded conversation picked in the left rail: open its project (or
+  // return to it) with that conversation resumed.
+  async function resumeConversation({ project, conversation }: {
+    project: string;
+    conversation: RecordedConversation;
+  }) {
+    await openProject({
+      path: project,
+      resume: conversation
+    });
+  }
+
+  function newChat(project: string) {
+    openProject({
+      path: project,
+      newChat: true
     });
   }
 
@@ -484,14 +751,28 @@
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monospaceFamily} class="app-root">
   {#if phase === Phase.Project}
-    <ProjectPicker
-      {agents}
-      ondelete={relocator.remove}
-      onmove={relocator.move}
-      onopen={openProject}
-      onrename={relocator.rename}
-      onrenamefolder={relocator.renameFolder}
-    />
+    <div class="home-shell">
+      <ProjectSidebar
+        activeId={windowSessions.activeId}
+        ondeletechat={async target => await deleteChat(target)}
+        onnewchat={newChat}
+        onopenproject={projectPath => openProject({ path: projectPath })}
+        onresumeconversation={resumeConversation}
+        onselectchat={selectChat}
+        project={currentProject}
+        registry={chatRegistry}
+        sessions={windowSessions.sessions}
+      />
+      <ProjectPicker
+        {agents}
+        ondelete={relocator.remove}
+        ondeleteproject={relocator.removeDirectory}
+        onmove={relocator.move}
+        onopen={openProject}
+        onrename={relocator.rename}
+        onrenamefolder={relocator.renameFolder}
+      />
+    </div>
   {:else if phase === Phase.Onboarding}
     <Onboarding
       {agents}
@@ -508,6 +789,7 @@
       {agents}
       {automation}
       {bestAgent}
+      {chatRegistry}
       {isTemp}
       ondelete={async projectPath => {
         // "Delete directory" - a destructive removal of a real project's
@@ -518,9 +800,13 @@
         // surface it in the still-open prompt.
         await relocator.removeDirectory(projectPath);
       }}
+      ondeletechat={async target => await deleteChat(target)}
+      onnewchat={newChat}
       onopen={projectPath => openProject({ path: projectPath })}
       onrenamefolder={relocator.renameFolder}
       onreroot={path => (currentProject = path)}
+      onresumeconversation={resumeConversation}
+      onselectchat={selectChat}
       onswitch={async () => {
         // "Switch project" - a DELIBERATE leave to the picker. The project's
         // agents and task runners do not idle invisibly behind it: runners
@@ -551,6 +837,15 @@
 
 <style>
   .app-root {
+    block-size: 100%;
+  }
+
+  /* The home screen: the same left rail the workspace shows, beside the
+     picker - so projects and their chats stay visible and switchable before
+     a project is open. */
+  .home-shell {
+    display: flex;
+    flex-direction: row;
     block-size: 100%;
   }
 </style>
