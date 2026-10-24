@@ -1,4 +1,4 @@
-import { errorMessage } from "@/lib/util/errors";
+import { errorMessage } from "@/lib/util/errors/errors";
 import { describe, expect, it } from "vitest";
 
 describe("errorMessage", () => {

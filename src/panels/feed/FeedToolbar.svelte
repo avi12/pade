@@ -4,7 +4,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import { errorHeadline } from "@/lib/util/error-text";
+  import { errorHeadline } from "@/lib/util/errors/error-text";
   import TypeFilterMenu from "@/panels/feed/TypeFilterMenu.svelte";
   import type { SvelteSet } from "svelte/reactivity";
 

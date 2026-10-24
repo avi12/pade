@@ -8,7 +8,7 @@
 // confirmation dialog serves both.
 
 import type { Settings, WindowInfo } from "@/lib/types";
-import { errorMessage } from "@/lib/util/errors";
+import { errorMessage } from "@/lib/util/errors/errors";
 import { baseName } from "@/lib/util/paths";
 import { nameError, parseInput, ProjectName } from "@/lib/validate";
 import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";

@@ -8,7 +8,7 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { chatsForProject } from "@/lib/session/chats/chat-registry";
 import type { PersistedChat, StoredChatRegistry } from "@/lib/session/chats/chat-registry";
 import type { Agent, ModelChoice } from "@/lib/types";
-import { settledValue } from "@/lib/util/settled";
+import { settledValue } from "@/lib/util/async/settled";
 
 /** What the app shell provides for a restore. */
 export interface ChatRestoreHost {

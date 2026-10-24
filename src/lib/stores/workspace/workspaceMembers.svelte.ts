@@ -12,7 +12,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { WorkspaceMember } from "@/lib/types";
-import { settledValue } from "@/lib/util/settled";
+import { settledValue } from "@/lib/util/async/settled";
 import { memberPath } from "@/lib/workspace/members/workspace-members";
 
 let root = $state("");

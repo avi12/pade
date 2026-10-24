@@ -11,7 +11,7 @@
 import { PacedWindowKind } from "@/lib/types";
 import type { PacingByWindow, PacingSettings, Prefs } from "@/lib/types";
 import { DEFAULT_PACING } from "@/lib/usage/pacing-policy";
-import { withRecordEntry } from "@/lib/util/record-entry";
+import { withRecordEntry } from "@/lib/util/data/record-entry";
 
 /** The global settings every workspace falls back to, per window. */
 export function globalPacing(prefs: Prefs) {

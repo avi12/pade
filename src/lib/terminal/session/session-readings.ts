@@ -5,7 +5,7 @@ import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging"
 import { observeRunningModel, observeSessionLog } from "@/lib/stores/agent/context.svelte";
 import { ensureModelOptions } from "@/lib/stores/model/modelOptions.svelte";
 import type { AgentSession } from "@/lib/types";
-import { coalesced } from "@/lib/util/coalesce";
+import { coalesced } from "@/lib/util/async/coalesce";
 
 export function createSessionReadings(session: () => AgentSession) {
   // Read the model and effort the agent itself reported (see running_model.rs) -

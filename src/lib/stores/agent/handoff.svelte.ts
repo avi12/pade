@@ -28,7 +28,7 @@ import { submittedPrompt } from "@/lib/terminal/input/terminal-input";
 import { CreditsState, SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
 import { USAGE_SPENT_PERCENTAGE } from "@/lib/usage/usage-groups";
-import { settledValue } from "@/lib/util/settled";
+import { settledValue } from "@/lib/util/async/settled";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 

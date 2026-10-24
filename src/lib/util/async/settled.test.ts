@@ -1,4 +1,4 @@
-import { settledValue } from "@/lib/util/settled";
+import { settledValue } from "@/lib/util/async/settled";
 import { describe, expect, it } from "vitest";
 
 describe("settledValue", () => {

@@ -9,7 +9,7 @@ import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/agent/initial-pr
 import { SUBMIT_VERIFY_MS } from "@/lib/terminal/activity/activity-timing";
 import { pastedText } from "@/lib/terminal/input/terminal-input";
 import { CURSOR_DOWN, CURSOR_UP, ENTER } from "@/lib/terminal/input/terminal-sequences";
-import { afterDelay } from "@/lib/util/delay";
+import { afterDelay } from "@/lib/util/async/delay";
 
 // Keys sent to walk and confirm the gate, bounded so a gate whose layout we
 // misread can't be keyed at forever - the user answers it by hand instead.

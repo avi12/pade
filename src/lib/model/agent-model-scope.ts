@@ -8,7 +8,7 @@
 // the key away rather than freezing whatever the agent happened to run.
 
 import type { ModelChoice, Prefs } from "@/lib/types";
-import { withRecordEntry } from "@/lib/util/record-entry";
+import { withRecordEntry } from "@/lib/util/data/record-entry";
 
 /** The workspace's starting model for `agent`, or `undefined` to start on the
  *  agent's own default. */

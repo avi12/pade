@@ -9,7 +9,7 @@
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import type { Ide } from "@/lib/types";
-import { settledValue } from "@/lib/util/settled";
+import { settledValue } from "@/lib/util/async/settled";
 import { SvelteMap } from "svelte/reactivity";
 
 /** Ranked editors per project directory - `editorsFor(project)[0]` is *the*

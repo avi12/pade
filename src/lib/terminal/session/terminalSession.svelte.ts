@@ -27,7 +27,7 @@ import { createSessionReadings } from "@/lib/terminal/session/session-readings";
 import { colorSchemeReport, createColorSchemeRelay } from "@/lib/terminal/theme/terminal-color-scheme";
 import { SessionStatus } from "@/lib/types";
 import type { AgentSession, PtyChunk } from "@/lib/types";
-import { errorMessage } from "@/lib/util/errors";
+import { errorMessage } from "@/lib/util/errors/errors";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { Terminal } from "@xterm/xterm";
 

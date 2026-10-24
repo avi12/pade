@@ -49,8 +49,8 @@
   import { StartMode, realAgents as toRealAgents } from "@/lib/types";
   import type { Agent, AgentSession, OpenTarget } from "@/lib/types";
   import OverflowTooltipLayer from "@/lib/ui/tooltip/OverflowTooltipLayer.svelte";
+  import { settledValue } from "@/lib/util/async/settled";
   import { isTemporaryWorkspace, shortDisplayName } from "@/lib/util/paths";
-  import { settledValue } from "@/lib/util/settled";
   import { createRelocator } from "@/lib/workspace/relocate/workspace-relocate";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";

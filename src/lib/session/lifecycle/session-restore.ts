@@ -21,7 +21,7 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
 import { Agent, ModelChoice } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
-import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
+import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { z } from "zod";
 
 /** Where this window's snapshot lives. Keyed by window label so a sibling

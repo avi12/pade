@@ -6,7 +6,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { activeMemberIn } from "@/lib/stores/workspace/workspaceMembers.svelte";
-import { settledValue } from "@/lib/util/settled";
+import { settledValue } from "@/lib/util/async/settled";
 
 export function createActiveRepository({ project }: {
   /** The window's open project; empty while none is. */

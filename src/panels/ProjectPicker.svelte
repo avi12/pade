@@ -6,8 +6,8 @@
   import { AddRootStatus } from "@/lib/types";
   import type { Agent, OpenTarget, ProjectEntry, Settings } from "@/lib/types";
   import BrandMark from "@/lib/ui/brand/BrandMark.svelte";
+  import { settledValue } from "@/lib/util/async/settled";
   import { isTemporaryWorkspace } from "@/lib/util/paths";
-  import { settledValue } from "@/lib/util/settled";
   import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";

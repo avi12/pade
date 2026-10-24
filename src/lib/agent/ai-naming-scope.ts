@@ -13,7 +13,7 @@
 // global happened to be that day.
 
 import type { Prefs } from "@/lib/types";
-import { withRecordEntry } from "@/lib/util/record-entry";
+import { withRecordEntry } from "@/lib/util/data/record-entry";
 
 /** Naming is opt-in - it spends agent turns, so nothing names until asked. */
 const AI_NAMING_DEFAULT = false;

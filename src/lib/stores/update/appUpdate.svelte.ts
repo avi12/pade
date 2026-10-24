@@ -6,7 +6,7 @@
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import type { UpdateStatus } from "@/lib/types";
-import { errorMessage } from "@/lib/util/errors";
+import { errorMessage } from "@/lib/util/errors/errors";
 
 let status = $state<UpdateStatus | null>(null);
 let isChecking = $state(false);

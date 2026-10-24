@@ -9,8 +9,8 @@ import type { ElsewhereSession } from "@/lib/dashboard/agent-board";
 import { isSameProject, sessionsOfProject } from "@/lib/session/chats/session-projects";
 import { Agent, ModelChoice } from "@/lib/types";
 import type { AgentSession, RecordedConversation, SessionStatus } from "@/lib/types";
+import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { normalizePath } from "@/lib/util/paths";
-import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
 import { z } from "zod";
 
 const CHAT_REGISTRY_STORAGE_KEY = "pade.project-chats";

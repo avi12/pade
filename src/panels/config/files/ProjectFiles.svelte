@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import type { ConfigFile } from "@/lib/types";
-  import { settledValue } from "@/lib/util/settled";
+  import { settledValue } from "@/lib/util/async/settled";
   import { isListedConfigFile } from "@/panels/config/files/config-files";
   import ConfigFileViewer from "@/panels/config/files/ConfigFileViewer.svelte";
   import SectionLabel from "@/panels/config/SectionLabel.svelte";

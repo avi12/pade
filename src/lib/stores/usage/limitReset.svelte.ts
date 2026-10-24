@@ -6,9 +6,9 @@
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import type { LimitReset } from "@/lib/types";
-import { errorMessage } from "@/lib/util/errors";
+import { settledValue } from "@/lib/util/async/settled";
+import { errorMessage } from "@/lib/util/errors/errors";
 import { formatCount } from "@/lib/util/format";
-import { settledValue } from "@/lib/util/settled";
 
 let offer = $state<LimitReset | null>(null);
 let isConfirming = $state(false);

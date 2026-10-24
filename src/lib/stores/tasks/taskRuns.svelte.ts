@@ -25,7 +25,7 @@ import { isTaskInvocation } from "@/lib/runners/task-detect";
 import { attachedRunner, attachRunner, runnerRows, TASK_LIVENESS_POLL_MS } from "@/lib/stores/tasks/runners.svelte";
 import { taskCatalog, type TaskCatalogSnapshot } from "@/lib/stores/tasks/taskCatalog.svelte";
 import type { TaskGroup } from "@/lib/types";
-import { settledValue } from "@/lib/util/settled";
+import { settledValue } from "@/lib/util/async/settled";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { SvelteMap } from "svelte/reactivity";
 

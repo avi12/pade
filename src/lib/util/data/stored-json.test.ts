@@ -1,4 +1,4 @@
-import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
+import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import {
   afterEach,
   beforeEach,

@@ -12,7 +12,7 @@
 
 import { windowLabel } from "@/lib/ipc/platform";
 import { ChangeEvent } from "@/lib/types";
-import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
+import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { z } from "zod";
 
 function snapshotStorageKey() {

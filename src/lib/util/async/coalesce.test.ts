@@ -1,4 +1,4 @@
-import { coalesced } from "@/lib/util/coalesce";
+import { coalesced } from "@/lib/util/async/coalesce";
 import { describe, expect, it } from "vitest";
 
 const TRANSIENT_ERROR = "transient";

@@ -17,7 +17,7 @@
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import { ToggleState } from "@/lib/ui/controls/toggle-state";
   import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
-  import { errorHeadline } from "@/lib/util/error-text";
+  import { errorHeadline } from "@/lib/util/errors/error-text";
 
   const {
     cwd,

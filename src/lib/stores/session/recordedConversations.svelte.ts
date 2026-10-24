@@ -8,8 +8,8 @@
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { projectsToReread } from "@/lib/stores/session/conversation-reread";
 import type { RecordedConversation } from "@/lib/types";
+import { settledValue } from "@/lib/util/async/settled";
 import { normalizePath } from "@/lib/util/paths";
-import { settledValue } from "@/lib/util/settled";
 
 const conversationsByProject = $state<Record<string, RecordedConversation[]>>({});
 

@@ -15,7 +15,7 @@ import { sessionModel } from "@/lib/stores/agent/context.svelte";
 import { ensureModelOptions, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
 import { ModelChoice, PacingStep } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
-import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
+import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { SvelteMap } from "svelte/reactivity";
 import { z } from "zod";
 

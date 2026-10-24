@@ -4,7 +4,7 @@
   import type { AccountUsage, Agent } from "@/lib/types";
   import UsageLimitStack from "@/lib/usage/meter/UsageLimitStack.svelte";
   import { buildAgentGroup } from "@/lib/usage/usage-groups";
-  import { settledValue } from "@/lib/util/settled";
+  import { settledValue } from "@/lib/util/async/settled";
 
   // The composer's LLM menu: every installed coding agent, its usage limits
   // beside it (the top bar's meter, for agents not running yet) so the pick

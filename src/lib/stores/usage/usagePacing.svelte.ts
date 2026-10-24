@@ -56,9 +56,9 @@ import {
   windowName
 } from "@/lib/usage/usage-pace";
 import type { PaceForecast, UsageSample } from "@/lib/usage/usage-pace";
-import { afterDelay } from "@/lib/util/delay";
+import { afterDelay } from "@/lib/util/async/delay";
+import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { formatPercent } from "@/lib/util/format";
-import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
 import { SvelteMap } from "svelte/reactivity";
 import { z } from "zod";
 

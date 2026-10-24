@@ -1,4 +1,4 @@
-import { withRecordEntry } from "@/lib/util/record-entry";
+import { withRecordEntry } from "@/lib/util/data/record-entry";
 import { describe, expect, it } from "vitest";
 
 describe("withRecordEntry", () => {

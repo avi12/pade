@@ -2,7 +2,7 @@
   import ConfirmDialog from "@/lib/dialogs/ConfirmDialog.svelte";
   import NameField from "@/lib/dialogs/NameField.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
-  import { errorMessage } from "@/lib/util/errors";
+  import { errorMessage } from "@/lib/util/errors/errors";
   import { fieldError } from "@/lib/validate";
   import type { Snippet } from "svelte";
   import { untrack } from "svelte";

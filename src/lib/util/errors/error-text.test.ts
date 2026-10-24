@@ -1,4 +1,4 @@
-import { errorHeadline } from "@/lib/util/error-text";
+import { errorHeadline } from "@/lib/util/errors/error-text";
 import { describe, expect, it } from "vitest";
 
 describe("errorHeadline", () => {
