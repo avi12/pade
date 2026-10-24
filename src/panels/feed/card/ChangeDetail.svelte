@@ -10,8 +10,8 @@
   import type { ChangeEvent } from "@/lib/types";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { relativeToRoot } from "@/lib/util/paths";
-  import ChangePreview from "@/panels/feed/ChangePreview.svelte";
-  import ViewToggles from "@/panels/feed/ViewToggles.svelte";
+  import ViewToggles from "@/panels/feed/card/ViewToggles.svelte";
+  import ChangePreview from "@/panels/feed/preview/ChangePreview.svelte";
   import type { z } from "zod";
 
   // The open card's viewer: a bar (open-in-editor, the view toggles, close)

@@ -13,8 +13,8 @@
   import type { ChangeEvent, WatchStatus } from "@/lib/types";
   import FeedCards from "@/panels/feed/FeedCards.svelte";
   import FeedEmptyState from "@/panels/feed/FeedEmptyState.svelte";
-  import FeedToolbar from "@/panels/feed/FeedToolbar.svelte";
-  import GroupChips from "@/panels/feed/GroupChips.svelte";
+  import FeedToolbar from "@/panels/feed/toolbar/FeedToolbar.svelte";
+  import GroupChips from "@/panels/feed/toolbar/GroupChips.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";

@@ -4,8 +4,8 @@
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { formatAge, formatCount, formatTimestamp } from "@/lib/util/format";
   import { baseName, parentDirectory, relativeToRoot } from "@/lib/util/paths";
-  import FileTypeBadge from "@/panels/feed/FileTypeBadge.svelte";
-  import LineCounts from "@/panels/feed/LineCounts.svelte";
+  import FileTypeBadge from "@/panels/feed/card/FileTypeBadge.svelte";
+  import LineCounts from "@/panels/feed/card/LineCounts.svelte";
   import type { Snippet } from "svelte";
 
   // One feed card: the whole summary is a toggle button, and the open card

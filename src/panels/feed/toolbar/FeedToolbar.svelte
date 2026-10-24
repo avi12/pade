@@ -5,7 +5,7 @@
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import { errorHeadline } from "@/lib/util/errors/error-text";
-  import TypeFilterMenu from "@/panels/feed/TypeFilterMenu.svelte";
+  import TypeFilterMenu from "@/panels/feed/toolbar/TypeFilterMenu.svelte";
   import type { SvelteSet } from "svelte/reactivity";
 
   // The feed's toolbar: the opt-in file-type filter (a pill that reads the

@@ -3,8 +3,8 @@
   import type { FeedPreviews } from "@/lib/feed/preview/feed-previews";
   import { isVideoPath } from "@/lib/feed/preview/preview";
   import type { DiffStyle } from "@/lib/types";
-  import ChangeCard from "@/panels/feed/ChangeCard.svelte";
-  import ChangeDetail from "@/panels/feed/ChangeDetail.svelte";
+  import ChangeCard from "@/panels/feed/card/ChangeCard.svelte";
+  import ChangeDetail from "@/panels/feed/card/ChangeDetail.svelte";
   import GroupHeader from "@/panels/feed/GroupHeader.svelte";
   import type { z } from "zod";
 

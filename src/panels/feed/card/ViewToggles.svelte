@@ -4,7 +4,7 @@
   import { DiffStyle } from "@/lib/types";
   import type { ChangeEvent } from "@/lib/types";
   import { prefersReducedMotion } from "@/lib/ui/motion";
-  import RadioPills from "@/panels/feed/RadioPills.svelte";
+  import RadioPills from "@/panels/feed/card/RadioPills.svelte";
   import { tick } from "svelte";
   import type { z } from "zod";
 

@@ -6,8 +6,8 @@
   import Icon from "@/lib/Icon.svelte";
   import type { ChangeEvent, Ide } from "@/lib/types";
   import { baseName } from "@/lib/util/paths";
-  import DiffPreview from "@/panels/feed/DiffPreview.svelte";
-  import MediaPreview from "@/panels/feed/MediaPreview.svelte";
+  import DiffPreview from "@/panels/feed/preview/DiffPreview.svelte";
+  import MediaPreview from "@/panels/feed/preview/MediaPreview.svelte";
 
   // An open card's body: the picture, the clip, the rendered document or the
   // diff - or the state line saying why there is none yet (see card-view).

@@ -6,7 +6,7 @@
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { formatCount } from "@/lib/util/format";
   import { repositoryOfGroup } from "@/lib/workspace/members/workspace-members";
-  import LineCounts from "@/panels/feed/LineCounts.svelte";
+  import LineCounts from "@/panels/feed/card/LineCounts.svelte";
 
   // One project group's header: its role badge, name, git branch and totals.
   const { group }: { group: ChangeGroup } = $props();
