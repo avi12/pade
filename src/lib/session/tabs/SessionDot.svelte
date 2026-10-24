@@ -20,7 +20,10 @@
       flex: none;
       block-size: 8px;
       inline-size: 8px;
-      border-radius: var(--radius-full);
+
+      /* Half its own size, not the pill token, which bevels a dot this small
+         to a sliver under the cyberpunk palette (see the sidebar's dot). */
+      border-radius: 50%;
       background: var(--on-surface-variant);
 
       &.working {

@@ -57,10 +57,12 @@
   }}
   type="button"
 >
-  <span class="agent-icon"><Icon name={agentIconName(chat.agentId)} size={14} /></span>
-  {#if chat.isLive}
-    <span class="status-dot {sessionStatus(chat.id)}" aria-hidden="true"></span>
-  {/if}
+  <span class="agent-icon">
+    <Icon name={agentIconName(chat.agentId)} size={14} />
+    {#if chat.isLive}
+      <span class="status-dot {sessionStatus(chat.id)}" aria-hidden="true"></span>
+    {/if}
+  </span>
   <span class="chat-label">{chat.label}</span>
 </button>
 
@@ -142,6 +144,7 @@
     }
 
     .agent-icon {
+      position: relative;
       display: inline-flex;
       flex: none;
     }
@@ -155,12 +158,20 @@
     }
   }
 
-  /* Live status, mirroring the tab strip's dot colours. */
+  /* Live status, mirroring the tab strip's dot colours - a badge on the agent
+     icon's corner, so a live chat's label lines up with every other row's. */
   .status-dot {
-    flex: none;
+    position: absolute;
+    inset-block-end: -2px;
+    inset-inline-end: -3px;
+    z-index: 1;
     block-size: 7px;
     inline-size: 7px;
-    border-radius: var(--radius-full);
+
+    /* Half its own size, not the pill token: the cyberpunk palette's
+       `--radius-full` is a 7px chamfer, which bevels a 7px dot down to a
+       sliver. 50% is a circle elsewhere and a diamond under the bevel. */
+    border-radius: 50%;
     background: var(--on-surface-variant);
 
     @media (prefers-reduced-motion: reduce) {
