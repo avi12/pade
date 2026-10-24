@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { baseName } from "@/lib/util/paths";
+  import { directoryPrefix } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/display/RootedName.svelte";
   import { THROWAWAY_LABEL } from "@/panels/picker/home-composer";
   import { tick } from "svelte";
@@ -44,7 +44,7 @@
       <button class="menu-item create-option" onclick={async e => await startNew(e, root)} type="button">
         <Icon name="folderPlus" size={15} />
         {#if root}
-          <span class="menu-item-text">New project in <RootedName name="" root={baseName(root)} /></span>
+          <span class="menu-item-text">New project in <RootedName name="" prefix={directoryPrefix(root)} /></span>
         {:else}
           <span class="menu-item-text">New project…</span>
         {/if}

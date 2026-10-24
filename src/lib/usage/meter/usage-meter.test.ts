@@ -4,6 +4,7 @@ import {
   hasClaudePill,
   isJustReset,
   KEEP_LAST_READING_MS,
+  limitTooltip,
   measuredAgentCount,
   overflowCount,
   overflowLevel,
@@ -294,5 +295,45 @@ describe("withLastGoodReadings", () => {
     });
     expect(accounts.get("claude")).toBeNull();
     expect(accounts.get("codex")).toBeNull();
+  });
+});
+
+describe("limitTooltip", () => {
+  it("names the limit, its reading and its reset", () => {
+    const weekly = {
+      ...makeLimit({
+        label: "Weekly",
+        level: Level.Normal
+      }),
+      reading: "21%",
+      reset: "in 3d 4h"
+    };
+    expect(limitTooltip(weekly)).toBe("Weekly usage: 21%, resets in 3d 4h");
+    expect(
+      limitTooltip({
+        ...weekly,
+        sub: "weekly",
+        label: "Opus",
+        reset: ""
+      })
+    ).toBe("Opus usage (weekly): 21%");
+    expect(
+      limitTooltip({
+        ...weekly,
+        label: "Extra usage",
+        sub: "monthly spend",
+        reading: "$320.01",
+        reset: ""
+      })
+    ).toBe("Extra usage (monthly spend): $320.01");
+    expect(
+      limitTooltip({
+        ...weekly,
+        label: "Premium interactions",
+        kind: UsageWindowKind.enum.opaque,
+        reading: "0%",
+        reset: "in 7d 0h"
+      })
+    ).toBe("Premium interactions: 0%, resets in 7d 0h");
   });
 });

@@ -127,7 +127,7 @@ describe("merging this window into another", () => {
         windowRows: [windowRow("main", PADE, true), windowRow("w-1", POLL)],
         labels: {}
       })
-    ).toBe("Merge into repositories/poll");
+    ).toBe("Merge into repositories\\poll");
     expect(
       mergeMenuItemLabel({
         windowRows: [windowRow("main", PADE, true), windowRow("w-1", POLL), windowRow("w-2", PADE)],

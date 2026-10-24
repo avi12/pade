@@ -2,7 +2,7 @@
 // the meter itself all read it from one place (usage-groups.ts builds the data).
 
 import { AgentId } from "@/lib/agent/agent-icon";
-import type { AccountUsage } from "@/lib/types";
+import { type AccountUsage, UsageWindowKind } from "@/lib/types";
 import {
   type AgentGroup,
   Level,
@@ -25,6 +25,7 @@ export const USAGE_PANEL_LABEL = "Usage details";
 /** What a reading shows when there is nothing to read: no agents, an agent
  *  without limits, a spotlight whose reset time is unknown or already past. */
 export const NO_READING = "-";
+const USAGE_WORD = "usage";
 
 /** The `.severity` modifier each level paints with; a normal level takes none. */
 const SEVERITY_CLASS: Record<Level, string | undefined> = {
@@ -187,4 +188,21 @@ export function withLastGoodReadings({ fresh, kept, now }: {
     accounts,
     kept: nextKept
   };
+}
+
+/** A limit's spoken name: its label, with "usage" after a window's
+ *  ("Weekly usage") but not after one already saying it ("Extra usage") or a
+ *  named feature cap ("Premium interactions"). */
+function limitName(limit: Limit) {
+  const isNamedCap = limit.kind === UsageWindowKind.enum.opaque;
+  const saysUsage = limit.label.toLowerCase().includes(USAGE_WORD);
+  const name = isNamedCap || saysUsage ? limit.label : `${limit.label} ${USAGE_WORD}`;
+  return limit.sub ? `${name} (${limit.sub})` : name;
+}
+
+/** What a compact limit stack's hover names, since the stack shows only a
+ *  letter: the limit, its reading, and when it resets. */
+export function limitTooltip(limit: Limit) {
+  const reading = `${limitName(limit)}: ${limit.reading}`;
+  return limit.reset ? `${reading}, resets ${limit.reset}` : reading;
 }

@@ -920,7 +920,10 @@ textarea {
 [data-tooltip]::after,
 .overflow-tooltip {
   inline-size: max-content;
-  max-inline-size: min(320px, 90vw);
+
+  /* One line whenever it fits: the bubble is as wide as its text, up to the
+     viewport less its edge gutters, and only text longer than that wraps. */
+  max-inline-size: calc(100vw - 2 * var(--tooltip-edge-gutter));
   padding: 4px 9px;
   border-radius: var(--radius-small);
   background: var(--surface-3);
@@ -930,11 +933,12 @@ textarea {
   font-size: calc(0.6875 * var(--font-base));
   line-height: 1.35;
 
-  /* Wrap long tooltips (a full file path) within the max-inline-size cap: the
-     trigger may set `white-space: nowrap` (the file button does), which the
-     pseudo would otherwise inherit; and a path has no spaces to break at, so
+  /* Wrap only past the max-inline-size cap, and keep a tooltip's own line
+     breaks (a project row's name, then its path): the trigger may set
+     `white-space: nowrap` (the file button does), which the pseudo would
+     otherwise inherit; and a path has no spaces to break at, so
      `overflow-wrap: anywhere` lets it break to fit rather than overflow. */
-  white-space: normal;
+  white-space: pre-line;
   overflow-wrap: anywhere;
   box-shadow: 0 6px 20px var(--shadow-color);
   pointer-events: none;
