@@ -5,6 +5,7 @@
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { SIDE_PANEL_DEFAULT_WIDTH } from "@/lib/settings/prefs-bounds";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
+import { resolvedStartMode } from "@/lib/settings/start-mode";
 import { prefs, registerSettingsAdoptionEffect } from "@/lib/settings/settings.svelte";
 import { adoptedMonospaceFace, followsSystemScheme, resolveAppearance } from "@/lib/settings/theme-mode";
 import { chosenTerminalScheme, loadTerminalSchemes } from "@/lib/stores/ui/terminalSchemes.svelte";
@@ -59,6 +60,10 @@ export const effective = {
   },
   get diffStyle() {
     return prefs.diffStyle ?? DiffStyle.enum.unified;
+  },
+  /** Where a no-project launch lands (lib/settings/start-mode resolves the default). */
+  get startMode() {
+    return resolvedStartMode({ startMode: prefs.startMode });
   },
   /** The terminal font pick, as a name; "" = theme.css's stack as written. */
   get monoFontName() {

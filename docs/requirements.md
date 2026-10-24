@@ -298,8 +298,9 @@ writes.
 - Shared, git-backed, two-way (agent writes research; user has full CRUD).
 
 ### 1.9 Workspaces & projects (✅ core)
-- R1.9.1 Launch modes: open the cwd when it's a project, else a throwaway **temp
-  workspace** (default) or the project picker (opt-in `startMode`).
+- R1.9.1 Launch modes: open the cwd when it's a project, else the project
+  picker (the homescreen, default) or a throwaway **temp workspace** (opt-in
+  `startMode`, which resumes the last project on the way when it has chats).
 - R1.9.2 Temp workspaces live under the config dir; ADE-owned, so they can be
   deleted, moved (→ permanent), or renamed (→ promoted into the primary root).
 - R1.9.2a ✅ **Throwaway lifecycle** - when the last session of a temp workspace

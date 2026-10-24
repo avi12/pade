@@ -273,8 +273,10 @@
       return;
     }
 
-    // Opt-in: show the project picker instead of starting in a temp workspace.
-    const prefersPicker = settings.prefs.startMode === StartMode.enum.picker;
+    // Default: show the homescreen (the project picker). Starting straight
+    // in a temp workspace, resuming the last project on the way, is the
+    // opt-in the picker's "On launch" section offers instead.
+    const prefersPicker = effective.startMode === StartMode.enum.picker;
     if (prefersPicker) {
       phase = Phase.Project;
       return;
