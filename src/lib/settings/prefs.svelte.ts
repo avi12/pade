@@ -110,6 +110,10 @@ export const effective = {
   /** On by default, but only reachable once presence itself is on. */
   get discordShowProject() {
     return prefs.discordShowProject !== false;
+  },
+  /** Opt-out: PADE checks GitHub for a newer release unless turned off. */
+  get autoUpdate() {
+    return prefs.autoUpdate !== false;
   }
 };
 

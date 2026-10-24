@@ -15,6 +15,7 @@ import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { ensureChoiceAttention } from "@/lib/stores/session/sessionAttention.svelte";
 import { ensureRunnerListeners } from "@/lib/stores/tasks/runners.svelte";
 import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
+import { watchAppUpdate } from "@/lib/stores/update/appUpdate.svelte";
 import { refreshEditors } from "@/lib/stores/workspace/editors.svelte";
 import { projectKind, requestProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
 import { followOwnProject } from "@/lib/stores/workspace/projectLanguages.svelte";
@@ -51,6 +52,12 @@ export function startWindowServices({ project, windowSessions, repository, isWin
   // can flash red when one is pending on it (lib/stores/session/sessionAttention).
   onMount(async () => {
     await ensureChoiceAttention();
+  });
+
+  // Follow PADE's own self-update, so a ready release is announced and Config
+  // can offer the restart into it (lib/stores/update/appUpdate).
+  onMount(async () => {
+    await watchAppUpdate();
   });
 
   // Reflect known tasks the agent runs as "running" in the Tasks panel.

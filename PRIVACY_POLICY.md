@@ -1,6 +1,6 @@
 # PADE Privacy Policy
 
-_Last updated: July 25, 2026_
+_Last updated: October 24, 2026_
 
 PADE is a desktop application that runs entirely on your own computer. It has
 no server component, no account system, and no analytics or telemetry of any
@@ -47,6 +47,11 @@ yourself. When you use them, **their** privacy policies apply:
   running Discord client, which may display them on your Discord profile.
   Turning the toggle off clears the status. Nothing is sent when Discord is
   not running or the toggle is off.
+- **Update check** (on by default, Config → Updates): a released PADE reads a
+  small file from PADE's GitHub repository every few hours and, when it names a
+  newer version, downloads that release from GitHub. The requests carry PADE's
+  version in their user agent and nothing about you or your projects; GitHub's
+  privacy statement applies. Turning **Check for updates** off stops them.
 - **Design tools**: the Design menu opens third-party web tools in a separate
   window; your use of those sites is governed by their own policies.
 

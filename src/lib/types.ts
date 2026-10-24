@@ -427,6 +427,16 @@ export const WindowInfo = z.object({
 });
 export type WindowInfo = z.infer<typeof WindowInfo>;
 
+/** PADE's own version and self-update state (`update.rs`): the running version,
+ *  a newer one downloaded and waiting to be swapped in, and whether this copy
+ *  updates itself at all (a published exe, not a dev build). */
+export const UpdateStatus = z.object({
+  current: z.string(),
+  ready: z.string().nullable(),
+  isSupported: z.boolean()
+});
+export type UpdateStatus = z.infer<typeof UpdateStatus>;
+
 /** The theme the user picks, as one list of four. Three of them name a
  *  light/dark scheme ("system" = whatever the OS is showing); `cyberpunk` names
  *  a {@link ThemePalette} instead and takes its scheme from the OS like
@@ -585,7 +595,10 @@ const Prefs = z.object({
   /** Broadcast a Discord "Playing PADE" rich-presence status. Opt-in: off unless explicitly true. */
   discordPresence: z.boolean().nullish(),
   /** When presence is on, show the current project's name in the status. Default on. */
-  discordShowProject: z.boolean().nullish()
+  discordShowProject: z.boolean().nullish(),
+  /** Check GitHub for a newer PADE and download it in the background. Opt-out:
+   *  on unless explicitly false (`update.rs` reads the same key). */
+  autoUpdate: z.boolean().nullish()
 });
 export type Prefs = z.infer<typeof Prefs>;
 

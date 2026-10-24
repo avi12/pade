@@ -51,6 +51,7 @@ import {
   TaskGroup,
   TaskManifestDescriptor,
   TerminalScheme,
+  UpdateStatus,
   Usage,
   WatchStatus,
   WindowInfo,
@@ -185,7 +186,10 @@ export enum Command {
   workspaceDeleteDirectory = "workspace_delete_directory",
   setDefaultAgent = "set_default_agent",
   setProjectAgent = "set_project_agent",
-  setPrefs = "set_prefs"
+  setPrefs = "set_prefs",
+  updateStatus = "update_status",
+  updateCheck = "update_check",
+  updateRestart = "update_restart"
 }
 
 /** Every event channel the frontend listens to, valued by its wire name. The
@@ -207,6 +211,7 @@ export enum EventType {
   windowsChanged = "windows://changed",
   settingsChanged = "settings://changed",
   themeChanged = "theme://changed",
+  updateReady = "update://ready",
   dragOver = "tauri://drag-over",
   dragDrop = "tauri://drag-drop",
   dragLeave = "tauri://drag-leave"
@@ -606,6 +611,12 @@ export interface CommandProtocolMap {
     agent: string;
   }) => Settings;
   [Command.setPrefs]: (data: { patch: Partial<Prefs> }) => Settings;
+  /** PADE's version and whether a newer release is downloaded and ready. */
+  [Command.updateStatus]: () => UpdateStatus;
+  /** Check GitHub for a newer release now, answering once any download ends. */
+  [Command.updateCheck]: () => UpdateStatus;
+  /** Swap the ready release in and restart into it. */
+  [Command.updateRestart]: () => void;
 }
 
 /** The commands that answer the whole settings - sent through
@@ -646,6 +657,8 @@ interface EventProtocolMap {
   [EventType.settingsChanged]: (data: null) => void;
   /** The native OS theme flipped (WebView2's media query can miss it). */
   [EventType.themeChanged]: (data: Scheme) => void;
+  /** A newer PADE is downloaded, checked and ready to swap in. */
+  [EventType.updateReady]: (data: UpdateStatus) => void;
   /** Native OS drag-and-drop onto the window: Tauri intercepts the webview's
    *  file DnD (the web API never exposes absolute paths) and emits these. */
   [EventType.dragOver]: (data: DragOverPayload) => void;
@@ -770,7 +783,10 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.workspaceDeleteDirectory]: Settings,
   [Command.setDefaultAgent]: Settings,
   [Command.setProjectAgent]: Settings,
-  [Command.setPrefs]: Settings
+  [Command.setPrefs]: Settings,
+  [Command.updateStatus]: UpdateStatus,
+  [Command.updateCheck]: UpdateStatus,
+  [Command.updateRestart]: NO_REPLY
 } satisfies { [Key in Command]: z.ZodType<ReturnType<CommandProtocolMap[Key]>> };
 
 const EVENT_PAYLOAD_SCHEMAS = {
@@ -789,6 +805,7 @@ const EVENT_PAYLOAD_SCHEMAS = {
   [EventType.windowsChanged]: z.null(),
   [EventType.settingsChanged]: z.null(),
   [EventType.themeChanged]: Scheme,
+  [EventType.updateReady]: UpdateStatus,
   [EventType.dragOver]: DragOverPayload,
   [EventType.dragDrop]: DragDropPayload,
   [EventType.dragLeave]: z.unknown()

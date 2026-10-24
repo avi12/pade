@@ -3,6 +3,7 @@ mod platform;
 mod terminal;
 #[cfg(test)]
 mod test_support;
+mod update;
 mod usage;
 mod util;
 mod vcs;
@@ -106,6 +107,7 @@ pub fn run() {
             terminal::runner::init(handle);
             workspace::watcher::init(handle);
             agents::running_model::init(handle);
+            update::init(handle);
             app.manage(platform::window::WindowProjects::default());
             app.manage(platform::discord::DiscordState::default());
             // Paint the main window in-theme before showing it, so a dark desktop
@@ -238,6 +240,9 @@ pub fn run() {
             workspace::set_default_agent,
             workspace::set_project_agent,
             workspace::set_prefs,
+            update::update_status,
+            update::update_check,
+            update::update_restart,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ADE")
@@ -248,6 +253,15 @@ pub fn run() {
             // gracefully by now (App intercepts the window close and waits for
             // each agent's idle prompt before killing); this is the backstop
             // for whatever a force-close or a crashed WebView leaves behind.
+            //
+            // On the way out, a downloaded release is swapped in, so the next
+            // start is the new version.
+            if matches!(event, tauri::RunEvent::Exit) {
+                if let Err(error) = update::apply_pending(handle) {
+                    eprintln!("could not install the update: {error}");
+                }
+                return;
+            }
             let tauri::RunEvent::ExitRequested { api, code, .. } = &event else {
                 return;
             };

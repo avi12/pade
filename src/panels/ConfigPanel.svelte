@@ -9,6 +9,7 @@
   import PerformanceSettings from "@/panels/config/PerformanceSettings.svelte";
   import SessionTabsSettings from "@/panels/config/SessionTabsSettings.svelte";
   import SettingsCard from "@/panels/config/SettingsCard.svelte";
+  import UpdateSettings from "@/panels/config/UpdateSettings.svelte";
 
   // Only the config files relevant to the active agent are listed. `project` is
   // what scopes the per-project settings below to this window's workspace.
@@ -55,6 +56,10 @@
 
     <SettingsCard isCompact title="Discord">
       <DiscordSettings />
+    </SettingsCard>
+
+    <SettingsCard isCompact title="Updates">
+      <UpdateSettings />
     </SettingsCard>
 
     <ProjectFiles {agent} />
