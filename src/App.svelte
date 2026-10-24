@@ -66,6 +66,8 @@
   } as const;
   type Phase = (typeof Phase)[keyof typeof Phase];
   let phase = $state<Phase>(Phase.Loading);
+  /** On the root while the picker morphs into the workspace (theme.css). */
+  const ENTERING_WORKSPACE_CLASS = "entering-workspace";
   let agents = $state<Agent[]>([]);
   // Every project's persisted chats (lib/session/chat-registry) - the left
   // rail's memory, loaded once and kept in sync with the live sessions below.
@@ -106,7 +108,7 @@
     }),
     onLaunched() {
       pendingPrompt = undefined;
-      phase = Phase.Ready;
+      showWorkspace();
     },
     // Closed for good: its chat leaves the rail's memory (the agent's own
     // recording still lists the conversation to resume).
@@ -334,7 +336,7 @@
       return;
     }
 
-    phase = Phase.Ready;
+    await showWorkspace();
     await repository.load();
   }
 
@@ -422,7 +424,7 @@
 
     windowSessions.enter(snapshot.project);
     windowSessions.restore(snapshot);
-    phase = Phase.Ready;
+    await showWorkspace();
     await repository.load();
     return true;
   }
@@ -605,7 +607,7 @@
       host: projectEntryHost,
       target
     });
-    phase = Phase.Ready;
+    await showWorkspace();
   }
 
   // Enter a project in an empty window: bring its persisted chats back when
@@ -638,6 +640,25 @@
     return agents.find(agent => agent.id === preferredId);
   }
 
+  // The one way into the workspace screen. Leaving the picker morphs through a
+  // view transition with the project rail held still (theme.css), instead of
+  // the screen snapping; from anywhere else it simply shows.
+  async function showWorkspace() {
+    const isLeavingPicker = phase === Phase.Project;
+    if (!isLeavingPicker) {
+      phase = Phase.Ready;
+      return;
+    }
+
+    document.documentElement.classList.add(ENTERING_WORKSPACE_CLASS);
+    const transition = document.startViewTransition(async () => {
+      phase = Phase.Ready;
+      await tick();
+    });
+    await transition.finished;
+    document.documentElement.classList.remove(ENTERING_WORKSPACE_CLASS);
+  }
+
   function switchToPicker() {
     document.startViewTransition(async () => {
       phase = Phase.Project;
@@ -655,7 +676,7 @@
   const chatClickHost: ChatClickHost = {
     select(id) {
       windowSessions.select(id);
-      phase = Phase.Ready;
+      showWorkspace();
     },
     focusElsewhere: roster.focus,
     moveToNewWindow: handoffs.moveToNewWindow,
