@@ -5,8 +5,9 @@
   import CloneForm from "@/panels/picker/CloneForm.svelte";
   import { onMount } from "svelte";
 
-  // Get started's Clone tab: git clone a repository into a root, gated on git
-  // being installed - without it, a card offers the installer and a re-check.
+  // The composer menu's Clone tab: git clone a repository into a root, gated
+  // on git being installed - without it, a card offers the installer and a
+  // re-check. The cloned folder goes to `onopen`.
   let { roots, onopen, onnewroot, createIn = $bindable("") }: {
     roots: string[];
     onopen: (target: OpenTarget) => void;

@@ -6,13 +6,15 @@
   import { Key } from "@/lib/ui/keyboard/keys";
   import { collapseRow, expandRow, flipDuration } from "@/lib/ui/motion";
   import { normalizePath } from "@/lib/util/paths";
+  import { nextSegmentCompletion } from "@/panels/picker/path-completion";
   import { flip } from "svelte/animate";
 
   // A folder-path text field with directory autocomplete. As the path is typed
   // the backend is probed (debounced) for what it is on disk plus its child
   // folders, which drop down as a top-layer popover listbox the user can arrow
   // through, Enter to accept, or Tab to accept-and-drill (append a separator and
-  // keep completing sub-folders). This component owns only the typeahead; the
+  // keep completing sub-folders); Ctrl+Space fills in the next segment as far
+  // as the folders on disk agree. This component owns only the typeahead; the
   // probe's full result flows back through `bind:probe` so the host builds its
   // own status/validation from it. Shared by the add-root field and the "open a
   // local folder" field so the completion behaviour has a single home.
@@ -181,12 +183,22 @@
   onfocus={() => (isListOpen = true)}
   oninput={() => (isListOpen = true)}
   onkeydown={e => {
-    // Ctrl+Space re-opens the completions (IDE-style) - after an Escape, or to
-    // summon the current folder's children without retyping. Suppress the space
-    // it would otherwise insert.
-    const isOpenListChord = e.ctrlKey && e.key === Key.Space;
-    if (isOpenListChord) {
+    // Ctrl+Space completes the next path segment as far as the folders on disk
+    // agree (the one match, drilled into; or the prefix the matches share),
+    // then shows the completions (IDE-style). Suppress the space it would
+    // otherwise insert.
+    const isCompleteChord = e.ctrlKey && e.key === Key.Space;
+    if (isCompleteChord) {
       e.preventDefault();
+      const completion = nextSegmentCompletion({
+        typed: trimmed,
+        probe
+      });
+      if (completion !== null) {
+        value = completion;
+        lastSelected = null;
+      }
+
       isListOpen = true;
       return;
     }
@@ -214,6 +226,9 @@
       lastSelected = null;
       isListOpen = true;
     } else if (e.key === Key.Escape) {
+      // Handled here: an enclosing popover (the composer's project menu) must
+      // not close on the same press that only dismisses the suggestions.
+      e.preventDefault();
       isListOpen = false;
       activeIndex = -1;
       lastSelected = null;

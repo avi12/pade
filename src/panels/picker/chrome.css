@@ -284,7 +284,7 @@
   color: var(--primary);
 }
 
-/* Pill segmented tablist (Get started modes, On-launch start mode). Keyboard:
+/* Pill segmented tablist (On-launch start mode). Keyboard:
    the rovingTablist action moves selection with the arrow keys while the
    markup keeps a roving tabindex, so Tab itself leaves the list and lands in
    the active panel's first input. */

@@ -10,9 +10,10 @@
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onDestroy, onMount } from "svelte";
 
-  // Get started's Open local tab: open an existing folder - typed (with live
-  // validation + directory autocomplete), picked from the OS dialog, or dropped
-  // from Explorer / an IDE. `isActive` says whether this tab is the open one.
+  // The composer menu's Open tab: choose an existing folder - typed (with
+  // live validation, directory autocomplete and Ctrl+Space completion), picked
+  // from the OS dialog, or dropped from Explorer / an IDE - and hand it to
+  // `onopen`. `isActive` says whether this tab is the open one.
   const { isActive, onopen }: {
     isActive: boolean;
     onopen: (target: OpenTarget) => void;
@@ -23,7 +24,7 @@
   // True while an OS drag hovers the Local field - the drop-affordance state.
   let isDropReady = $state(false);
 
-  // Does a native drag sit over the Local tab's folder field? The panels
+  // Does a native drag sit over the Open tab's folder field? The panels
   // overlay each other, so the tab gate matters as much as the geometry (the
   // clone URL input occupies the same spot).
   function isOverLocalField(position: DragPosition) {
@@ -142,7 +143,7 @@
     {/if}
   </div>
 
-  <button class="go" disabled={!localIsDirectory} type="submit">Open project</button>
+  <button class="go" disabled={!localIsDirectory} type="submit">Use this folder</button>
 </form>
 
 <style>

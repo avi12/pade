@@ -1,4 +1,10 @@
-import { ProjectChoice, projectTriggerLabel, resolveHomeStart } from "@/panels/picker/home-composer";
+import {
+  NEW_PROJECT_PLACEHOLDER,
+  newProjectNameProblem,
+  ProjectChoice,
+  projectTrigger,
+  resolveHomeStart
+} from "@/panels/picker/home-composer";
 import { describe, expect, it } from "vitest";
 
 const ROOT = "C:\\repositories";
@@ -114,20 +120,114 @@ describe("resolveHomeStart", () => {
   });
 });
 
-describe("projectTriggerLabel", () => {
-  it("names what the menu picked", () => {
-    function label(choice: ProjectChoice, typedName = "", selectedName: string | null = null) {
-      return projectTriggerLabel({
-        choice,
-        typedName,
-        selectedName
-      });
-    }
+describe("projectTrigger", () => {
+  function trigger({ choice, typedName = "", root = ROOT, selectedName = null, selectedPath = "" }: {
+    choice: ProjectChoice;
+    typedName?: string;
+    root?: string;
+    selectedName?: string | null;
+    selectedPath?: string;
+  }) {
+    return projectTrigger({
+      choice,
+      typedName,
+      root,
+      selectedName,
+      selectedPath
+    });
+  }
 
-    expect(label(ProjectChoice.Temp)).toBe("Throwaway workspace");
-    expect(label(ProjectChoice.New)).toBe("New project");
-    expect(label(ProjectChoice.New, "poll")).toBe("New: poll");
-    expect(label(ProjectChoice.Existing, "", "pade")).toBe("pade");
-    expect(label(ProjectChoice.Existing)).toBe("Choose a project");
+  it("names the throwaway workspace", () => {
+    expect(trigger({ choice: ProjectChoice.Temp })).toEqual({
+      prefix: "",
+      name: "Throwaway workspace",
+      isPlaceholder: false
+    });
+  });
+
+  it("says where a new project goes, with a muted stand-in until it is named", () => {
+    expect(trigger({ choice: ProjectChoice.New })).toEqual({
+      prefix: "repositories\\",
+      name: NEW_PROJECT_PLACEHOLDER,
+      isPlaceholder: true
+    });
+  });
+
+  it("names a new project as it is typed, under its root", () => {
+    expect(
+      trigger({
+        choice: ProjectChoice.New,
+        typedName: "poll"
+      })
+    ).toEqual({
+      prefix: "repositories\\",
+      name: "poll",
+      isPlaceholder: false
+    });
+  });
+
+  it("names a new project alone while no root is chosen", () => {
+    expect(
+      trigger({
+        choice: ProjectChoice.New,
+        root: "",
+        typedName: "poll"
+      }).prefix
+    ).toBe("");
+  });
+
+  it("names the chosen project with its root", () => {
+    expect(
+      trigger({
+        choice: ProjectChoice.Existing,
+        selectedName: "pade",
+        selectedPath: "C:\\repositories\\avi\\pade"
+      })
+    ).toEqual({
+      prefix: "avi\\",
+      name: "pade",
+      isPlaceholder: false
+    });
+  });
+
+  it("asks for a project while none is chosen", () => {
+    expect(trigger({ choice: ProjectChoice.Existing }).name).toBe("Choose a project");
+  });
+});
+
+describe("newProjectNameProblem", () => {
+  const CLEAR = {
+    nameError: null,
+    isTakenByFile: false,
+    isExistingFolder: false
+  };
+
+  it("has nothing to say about a name that can be created", () => {
+    expect(newProjectNameProblem(CLEAR)).toBeNull();
+  });
+
+  it("puts the schema's own reason first", () => {
+    expect(
+      newProjectNameProblem({
+        ...CLEAR,
+        nameError: "Too long",
+        isExistingFolder: true
+      })
+    ).toBe("Too long");
+  });
+
+  it("says what already stands on disk under the name", () => {
+    expect(
+      newProjectNameProblem({
+        ...CLEAR,
+        isTakenByFile: true
+      })
+    ).toBe("That name is taken by a file in this root");
+    expect(
+      newProjectNameProblem({
+        ...CLEAR,
+        isExistingFolder: true
+      })
+    ).toBe("This folder already exists in this root");
   });
 });

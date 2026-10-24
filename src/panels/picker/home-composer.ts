@@ -1,4 +1,5 @@
 import type { OpenTarget } from "@/lib/types";
+import { directoryPrefix, projectRootPrefix } from "@/lib/util/paths";
 import { FirstPrompt, parseInput, ProjectName } from "@/lib/validate";
 
 /** What the composer's project menu has picked: a project that exists, a new
@@ -85,25 +86,76 @@ export function resolveHomeStart({ selectedPath, choice, root, rawName, rawPromp
   };
 }
 
+/** Why a new project's typed name can't be created, or null when it can:
+ *  the name schema's own reason first, then whatever already stands on disk
+ *  under that name in the root. */
+export function newProjectNameProblem({ nameError, isTakenByFile, isExistingFolder }: {
+  nameError: string | null;
+  isTakenByFile: boolean;
+  isExistingFolder: boolean;
+}) {
+  if (nameError) {
+    return nameError;
+  }
+
+  if (isTakenByFile) {
+    return "That name is taken by a file in this root";
+  }
+
+  if (isExistingFolder) {
+    return "This folder already exists in this root";
+  }
+
+  return null;
+}
+
 /** The throwaway-workspace choice's name - the menu item and the trigger. */
 export const THROWAWAY_LABEL = "Throwaway workspace";
-const NEW_PROJECT_LABEL = "New project";
+/** The name a new project shows until one is typed - the name field's
+ *  placeholder and the trigger's muted stand-in. */
+export const NEW_PROJECT_PLACEHOLDER = "new-project";
 const NO_PROJECT_LABEL = "Choose a project";
 
-/** The project menu trigger's label for what is picked: the throwaway
- *  workspace, the new project's typed name, or the chosen project's name. */
-export function projectTriggerLabel({ choice, typedName, selectedName }: {
+/** What the project menu trigger reads for what is picked, in the menu rows'
+ *  "root/name" format: the throwaway workspace; a new project as the root it
+ *  goes under and its typed name - the placeholder name, muted, until one is
+ *  typed - so the trigger says where Start will create it; or the chosen
+ *  project with its root. */
+export function projectTrigger({ choice, typedName, root, selectedName, selectedPath }: {
   choice: ProjectChoice;
   typedName: string;
+  /** The root a new project goes under (empty while none is chosen). */
+  root: string;
   selectedName: string | null;
+  selectedPath: string;
 }) {
   if (choice === ProjectChoice.Temp) {
-    return THROWAWAY_LABEL;
+    return {
+      prefix: "",
+      name: THROWAWAY_LABEL,
+      isPlaceholder: false
+    };
   }
 
   if (choice === ProjectChoice.New) {
-    return typedName ? `New: ${typedName}` : NEW_PROJECT_LABEL;
+    return {
+      prefix: root ? directoryPrefix(root) : "",
+      name: typedName || NEW_PROJECT_PLACEHOLDER,
+      isPlaceholder: !typedName
+    };
   }
 
-  return selectedName ?? NO_PROJECT_LABEL;
+  if (selectedName === null) {
+    return {
+      prefix: "",
+      name: NO_PROJECT_LABEL,
+      isPlaceholder: false
+    };
+  }
+
+  return {
+    prefix: projectRootPrefix(selectedPath),
+    name: selectedName,
+    isPlaceholder: false
+  };
 }

@@ -1,11 +1,24 @@
 <script lang="ts">
+  import { arrowLists } from "@/lib/ui/keyboard/roving-menu";
   import { ProjectChoice } from "@/panels/picker/home-composer";
-  import HomeNewSection from "@/panels/picker/HomeNewSection.svelte";
+  import HomeMenuFooter from "@/panels/picker/HomeMenuFooter.svelte";
   import HomeProjectOption from "@/panels/picker/HomeProjectOption.svelte";
 
   // The composer's project menu: recent and scanned projects, each with its
-  // root ("avi/pade"), then the New section pinned to the list's foot.
-  const { menuId, groups, roots, choice, selectedPath, nameFieldId, onpick, onnew, ontemp }: {
+  // root ("avi/pade"), in a list that scrolls, then the New / Open / Clone
+  // foot, which never scrolls away.
+  let {
+    menuId,
+    groups,
+    roots,
+    choice,
+    selectedPath,
+    onpick,
+    onnew,
+    ontemp,
+    onnewroot,
+    createIn = $bindable("")
+  }: {
     menuId: string;
     groups: readonly {
       head: string;
@@ -15,47 +28,93 @@
         name: string;
       }[];
     }[];
-    roots: readonly string[];
+    roots: string[];
     choice: ProjectChoice;
     selectedPath: string;
-    nameFieldId: string;
+    /** A project row, or a folder opened or cloned in the foot. */
     onpick: (path: string) => void;
     onnew: (root: string) => void;
     ontemp: () => void;
+    onnewroot: () => void;
+    createIn?: string;
   } = $props();
 
   const hasOptions = $derived(groups.length > 0);
   const pickedPath = $derived(choice === ProjectChoice.Existing ? selectedPath : null);
 </script>
 
-<ul id={menuId} style:position-anchor="--{menuId}" class="menu popover-menu" popover>
-  {#each groups as group (group.head)}
-    <li class="head" class:separator={group.isSeparated} aria-hidden="true">{group.head}</li>
-    {#each group.options as option (option.path)}
-      <HomeProjectOption
-        name={option.name}
-        isPicked={option.path === pickedPath}
-        {menuId}
-        onpick={() => onpick(option.path)}
-        path={option.path}
-      />
+<!-- Keyboard: the project rows are one Tab stop walked by Up/Down, then the
+     selected tab (Left/Right switch tabs), then the open panel's first field;
+     Down from the New tab steps into its items. Opening focuses the first
+     row, or the selected tab when there are none; Escape closes and hands
+     focus back to the trigger (the popover's own behaviour). -->
+<div
+  id={menuId}
+  style:position-anchor="--{menuId}"
+  class="menu popover-menu home-menu"
+  {@attach arrowLists}
+  popover
+>
+  <ul class="options" aria-label="Projects">
+    {#each groups as group (group.head)}
+      <li class="head" class:separator={group.isSeparated} aria-hidden="true">{group.head}</li>
+      {#each group.options as option (option.path)}
+        <HomeProjectOption
+          name={option.name}
+          isPicked={option.path === pickedPath}
+          {menuId}
+          onpick={() => onpick(option.path)}
+          path={option.path}
+        />
+      {/each}
     {/each}
-  {/each}
-  {#if !hasOptions}
-    <li class="none">No projects yet - start one below</li>
-  {/if}
-  <HomeNewSection
+    {#if !hasOptions}
+      <li class="none">No projects yet - start one below</li>
+    {/if}
+  </ul>
+  <HomeMenuFooter
     isSeparated={hasOptions}
     isTempPicked={choice === ProjectChoice.Temp}
     {menuId}
-    {nameFieldId}
     {onnew}
+    {onnewroot}
+    {onpick}
     {ontemp}
     {roots}
+    bind:createIn
   />
-</ul>
+</div>
 
 <style>
+  /* A column: the project list takes the room the menu has (chrome.css caps
+     it at 400px and 10px short of the viewport) and scrolls, but never
+     below a 30px sliver; the foot keeps its full size. Only a foot taller
+     than the whole cap leaves the menu itself to scroll. One width whatever
+     tab the foot shows, wide enough for the Clone form. */
+  .home-menu {
+    --home-menu-min-inline-size: 360px;
+
+    inline-size: max(anchor-size(inline), var(--home-menu-min-inline-size));
+    max-inline-size: calc(100vw - 2 * var(--picker-menu-viewport-gap));
+
+    &:popover-open {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
+  .options {
+    --home-menu-options-min-block-size: 30px;
+
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-block-size: var(--home-menu-options-min-block-size);
+    margin: 0;
+    padding: 0;
+    scrollbar-width: thin;
+    list-style: none;
+  }
+
   .none {
     padding: 8px 10px;
     color: var(--on-surface-variant);

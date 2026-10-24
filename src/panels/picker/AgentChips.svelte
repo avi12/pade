@@ -5,19 +5,16 @@
 
   // A radiogroup of agent choice-chips - one pill per agent, its brand glyph
   // leading the label, the selected one edged in primary over its container.
-  // Shared by the picker's Default-agent section and the create form's
-  // per-launch Agent row (DRY); `compact` trims the padding for the denser
-  // in-form row.
-  const { agents, selected, onpick, ariaLabel, isCompact = false }: {
+  // The picker's Default-agent section.
+  const { agents, selected, onpick, ariaLabel }: {
     agents: Agent[];
     selected: string | null;
     onpick: (agentId: string) => void;
     ariaLabel: string;
-    isCompact?: boolean;
   } = $props();
 </script>
 
-<div class="chips" class:compact={isCompact} aria-label={ariaLabel} role="radiogroup">
+<div class="chips" aria-label={ariaLabel} role="radiogroup">
   {#each agents as agent (agent.id)}
     {@const isSelected = selected === agent.id}
     <button
@@ -73,11 +70,5 @@
       background: var(--primary-container);
       color: var(--on-primary-container);
     }
-  }
-
-  /* The create form's Agent row reads a touch more compact than the standalone
-     Default-agent chips. */
-  .compact .chip {
-    padding: 7px 14px;
   }
 </style>
