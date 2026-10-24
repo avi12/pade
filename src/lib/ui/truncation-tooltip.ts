@@ -41,9 +41,17 @@ function overflowTooltip(textToShow: (elTrigger: HTMLElement) => string) {
         anchorName,
         text
       });
+      // Any scroll dismisses the bubble, as a native tooltip does: its row
+      // may slide under a pinned section (which `anchors-visible` can't see,
+      // since nothing clips it) while the bubble would still be riding it.
+      addEventListener("scroll", deactivate, {
+        capture: true,
+        passive: true
+      });
     }
 
     function deactivate() {
+      removeEventListener("scroll", deactivate, { capture: true });
       clearOverflowTooltip(anchorName);
     }
 
