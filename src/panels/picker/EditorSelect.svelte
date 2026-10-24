@@ -26,7 +26,7 @@
 <span class="editor-selector menu-host">
   <button
     style:anchor-name="--{selectId}"
-    class="editor-trigger menu-trigger"
+    class="editor-trigger field-trigger menu-trigger"
     aria-label={ariaLabel}
     disabled={isEmpty}
     popovertarget={selectId}
@@ -82,20 +82,11 @@
     gap: 8px;
     align-items: center;
     padding: 8px 12px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    color: var(--on-surface);
-    font: inherit;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
     transition:
       border-color 150ms var(--ease),
       background 150ms var(--ease);
 
     &:hover:not(:disabled) {
-      border-color: var(--primary);
       background: var(--surface-3);
       filter: none;
     }

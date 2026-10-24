@@ -198,6 +198,21 @@
   }
 }
 
+/* A dropdown trigger that reads as a form field (the editor-rule selects, the
+   home composer's project / LLM menus): bordered and tonal instead of the
+   filled button above. The component adds its own sizing and padding. */
+.picker .field-trigger {
+  border: 1px solid var(--outline);
+  background: var(--surface-2);
+  color: var(--on-surface);
+  font-weight: 600;
+  font-size: 13px;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary);
+  }
+}
+
 /* A list row's main button takes the width its trailing kebab leaves. */
 .picker .row > button:first-child {
   flex: 1;

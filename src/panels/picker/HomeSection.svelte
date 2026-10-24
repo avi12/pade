@@ -168,7 +168,7 @@
     <div class="row">
       <span style:anchor-name="--{PROJECT_MENU_ID}" class="menu-host">
         <button
-          class="select"
+          class="select field-trigger"
           aria-label="Project"
           popovertarget={PROJECT_MENU_ID}
           title={selectedPath || undefined}
@@ -242,7 +242,7 @@
 
       <span style:anchor-name="--{AGENT_MENU_ID}" class="menu-host">
         <button
-          class="select"
+          class="select field-trigger"
           aria-label="LLM"
           disabled={realAgents.length === 0}
           popovertarget={AGENT_MENU_ID}
@@ -365,8 +365,8 @@
     align-items: center;
   }
 
-  /* The project / LLM triggers read as fields: bordered, tonal, labels that
-     ellipsis instead of pushing Start off the row. */
+  /* The project / LLM triggers read as fields (the shared .field-trigger
+     look), labels that ellipsis instead of pushing Start off the row. */
   .select {
     display: inline-flex;
     gap: 8px;
@@ -374,23 +374,11 @@
     min-inline-size: 0;
     max-inline-size: 100%;
     padding: 10px 14px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    color: var(--on-surface);
-    font: inherit;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
     transition: border-color 150ms var(--ease);
 
     &:disabled {
       opacity: 60%;
       cursor: default;
-    }
-
-    &:hover:not(:disabled) {
-      border-color: var(--primary);
     }
 
     .current {
