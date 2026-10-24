@@ -455,6 +455,9 @@ writes.
   downloads a newer exe, checks its SHA-256 and swaps it in as PADE closes or
   on **Restart to update** (Config → Updates, with an opt-out **Check for
   updates** switch). Every push to `main` is released (`docs/releasing.md`).
+  ✅ Also published to **winget** (`avi12.PADE`, a portable package); a winget
+  install updates itself through `winget upgrade` once winget lists a newer
+  version, so winget's own record stays true.
 - R2.7 **Open source** - Apache-2.0; TS plugin SDK (🔭); public RFCs.
 
 ## 3. Architecture (SoC map)

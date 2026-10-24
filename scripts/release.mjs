@@ -13,10 +13,20 @@
 //   3. commit `chore(release): <version>`, tag `v<version>` and push both;
 //   4. create the GitHub release with the exe attached as `PADE-<version>.exe`;
 //   5. write the manifest from that exe's SHA-256 and push it - last, so an
-//      installed copy never sees a release whose exe isn't uploaded yet.
+//      installed copy never sees a release whose exe isn't uploaded yet;
+//   6. fill the winget manifests (`packaging/winget`), validate them and open
+//      the pull request to `microsoft/winget-pkgs` with `wingetcreate`, so a
+//      winget install sees the release once winget's reviewers merge it.
+//      `--no-winget` (after the notes file) skips this step.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync
+} from "node:fs";
 import { join, resolve } from "node:path";
 
 const REPOSITORY = "avi12/pade";
@@ -34,6 +44,10 @@ const IS_WINDOWS = process.platform === "win32";
 /** Commands installed as a `.cmd` shim on Windows, which only a shell can
  *  start. Their arguments here never hold a space, so the shell can't split one. */
 const SHIM_COMMANDS = new Set(["pnpm"]);
+const WINGET_TEMPLATES = join(ROOT, "packaging", "winget");
+const WINGET_PACKAGE = "avi12.PADE";
+const WINGET_PACKAGE_PATH = "repos/microsoft/winget-pkgs/contents/manifests/a/avi12/PADE";
+const NO_WINGET_FLAG = "--no-winget";
 
 /** Run a command in the repository, its output passed through; throws on failure. */
 function run({ command, args, environment = {} }) {
@@ -77,9 +91,60 @@ function fail(message) {
   process.exit(1);
 }
 
-const [version, notesFile] = process.argv.slice(2);
+/** Whether winget already lists PADE - a first submission is a new package. */
+function isOnWinget() {
+  try {
+    read({
+      command: "gh",
+      args: ["api", WINGET_PACKAGE_PATH, "--silent"]
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Fill the winget manifest templates for this release, validate them and open
+ *  the winget-pkgs pull request. The token rides an environment variable, which
+ *  wingetcreate reads, rather than an argument it may log. */
+function submitToWinget({ version, url, sha256 }) {
+  const directory = join(OUTPUT_DIRECTORY, "winget", version);
+  mkdirSync(directory, { recursive: true });
+  const values = {
+    "{{VERSION}}": version,
+    "{{RELEASE_DATE}}": new Date().toISOString().slice(0, 10),
+    "{{INSTALLER_URL}}": url,
+    "{{INSTALLER_SHA256}}": sha256.toUpperCase()
+  };
+  for (const file of readdirSync(WINGET_TEMPLATES)) {
+    let manifest = readFileSync(join(WINGET_TEMPLATES, file), "utf8");
+    for (const [placeholder, value] of Object.entries(values)) {
+      manifest = manifest.replaceAll(placeholder, value);
+    }
+    writeFileSync(join(directory, file), manifest);
+  }
+
+  run({
+    command: "winget",
+    args: ["validate", "--manifest", directory]
+  });
+  const kind = isOnWinget() ? "New version" : "New package";
+  run({
+    command: "wingetcreate",
+    args: ["submit", "--no-open", "--prtitle", `${kind}: ${WINGET_PACKAGE} version ${version}`, directory],
+    environment: {
+      WINGET_CREATE_GITHUB_TOKEN: read({
+        command: "gh",
+        args: ["auth", "token"]
+      })
+    }
+  });
+}
+
+const [version, notesFile, ...flags] = process.argv.slice(2);
+const isWingetSkipped = flags.includes(NO_WINGET_FLAG);
 if (!version || !notesFile || !VERSION_PATTERN.test(version)) {
-  fail("usage: node scripts/release.mjs <major.minor.patch> <notes-file>");
+  fail(`usage: node scripts/release.mjs <major.minor.patch> <notes-file> [${NO_WINGET_FLAG}]`);
 }
 
 const isWorkingTreeClean = read({
@@ -172,5 +237,9 @@ run({
   command: "git",
   args: ["push", "origin", "main"]
 });
+
+if (!isWingetSkipped) {
+  submitToWinget(manifest);
+}
 
 console.log(`Released ${tag}: https://github.com/${REPOSITORY}/releases/tag/${tag}`);

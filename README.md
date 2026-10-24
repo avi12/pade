@@ -92,8 +92,9 @@ Then edit any file in the repo and watch it appear in the Change Feed.
 ## Build (release)
 
 PADE ships as one portable exe - no installer. Download `PADE-<version>.exe`
-from the [releases](https://github.com/avi12/pade/releases), run it from
-anywhere, and it keeps itself up to date (Config → Updates).
+from the [releases](https://github.com/avi12/pade/releases) and run it from
+anywhere, or install it with `winget install avi12.PADE`. Either way it keeps
+itself up to date (Config → Updates).
 
 ```bash
 pnpm app:build                 # tauri build --no-bundle → src-tauri/target/release/pade.exe

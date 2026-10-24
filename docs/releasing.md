@@ -32,6 +32,13 @@ Every push to `main` is released (see `CLAUDE.md`). With the work committed:
 The manifest goes last: installed copies see a release only once it is on
 `main`, so it never points at an exe that is not uploaded yet.
 
+6. fills the winget manifests in `packaging/winget` (version, date, exe address
+   and SHA-256), runs `winget validate` on them, and opens the pull request to
+   `microsoft/winget-pkgs` with `wingetcreate submit` (titled "New package" the
+   first time, "New version" after), using `gh auth token`. winget's reviewers
+   merge it, usually within a day or two. Pass `--no-winget` after the notes
+   file to skip this step.
+
 A patch release (`0.0.x`) is the default; a minor bump marks a release with a
 new feature users would notice.
 
@@ -47,6 +54,14 @@ happens as PADE closes, so the next start is the new version.
 The swap renames the running exe aside (a running exe can be renamed, not
 overwritten), puts the new one under its name, and the next start deletes what
 was set aside.
+
+A copy installed with `winget install avi12.PADE` (it lives under
+`…\WinGet\Packages\`) updates through winget instead, so `winget list` stays
+true: it reads which versions `microsoft/winget-pkgs` holds (the GitHub API, at
+the same times), and when one is newer, a hidden PowerShell waits for PADE to
+close and runs `winget upgrade --id avi12.PADE`. **Restart to update** closes
+PADE, and the upgrade starts it again. A winget copy sees a release once its
+winget pull request is merged, not when the GitHub release is published.
 
 - Only a published exe updates itself: a debug build, or a release build run from
   `src-tauri\target`, never does.
