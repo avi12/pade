@@ -31,7 +31,8 @@
     onmove,
     onrename,
     onrenamefolder,
-    ondelete
+    ondelete,
+    ondeleteproject
   }: {
     agents: Agent[];
     onopen: (target: OpenTarget) => void;
@@ -45,9 +46,13 @@
     }) => Promise<string>;
     /** Renames any project's folder where it stands, through the relocator. */
     onrenamefolder: Relocator["renameFolder"];
-    /** Deletes through the app's relocator: kills the sessions holding the
-     *  folder as cwd (else the OS blocks the removal), then removes it. */
+    /** Deletes an owned workspace through the app's relocator: kills the
+     *  sessions holding the folder as cwd (else the OS blocks the removal),
+     *  then removes it. */
     ondelete: (path: string) => Promise<Settings>;
+    /** Deletes any other project's folder through the app's relocator, with
+     *  the same session handling. */
+    ondeleteproject: (path: string) => Promise<Settings>;
   } = $props();
 
   const RESCAN_DEBOUNCE_MILLISECONDS = 250;
@@ -113,13 +118,14 @@
     return settings.ownedWorkspaces.includes(path) || isTemporaryWorkspace(path);
   }
 
-  // Owned-workspace lifecycle (rename/move/delete + the inline-rename form
+  // Workspace lifecycle (rename/move/delete + the inline-rename form
   // state) - one instance shared by the Recent rows and the root-project rows.
   const lifecycle = createWorkspaceLifecycle({
     isOwned,
     onmove: target => onmove(target),
     onrename: target => onrename(target),
     ondelete: path => ondelete(path),
+    ondeleteproject: path => ondeleteproject(path),
     onrenamefolder: target => onrenamefolder(target),
     openWindows: () => sendMessage(Command.windowList),
     // A rename/move/delete changes the project lists, not the installed editors -
@@ -288,11 +294,14 @@
 
 <style>
   .picker {
+    flex: 1;
+
     /* Programmatic jumps (focusing the add-root field) glide instead of snap;
        focus() scrolls with behavior "auto", which follows this property. */
     scroll-behavior: smooth;
     overflow-y: auto;
     block-size: 100%;
+    min-inline-size: 0;
     background: radial-gradient(120% 100% at 50% 0%, var(--surface-1), var(--surface));
   }
 

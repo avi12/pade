@@ -1,7 +1,8 @@
-// Owned-workspace lifecycle shared by the picker's Recent and Root sections:
-// delete, move (→ permanent, still deletable), rename (→ promoted into the
-// primary project root) with the inline-rename form state, and which temp
-// workspace is being relabelled in PADE (its folder untouched). One instance lives
+// Workspace lifecycle shared by the picker's Recent and Root sections:
+// delete (any project shown on the page; owned workspaces through the
+// owned-only removal), move (→ permanent, still deletable), rename (→ promoted
+// into the primary project root) with the inline-rename form state, and which
+// temp workspace is being relabelled in PADE (its folder untouched). One instance lives
 // in ProjectPicker and is handed to both sections and their row menus, so a
 // rename started from either list drives the same form - and one delete
 // confirmation dialog serves both.
@@ -26,9 +27,13 @@ export interface LifecycleHost {
     from: string;
     newName: string;
   }) => Promise<string>;
-  /** Delete the folder - via the app's relocator, so the sessions holding it as
-   *  cwd are killed first and the removal isn't blocked by their lock. */
+  /** Delete an owned workspace's folder - via the app's relocator, so the
+   *  sessions holding it as cwd are killed first and the removal isn't blocked
+   *  by their lock. */
   ondelete: (path: string) => Promise<Settings>;
+  /** Delete any other project's folder from disk (the ungated removal) - via
+   *  the app's relocator for the same lock handling. */
+  ondeleteproject: (path: string) => Promise<Settings>;
   /** Rename any project's folder where it stands, via the app's relocator. */
   onrenamefolder: Relocator["renameFolder"];
   /** The open PADE windows, so a project another one holds isn't moved. */
@@ -148,15 +153,17 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
     deleteError = null;
     try {
       // The settings reply is adopted first so the row leaves the Recent list (and
-      // animates out) before the rescan catches the root lists up.
-      await host.ondelete(path);
+      // animates out) before the rescan catches the root lists up. An owned
+      // workspace goes through the owned-only removal; every other project
+      // shown on the page goes through the ungated directory removal.
+      await (host.isOwned(path) ? host.ondelete(path) : host.ondeleteproject(path));
       deleteTarget = null;
       await host.refresh();
     } catch (error) {
       deleteTarget = path;
       deleteError = errorMessage({
         error,
-        fallback: "Couldn’t delete that workspace"
+        fallback: host.isOwned(path) ? "Couldn’t delete that workspace" : "Couldn’t delete that directory"
       });
     } finally {
       isDeleting = false;

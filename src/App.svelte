@@ -21,6 +21,7 @@
   import { clearDiscordPresence } from "@/lib/shell/discord-presence";
   import BootSplash from "@/lib/shell/screen/BootSplash.svelte";
   import { animatePaneIn } from "@/lib/shell/screen/pane-dom";
+  import ProjectSidebar from "@/lib/shell/screen/ProjectSidebar.svelte";
   import WorkspaceScreen from "@/lib/shell/screen/WorkspaceScreen.svelte";
   import { registerSessionShortcuts } from "@/lib/shell/session-shortcuts";
   import { createSessionAutomation } from "@/lib/shell/sessionAutomation.svelte";
@@ -692,14 +693,27 @@
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monospaceFamily} class="app-root">
   {#if phase === Phase.Project}
-    <ProjectPicker
-      {agents}
-      ondelete={relocator.remove}
-      onmove={relocator.move}
-      onopen={openProject}
-      onrename={relocator.rename}
-      onrenamefolder={relocator.renameFolder}
-    />
+    <div class="home-shell">
+      <ProjectSidebar
+        activeId={windowSessions.activeId}
+        ondeletechat={async target => await deleteChat(target)}
+        onnewchat={newChat}
+        onopenproject={projectPath => openProject({ path: projectPath })}
+        onselectchat={selectChat}
+        project={currentProject}
+        registry={chatRegistry}
+        sessions={windowSessions.sessions}
+      />
+      <ProjectPicker
+        {agents}
+        ondelete={relocator.remove}
+        ondeleteproject={relocator.removeDirectory}
+        onmove={relocator.move}
+        onopen={openProject}
+        onrename={relocator.rename}
+        onrenamefolder={relocator.renameFolder}
+      />
+    </div>
   {:else if phase === Phase.Onboarding}
     <Onboarding
       {agents}
@@ -763,6 +777,15 @@
 
 <style>
   .app-root {
+    block-size: 100%;
+  }
+
+  /* The home screen: the same left rail the workspace shows, beside the
+     picker - so projects and their chats stay visible and switchable before
+     a project is open. */
+  .home-shell {
+    display: flex;
+    flex-direction: row;
     block-size: 100%;
   }
 </style>

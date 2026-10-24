@@ -5,11 +5,11 @@
   import OwnedWorkspaceItems from "@/panels/picker/OwnedWorkspaceItems.svelte";
 
   // Trailing kebab + actions popover for one project row: reveal in Files /
-  // Terminal, renaming the folder (any project no other window holds), and - for
-  // PADE-owned workspaces - the relabel (temp only) / rename / move / delete
-  // lifecycle. Opening in an editor is its own visible row button
-  // (OpenInEditorButton), so it isn't repeated here. Chrome comes from
-  // picker/chrome.css.
+  // Terminal, renaming the folder (any project no other window holds), deleting
+  // the folder (any project on the page), and - for PADE-owned workspaces - the
+  // relabel (temp only) / rename / move lifecycle. Opening in an editor is its
+  // own visible row button (OpenInEditorButton), so it isn't repeated here.
+  // Chrome comes from picker/chrome.css.
   const { path, scope, lifecycle }: {
     path: string;
     /** Disambiguates a path shown in more than one section (Recent AND under
@@ -23,7 +23,13 @@
   const identifier = $derived(`menu-${scope}-${path.replaceAll(/[^a-zA-Z0-9]/g, "-")}`);
   const isOwned = $derived(lifecycle.isOwned(path));
   const isFolderRenamable = $derived(lifecycle.canRenameFolder(path));
-  const hasWorkspaceActions = $derived(isOwned || isFolderRenamable);
+  const deleteLabel = $derived.by(() => {
+    if (isOwned) {
+      return "Delete workspace";
+    }
+
+    return "Delete directory";
+  });
 </script>
 
 <span class="menu-host">
@@ -55,10 +61,8 @@
         <Icon name="terminal" /><span class="menu-item-text">Open in Terminal</span>
       </button>
     </li>
-    {#if hasWorkspaceActions}
-      <li class="menu-divider" role="separator"></li>
-      <li class="menu-separator">Workspace</li>
-    {/if}
+    <li class="menu-divider" role="separator"></li>
+    <li class="menu-separator">Workspace</li>
     {#if isFolderRenamable}
       <li>
         <button
@@ -74,6 +78,25 @@
     {#if isOwned}
       <OwnedWorkspaceItems {lifecycle} menuId={identifier} {path} />
     {/if}
+    <li>
+      <!-- Shift-click is the power-user path: it skips the confirmation and
+           deletes straight away (a failure still surfaces in the dialog). -->
+      <button
+        class="menu-item danger"
+        onclick={async e => {
+          if (e.shiftKey) {
+            await lifecycle.deleteNow(path);
+            return;
+          }
+
+          lifecycle.requestDelete(path);
+        }}
+        popovertarget={identifier}
+        popovertargetaction="hide"
+      >
+        <Icon name="trash" /><span class="menu-item-text">{deleteLabel}</span><kbd>⇧</kbd>
+      </button>
+    </li>
   </ul>
 </span>
 
