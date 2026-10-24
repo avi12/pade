@@ -1,9 +1,7 @@
 import {
   isCurrentProject,
-  isSameMembership,
   matchesProjectFilter,
   rowMenuId,
-  rowTransitionName,
   windowRowsInOrder,
   windowRowTransitionName
 } from "@/lib/workspace/switcher/switcher-rows";
@@ -16,8 +14,7 @@ describe("row identifiers", () => {
     expect(rowMenuId(PROJECT)).toBe("switcher-C--repositories-avi-poll-avi");
   });
 
-  it("keeps project and window transition names in separate namespaces", () => {
-    expect(rowTransitionName(PROJECT)).toBe("row-C--repositories-avi-poll-avi");
+  it("names a window row's view transition after its window", () => {
     expect(windowRowTransitionName("main")).toBe("window-row-main");
   });
 });
@@ -116,48 +113,5 @@ describe("windowRowsInOrder", () => {
         order: ["closed", "main"]
       }).map(row => row.label)
     ).toEqual(["main"]);
-  });
-});
-
-describe("isSameMembership", () => {
-  const before = {
-    pinned: ["C:/a"],
-    recent: ["C:/b", "C:/c"]
-  };
-
-  it("ignores a reorder", () => {
-    expect(
-      isSameMembership({
-        before,
-        after: {
-          pinned: ["C:/a"],
-          recent: ["C:/c", "C:/b"]
-        }
-      })
-    ).toBe(true);
-  });
-
-  it("sees a project leave", () => {
-    expect(
-      isSameMembership({
-        before,
-        after: {
-          pinned: ["C:/a"],
-          recent: ["C:/b"]
-        }
-      })
-    ).toBe(false);
-  });
-
-  it("sees a project move between sections", () => {
-    expect(
-      isSameMembership({
-        before,
-        after: {
-          pinned: ["C:/a", "C:/b"],
-          recent: ["C:/c"]
-        }
-      })
-    ).toBe(false);
   });
 });

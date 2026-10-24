@@ -21,11 +21,11 @@
   import { clearDiscordPresence } from "@/lib/shell/discord-presence";
   import BootSplash from "@/lib/shell/screen/BootSplash.svelte";
   import { animatePaneIn } from "@/lib/shell/screen/pane-dom";
-  import ProjectSidebar from "@/lib/shell/screen/ProjectSidebar.svelte";
   import WorkspaceScreen from "@/lib/shell/screen/WorkspaceScreen.svelte";
   import { registerSessionShortcuts } from "@/lib/shell/session-shortcuts";
   import { createSessionAutomation } from "@/lib/shell/sessionAutomation.svelte";
   import { Side } from "@/lib/shell/side-panels";
+  import ProjectSidebar from "@/lib/shell/sidebar/ProjectSidebar.svelte";
   import { WindowRoute, windowRouteFor } from "@/lib/shell/window-route";
   import { syncWindowAddress } from "@/lib/shell/windowAddress.svelte";
   import WindowEvents from "@/lib/shell/WindowEvents.svelte";
@@ -755,8 +755,12 @@
       <ProjectSidebar
         activeId={windowSessions.activeId}
         ondeletechat={async target => await deleteChat(target)}
+        ondeleteproject={async projectPath => {
+          await relocator.removeDirectory(projectPath);
+        }}
         onnewchat={newChat}
         onopenproject={projectPath => openProject({ path: projectPath })}
+        onrenamefolder={relocator.renameFolder}
         onresumeconversation={resumeConversation}
         onselectchat={selectChat}
         project={currentProject}

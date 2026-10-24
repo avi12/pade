@@ -1,34 +1,64 @@
 <script lang="ts">
-  import Icon from "@/lib/Icon.svelte";
-  import { sidebarProjects } from "@/lib/session/chat-registry";
+  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import type { StoredChatRegistry } from "@/lib/session/chat-registry";
+  import { sidebarProjects } from "@/lib/session/chat-registry";
+  import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
-  import ProjectChatRow from "@/lib/shell/screen/ProjectChatRow.svelte";
+  import { firstListedProject, sidebarProjectOrder, sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
+  import SidebarHeader from "@/lib/shell/sidebar/SidebarHeader.svelte";
+  import SidebarProjectList from "@/lib/shell/sidebar/SidebarProjectList.svelte";
+  import { PROJECT_SEARCH_ID } from "@/lib/shell/window-shortcut-actions";
   import { recordedConversations, refreshRecordedConversations } from "@/lib/stores/session/recordedConversations.svelte";
   import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-  import type { AgentSession, RecordedConversation } from "@/lib/types";
-  import { displayName } from "@/lib/util/paths";
+  import { invalidateProjectBranches } from "@/lib/stores/workspace/projectBranches.svelte";
+  import { revalidateProjectKinds } from "@/lib/stores/workspace/projectKinds.svelte";
+  import { revalidateProjectLanguages } from "@/lib/stores/workspace/projectLanguages.svelte";
+  import { WindowMode } from "@/lib/types";
+  import type { AgentSession, RecordedConversation, WindowInfo } from "@/lib/types";
+  import { isNewWindowClick, otherWindowWith } from "@/lib/workspace/open-windows";
+  import FolderWatch from "@/lib/workspace/switcher/FolderWatch.svelte";
+  import { isCurrentProject } from "@/lib/workspace/switcher/switcher-rows";
+  import SwitcherDialogs from "@/lib/workspace/switcher/SwitcherDialogs.svelte";
+  import SwitcherFilter from "@/lib/workspace/switcher/SwitcherFilter.svelte";
+  import type { Relocator } from "@/lib/workspace/workspace-relocate";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
+  import { onDestroy, onMount } from "svelte";
 
-  // The left rail: every project, with its chats grouped under it. The
-  // current project's chats are its live sessions; the others are the
-  // persisted ones, reopened on their own conversations when picked.
+  // The left rail - the one place for projects. A search on top (Ctrl P), then
+  // every project as the switcher's rich row (pins first, then this window's
+  // project, the recents and any other holding chats) with its chats grouped
+  // under it - live sessions for the open project, the persisted ones
+  // elsewhere, reopened on their own conversations when picked. The project
+  // actions (picker, rename, new windows) hang off the head.
   const {
     registry,
     project,
     sessions,
     activeId,
     onopenproject,
+    onswitch,
+    ondeleteproject,
+    onrenamefolder,
     onselectchat,
     onresumeconversation,
     ondeletechat,
     onnewchat
   }: {
     registry: StoredChatRegistry;
-    /** The project this window has open - its chats are the live sessions. */
+    /** The project this window has open - its chats are the live sessions.
+     *  Empty while the picker is up. */
     project: string;
     sessions: AgentSession[];
     activeId: string | null;
+    /** Switch this window to `project` (in place). */
     onopenproject: (project: string) => void;
+    /** Open the full picker - absent where the picker is already on screen. */
+    onswitch?: () => void;
+    /** Delete a project's directory from disk - resolves once removed (or
+     *  throws its message for the still-open prompt). */
+    ondeleteproject: (project: string) => Promise<void>;
+    /** Rename a project's folder on disk where it stands. */
+    onrenamefolder: Relocator["renameFolder"];
     onselectchat: (target: {
       project: string;
       chatId: string;
@@ -44,13 +74,28 @@
     onnewchat: (project: string) => void;
   } = $props();
 
-  // Every project the user has touched, current first, then pinned, then
-  // recent, then any other project that still holds chats - deduplicated by
-  // the grouping itself.
-  const projectOrder = $derived.by(() => {
-    const projectsWithChats = [...new Set(registry.chats.map(chat => chat.project))];
-    return [project, ...settings.pinnedProjects, ...settings.recentProjects, ...projectsWithChats];
-  });
+  let filter = $state("");
+  // The other PADE windows - a project one of them has open is focused there
+  // rather than opened twice, and can't have its folder renamed from here.
+  let windowRows = $state<WindowInfo[]>([]);
+  // The instant every row's "last accessed" age is measured against - renewed
+  // whenever the rail is looked at again, so the ages stay a glance, not a clock.
+  let now = $state(Date.now());
+
+  // The row prompts (delete directory, relabel, rename folder): a target opens
+  // its prompt; the parent only performs the removal or the move.
+  let deleteTarget = $state<string | null>(null);
+  let relabelTarget = $state<string | null>(null);
+  let renameFolderTarget = $state<string | null>(null);
+
+  const projectOrder = $derived(
+    sidebarProjectOrder({
+      current: project,
+      pinned: settings.pinnedProjects,
+      recent: settings.recentProjects,
+      registry
+    })
+  );
 
   const liveLabels = $derived(
     Object.fromEntries(sessions.map(session => [session.id, sessionLabel(session.id)] as const))
@@ -67,6 +112,15 @@
     })
   );
 
+  const sections = $derived(
+    sidebarSections({
+      groups,
+      pinned: settings.pinnedProjects,
+      query: filter,
+      labels: settings.labels
+    })
+  );
+
   // Re-read the agents' recorded conversations when the listed projects
   // change, or a chat opens or closes (a closed chat lives on as a recorded
   // conversation). One joined key of both, so a registry save that leaves
@@ -76,236 +130,189 @@
     const [, ...projects] = refreshKey.split("\n");
     refreshRecordedConversations(projects);
   });
+
+  async function loadOpenWindows() {
+    try {
+      windowRows = await sendMessage(Command.windowList);
+    } catch (error) {
+      console.warn("pade: keeping the last-known open windows", error);
+    }
+  }
+
+  /** Bring a project up: this window's own is already here, one another window
+   *  has open is focused there, Ctrl/Cmd/Shift opens a new window, and anything
+   *  else switches this window to it. */
+  async function pickProject({ project: picked, opensNewWindow }: {
+    project: string;
+    opensNewWindow: boolean;
+  }) {
+    if (isCurrentProject({
+      project: picked,
+      current: project
+    })) {
+      return;
+    }
+
+    const openWindow = otherWindowWith({
+      windowRows,
+      path: picked
+    });
+    if (openWindow) {
+      await sendMessage(Command.windowFocusLabel, { label: openWindow.label });
+      return;
+    }
+
+    if (opensNewWindow) {
+      await sendMessage(Command.windowCreate, {
+        mode: WindowMode.enum.open,
+        path: picked
+      });
+      return;
+    }
+
+    onopenproject(picked);
+  }
+
+  onMount(loadOpenWindows);
+
+  // Keep the branch chips honest: a branch switch or git init in any listed
+  // project re-asks for the visible rows.
+  let unlistenGitState: UnlistenFn | undefined;
+  onMount(async () => {
+    unlistenGitState = await onMessage(EventType.gitState, invalidateProjectBranches);
+  });
+  onDestroy(() => unlistenGitState?.());
+
+  // A window opened, closed or moved to another project elsewhere - the
+  // "open in another window" marks follow.
+  let unlistenWindowsChanged: UnlistenFn | undefined;
+  onMount(async () => {
+    unlistenWindowsChanged = await onMessage(EventType.windowsChanged, loadOpenWindows);
+  });
+  onDestroy(() => unlistenWindowsChanged?.());
 </script>
 
+<svelte:document
+  onvisibilitychange={async () => {
+    if (document.hidden) {
+      return;
+    }
+
+    // Looked at again: fresh ages, branches, kinds and open windows.
+    now = Date.now();
+    invalidateProjectBranches();
+    revalidateProjectKinds();
+    revalidateProjectLanguages();
+    await loadOpenWindows();
+  }}
+/>
+
 <nav class="sidebar" aria-label="Projects and chats">
-  <div class="sidebar-head">
-    <h2>Projects</h2>
+  <SidebarHeader
+    labels={settings.labels}
+    onrenamefolder={() => {
+      renameFolderTarget = project;
+    }}
+    {onswitch}
+    path={project}
+  />
+
+  <div class="search">
+    <!-- Ctrl P focuses it from anywhere (a window shortcut) -->
+    <SwitcherFilter
+      id={PROJECT_SEARCH_ID}
+      onenter={async () => {
+        const first = firstListedProject(sections);
+        if (first !== undefined) {
+          await pickProject({
+            project: first,
+            opensNewWindow: false
+          });
+        }
+      }}
+      bind:value={filter}
+    />
   </div>
 
-  <div class="groups">
-    {#each groups as group (group.project)}
-      <section class="group" class:current={group.isCurrent}>
-        <div class="project-row">
-          <button
-            class="project-main"
-            aria-current={group.isCurrent}
-            onclick={() => {
-              if (!group.isCurrent) {
-                onopenproject(group.project);
-              }
-            }}
-            title={group.project}
-            type="button"
-          >
-            <span class="project-icon"><Icon name="folder" size={15} /></span>
-            <span class="project-name">{displayName({
-              path: group.project,
-              labels: settings.labels
-            })}</span>
-            <span class="chat-count">{group.chats.length}</span>
-          </button>
-          <button
-            class="new-chat"
-            aria-label="New chat in {displayName({
-              path: group.project,
-              labels: settings.labels
-            })}"
-            data-tooltip="New chat"
-            onclick={() => onnewchat(group.project)}
-            type="button"
-          ><Icon name="plus" size={14} /></button>
-        </div>
+  <SidebarProjectList
+    {activeId}
+    isFiltered={filter.trim() !== ""}
+    labels={settings.labels}
+    {now}
+    onclearrecent={async () => {
+      await sendSettingsMessage(Command.workspaceClearRecent);
+    }}
+    {ondeletechat}
+    ondeleteproject={target => {
+      deleteTarget = target;
+    }}
+    {onnewchat}
+    onpick={async ({ project: picked, event }) => await pickProject({
+      project: picked,
+      opensNewWindow: isNewWindowClick(event)
+    })}
+    onrelabel={target => {
+      relabelTarget = target;
+    }}
+    onremove={async target => {
+      await sendSettingsMessage(Command.workspaceRemoveRecent, { path: target });
+    }}
+    onrenamefolder={target => {
+      renameFolderTarget = target;
+    }}
+    onreorderpins={async paths => {
+      await sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths });
+    }}
+    {onresumeconversation}
+    {onselectchat}
+    ontogglepin={async target => {
+      await sendSettingsMessage(Command.workspaceSetPinned, target);
+    }}
+    {sections}
+    {windowRows}
+  />
 
-        <ul class="chats">
-          {#each group.chats as chat (chat.id)}
-            <li>
-              <ProjectChatRow
-                {chat}
-                isActive={group.isCurrent && chat.id === activeId}
-                ondelete={chat.resume === undefined
-                  ? () => ondeletechat({
-                    project: group.project,
-                    chatId: chat.id
-                  })
-                  : undefined}
-                onnew={() => onnewchat(group.project)}
-                onselect={() => {
-                  if (chat.resume !== undefined) {
-                    onresumeconversation({
-                      project: group.project,
-                      conversation: chat.resume
-                    });
-                    return;
-                  }
+  <SwitcherDialogs
+    labels={settings.labels}
+    ondelete={ondeleteproject}
+    {onrenamefolder}
+    bind:deleteTarget
+    bind:relabelTarget
+    bind:renameFolderTarget
+  />
 
-                  onselectchat({
-                    project: group.project,
-                    chatId: chat.id
-                  });
-                }}
-              />
-            </li>
-          {:else}
-            <li class="no-chats">No chats yet</li>
-          {/each}
-        </ul>
-      </section>
-    {:else}
-      <p class="no-projects">No projects yet - open one to start a chat</p>
-    {/each}
-  </div>
+  <!-- A listed folder deleted or renamed outside PADE leaves the rail -->
+  <FolderWatch
+    isActive
+    onvanish={async () => {
+      await sendSettingsMessage(Command.workspacePrune);
+    }}
+    projects={[...settings.pinnedProjects, ...settings.recentProjects]}
+  />
 </nav>
 
 <style>
   /* The left rail - a fixed-width column that never squeezes the terminal:
-     projects stack, their chats indent under them, and the whole list
-     scrolls on its own. */
+     the head and search stay put while the project list scrolls on its own. */
   .sidebar {
     display: flex;
     flex: none;
     flex-direction: column;
     min-block-size: 0;
-    inline-size: 248px;
+    inline-size: 272px;
     border-inline-end: 1px solid var(--outline);
     background: var(--surface-1);
   }
 
-  .sidebar-head {
+  .search {
     flex: none;
-    padding-block: 12px 6px;
-    padding-inline: 14px;
-
-    h2 {
-      margin: 0;
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 11px;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
-    }
-  }
-
-  .groups {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    overflow-y: auto;
-    min-block-size: 0;
-    padding-block: 4px 14px;
-    padding-inline: 8px;
-  }
-
-  .group {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  /* Project header - the switch target, with the new-chat button riding it. */
-  .project-row {
-    display: flex;
-    gap: 2px;
-    align-items: center;
-  }
-
-  .project-main {
-    display: flex;
-    flex: 1;
-    gap: 8px;
-    align-items: center;
-    min-inline-size: 0;
-    padding-block: 7px;
-    padding-inline: 8px;
-    border: none;
-    border-radius: var(--radius-small);
-    background: transparent;
-    color: var(--on-surface);
-    font: inherit;
-    font-weight: 600;
-    font-size: 13px;
-    text-align: start;
-    cursor: pointer;
-    transition: background 120ms var(--ease);
-
-    &:hover {
-      background: var(--surface-2);
-    }
-
-    .project-icon {
-      display: inline-flex;
-      flex: none;
-      color: var(--on-surface-variant);
-    }
-
-    .project-name {
-      flex: 1;
-      overflow: hidden;
-      min-inline-size: 0;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .chat-count {
-      flex: none;
-      color: var(--on-surface-variant);
-      font-size: 11px;
-    }
-  }
-
-  .group.current .project-main {
-    color: var(--primary);
-  }
-
-  .new-chat {
-    display: inline-flex;
-    flex: none;
-    justify-content: center;
-    align-items: center;
-    block-size: 26px;
-    inline-size: 26px;
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-small);
-    background: transparent;
-    color: var(--on-surface-variant);
-    cursor: pointer;
-    transition: background 120ms var(--ease), color 120ms var(--ease);
-
-    &:hover {
-      background: var(--surface-3);
-      color: var(--on-surface);
-    }
-  }
-
-  /* Chats indent under their project - the grouping reads from position
-     alone, no extra chrome per row. */
-  .chats {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    margin: 0;
-    padding: 0;
-    padding-inline-start: 18px;
-    list-style: none;
-  }
-
-  .no-chats,
-  .no-projects {
-    margin: 0;
-    padding-block: 4px;
-    padding-inline: 8px;
-    color: var(--on-surface-variant);
-    font-size: 12px;
-  }
-
-  .no-chats {
-    padding-inline-start: 26px;
+    padding-block-end: 4px;
+    padding-inline: 6px;
   }
 
   @media (width <= 720px) {
     .sidebar {
-      inline-size: 184px;
+      inline-size: 208px;
     }
   }
 </style>

@@ -1,30 +1,32 @@
-<script lang="ts">
+<script generics="Item" lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { Snippet } from "svelte";
 
-  // One titled section of the switcher's project list (Pinned or Recent): a
-  // sticky head, then one row per project. Nothing renders for an empty section.
-  const { title, projects, onclear, row }: {
-    title: string;
-    projects: string[];
+  // One titled section of the rail's project list (Pinned or Recent): a sticky
+  // head, then one row per item. Nothing renders for an empty section.
+  const { heading, items, key, onclear, row }: {
+    heading: string;
+    items: readonly Item[];
+    /** Each item's stable identity, keying its row. */
+    key: (item: Item) => string;
     /** Clear the whole section - offered from its head when given. */
     onclear?: () => void;
-    /** One project's row. */
-    row: Snippet<[string]>;
+    /** One item's row. */
+    row: Snippet<[Item]>;
   } = $props();
 </script>
 
-{#if projects.length > 0}
+{#if items.length > 0}
   <div class="list-head">
-    <span>{title}</span>
+    <span>{heading}</span>
     {#if onclear}
       <button class="clear" onclick={onclear} type="button">
         <Icon name="trash" size={12} /> Clear
       </button>
     {/if}
   </div>
-  {#each projects as project (project)}
-    {@render row(project)}
+  {#each items as item (key(item))}
+    {@render row(item)}
   {/each}
 {/if}
 
@@ -39,8 +41,8 @@
     justify-content: space-between;
     align-items: center;
     padding-block: 7px 3px;
-    padding-inline: 10px;
-    background: var(--surface-2);
+    padding-inline: 8px;
+    background: var(--surface-1);
     color: var(--on-surface-variant);
     font-weight: 700;
     font-size: 9px;
