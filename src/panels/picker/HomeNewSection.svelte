@@ -5,13 +5,11 @@
   import { THROWAWAY_LABEL } from "@/panels/picker/home-composer";
   import { tick } from "svelte";
 
-  // The composer menu's New section, the foot under the scrolling list so it
-  // is one glance away however long the list runs: a new project under each
-  // root, or a throwaway workspace.
-  const { menuId, roots, isSeparated, isTempPicked, nameFieldId, onnew, ontemp }: {
+  // The composer menu's New tab: a new project under each root, or a
+  // throwaway workspace.
+  const { menuId, roots, isTempPicked, nameFieldId, onnew, ontemp }: {
     menuId: string;
     roots: readonly string[];
-    isSeparated: boolean;
     isTempPicked: boolean;
     /** The name field a new project focuses once the menu closes. */
     nameFieldId: string;
@@ -37,8 +35,7 @@
   }
 </script>
 
-<div class="new-section" class:separator={isSeparated}>
-  <span class="head" aria-hidden="true">New</span>
+<div class="new-section">
   <div class="roots">
     {#each newTargets as root (root)}
       <button class="menu-item create-option" onclick={async e => await startNew(e, root)} type="button">
@@ -65,11 +62,8 @@
 </div>
 
 <style>
-  /* The menu's non-scrolling foot (HomeProjectMenu lays the menu out as a
-     column): it keeps its full size while the list above it scrolls. */
   .new-section {
     display: flex;
-    flex: none;
     flex-direction: column;
   }
 

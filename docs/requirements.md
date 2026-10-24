@@ -355,23 +355,27 @@ writes.
   (a surviving option keeps its selection at its new position; a vanished one
   falls to the nearest remaining position). Enter accepts the selection; Tab
   accepts and drills into sub-folders; a cleared field forgets the selection.
+  Ctrl+Space fills the next path segment as far as every matching folder on
+  disk agrees (the only match plus a separator, or the prefix the matches
+  share - read off every match, not the capped list), then shows the list.
 - R1.9.8 ✅ Selecting a root (adding one in Root folders) auto-fills it as the
-  Get started card's **Location** (shared by the New and Clone tabs); removing
-  that root clears it. The chosen root prints in full - a long path wraps in
-  the Location row, never truncates.
-- R1.9.9 ✅ **Get started card** - one tabbed card, three ways in, behind an
-  ARIA pill tablist (arrow keys switch tabs - `lib/rovingTabs.ts` - and Tab
-  moves into the active panel's inputs; a pointer click on a tab focuses the
-  panel's first input; panels stay mounted - typed state survives switching -
-  and swap as an in-place cross-fade while the body's height glides to the
-  open panel's measured size):
-  - **New** - root select + project name + optional first prompt → "Create &
-    open"; a blank name (or the quiet "…or start a throwaway temp workspace"
-    button) falls through to a temp workspace. Replaces the old separate
-    temp-workspace card.
-  - **Local** - open an existing folder: monospace path input with Browse…
-    (Tauri dialog); "Open project" is existence-gated through the debounced
-    `workspace_probe_path` check. A folder dragged from Explorer or an IDE
+  composer's new-project and Clone **Location**; removing that root clears
+  it. The chosen root prints in full - a long path wraps in the Location row,
+  never truncates.
+- R1.9.9 ✅ **The composer's project menu** - recent and scanned projects in
+  a list that scrolls but never shrinks below 30px, then a non-scrolling
+  foot with three ways in behind an ARIA pill tablist (arrow keys switch tabs
+  - `lib/ui/roving-tabs.ts`; panels stay mounted - typed state survives
+  switching - and slide in from the side the selection moved toward, pure
+  CSS, instant under reduced motion). Clicking a tab or typing in a field
+  keeps the menu open; a pick closes it:
+  - **New** - "New project in {root}/" per root, naming the project in the
+    composer and creating it on Start ("Create and open"), or a throwaway
+    workspace.
+  - **Open** - choose an existing folder: monospace path input with Browse…
+    (Tauri dialog); "Use this folder" is existence-gated through the debounced
+    `workspace_probe_path` check and makes the folder the composer's project,
+    which Start opens with the typed prompt and agent. A folder dragged from Explorer or an IDE
     onto the field fills its path (native Tauri drag-drop events carry the
     absolute paths the web API withholds; the field highlights while a drag
     hovers it).
@@ -379,7 +383,9 @@ writes.
     missing, a warning card offers "Install Git…" and "Re-check"). Repository
     URL + "Clone into" the same root select; the typed URL is probed live
     (`vcs_probe_remote` - a debounced `git ls-remote`) and the folder name
-    auto-fills only once the repository answers, until edited. An
+    auto-fills only once the repository answers, until edited. "Clone" runs
+    the clone right there; the cloned folder becomes the composer's project,
+    which Start opens with the typed prompt and agent. An
     unreachable repository says so under the field. An SSH-style URL with no
     SSH key on disk
     (`vcs_has_ssh_key`) falls back to an HTTPS-credentials panel - the

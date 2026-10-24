@@ -69,7 +69,7 @@
       return "Cloning…";
     }
 
-    return "Clone & open";
+    return "Clone";
   });
 
   // Debounced live probe: does the typed repository exist, and can this

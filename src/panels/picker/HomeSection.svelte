@@ -197,6 +197,7 @@
 
             choice = ProjectChoice.New;
           }}
+          {onnewroot}
           onpick={path => {
             selectedPath = path;
             choice = ProjectChoice.Existing;
@@ -207,6 +208,7 @@
           }}
           {roots}
           {selectedPath}
+          bind:createIn
         />
       </span>
 
