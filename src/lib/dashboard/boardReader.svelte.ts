@@ -58,7 +58,10 @@ export function createBoardReader() {
     };
     post({ kind: BoardMessageKind.enum.dashboardOpen });
     const heartbeat = setInterval(() => post({ kind: BoardMessageKind.enum.dashboardOpen }), DASHBOARD_HEARTBEAT_MS);
-    const leave = () => post({ kind: BoardMessageKind.enum.dashboardClosed });
+    function leave() {
+      post({ kind: BoardMessageKind.enum.dashboardClosed });
+    }
+
     addEventListener("pagehide", leave);
     return () => {
       clearInterval(heartbeat);

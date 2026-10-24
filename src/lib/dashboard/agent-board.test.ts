@@ -83,11 +83,13 @@ describe("orderedWindows", () => {
     agents: [agent({ statusSince: NOW - 9 * MINUTE_MS })]
   });
   const windows = [idle, busy, quiet, waiting];
-  const labels = (sort: BoardSort) => orderedWindows({
-    windows,
-    order: ["zulu", "alpha"],
-    sort
-  }).map(shown => shown.projectLabel);
+  function labels(sort: BoardSort) {
+    return orderedWindows({
+      windows,
+      order: ["zulu", "alpha"],
+      sort
+    }).map(shown => shown.projectLabel);
+  }
 
   it("keeps the user's window order whatever the agents are doing, then names the rest", () => {
     expect(labels(BoardSort.enum.windows)).toEqual(["zulu", "alpha", "bravo", "mike"]);

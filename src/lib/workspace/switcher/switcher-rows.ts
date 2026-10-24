@@ -87,9 +87,10 @@ export function isSameMembership({ before, after }: {
   before: ListedProjects;
   after: ListedProjects;
 }) {
-  const sameMembers = (first: readonly string[], second: readonly string[]) => {
+  function isSameMembers(first: readonly string[], second: readonly string[]) {
     const firstSet = new Set(first.map(normalizePath));
     return first.length === second.length && second.every(project => firstSet.has(normalizePath(project)));
-  };
-  return sameMembers(before.pinned, after.pinned) && sameMembers(before.recent, after.recent);
+  }
+
+  return isSameMembers(before.pinned, after.pinned) && isSameMembers(before.recent, after.recent);
 }

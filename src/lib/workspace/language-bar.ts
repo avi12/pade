@@ -100,8 +100,8 @@ function colorDistance({ from, to }: {
   from: string;
   to: string;
 }) {
-  const [a, b] = [channels(from), channels(to)];
-  return Math.hypot(...a.map((channel, i) => channel - b[i]));
+  const toChannels = channels(to);
+  return Math.hypot(...channels(from).map((channel, i) => channel - toChannels[i]));
 }
 
 /** How far a candidate sits from the nearest colour already in the bar. */
@@ -122,6 +122,27 @@ function clearance({ candidate, taken }: {
   return nearest;
 }
 
+/** The candidate standing furthest from every colour already in the bar. */
+function furthestFrom({ candidates, taken }: {
+  candidates: readonly string[];
+  taken: readonly string[];
+}) {
+  let furthest = candidates[0];
+  let furthestClearance = Number.NEGATIVE_INFINITY;
+  for (const candidate of candidates) {
+    const candidateClearance = clearance({
+      candidate,
+      taken
+    });
+    if (candidateClearance > furthestClearance) {
+      furthest = candidate;
+      furthestClearance = candidateClearance;
+    }
+  }
+
+  return furthest;
+}
+
 /** Every segment's colour, biggest language first: its own colour unless that
  *  is too close to one already in the bar, then its alternate - whichever
  *  stands furthest apart when neither clears. No two segments of one bar can
@@ -134,15 +155,12 @@ export function segmentColors(shares: readonly LanguageShare[]) {
       candidate,
       taken
     }) >= MINIMUM_COLOR_DISTANCE);
-    const furthest = candidates.toSorted((a, b) =>
-      clearance({
-        candidate: b,
+    taken.push(
+      clear ?? furthestFrom({
+        candidates,
         taken
-      }) - clearance({
-        candidate: a,
-        taken
-      }))[0];
-    taken.push(clear ?? furthest);
+      })
+    );
   }
 
   return taken;

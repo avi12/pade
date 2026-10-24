@@ -1,6 +1,7 @@
 import { beginTabDrag } from "@/lib/session/tabs/tab-drag";
 import { Axis } from "@/lib/ui/drag-reorder";
 import type { BeginReorderOptions } from "@/lib/ui/drag-reorder";
+import { testStandIn } from "@/lib/util/test-stand-in";
 import {
   beforeEach,
   describe,
@@ -18,7 +19,7 @@ vi.mock("@/lib/ui/drag-reorder", async importOriginal => ({
   beginReorder: mocks.beginReorder
 }));
 
-const PRESS = new Event("pointerdown") as PointerEvent;
+const PRESS = testStandIn<PointerEvent>({ type: "pointerdown" });
 const DROP = {
   id: "session-a",
   dropTarget: null,

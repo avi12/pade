@@ -7,10 +7,12 @@ import {
   it,
   vi
 } from "vitest";
+import { z } from "zod";
 
 const ROOT = "C:\\repositories\\avi\\pade";
 const OTHER = "C:\\repositories\\avi\\youtube-time-manager";
 const REMOTE_URL = "https://github.com/avi/pade.git";
+const BRANCH_OF_ARGUMENTS = z.tuple([z.object({ paths: z.array(z.string()) })]);
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
   const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
@@ -33,7 +35,7 @@ function answerAsRepository() {
     }
 
     if (command === Command.vcsBranchOf) {
-      const [{ paths }] = data as [{ paths: string[] }];
+      const [{ paths }] = BRANCH_OF_ARGUMENTS.parse(data);
       return { [paths[0]]: "main" };
     }
 

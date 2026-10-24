@@ -2,17 +2,7 @@ import { createPtyWriter } from "@/lib/terminal/pty-writer";
 import { describe, expect, it, vi } from "vitest";
 
 function deferred() {
-  let resolve: () => void = () => {};
-  let reject: (error: Error) => void = () => {};
-  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return {
-    promise,
-    resolve,
-    reject
-  };
+  return Promise.withResolvers<void>();
 }
 
 describe("createPtyWriter", () => {
@@ -31,13 +21,11 @@ describe("createPtyWriter", () => {
       onTransportLost() {}
     });
 
-    const a = write("a");
-    const b = write("b");
-    const c = write("c");
+    const writes = [write("a"), write("b"), write("c")];
     expect(sent).toEqual(["a"]);
 
     first.resolve();
-    await Promise.all([a, b, c]);
+    await Promise.all(writes);
     expect(sent).toEqual(["a", "bc"]);
   });
 
@@ -52,10 +40,9 @@ describe("createPtyWriter", () => {
       onTransportLost
     });
 
-    const a = write("a");
-    const b = write("b");
+    const writes = [write("a"), write("b")];
     first.reject(new Error("gone"));
-    await Promise.all([a, b]);
+    await Promise.all(writes);
     expect(onTransportLost).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledTimes(1);
   });

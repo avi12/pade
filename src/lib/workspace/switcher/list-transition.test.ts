@@ -1,3 +1,4 @@
+import { testStandIn } from "@/lib/util/test-stand-in";
 import { runListTransition } from "@/lib/workspace/switcher/list-transition";
 import {
   afterEach,
@@ -13,9 +14,8 @@ const FULL_MOTION = { matches: false };
 function scopedList() {
   const startViewTransition = vi.fn((callback: () => Promise<void>) => ({ updateCallbackDone: callback() }));
   return {
-    // The node test environment has no DOM; only the list's scoped
-    // startViewTransition is ever read, so a bare object stands in for it.
-    elList: { startViewTransition } as unknown as Element,
+    // Only the list's scoped startViewTransition is ever read.
+    elList: testStandIn<NonNullable<Parameters<typeof runListTransition>[0]["elList"]>>({ startViewTransition }),
     startViewTransition
   };
 }

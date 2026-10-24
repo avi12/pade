@@ -267,5 +267,5 @@ export function groupChanges({ events, workspaceRoot, members = [] }: {
     group.entries = collapseRepeats(group.events);
   }
 
-  return [...groupsById.values()].toSorted((first, second) => (second.events[0]?.ts ?? 0) - (first.events[0]?.ts ?? 0));
+  return [...groupsById.values()].sort((first, second) => (second.events[0]?.ts ?? 0) - (first.events[0]?.ts ?? 0));
 }

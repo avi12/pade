@@ -183,15 +183,16 @@ function sortKeyComparison({ sort, order }: {
   sort: BoardSort;
   order: readonly string[];
 }) {
-  const position = (window: BoardWindow) => {
+  function position(window: BoardWindow) {
     const index = order.indexOf(window.label);
     return index === -1 ? order.length : index;
-  };
-  const comparisons: Record<BoardSort, (a: BoardWindow, b: BoardWindow) => number> = {
-    [BoardSort.enum.windows]: (a, b) => position(a) - position(b),
+  }
+
+  const comparisons: Record<BoardSort, (left: BoardWindow, right: BoardWindow) => number> = {
+    [BoardSort.enum.windows]: (left, right) => position(left) - position(right),
     [BoardSort.enum.name]: () => 0,
-    [BoardSort.enum.attention]: (a, b) => stateRank(windowState(a)) - stateRank(windowState(b)),
-    [BoardSort.enum.activity]: (a, b) => lastActivity(b) - lastActivity(a)
+    [BoardSort.enum.attention]: (left, right) => stateRank(windowState(left)) - stateRank(windowState(right)),
+    [BoardSort.enum.activity]: (left, right) => lastActivity(right) - lastActivity(left)
   };
   return comparisons[sort];
 }
@@ -209,7 +210,8 @@ export function orderedWindows({ windows, order, sort }: {
     sort,
     order
   });
-  return [...windows].toSorted((a, b) => compare(a, b) || a.projectLabel.localeCompare(b.projectLabel));
+  return [...windows].sort((left, right) =>
+    compare(left, right) || left.projectLabel.localeCompare(right.projectLabel));
 }
 
 /** How many agents are in each state across every window - the states that

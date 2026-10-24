@@ -64,7 +64,9 @@ export function createInitialPromptDelivery({ prompt, write, isWorking }: {
   let isAwaitingVerify = false;
   let verifyTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const isPending = () => Boolean(prompt()) && !isDelivered;
+  function isPending() {
+    return Boolean(prompt()) && !isDelivered;
+  }
 
   // Once the agent has settled quiet - done booting, past the trust gate - paste
   // the first prompt, then submit it and re-attempt until the agent is seen

@@ -220,10 +220,13 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
 
   // The page is going away (closed, reloaded): take this window off the board.
   onMount(() => {
-    const leave = () => post({
-      kind: BoardMessageKind.enum.windowGone,
-      label
-    });
+    function leave() {
+      post({
+        kind: BoardMessageKind.enum.windowGone,
+        label
+      });
+    }
+
     addEventListener("pagehide", leave);
     return () => removeEventListener("pagehide", leave);
   });
