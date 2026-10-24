@@ -19,8 +19,8 @@
   import type { AgentSession, WindowInfo } from "@/lib/types";
   import { isNewWindowClick, otherWindowWith } from "@/lib/workspace/open-windows";
   import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
+  import SwitcherDialogs from "@/lib/workspace/switcher/dialogs/SwitcherDialogs.svelte";
   import FolderWatch from "@/lib/workspace/switcher/FolderWatch.svelte";
-  import SwitcherDialogs from "@/lib/workspace/switcher/SwitcherDialogs.svelte";
   import SwitcherFilter from "@/lib/workspace/switcher/SwitcherFilter.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";

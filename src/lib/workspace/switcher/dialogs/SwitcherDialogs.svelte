@@ -2,7 +2,7 @@
   import RelabelDialog from "@/lib/dialogs/RelabelDialog.svelte";
   import RenameFolderDialog from "@/lib/dialogs/RenameFolderDialog.svelte";
   import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
-  import DeleteDirectoryPrompt from "@/lib/workspace/switcher/DeleteDirectoryPrompt.svelte";
+  import DeleteDirectoryPrompt from "@/lib/workspace/switcher/dialogs/DeleteDirectoryPrompt.svelte";
 
   // The prompts a switcher row opens - delete a project's directory, relabel a
   // temp workspace, rename a folder on disk. Each is nested inside the switcher

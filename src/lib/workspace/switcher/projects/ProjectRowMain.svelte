@@ -6,7 +6,7 @@
   import LanguageBar from "@/lib/workspace/display/LanguageBar.svelte";
   import LastAccessed from "@/lib/workspace/display/LastAccessed.svelte";
   import ProjectKindIcon from "@/lib/workspace/display/ProjectKindIcon.svelte";
-  import ProjectRowName from "@/lib/workspace/switcher/ProjectRowName.svelte";
+  import ProjectRowName from "@/lib/workspace/switcher/projects/ProjectRowName.svelte";
 
   // A project row's main button in the left rail: kind icon, its root and
   // name (up to two lines), branch chip and last-accessed age, with a check on

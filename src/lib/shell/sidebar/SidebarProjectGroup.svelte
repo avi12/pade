@@ -4,8 +4,8 @@
   import ProjectChatRow from "@/lib/shell/sidebar/ProjectChatRow.svelte";
   import { collapseRow, expandRow } from "@/lib/ui/motion";
   import { displayName } from "@/lib/util/paths";
-  import ProjectRowMain from "@/lib/workspace/switcher/ProjectRowMain.svelte";
-  import ProjectRowMenu from "@/lib/workspace/switcher/ProjectRowMenu.svelte";
+  import ProjectRowMain from "@/lib/workspace/switcher/projects/ProjectRowMain.svelte";
+  import ProjectRowMenu from "@/lib/workspace/switcher/projects/ProjectRowMenu.svelte";
   import ReorderGrip from "@/lib/workspace/switcher/ReorderGrip.svelte";
   import type { ComponentProps } from "svelte";
 

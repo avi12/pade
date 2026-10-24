@@ -1,5 +1,5 @@
 import { testStandIn } from "@/lib/util/test-stand-in";
-import { runListTransition } from "@/lib/workspace/switcher/list-transition";
+import { runListTransition } from "@/lib/workspace/switcher/windows/list-transition";
 import {
   afterEach,
   describe,

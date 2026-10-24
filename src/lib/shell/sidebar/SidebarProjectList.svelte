@@ -6,7 +6,7 @@
   import SidebarProjectGroup from "@/lib/shell/sidebar/SidebarProjectGroup.svelte";
   import type { WindowInfo } from "@/lib/types";
   import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";
-  import ProjectSection from "@/lib/workspace/switcher/ProjectSection.svelte";
+  import ProjectSection from "@/lib/workspace/switcher/projects/ProjectSection.svelte";
 
   // The rail's scrolling project list: the Pinned and Recent sections (already
   // narrowed by the search), one group per project. Every action only reports
