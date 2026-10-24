@@ -6,6 +6,7 @@ import {
   isTemporaryWorkspace,
   normalizePath,
   parentDirectory,
+  projectRootName,
   relativeToRoot
 } from "@/lib/util/paths";
 import { describe, expect, it } from "vitest";
@@ -218,5 +219,18 @@ describe("isSegmentPrefix", () => {
         segments: ["a"]
       })
     ).toBe(false);
+  });
+});
+
+describe("projectRootName", () => {
+  it("names the folder the project sits in, as the top bar's label does", () => {
+    expect(projectRootName("C:\\repositories\\avi\\youtube-downloader")).toBe("avi");
+    expect(projectRootName("C:\\repositories\\avi\\pade\\src-tauri")).toBe("pade");
+    expect(projectRootName("/home/avi/code/pade/")).toBe("code");
+  });
+
+  it("names no root for a temporary workspace or a bare drive", () => {
+    expect(projectRootName("C:\\Users\\Avi\\AppData\\Roaming\\pade\\workspaces\\temp-1792611517368")).toBe("");
+    expect(projectRootName("C:\\")).toBe("");
   });
 });
