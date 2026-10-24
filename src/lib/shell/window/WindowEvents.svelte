@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { runWindowShortcut } from "@/lib/shell/window-shortcut-actions";
-  import { WindowShortcut, windowShortcutFor } from "@/lib/shell/window-shortcuts";
+  import { runWindowShortcut } from "@/lib/shell/shortcuts/window-shortcut-actions";
+  import { WindowShortcut, windowShortcutFor } from "@/lib/shell/shortcuts/window-shortcuts";
 
   // The window-level signals the shell follows: page visibility, window focus
   // and the window-level key chords. Renders nothing.
@@ -30,7 +30,7 @@
     isFocused = true;
   }}
   onkeydowncapture={async e => {
-    // The chords themselves live in lib/shell/window-shortcuts.
+    // The chords themselves live in lib/shell/shortcuts/window-shortcuts.
     const shortcut = windowShortcutFor({
       event: e,
       isDevelopment: import.meta.env.DEV

@@ -365,7 +365,7 @@ export interface CommandProtocolMap {
     path?: string;
     /** A `handoff` window takes these live sessions of the calling window... */
     sessions?: string[];
-    /** ...and this description of them (lib/shell/window-handoff). */
+    /** ...and this description of them (lib/shell/handoff/window-handoff). */
     payload?: string;
   }) => void;
   /** Record the project this window now has open (focus-instead-of-reopen). */

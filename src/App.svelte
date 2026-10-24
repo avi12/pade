@@ -21,22 +21,22 @@
   import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
   import { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
-  import { clearDiscordPresence } from "@/lib/shell/discord-presence";
+  import { HandoffKind } from "@/lib/shell/handoff/window-handoff";
+  import { createWindowHandoffs } from "@/lib/shell/handoff/windowHandoffs.svelte";
   import BootSplash from "@/lib/shell/screen/BootSplash.svelte";
   import { animatePaneIn } from "@/lib/shell/screen/pane-dom";
   import WorkspaceScreen from "@/lib/shell/screen/WorkspaceScreen.svelte";
-  import { registerSessionShortcuts } from "@/lib/shell/session-shortcuts";
   import { createSessionAutomation } from "@/lib/shell/sessionAutomation.svelte";
+  import { registerSessionShortcuts } from "@/lib/shell/shortcuts/session-shortcuts";
   import { Side } from "@/lib/shell/side-panels";
   import { runChatClick } from "@/lib/shell/sidebar/chat-click";
   import type { ChatClickHost, ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";
   import ProjectSidebar from "@/lib/shell/sidebar/ProjectSidebar.svelte";
-  import { HandoffKind } from "@/lib/shell/window-handoff";
-  import { WindowRoute, windowRouteFor } from "@/lib/shell/window-route";
-  import { syncWindowAddress } from "@/lib/shell/windowAddress.svelte";
-  import WindowEvents from "@/lib/shell/WindowEvents.svelte";
-  import { createWindowHandoffs } from "@/lib/shell/windowHandoffs.svelte";
-  import { startWindowServices } from "@/lib/shell/windowServices.svelte";
+  import { clearDiscordPresence } from "@/lib/shell/window/discord-presence";
+  import { WindowRoute, windowRouteFor } from "@/lib/shell/window/window-route";
+  import { syncWindowAddress } from "@/lib/shell/window/windowAddress.svelte";
+  import WindowEvents from "@/lib/shell/window/WindowEvents.svelte";
+  import { startWindowServices } from "@/lib/shell/window/windowServices.svelte";
   import { createWindowSessions } from "@/lib/shell/windowSessions.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
   import { stopAllRunners } from "@/lib/stores/tasks/runners.svelte";
@@ -242,7 +242,7 @@
   // The sessions the other PADE windows run, for the left rail.
   const roster = createBoardRoster();
 
-  // Sessions sent to and taken from other windows (lib/shell/windowHandoffs).
+  // Sessions sent to and taken from other windows (lib/shell/handoff/windowHandoffs).
   const handoffs = createWindowHandoffs({
     windowSessions,
     joinProject,
@@ -301,7 +301,7 @@
     await bootFromLaunchContext();
   }
 
-  // Boot a spawned window from its `w=` address (lib/shell/window-route). Returns
+  // Boot a spawned window from its `w=` address (lib/shell/window/window-route). Returns
   // true when it handled the launch, so the launch_context path is skipped.
   async function routeFromAddress() {
     const route = windowRouteFor(location.search);
@@ -449,7 +449,7 @@
     return () => clearInterval(interval);
   });
 
-  // Tab and pane keyboard shortcuts (lib/shell/session-shortcuts).
+  // Tab and pane keyboard shortcuts (lib/shell/shortcuts/session-shortcuts).
   registerSessionShortcuts({
     windowSessions,
     isWorkspaceShown: () => phase === Phase.Ready,

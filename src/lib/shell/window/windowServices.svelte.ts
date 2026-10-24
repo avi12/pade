@@ -10,7 +10,7 @@ import { effective } from "@/lib/settings/prefs.svelte";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import { settings } from "@/lib/settings/settings.svelte";
 import type { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
-import { updateDiscordPresence } from "@/lib/shell/discord-presence";
+import { updateDiscordPresence } from "@/lib/shell/window/discord-presence";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { ensureChoiceAttention } from "@/lib/stores/session/sessionAttention.svelte";
 import { ensureRunnerListeners } from "@/lib/stores/tasks/runners.svelte";
@@ -148,7 +148,7 @@ export function startWindowServices({ project, windowSessions, repository, isWin
 
   // ── Discord Rich Presence ────────────────────────────────────────────────────
   // Broadcast "Playing PADE" (opt-in), optionally naming the open project. The
-  // state→bridge mapping lives in lib/shell/discord-presence (SoC). Both flags resolve
+  // state→bridge mapping lives in lib/shell/window/discord-presence (SoC). Both flags resolve
   // through `effective` - the one home for their defaults, shared with the Config
   // panel's toggles - so a change there reaches the presence the moment it lands.
   // $derived so the effect only re-sends when presence, the project-name toggle, or

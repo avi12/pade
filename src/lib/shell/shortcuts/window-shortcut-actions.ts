@@ -3,8 +3,8 @@
 // rail's project search, or cycle to the previous / next PADE window.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import { WindowShortcut } from "@/lib/shell/window-shortcuts";
-import type { windowShortcutFor } from "@/lib/shell/window-shortcuts";
+import { WindowShortcut } from "@/lib/shell/shortcuts/window-shortcuts";
+import type { windowShortcutFor } from "@/lib/shell/shortcuts/window-shortcuts";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { WindowMode } from "@/lib/types";
 

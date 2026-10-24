@@ -4,7 +4,7 @@
 // a new window. One pure decision, so the rail, the shell and the tests agree.
 
 import type { ElsewhereSession } from "@/lib/dashboard/agent-board";
-import type { WindowHandoff } from "@/lib/shell/window-handoff";
+import type { WindowHandoff } from "@/lib/shell/handoff/window-handoff";
 import type { AgentSession, OpenTarget, RecordedConversation } from "@/lib/types";
 
 /** A chat row picked in the rail. */

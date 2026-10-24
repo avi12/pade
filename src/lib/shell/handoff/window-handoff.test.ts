@@ -6,8 +6,8 @@ import {
   mergeMenuItemLabel,
   mergeTargets,
   parseHandoffs
-} from "@/lib/shell/window-handoff";
-import type { WindowHandoff } from "@/lib/shell/window-handoff";
+} from "@/lib/shell/handoff/window-handoff";
+import type { WindowHandoff } from "@/lib/shell/handoff/window-handoff";
 import { describe, expect, it, vi } from "vitest";
 
 const PADE = "C:\\repositories\\pade";

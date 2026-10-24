@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MERGE_INTO_TOOLTIP } from "@/lib/shell/window-handoff";
+  import { MERGE_INTO_TOOLTIP } from "@/lib/shell/handoff/window-handoff";
   import type { WindowInfo } from "@/lib/types";
 
   // An open-window row's secondary action: merge this window into that one.

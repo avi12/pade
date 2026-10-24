@@ -17,7 +17,7 @@ export const WindowRoute = {
   /** A named project folder. */
   Project: "project",
   /** A window spawned to receive sessions another window handed it, in the
-   *  named project folder (lib/shell/window-handoff). */
+   *  named project folder (lib/shell/handoff/window-handoff). */
   Handoff: "handoff",
   /** No usable address - the plain main window's launch-context boot. */
   LaunchContext: "launch-context"

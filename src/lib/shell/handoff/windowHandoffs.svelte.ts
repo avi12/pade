@@ -1,5 +1,5 @@
 // Sending sessions to other PADE windows and taking in what they send here.
-// One mechanism serves every case (lib/shell/window-handoff for the payload,
+// One mechanism serves every case (lib/shell/handoff/window-handoff for the payload,
 // `window_handoff.rs` for the PTY move): a live session shift-clicked in the
 // rail moves into a new window, a whole window merges into another before it
 // closes, and a conversation or chat shift-clicked reopens in a new window. A
@@ -15,8 +15,8 @@ import {
   handoffProject,
   joinTargetOf,
   parseHandoffs
-} from "@/lib/shell/window-handoff";
-import type { SessionsHandoff, WindowHandoff } from "@/lib/shell/window-handoff";
+} from "@/lib/shell/handoff/window-handoff";
+import type { SessionsHandoff, WindowHandoff } from "@/lib/shell/handoff/window-handoff";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";

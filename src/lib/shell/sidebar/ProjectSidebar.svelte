@@ -5,11 +5,11 @@
   import { sidebarProjects } from "@/lib/session/chats/chat-registry";
   import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
+  import { PROJECT_SEARCH_ID } from "@/lib/shell/shortcuts/window-shortcut-actions";
   import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";
   import { firstListedProject, sidebarProjectOrder, sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
   import SidebarHeader from "@/lib/shell/sidebar/SidebarHeader.svelte";
   import SidebarProjectList from "@/lib/shell/sidebar/SidebarProjectList.svelte";
-  import { PROJECT_SEARCH_ID } from "@/lib/shell/window-shortcut-actions";
   import { recordedConversations, refreshRecordedConversations } from "@/lib/stores/session/recordedConversations.svelte";
   import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
   import { invalidateProjectBranches } from "@/lib/stores/workspace/projectBranches.svelte";

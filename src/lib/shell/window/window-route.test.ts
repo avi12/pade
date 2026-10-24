@@ -1,4 +1,4 @@
-import { isDashboardAddress, windowQueryFor, WindowRoute, windowRouteFor } from "@/lib/shell/window-route";
+import { isDashboardAddress, windowQueryFor, WindowRoute, windowRouteFor } from "@/lib/shell/window/window-route";
 import { describe, expect, it } from "vitest";
 
 const PROJECT = "C:\\repositories\\avi\\pade & friends";

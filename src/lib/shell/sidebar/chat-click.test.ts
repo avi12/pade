@@ -1,6 +1,6 @@
+import { HandoffKind } from "@/lib/shell/handoff/window-handoff";
 import { ChatClickAction, chatClickAction, runChatClick } from "@/lib/shell/sidebar/chat-click";
 import type { ChatClickHost } from "@/lib/shell/sidebar/chat-click";
-import { HandoffKind } from "@/lib/shell/window-handoff";
 import type { AgentSession } from "@/lib/types";
 import { describe, expect, it, vi } from "vitest";
 
