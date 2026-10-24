@@ -22,10 +22,12 @@ use std::time::SystemTime;
 
 use serde::Serialize;
 
-use crate::agents::resume::{first_line, interactive_session_id, rollout_files};
+use crate::agents::resume::{
+    first_line, interactive_session_id, rollout_files, CODEX_SESSIONS_DIRECTORY,
+};
 use crate::agents::running_model::{copilot_session_root, session_resume_arguments};
-use crate::agents::{codex_home, ID_CLAUDE, ID_CODEX, ID_COPILOT};
-use crate::util::{encode_project, home_directory, milliseconds_since_unix_epoch, same_path};
+use crate::agents::{claude_projects_directory, codex_home, ID_CLAUDE, ID_CODEX, ID_COPILOT};
+use crate::util::{encode_project, milliseconds_since_unix_epoch, same_path};
 
 /// The most conversations listed for one project, newest first - `/resume`
 /// pages its own list the same way.
@@ -37,7 +39,7 @@ const NEWEST_FILES_INSPECTED: usize = 256;
 const TRANSCRIPT_TAIL_BYTES: u64 = 64 * 1024;
 /// How much of a Claude transcript's start is read for its first prompt.
 const TRANSCRIPT_HEAD_BYTES: u64 = 256 * 1024;
-const TRANSCRIPT_EXTENSION: &str = "jsonl";
+pub(super) const TRANSCRIPT_EXTENSION: &str = "jsonl";
 const CUSTOM_TITLE_RECORD: &str = "custom-title";
 const AI_TITLE_RECORD: &str = "ai-title";
 const USER_RECORD: &str = "user";
@@ -76,8 +78,8 @@ const SHELL_COMMAND_PREFIX: &str = "!";
 const PASTED_CONTENT_TAG: &str = "pasted_content";
 const TEXT_PART: &str = "text";
 const TOOL_RESULT_PART: &str = "tool_result";
-const CODEX_SESSION_INDEX: &str = "session_index.jsonl";
-const COPILOT_WORKSPACE_FILE: &str = "workspace.yaml";
+pub(super) const CODEX_SESSION_INDEX: &str = "session_index.jsonl";
+pub(super) const COPILOT_WORKSPACE_FILE: &str = "workspace.yaml";
 const COPILOT_CWD_KEY: &str = "cwd:";
 const COPILOT_SUMMARY_KEY: &str = "summary:";
 /// The indicators of a YAML block scalar (`summary: |-`), whose value is on
@@ -132,14 +134,10 @@ fn modified_time(path: &Path) -> Option<SystemTime> {
 }
 
 fn claude_conversations(project: &str) -> Vec<RecordedConversation> {
-    let Some(home) = home_directory() else {
+    let Some(projects) = claude_projects_directory() else {
         return Vec::new();
     };
-    let directory = home
-        .join(".claude")
-        .join("projects")
-        .join(encode_project(project));
-    let Ok(entries) = std::fs::read_dir(directory) else {
+    let Ok(entries) = std::fs::read_dir(projects.join(encode_project(project))) else {
         return Vec::new();
     };
     let transcripts = entries
@@ -345,7 +343,7 @@ fn codex_conversations(project: &str) -> Vec<RecordedConversation> {
         return Vec::new();
     };
     let titles = codex_titles(&home.join(CODEX_SESSION_INDEX));
-    newest(rollout_files(&home.join("sessions")))
+    newest(rollout_files(&home.join(CODEX_SESSIONS_DIRECTORY)))
         .filter_map(|(modified, path)| {
             let session_id = interactive_session_id(&first_line(&path)?, project)?;
             Some(RecordedConversation {

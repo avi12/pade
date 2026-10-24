@@ -52,6 +52,17 @@ pub(crate) fn codex_home() -> Option<PathBuf> {
     )
 }
 
+/// `~/.claude/projects`, where Claude Code keeps one folder of transcripts per
+/// project (named by `encode_project`). The one lookup every module reading
+/// Claude's transcripts goes through.
+pub(crate) fn claude_projects_directory() -> Option<PathBuf> {
+    Some(
+        crate::util::home_directory()?
+            .join(".claude")
+            .join("projects"),
+    )
+}
+
 /// The resolution rule behind [`codex_home`], over its two inputs.
 fn resolve_codex_home(
     configured: Option<std::ffi::OsString>,
