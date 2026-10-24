@@ -1352,11 +1352,19 @@ textarea {
    Each menu keeps only what genuinely varies: its width, its anchor side
    (`position-area`), and its own item styles. */
 .popover-menu {
+  /* The box's inner padding, named so a part pinned to its edge (the home
+     composer's New section) can reach across it. */
+  --popover-menu-padding: 6px;
+
+  /* The gap between the menu and its anchor, which a menu sized to the room
+     it has (the picker's) also keeps from the viewport's edge. */
+  --popover-menu-offset: 6px;
+
   position: absolute;
   inset: auto;
-  margin-block: 6px 0;
+  margin-block: var(--popover-menu-offset) 0;
   margin-inline: 0;
-  padding: 6px;
+  padding: var(--popover-menu-padding);
   border: 1px solid var(--outline);
   border-radius: var(--radius-medium);
   background: var(--surface-2);

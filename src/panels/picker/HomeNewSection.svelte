@@ -39,16 +39,18 @@
 
 <li class="new-section" class:separator={isSeparated}>
   <span class="head" aria-hidden="true">New</span>
-  {#each newTargets as root (root)}
-    <button class="menu-item create-option" onclick={async e => await startNew(e, root)} type="button">
-      <Icon name="folderPlus" size={15} />
-      {#if root}
-        <span class="menu-item-text">New project in <RootedName name="" root={baseName(root)} /></span>
-      {:else}
-        <span class="menu-item-text">New project…</span>
-      {/if}
-    </button>
-  {/each}
+  <div class="roots">
+    {#each newTargets as root (root)}
+      <button class="menu-item create-option" onclick={async e => await startNew(e, root)} type="button">
+        <Icon name="folderPlus" size={15} />
+        {#if root}
+          <span class="menu-item-text">New project in <RootedName name="" root={baseName(root)} /></span>
+        {:else}
+          <span class="menu-item-text">New project…</span>
+        {/if}
+      </button>
+    {/each}
+  </div>
   <button
     class="menu-item create-option"
     class:picked={isTempPicked}
@@ -64,13 +66,32 @@
 
 <style>
   /* Stays at the foot of the scrolling list, over the rows that scroll
-     beneath it, in the menu's own surface. */
+     beneath it, in the menu's own surface. It pins to the menu's very edge
+     and fills the menu's bottom padding, so no row shows through below it. */
   .new-section {
     position: sticky;
-    inset-block-end: 0;
+    inset-block-end: calc(-1 * var(--popover-menu-padding));
     display: flex;
     flex-direction: column;
+    margin-block-end: calc(-1 * var(--popover-menu-padding));
+    padding-block-end: var(--popover-menu-padding);
     background: var(--surface-2);
+  }
+
+  /* With four roots or more, three and a half rows show and the rest scroll,
+     so the section never crowds the project list out - the half row says
+     there is more. A row is one 13px line plus the menu item's 8px top and
+     bottom padding (theme.css `.menu-item`). */
+  .roots {
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+
+    &:has(> :nth-child(4)) {
+      overflow-y: auto;
+      max-block-size: calc(3.5 * (1lh + 2 * 8px));
+      scrollbar-width: thin;
+    }
   }
 
   /* The create actions read primary among the plain project rows. */

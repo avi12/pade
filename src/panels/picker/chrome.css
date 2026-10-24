@@ -75,11 +75,21 @@
 
 /* Shell comes from the shared .popover-menu; the picker's menus add a scroll
    cap plus their width and anchor side. */
+
+/* A picker menu grows into the room it has, up to the viewport's edge, and
+   no taller than a list can be scanned: in pure CSS, under `position-area`
+   its containing block is the strip between the anchor and that edge, so
+   100% of it (less the offset kept at each end) is exactly the room.
+   `most-height` lets the browser open it upward instead when more of the
+   screen lies above the trigger. */
 .picker .menu {
+  --picker-menu-max-block-size: 350px;
+
   overflow-y: auto;
-  max-block-size: min(70vh, 520px);
+  max-block-size: min(calc(100% - 2 * var(--popover-menu-offset)), var(--picker-menu-max-block-size));
   min-inline-size: 250px;
   position-area: bottom span-left;
+  position-try-order: most-height;
 
   /* The row itself is the shared .menu-item. The current selection takes the
      same primary-container fill its hover does, per the design canon (brief
