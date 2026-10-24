@@ -372,6 +372,50 @@ function uncappedCreditsWindows(account: AccountUsage) {
   }];
 }
 
+// A window's utilization as shown. It belongs to the window that ended at
+// `resetsAt`; once that boundary passes, retaining it is knowingly stale, so
+// the new window's zero baseline shows while UsageMeter forces a fresh read.
+function windowPercentage({ window, now }: {
+  window: UsageWindow;
+  now: number;
+}) {
+  const hasReset = hasResetPassed({
+    resetsAt: window.resetsAt,
+    now
+  });
+  return hasReset ? 0 : clampPercentage(window.utilization);
+}
+
+// One window as the meter's limit row: its label and kind letter, its reading
+// (money for uncapped extra usage, a percentage otherwise) and its reset.
+function windowLimit({ window, account, percentage, now }: {
+  window: UsageWindow;
+  account: AccountUsage;
+  percentage: number;
+  now: number;
+}): Limit {
+  const presentation = windowPresentation(window);
+  const isCreditsCap = window.kind === UsageWindowKind.enum.credits;
+  const isUncapped = isCreditsCap && Boolean(account.uncappedSpend);
+  return {
+    label: presentation.label,
+    sub: presentation.sub,
+    kind: window.kind,
+    kindShort: presentation.kindShort,
+    balance: isCreditsCap ? formatBalance(account.creditBalance) : "",
+    isCarryingWork: isCreditsCap && account.credits === CreditsState.enum.available,
+    percentage,
+    isUncapped,
+    reading: isUncapped ? formatBalance(account.uncappedSpend) : formatPercent(percentage),
+    level: limitLevel(percentage),
+    reset: resetCountdown({
+      iso: window.resetsAt,
+      now
+    }),
+    resetAt: resetTimestamp(window.resetsAt)
+  };
+}
+
 // An agent's real rate-limit windows off its account - every window the endpoint
 // returned (session, weekly, per-model, and any others), in the order it sent
 // them. A named window (session/weekly/model) is shown even at 0% - an unused
@@ -389,40 +433,23 @@ function buildLimits({ account, now }: {
   const windows: UsageWindow[] = [...account.windows, ...uncappedCreditsWindows(account)];
   const hasOtherLimits = windows.length > 1;
   for (const window of windows) {
-    // A utilization belongs to the window that ended at `resetsAt`. Once that
-    // boundary passes, retaining it is knowingly stale; render the new window's
-    // zero baseline while UsageMeter forces a fresh vendor read.
-    const percentage = hasResetPassed({
-      resetsAt: window.resetsAt,
+    const percentage = windowPercentage({
+      window,
       now
-    })
-      ? 0
-      : clampPercentage(window.utilization);
+    });
     const isUntouchedFeatureCap = window.kind === UsageWindowKind.enum.opaque && percentage === 0;
     if (isUntouchedFeatureCap && hasOtherLimits) {
       continue;
     }
 
-    const presentation = windowPresentation(window);
-    const isCreditsCap = window.kind === UsageWindowKind.enum.credits;
-    const isUncapped = isCreditsCap && Boolean(account.uncappedSpend);
-    limits.push({
-      label: presentation.label,
-      sub: presentation.sub,
-      kind: window.kind,
-      kindShort: presentation.kindShort,
-      balance: isCreditsCap ? formatBalance(account.creditBalance) : "",
-      isCarryingWork: isCreditsCap && account.credits === CreditsState.enum.available,
-      percentage,
-      isUncapped,
-      reading: isUncapped ? formatBalance(account.uncappedSpend) : formatPercent(percentage),
-      level: limitLevel(percentage),
-      reset: resetCountdown({
-        iso: window.resetsAt,
+    limits.push(
+      windowLimit({
+        window,
+        account,
+        percentage,
         now
-      }),
-      resetAt: resetTimestamp(window.resetsAt)
-    });
+      })
+    );
   }
 
   return limits;
