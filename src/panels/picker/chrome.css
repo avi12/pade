@@ -83,7 +83,7 @@
    `most-height` lets the browser open it upward instead when more of the
    screen lies above the trigger. */
 .picker .menu {
-  --picker-menu-max-block-size: 350px;
+  --picker-menu-max-block-size: 400px;
 
   overflow-y: auto;
   max-block-size: min(calc(100% - 2 * var(--popover-menu-offset)), var(--picker-menu-max-block-size));
