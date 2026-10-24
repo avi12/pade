@@ -145,7 +145,7 @@
       background: transparent;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
-      font-size: 12px;
+      font-size: 0.75rem;
       white-space: nowrap;
       cursor: pointer;
     }
@@ -244,7 +244,7 @@
       border-start-start-radius: 0;
       background: transparent;
       color: var(--on-surface-variant);
-      font-size: 15px;
+      font-size: 0.9375rem;
       line-height: 1;
       opacity: 60%;
       cursor: pointer;

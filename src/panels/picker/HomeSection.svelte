@@ -278,7 +278,7 @@
   .prompt-label {
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .prompt {
@@ -317,7 +317,7 @@
 
     .caret {
       flex: none;
-      font-size: 9px;
+      font-size: 0.5625rem;
       opacity: 70%;
     }
   }

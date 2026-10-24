@@ -53,7 +53,7 @@
   h4 {
     margin: 0;
     color: var(--on-surface-variant);
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -77,7 +77,7 @@
       border-radius: var(--radius-full);
       background: var(--warning-wash);
       color: var(--warning);
-      font-size: 11px;
+      font-size: 0.6875rem;
     }
   }
 
@@ -92,7 +92,7 @@
     color: var(--on-surface-variant);
     list-style: none;
     font-family: var(--font-monospace);
-    font-size: 11px;
+    font-size: 0.6875rem;
 
     &:empty {
       display: none;

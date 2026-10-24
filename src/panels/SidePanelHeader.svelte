@@ -55,7 +55,7 @@
     h2 {
       margin: 0;
       font-weight: 700;
-      font-size: 15px;
+      font-size: 0.9375rem;
     }
   }
 
@@ -65,7 +65,7 @@
     background: var(--primary-container);
     color: var(--on-primary-container);
     font-weight: 700;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .panel-refresh {

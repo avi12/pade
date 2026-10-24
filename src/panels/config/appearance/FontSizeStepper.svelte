@@ -61,7 +61,7 @@
       color: var(--on-surface);
       font: inherit;
       font-weight: 800;
-      font-size: 13px;
+      font-size: 0.8125rem;
       cursor: pointer;
       transition: background 140ms var(--ease);
 
@@ -76,13 +76,13 @@
     }
 
     .step-up {
-      font-size: 17px;
+      font-size: 1.0625rem;
     }
 
     .scale-value {
       min-inline-size: 44px;
       font-weight: 700;
-      font-size: 12px;
+      font-size: 0.75rem;
       text-align: center;
     }
   }

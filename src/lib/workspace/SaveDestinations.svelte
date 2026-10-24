@@ -106,7 +106,7 @@
         min-inline-size: 0;
         font-family: var(--font-monospace);
         font-weight: 600;
-        font-size: 11px;
+        font-size: 0.6875rem;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
@@ -115,7 +115,7 @@
         flex: none;
         color: var(--primary);
         font-weight: 700;
-        font-size: 10px;
+        font-size: 0.625rem;
       }
 
       &.save-root-collides .save-go {

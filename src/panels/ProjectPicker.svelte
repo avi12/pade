@@ -338,7 +338,7 @@
       margin-block: 10px 0;
       margin-inline: 0;
       font-weight: 800;
-      font-size: clamp(24px, 4vw, 36px);
+      font-size: clamp(1.5rem, 4vw, 2.25rem);
       letter-spacing: -0.02em;
       text-wrap: balance;
     }

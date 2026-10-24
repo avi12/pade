@@ -59,6 +59,6 @@
   .none {
     padding: 8px 10px;
     color: var(--on-surface-variant);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 </style>

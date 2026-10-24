@@ -54,20 +54,20 @@
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-weight: 800;
-      font-size: 8px;
+      font-size: 0.5rem;
       letter-spacing: 0.02em;
     }
 
     .percent {
       color: var(--severity-color);
       font-weight: 700;
-      font-size: 12px;
+      font-size: 0.75rem;
     }
   }
 
   .dash {
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 </style>

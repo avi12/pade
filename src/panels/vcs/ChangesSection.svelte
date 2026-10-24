@@ -97,7 +97,7 @@
     background: var(--surface-2);
     color: var(--on-surface);
     font-weight: 700;
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .dot {
@@ -147,7 +147,7 @@
     border-radius: var(--radius-small);
     color: #ffffff;
     font-weight: 700;
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .k.created,
@@ -167,7 +167,7 @@
   .fname {
     overflow: hidden;
     font-family: var(--font-monospace);
-    font-size: 12px;
+    font-size: 0.75rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -189,7 +189,7 @@
     color: var(--on-surface);
     font-family: var(--font-monospace);
     font-weight: 600;
-    font-size: 12px;
+    font-size: 0.75rem;
     letter-spacing: 0;
     text-transform: none;
   }

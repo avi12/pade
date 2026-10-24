@@ -107,7 +107,7 @@
     color: var(--on-surface);
     font: inherit;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 0.75rem;
     cursor: pointer;
 
     &:hover {
@@ -121,7 +121,7 @@
     }
 
     .caret {
-      font-size: 10px;
+      font-size: 0.625rem;
       opacity: 70%;
     }
   }
@@ -162,7 +162,7 @@
       flex-shrink: 0;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
-      font-size: 11px;
+      font-size: 0.6875rem;
     }
   }
 </style>

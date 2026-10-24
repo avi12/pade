@@ -57,6 +57,6 @@
     margin-block: -2px 0;
     margin-inline-start: 30px;
     color: var(--on-surface-variant);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 </style>

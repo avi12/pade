@@ -80,7 +80,7 @@
         inset-inline-end: 8px;
         color: var(--on-surface-variant);
         font-weight: 700;
-        font-size: 12px;
+        font-size: 0.75rem;
         pointer-events: none;
       }
     }
@@ -99,7 +99,7 @@
       color: var(--on-surface);
       font: inherit;
       font-weight: 700;
-      font-size: 12px;
+      font-size: 0.75rem;
       text-align: end;
     }
   }

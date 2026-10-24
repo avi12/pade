@@ -110,7 +110,7 @@
 
   .agent-status {
     color: var(--on-surface-variant);
-    font-size: 11px;
+    font-size: 0.6875rem;
     white-space: nowrap;
   }
 
@@ -149,7 +149,7 @@
     border-radius: var(--radius-medium);
     background: var(--surface-2);
     color: var(--on-surface-variant);
-    font-size: 13px;
+    font-size: 0.8125rem;
 
     strong {
       color: var(--on-surface);

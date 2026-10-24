@@ -88,7 +88,7 @@
     .eyebrow {
       color: var(--on-surface-variant);
       font-weight: 700;
-      font-size: 9px;
+      font-size: 0.5625rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
@@ -99,13 +99,13 @@
       align-items: center;
       font-family: var(--font-monospace);
       font-weight: 700;
-      font-size: 14px;
+      font-size: 0.875rem;
     }
 
     .caret {
       color: var(--on-surface-variant);
       font-weight: 600;
-      font-size: 10px;
+      font-size: 0.625rem;
       opacity: 70%;
     }
   }

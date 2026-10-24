@@ -34,7 +34,7 @@
     background: var(--surface-1);
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 9px;
+    font-size: 0.5625rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }

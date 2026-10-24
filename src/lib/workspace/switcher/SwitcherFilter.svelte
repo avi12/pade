@@ -58,7 +58,7 @@
       color: var(--on-surface);
       outline: none;
       font: inherit;
-      font-size: 13px;
+      font-size: 0.8125rem;
     }
 
     .kbd {
@@ -70,7 +70,7 @@
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-weight: 700;
-      font-size: 9px;
+      font-size: 0.5625rem;
     }
   }
 </style>

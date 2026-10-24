@@ -199,7 +199,7 @@
     background: var(--surface-2);
     color: var(--on-surface);
     font: inherit;
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.5;
     resize: vertical;
 
@@ -222,7 +222,7 @@
     color: var(--on-surface-variant);
     font: inherit;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     cursor: pointer;
     transition: color 150ms var(--ease);
 

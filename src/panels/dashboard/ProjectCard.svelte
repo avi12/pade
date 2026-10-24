@@ -57,7 +57,7 @@
     color: var(--on-surface);
     font: inherit;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 0.875rem;
     text-align: start;
     cursor: pointer;
 
@@ -79,7 +79,7 @@
     margin: 0;
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .agents {

@@ -93,7 +93,7 @@
 
     .caret {
       display: inline-block;
-      font-size: 9px;
+      font-size: 0.5625rem;
       opacity: 70%;
       transition: rotate 150ms var(--ease);
     }

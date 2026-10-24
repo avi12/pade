@@ -107,7 +107,7 @@
 
   h1 {
     margin: 0;
-    font-size: 22px;
+    font-size: 1.375rem;
   }
 
   .tally {
@@ -124,7 +124,7 @@
       border-radius: var(--radius-full);
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
-      font-size: 12px;
+      font-size: 0.75rem;
     }
 
     [data-state="waiting"] {

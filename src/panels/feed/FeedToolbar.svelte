@@ -95,7 +95,7 @@
     color: var(--on-surface);
     font-family: inherit;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: background 120ms var(--ease);
   }
@@ -109,7 +109,7 @@
     }
 
     .caret {
-      font-size: 10px;
+      font-size: 0.625rem;
       transition: rotate 200ms var(--ease);
     }
   }

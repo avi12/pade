@@ -66,7 +66,7 @@
     color: #ffffff;
     font-family: var(--font-monospace);
     font-weight: 700;
-    font-size: 9.5px;
+    font-size: 0.5938rem;
     letter-spacing: 0.05em;
 
     &.app {
@@ -85,7 +85,7 @@
   .group-name {
     overflow: hidden;
     font-weight: 700;
-    font-size: 13px;
+    font-size: 0.8125rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -99,7 +99,7 @@
     align-items: center;
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
-    font-size: 11px;
+    font-size: 0.6875rem;
     white-space: nowrap;
   }
 
@@ -109,7 +109,7 @@
     margin-inline-start: auto;
     font-family: var(--font-monospace);
     font-weight: 600;
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .group-count {
@@ -119,7 +119,7 @@
     border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface-variant);
-    font-size: 10.5px;
+    font-size: 0.6563rem;
     text-align: center;
   }
 </style>

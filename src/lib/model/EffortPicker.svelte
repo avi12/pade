@@ -55,7 +55,7 @@
     border-radius: var(--radius-small);
     background: transparent;
     font-family: var(--font-monospace);
-    font-size: 10px;
+    font-size: 0.625rem;
     cursor: pointer;
 
     &:hover {

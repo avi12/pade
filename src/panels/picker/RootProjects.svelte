@@ -89,14 +89,14 @@
     background: var(--surface-2);
     color: var(--on-surface);
     font-family: var(--font-monospace);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   /* How many projects the root holds - frames the list below as "what's inside". */
   .root-count {
     color: var(--on-surface-variant);
     font-weight: 600;
-    font-size: 11px;
+    font-size: 0.6875rem;
     white-space: nowrap;
   }
 
@@ -158,13 +158,13 @@
 
     .project-name {
       font-weight: 600;
-      font-size: 14px;
+      font-size: 0.875rem;
     }
 
     .git {
       color: var(--tertiary);
       font-weight: 700;
-      font-size: 9px;
+      font-size: 0.5625rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }

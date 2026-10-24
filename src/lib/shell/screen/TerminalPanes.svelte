@@ -242,7 +242,7 @@
       background: var(--primary-container);
       color: var(--on-primary-container);
       font-weight: 700;
-      font-size: 13px;
+      font-size: 0.8125rem;
       box-shadow: 0 6px 20px var(--shadow-color);
     }
   }

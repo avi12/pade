@@ -142,7 +142,7 @@
     overflow: hidden;
     font-family: var(--font-monospace);
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -150,7 +150,7 @@
   .time {
     margin-left: auto;
     color: var(--on-surface-variant);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .summary {
@@ -160,7 +160,7 @@
     margin-block: 5px 0;
     margin-inline: 0;
     color: var(--on-surface);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   /* How many changes in a row this one card stands for. Quiet by default - it
@@ -171,7 +171,7 @@
     border-radius: var(--radius-full);
     background: var(--surface-3);
     color: var(--on-surface-variant);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .meta {
@@ -180,7 +180,7 @@
     align-items: center;
     margin-block-start: 6px;
     color: var(--on-surface-variant);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .path {

@@ -71,7 +71,7 @@
   :where(.panel) :global(.eyebrow) {
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -81,7 +81,7 @@
     display: inline-flex;
     flex: none;
     color: var(--severity-color);
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   /* ── "All agents" heading + kind-code legend ── */
@@ -108,7 +108,7 @@
   .empty {
     margin: 0;
     color: var(--on-surface-variant);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.5;
   }
 </style>

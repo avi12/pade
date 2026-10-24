@@ -122,7 +122,7 @@
     inline-size: 3rem;
     color: var(--on-surface-variant);
     font-weight: 600;
-    font-size: 12px;
+    font-size: 0.75rem;
 
     /* One pick covering both schemes carries no label; the slot goes with it
        rather than leaving the trigger indented against nothing. */
@@ -143,7 +143,7 @@
     background: var(--surface-1);
     color: var(--on-surface);
     font: inherit;
-    font-size: 12px;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: background 200ms var(--ease);
 
@@ -211,7 +211,7 @@
       background: transparent;
       color: var(--on-surface);
       font: inherit;
-      font-size: 12px;
+      font-size: 0.75rem;
       cursor: pointer;
 
       &:hover {

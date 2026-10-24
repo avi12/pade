@@ -88,7 +88,7 @@
     color: var(--on-surface);
     font-family: var(--font-monospace);
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     cursor: pointer;
     transition: color 150ms var(--ease);
 
@@ -107,7 +107,7 @@
     .caret {
       display: inline-block;
       flex: none;
-      font-size: 9px;
+      font-size: 0.5625rem;
       opacity: 70%;
       transition: rotate 150ms var(--ease);
     }
@@ -131,7 +131,7 @@
       justify-content: space-between;
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
     }
 
     /* The jump-to-add action - tinted primary so it reads as an action among
@@ -140,7 +140,7 @@
       gap: 8px;
       color: var(--primary);
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
     }
 
     .separated {

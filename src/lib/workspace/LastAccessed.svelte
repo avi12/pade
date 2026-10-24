@@ -35,7 +35,7 @@
     margin-inline-start: auto;
     color: var(--last-accessed-color, var(--on-surface-variant));
     font-family: var(--font-monospace);
-    font-size: var(--last-accessed-font-size, 11px);
+    font-size: var(--last-accessed-font-size, 0.6875rem);
     white-space: nowrap;
   }
 </style>

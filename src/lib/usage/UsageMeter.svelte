@@ -259,7 +259,7 @@
     border: 1px solid var(--primary);
     border-radius: var(--radius-full);
     font-weight: 700;
-    font-size: 10.5px;
+    font-size: 0.6563rem;
     line-height: 1.4;
     white-space: nowrap;
   }

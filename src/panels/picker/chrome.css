@@ -8,7 +8,7 @@
   margin: 0;
   color: var(--on-surface-variant);
   font-weight: 700;
-  font-size: 12px;
+  font-size: 0.75rem;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
@@ -22,7 +22,7 @@
 .picker .hint {
   margin: 0;
   color: var(--on-surface-variant);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .picker .visually-hidden {
@@ -38,7 +38,7 @@
   display: block;
   margin-block-start: 6px;
   color: var(--critical);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.4;
 }
 
@@ -118,7 +118,7 @@
       background: var(--surface-3);
       color: var(--on-surface-variant);
       font-family: var(--font-ui);
-      font-size: 10px;
+      font-size: 0.625rem;
     }
   }
 
@@ -128,7 +128,7 @@
     padding-inline: 10px;
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.07em;
     text-transform: uppercase;
   }
@@ -160,7 +160,7 @@
   background: var(--surface-2);
   color: var(--on-surface);
   font: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 /* A full-width monospace path / URL input. Bare (borderless, transparent) inside
@@ -176,7 +176,7 @@
   background: transparent;
   color: var(--on-surface);
   font-family: var(--font-monospace);
-  font-size: 13px;
+  font-size: 0.8125rem;
 
   &.framed {
     padding: 9px 12px;
@@ -216,7 +216,7 @@
   background: var(--surface-2);
   color: var(--on-surface);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.8125rem;
 
   &:hover:not(:disabled) {
     border-color: var(--primary);
@@ -232,7 +232,7 @@
 .picker .none {
   color: var(--on-surface-variant);
   list-style: none;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 /* Re-detect ("Reload") pill - shared by the Default-agent and Editors sections.
@@ -250,7 +250,7 @@
   color: var(--on-surface);
   font: inherit;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 0.75rem;
   white-space: nowrap;
   cursor: pointer;
   transition:
@@ -299,7 +299,7 @@
     color: var(--on-surface-variant);
     font: inherit;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 0.75rem;
     cursor: pointer;
     transition:
       background 150ms var(--ease),

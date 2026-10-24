@@ -14,7 +14,7 @@
     align-items: center;
     color: var(--primary);
     font-weight: 700;
-    font-size: 13px;
+    font-size: 0.8125rem;
     letter-spacing: 0.02em;
   }
 </style>

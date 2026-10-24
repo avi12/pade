@@ -109,12 +109,12 @@
   .field-label {
     color: var(--on-surface);
     font-weight: 600;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .field-hint {
     color: var(--on-surface-variant);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   /* The shared 20px .checkbox (theme.css) beside its label. */

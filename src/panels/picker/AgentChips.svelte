@@ -56,7 +56,7 @@
     color: var(--on-surface);
     font: inherit;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     cursor: pointer;
     transition: border-color 150ms var(--ease);
 

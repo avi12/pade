@@ -183,7 +183,7 @@
 
     .hint {
       max-inline-size: 62ch;
-      font-size: 12px;
+      font-size: 0.75rem;
       line-height: 1.5;
     }
   }

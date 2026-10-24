@@ -53,7 +53,7 @@
     display: inline-flex;
     flex: none;
     color: var(--severity-color);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .agent-pill-id {
@@ -68,7 +68,7 @@
     max-inline-size: 4rem;
     color: var(--on-surface);
     font-weight: 600;
-    font-size: 11px;
+    font-size: 0.6875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

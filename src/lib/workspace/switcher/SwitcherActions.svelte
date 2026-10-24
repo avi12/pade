@@ -91,7 +91,7 @@
       flex: none;
       color: var(--on-surface-variant);
       font-weight: 600;
-      font-size: 10px;
+      font-size: 0.625rem;
     }
 
     .kbd {
@@ -102,7 +102,7 @@
       background: var(--surface-3);
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
-      font-size: 10px;
+      font-size: 0.625rem;
     }
 
     &:hover .lead,

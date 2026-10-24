@@ -116,7 +116,7 @@
 
   .editor-label {
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   /* Per-kind manifest signals - small mono surface-3 chips. */
@@ -132,7 +132,7 @@
     background: var(--surface-3);
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
-    font-size: 10px;
+    font-size: 0.625rem;
   }
 
   /* The "detected → open in" label and the select move as one unit, so a
@@ -147,6 +147,6 @@
   .editor-arrow {
     flex: none;
     color: var(--on-surface-variant);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 </style>

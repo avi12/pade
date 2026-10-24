@@ -316,7 +316,7 @@
       padding-inline: 6px;
       color: var(--primary);
       font-weight: 700;
-      font-size: 10px;
+      font-size: 0.625rem;
       white-space: nowrap;
 
       .tab-strip:not(.drop-target) & {

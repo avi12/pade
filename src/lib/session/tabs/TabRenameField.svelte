@@ -93,7 +93,7 @@
         outline: none;
         font-family: var(--font-monospace);
         font-weight: 700;
-        font-size: 12px;
+        font-size: 0.75rem;
       }
     }
   }

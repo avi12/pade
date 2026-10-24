@@ -150,7 +150,7 @@
     background: var(--surface-3);
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
 
@@ -168,7 +168,7 @@
   .relative-path {
     overflow: hidden;
     font-family: var(--font-monospace);
-    font-size: 12px;
+    font-size: 0.75rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -177,6 +177,6 @@
     margin-inline-start: auto;
     color: var(--on-surface-variant);
     font-style: italic;
-    font-size: 10px;
+    font-size: 0.625rem;
   }
 </style>

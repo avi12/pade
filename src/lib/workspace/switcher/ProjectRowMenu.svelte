@@ -167,7 +167,7 @@
       color: var(--on-surface);
       font: inherit;
       font-weight: 500;
-      font-size: 13px;
+      font-size: 0.8125rem;
       text-align: start;
       cursor: pointer;
       transition: color 120ms var(--ease), background 120ms var(--ease);
@@ -201,7 +201,7 @@
         overflow: hidden;
         color: var(--on-surface-variant);
         font-family: var(--font-monospace);
-        font-size: 10px;
+        font-size: 0.625rem;
         text-overflow: ellipsis;
         white-space: nowrap;
       }

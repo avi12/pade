@@ -113,7 +113,7 @@
     background: transparent;
     color: var(--on-surface-variant);
     font: inherit;
-    font-size: 12px;
+    font-size: 0.75rem;
     cursor: pointer;
     transition:
       color 150ms var(--ease),
@@ -171,14 +171,14 @@
       flex: none;
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 13px;
+      font-size: 0.8125rem;
     }
 
     .recent-path {
       overflow: hidden;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
-      font-size: 11px;
+      font-size: 0.6875rem;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -188,7 +188,7 @@
     flex: none;
     color: var(--tertiary);
     font-weight: 700;
-    font-size: 9px;
+    font-size: 0.5625rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -214,7 +214,7 @@
       color: var(--on-surface);
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 13px;
+      font-size: 0.8125rem;
     }
 
     button {
@@ -226,7 +226,7 @@
       color: var(--on-primary);
       font: inherit;
       font-weight: 700;
-      font-size: 12px;
+      font-size: 0.75rem;
       cursor: pointer;
       transition: filter 150ms var(--ease);
 

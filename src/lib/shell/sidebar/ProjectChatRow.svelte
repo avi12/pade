@@ -156,7 +156,7 @@
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 12.5px;
+    font-size: 0.7813rem;
     text-align: start;
     cursor: pointer;
 

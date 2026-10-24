@@ -129,7 +129,7 @@
       min-inline-size: 0;
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 13px;
+      font-size: 0.8125rem;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -143,7 +143,7 @@
       flex: none;
       color: var(--primary);
       font-weight: 700;
-      font-size: 9px;
+      font-size: 0.5625rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }

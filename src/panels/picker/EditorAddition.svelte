@@ -134,12 +134,12 @@
 
     strong {
       font-weight: 700;
-      font-size: 13px;
+      font-size: 0.8125rem;
     }
 
     small {
       color: var(--on-surface-variant);
-      font-size: 12px;
+      font-size: 0.75rem;
       line-height: 1.45;
     }
   }
@@ -157,7 +157,7 @@
     color: var(--on-surface);
     font: inherit;
     font-weight: 700;
-    font-size: 12px;
+    font-size: 0.75rem;
     cursor: pointer;
     transition:
       background 150ms var(--ease),
@@ -178,7 +178,7 @@
     border-radius: var(--radius-small);
     background: var(--tertiary-wash);
     color: var(--tertiary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.45;
     animation: line-in 180ms var(--ease);
 

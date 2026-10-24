@@ -76,7 +76,7 @@
   .agent-name {
     overflow: hidden;
     font-weight: 700;
-    font-size: 12.5px;
+    font-size: 0.7813rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -84,7 +84,7 @@
   .agent-plan {
     overflow: hidden;
     color: var(--on-surface-variant);
-    font-size: 10px;
+    font-size: 0.625rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

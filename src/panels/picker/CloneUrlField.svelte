@@ -31,7 +31,7 @@
   .probe-note {
     display: block;
     color: var(--on-surface-variant);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.4;
   }
 </style>

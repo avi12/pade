@@ -60,7 +60,7 @@
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
     font-weight: 800;
-    font-size: 9px;
+    font-size: 0.5625rem;
   }
 
   .limit-track {
@@ -83,7 +83,7 @@
     min-inline-size: 2.5rem;
     color: var(--severity-color);
     font-weight: 700;
-    font-size: 11.5px;
+    font-size: 0.7188rem;
     text-align: end;
   }
 
@@ -96,7 +96,7 @@
     align-items: center;
     justify-self: end;
     color: var(--on-surface-variant);
-    font-size: 10px;
+    font-size: 0.625rem;
     white-space: nowrap;
   }
 </style>

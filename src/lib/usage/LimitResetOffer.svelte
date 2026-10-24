@@ -27,7 +27,7 @@
     align-items: center;
     margin-block-start: 10px;
     color: var(--on-surface-variant);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .offer-text {
@@ -42,7 +42,7 @@
   .offer-meta {
     color: var(--on-surface-variant);
     font-weight: 400;
-    font-size: 10px;
+    font-size: 0.625rem;
   }
 
   .offer-button {
@@ -52,7 +52,7 @@
     background: var(--surface-2);
     color: var(--on-surface);
     font-weight: 600;
-    font-size: 11px;
+    font-size: 0.6875rem;
     cursor: pointer;
 
     &:hover {

@@ -51,7 +51,7 @@
     align-items: flex-start;
     margin: 16px;
     color: var(--on-surface-variant);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.5;
 
     .empty-headline {
@@ -75,7 +75,7 @@
       color: var(--on-primary-container);
       font-family: inherit;
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
       cursor: pointer;
 
       &:disabled {

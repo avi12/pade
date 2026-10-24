@@ -63,7 +63,7 @@
     .none {
       color: var(--on-surface-variant);
       font-weight: 700;
-      font-size: 12px;
+      font-size: 0.75rem;
     }
 
     .pills {
@@ -73,7 +73,7 @@
     }
 
     .caret {
-      font-size: 10px;
+      font-size: 0.625rem;
       opacity: 60%;
     }
   }

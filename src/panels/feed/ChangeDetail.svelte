@@ -130,7 +130,7 @@
     color: var(--primary);
     font-family: var(--font-monospace);
     font-weight: 600;
-    font-size: 12px;
+    font-size: 0.75rem;
     white-space: nowrap;
     cursor: pointer;
 

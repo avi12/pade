@@ -101,7 +101,7 @@
       color: var(--on-surface);
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -119,7 +119,7 @@
       background: var(--code-background);
       color: var(--code-foreground);
       font-family: var(--font-monospace);
-      font-size: 12px;
+      font-size: 0.75rem;
       line-height: 1.55;
       white-space: pre-wrap;
     }
@@ -129,7 +129,7 @@
       margin-inline: 0;
       color: var(--on-surface-variant);
       font-style: italic;
-      font-size: 11px;
+      font-size: 0.6875rem;
     }
   }
 </style>

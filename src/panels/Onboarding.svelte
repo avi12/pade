@@ -74,7 +74,7 @@
       margin-block: 14px 0;
       margin-inline: 0;
       font-weight: 800;
-      font-size: clamp(24px, 4vw, 36px);
+      font-size: clamp(1.5rem, 4vw, 2.25rem);
       line-height: 1.1;
       letter-spacing: -0.02em;
       text-wrap: balance;
@@ -85,7 +85,7 @@
       margin-block: 12px 0;
       margin-inline: 0;
       color: var(--on-surface-variant);
-      font-size: 14px;
+      font-size: 0.875rem;
       line-height: 1.5;
     }
   }
@@ -131,7 +131,7 @@
       flex-shrink: 0;
       color: var(--primary);
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
       opacity: 0%;
       transition: opacity 200ms var(--ease);
     }
@@ -143,7 +143,7 @@
     .eyebrow {
       color: var(--on-surface-variant);
       font-weight: 700;
-      font-size: 9px;
+      font-size: 0.5625rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
@@ -152,7 +152,7 @@
       overflow: hidden;
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -209,13 +209,13 @@
 
     .name {
       font-weight: 600;
-      font-size: 16px;
+      font-size: 1rem;
     }
 
     .command {
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
-      font-size: 12px;
+      font-size: 0.75rem;
     }
 
     &:hover .command {

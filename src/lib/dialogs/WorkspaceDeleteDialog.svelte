@@ -81,19 +81,19 @@
       color: var(--on-surface);
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 13px;
+      font-size: 0.8125rem;
     }
 
     code {
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
-      font-size: 11px;
+      font-size: 0.6875rem;
       overflow-wrap: anywhere;
     }
 
     .tip {
       margin-block-start: 12px;
-      font-size: 12px;
+      font-size: 0.75rem;
     }
 
     kbd {
@@ -104,7 +104,7 @@
       color: var(--on-surface);
       font-family: var(--font-ui);
       font-weight: 600;
-      font-size: 11px;
+      font-size: 0.6875rem;
     }
   }
 </style>

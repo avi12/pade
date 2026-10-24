@@ -250,7 +250,7 @@
       color: var(--on-primary-container);
       font-family: var(--font-monospace);
       font-weight: 700;
-      font-size: 13px;
+      font-size: 0.8125rem;
     }
 
     .branch {
@@ -259,7 +259,7 @@
       align-items: center;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
-      font-size: 11px;
+      font-size: 0.6875rem;
     }
 
     .branch-dot {
@@ -272,7 +272,7 @@
     h2 {
       margin-block: 9px 0;
       font-weight: 700;
-      font-size: 17px;
+      font-size: 1.0625rem;
       line-height: 1.3;
       text-wrap: balance;
     }
@@ -284,7 +284,7 @@
       align-items: center;
       margin-block: 7px 0;
       color: var(--on-surface-variant);
-      font-size: 12px;
+      font-size: 0.75rem;
     }
 
     .separator {
@@ -314,7 +314,7 @@
     color: var(--on-surface);
     font: inherit;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     cursor: pointer;
     transition: background 120ms var(--ease);
 

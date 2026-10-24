@@ -115,7 +115,7 @@
       padding-inline: 8px;
       color: var(--on-surface-variant);
       font-weight: 700;
-      font-size: 10px;
+      font-size: 0.625rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
@@ -176,7 +176,7 @@
       border-radius: 5px;
       font-family: var(--font-monospace);
       font-weight: 700;
-      font-size: 10px;
+      font-size: 0.625rem;
     }
 
     &.created .kind,
@@ -202,7 +202,7 @@
       min-inline-size: 0;
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -212,7 +212,7 @@
       gap: 8px;
       padding-inline-start: 2px;
       font-weight: 600;
-      font-size: 10px;
+      font-size: 0.625rem;
     }
 
     .add {

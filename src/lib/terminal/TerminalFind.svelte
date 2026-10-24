@@ -343,7 +343,7 @@
       background: transparent;
       color: var(--on-surface);
       font-family: var(--font-monospace);
-      font-size: 12px;
+      font-size: 0.75rem;
 
       &:focus-visible {
         outline: none;
@@ -361,7 +361,7 @@
       min-inline-size: 8ch;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
-      font-size: 11px;
+      font-size: 0.6875rem;
       text-align: end;
 
       /* A half-typed pattern is not a result - say so in the warning colour

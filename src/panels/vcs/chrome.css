@@ -12,7 +12,7 @@
   margin-inline: 4px;
   color: var(--on-surface-variant);
   font-weight: 700;
-  font-size: 11px;
+  font-size: 0.6875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -23,18 +23,18 @@
   color: var(--primary);
   font-family: var(--font-monospace);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 /* Author · relative-time line under a candidate / commit summary. */
 .version-control .author-details {
   color: var(--on-surface-variant);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 /* Quiet empty/error state ("Working tree clean", "Not a Git repository…"). */
 .version-control .empty {
   margin: 16px;
   color: var(--on-surface-variant);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }

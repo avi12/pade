@@ -162,7 +162,7 @@
     color: var(--on-primary);
     font: inherit;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 0.875rem;
     text-align: start;
     box-shadow: 0 10px 30px var(--primary-shadow);
     cursor: pointer;
@@ -182,7 +182,7 @@
       min-inline-size: 0;
       font-family: var(--font-monospace);
       font-weight: 500;
-      font-size: 12px;
+      font-size: 0.75rem;
       line-height: 1.45;
       white-space: pre-wrap;
       overflow-wrap: anywhere;

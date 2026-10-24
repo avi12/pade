@@ -156,7 +156,7 @@
     color: var(--on-primary);
     font: inherit;
     font-weight: 700;
-    font-size: 12px;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: filter 150ms var(--ease);
 
@@ -173,7 +173,7 @@
     color: var(--on-surface-variant);
     font: inherit;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: background 150ms var(--ease);
 

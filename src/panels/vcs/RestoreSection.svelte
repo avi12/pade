@@ -151,7 +151,7 @@
       margin: 0;
       color: var(--on-surface-variant);
       font-weight: 700;
-      font-size: 11px;
+      font-size: 0.6875rem;
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
@@ -176,7 +176,7 @@
       background: var(--surface-2);
       color: var(--on-surface);
       font: inherit;
-      font-size: 13px;
+      font-size: 0.8125rem;
 
       &:focus-visible {
         border-color: var(--primary);
@@ -193,7 +193,7 @@
       background: var(--primary);
       color: var(--on-primary);
       font-weight: 700;
-      font-size: 13px;
+      font-size: 0.8125rem;
       cursor: pointer;
       transition: filter 120ms var(--ease);
 
@@ -210,7 +210,7 @@
     .hint {
       margin: 0;
       color: var(--on-surface-variant);
-      font-size: 11px;
+      font-size: 0.6875rem;
     }
 
     .hint code {
@@ -219,7 +219,7 @@
 
     .restore-message {
       margin: 0;
-      font-size: 12px;
+      font-size: 0.75rem;
     }
 
     .restore-message code {
@@ -273,7 +273,7 @@
 
     .summary {
       overflow: hidden;
-      font-size: 13px;
+      font-size: 0.8125rem;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -310,7 +310,7 @@
 
     .percent {
       color: var(--on-surface-variant);
-      font-size: 11px;
+      font-size: 0.6875rem;
     }
   }
 </style>

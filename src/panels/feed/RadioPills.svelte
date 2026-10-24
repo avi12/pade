@@ -43,7 +43,7 @@
       border-radius: var(--radius-full);
       color: var(--on-surface-variant);
       font-weight: 600;
-      font-size: 11px;
+      font-size: 0.6875rem;
       cursor: pointer;
       transition:
         background 120ms var(--ease),

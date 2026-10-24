@@ -71,7 +71,7 @@
     border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface-variant);
-    font-size: 18px;
+    font-size: 1.125rem;
     cursor: pointer;
     transition: color 150ms var(--ease), background 150ms var(--ease);
 

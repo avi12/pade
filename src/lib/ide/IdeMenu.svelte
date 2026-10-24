@@ -160,7 +160,7 @@
     color: var(--on-surface);
     font: inherit;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     white-space: nowrap;
     cursor: pointer;
     transition: background 200ms var(--ease), color 200ms var(--ease);
@@ -207,7 +207,7 @@
     }
 
     .caret {
-      font-size: 10px;
+      font-size: 0.625rem;
     }
   }
 
@@ -230,7 +230,7 @@
       color: var(--on-surface);
       font: inherit;
       font-weight: 600;
-      font-size: 13px;
+      font-size: 0.8125rem;
       text-align: start;
       cursor: pointer;
 
@@ -248,7 +248,7 @@
       .best {
         color: var(--tertiary);
         font-weight: 700;
-        font-size: 9px;
+        font-size: 0.5625rem;
         letter-spacing: 0.06em;
         text-transform: uppercase;
       }

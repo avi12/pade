@@ -23,7 +23,7 @@
     display: flex;
     gap: 10px;
     align-items: center;
-    font-size: 13px;
+    font-size: 0.8125rem;
     cursor: pointer;
   }
 </style>

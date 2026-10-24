@@ -75,14 +75,14 @@
     }
 
     .eyebrow {
-      font-size: 9px;
+      font-size: 0.5625rem;
       letter-spacing: 0.09em;
     }
 
     .spotlight-title {
       overflow: hidden;
       font-weight: 700;
-      font-size: 13px;
+      font-size: 0.8125rem;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -91,7 +91,7 @@
       flex: none;
       color: var(--severity-color);
       font-weight: 800;
-      font-size: 22px;
+      font-size: 1.375rem;
       line-height: 1;
     }
 
@@ -99,7 +99,7 @@
       display: block;
       margin-block-start: 7px;
       color: var(--on-surface-variant);
-      font-size: 11px;
+      font-size: 0.6875rem;
     }
   }
 

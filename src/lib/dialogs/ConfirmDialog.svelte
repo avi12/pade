@@ -260,7 +260,7 @@
     margin-block: 16px 0;
     margin-inline: 0;
     font-weight: 700;
-    font-size: 20px;
+    font-size: 1.25rem;
     letter-spacing: -0.01em;
     text-wrap: balance;
   }
@@ -270,7 +270,7 @@
   .body {
     margin-block-start: 8px;
     color: var(--on-surface-variant);
-    font-size: 14px;
+    font-size: 0.875rem;
     line-height: 1.5;
   }
 
@@ -284,7 +284,7 @@
     border-radius: var(--radius-medium);
     background: var(--critical-wash);
     color: var(--critical);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.4;
   }
 
@@ -305,7 +305,7 @@
     border-radius: var(--radius-full);
     font: inherit;
     font-weight: 700;
-    font-size: 13px;
+    font-size: 0.8125rem;
     cursor: pointer;
     transition:
       background 140ms var(--ease),

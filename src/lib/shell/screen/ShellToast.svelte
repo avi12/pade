@@ -29,7 +29,7 @@
     background: var(--surface-3);
     color: var(--on-surface);
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     box-shadow: 0 12px 34px var(--shadow-color);
     transform: translateX(-50%);
     animation: pop-in 240ms var(--spring);

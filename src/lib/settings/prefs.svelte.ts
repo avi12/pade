@@ -219,10 +219,10 @@ function apply() {
       systemScheme
     })
   );
-  // Font scaling follows video-time-manager: the root font is `100% * --ui-scale`
-  // (the user's browser base, times their zoom preference - never a fixed px that
-  // would override OS/browser a11y sizing), and `--font-base` (theme.css) derives a
-  // ≥16px unit from it. rem/em UI and the terminal scale from the one knob.
+  // Font scaling follows video-time-manager: `--font-base` (theme.css) is the
+  // user's browser base (never a fixed px that would override OS/browser a11y
+  // sizing) times this zoom preference; what is sized off it and the terminal
+  // scale from the one knob, while plain rem sizes keep their designed size.
   document.documentElement.style.setProperty(UI_SCALE_PROPERTY, String(effective.uiScale));
   installTerminalPalette(appearance.scheme);
 }

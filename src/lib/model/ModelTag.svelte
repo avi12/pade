@@ -99,7 +99,7 @@
     background: transparent;
     color: inherit;
     font-family: var(--font-monospace);
-    font-size: 10px;
+    font-size: 0.625rem;
     cursor: pointer;
     transition: background-color 120ms var(--ease);
 

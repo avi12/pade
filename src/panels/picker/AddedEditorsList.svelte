@@ -50,7 +50,7 @@
   .editor-added-eyebrow {
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -82,7 +82,7 @@
 
   .editor-added-name {
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   /* "added" provenance tag - a quiet tertiary micro-label, no fill. */
@@ -90,7 +90,7 @@
     flex: none;
     color: var(--tertiary);
     font-weight: 700;
-    font-size: 9px;
+    font-size: 0.5625rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
   }
@@ -100,7 +100,7 @@
     max-inline-size: 100%;
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
-    font-size: 10px;
+    font-size: 0.625rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

@@ -20,7 +20,7 @@
 .get-started .new-project-label {
   color: var(--on-surface-variant);
   font-weight: 600;
-  font-size: 11px;
+  font-size: 0.6875rem;
   letter-spacing: 0.03em;
 }
 
@@ -51,7 +51,7 @@
     flex: none;
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   /* While any control inside is focused, the group's border becomes the
@@ -88,7 +88,7 @@
   background: transparent;
   color: var(--on-surface);
   font-family: var(--font-monospace);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 /* Tonal warning surface: git missing, or the SSH→HTTPS credential fallback. */
@@ -107,7 +107,7 @@
     align-items: flex-start;
     margin: 0;
     color: var(--on-surface);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.45;
   }
 
@@ -135,7 +135,7 @@
   color: var(--on-primary);
   font: inherit;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 0.8125rem;
   cursor: pointer;
   transition: filter 150ms var(--ease);
 

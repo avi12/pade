@@ -24,7 +24,7 @@
     background: var(--primary-container);
     color: var(--on-primary-container);
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     box-shadow: 0 10px 30px var(--shadow-color);
     animation: pop-in 220ms var(--ease);
   }

@@ -12,7 +12,7 @@
     margin: 0;
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }

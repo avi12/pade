@@ -62,7 +62,7 @@
   .title {
     margin: 0;
     font-weight: 700;
-    font-size: 15px;
+    font-size: 0.9375rem;
     letter-spacing: -0.01em;
   }
 
@@ -70,7 +70,7 @@
     margin: 0;
     margin-block-start: 1px;
     color: var(--on-surface-variant);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .severity-counts {
@@ -87,7 +87,7 @@
     align-items: center;
     color: var(--on-surface-variant);
     font-weight: 600;
-    font-size: 11px;
+    font-size: 0.6875rem;
 
     .severity-dot {
       flex: none;

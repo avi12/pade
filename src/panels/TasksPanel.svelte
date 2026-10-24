@@ -135,7 +135,7 @@
     gap: 10px;
     margin: 16px;
     color: var(--on-surface-variant);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.5;
 
     p {
@@ -161,7 +161,7 @@
       background: var(--surface-3);
       color: var(--on-surface);
       font-family: var(--font-monospace);
-      font-size: 12px;
+      font-size: 0.75rem;
     }
   }
 
@@ -222,7 +222,7 @@
     background: var(--surface-3);
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
 
@@ -244,7 +244,7 @@
     min-inline-size: 0;
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
-    font-size: 12px;
+    font-size: 0.75rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -275,14 +275,14 @@
     gap: 6px;
     align-items: center;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .command {
     overflow: hidden;
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
-    font-size: 11px;
+    font-size: 0.6875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -297,7 +297,7 @@
     color: var(--on-primary);
     font: inherit;
     font-weight: 700;
-    font-size: 12px;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: background 140ms var(--ease);
 

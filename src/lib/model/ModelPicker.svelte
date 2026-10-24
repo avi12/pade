@@ -55,7 +55,7 @@
     background: transparent;
     color: var(--on-surface);
     font: inherit;
-    font-size: 13px;
+    font-size: 0.8125rem;
     text-align: start;
     cursor: pointer;
 
@@ -81,7 +81,7 @@
     .hint {
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
-      font-size: 10px;
+      font-size: 0.625rem;
     }
   }
 </style>

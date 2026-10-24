@@ -27,7 +27,7 @@
     display: inline-block;
     color: var(--tertiary);
     font-weight: 700;
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     transform-origin: left center;

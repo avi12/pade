@@ -185,7 +185,7 @@
     /* The mode tabs read a notch larger than the on-launch pair. */
     .pill-tab {
       padding-block: 7px;
-      font-size: 13px;
+      font-size: 0.8125rem;
     }
   }
 

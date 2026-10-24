@@ -85,7 +85,7 @@
   .roots {
     display: flex;
     flex-direction: column;
-    font-size: 13px;
+    font-size: 0.8125rem;
 
     &:has(> :nth-child(4)) {
       overflow-y: auto;

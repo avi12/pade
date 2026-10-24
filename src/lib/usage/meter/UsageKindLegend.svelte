@@ -31,7 +31,7 @@
     gap: 4px;
     align-items: center;
     color: var(--on-surface-variant);
-    font-size: 9px;
+    font-size: 0.5625rem;
   }
 
   /* The mono kind code (a small filled square). */
@@ -47,6 +47,6 @@
     color: var(--on-surface);
     font-family: var(--font-monospace);
     font-weight: 800;
-    font-size: 8px;
+    font-size: 0.5rem;
   }
 </style>

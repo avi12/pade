@@ -89,7 +89,7 @@
       color: var(--on-surface);
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -102,7 +102,7 @@
       background: var(--warning-wash);
       color: var(--warning);
       font-weight: 700;
-      font-size: 10px;
+      font-size: 0.625rem;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       white-space: nowrap;
@@ -124,7 +124,7 @@
     margin: 0;
     padding: 14px;
     color: var(--on-surface-variant);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .omit {
@@ -141,7 +141,7 @@
     .omit-text {
       flex: 1;
       color: var(--on-surface-variant);
-      font-size: 12px;
+      font-size: 0.75rem;
       line-height: 1.5;
     }
 
@@ -158,7 +158,7 @@
       color: var(--on-primary);
       font: inherit;
       font-weight: 700;
-      font-size: 12px;
+      font-size: 0.75rem;
       cursor: pointer;
       transition: filter 120ms var(--ease);
 

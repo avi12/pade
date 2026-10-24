@@ -55,7 +55,7 @@
     padding: 14px 12px;
     background: var(--code-background);
     color: var(--on-surface-variant);
-    font-size: 12px;
+    font-size: 0.75rem;
 
     &.loading {
       display: flex;

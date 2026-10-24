@@ -47,6 +47,6 @@
     background: var(--surface-1);
     color: var(--on-surface);
     font: inherit;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 </style>

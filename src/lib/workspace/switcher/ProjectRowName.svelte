@@ -35,7 +35,7 @@
     min-inline-size: 0;
     font-family: var(--font-monospace);
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     overflow-wrap: anywhere;
     line-clamp: 2;
   }

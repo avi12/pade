@@ -75,7 +75,7 @@
   .split {
     background: var(--code-background);
     font-family: var(--font-monospace);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.5;
   }
 

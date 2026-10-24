@@ -110,7 +110,7 @@
     .pop-title {
       color: var(--on-surface-variant);
       font-weight: 700;
-      font-size: 10px;
+      font-size: 0.625rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
@@ -123,7 +123,7 @@
       color: var(--primary);
       font-family: inherit;
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
       cursor: pointer;
 
       &:hover {
@@ -145,7 +145,7 @@
       display: flex;
       gap: 10px;
       align-items: center;
-      font-size: 13px;
+      font-size: 0.8125rem;
       cursor: pointer;
     }
 

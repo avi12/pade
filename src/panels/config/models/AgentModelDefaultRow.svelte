@@ -84,7 +84,7 @@
       gap: 6px;
       align-items: center;
       font-weight: 600;
-      font-size: 13px;
+      font-size: 0.8125rem;
     }
   }
 </style>

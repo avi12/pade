@@ -214,6 +214,6 @@
     padding-block: 4px;
     padding-inline: 8px;
     color: var(--on-surface-variant);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 </style>

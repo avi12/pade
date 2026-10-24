@@ -151,7 +151,7 @@
     h2 {
       margin: 0;
       font-weight: 700;
-      font-size: 13px;
+      font-size: 0.8125rem;
     }
   }
 
@@ -162,7 +162,7 @@
     background: var(--primary-container);
     color: var(--on-primary-container);
     font-weight: 700;
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .spacer {
@@ -171,7 +171,7 @@
 
   .hint {
     color: var(--on-surface-variant);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .grid {

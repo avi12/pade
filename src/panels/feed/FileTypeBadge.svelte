@@ -30,7 +30,7 @@
     color: #ffffff;
     font-family: var(--font-monospace);
     font-weight: 700;
-    font-size: 9.5px;
+    font-size: 0.5938rem;
     letter-spacing: 0.02em;
 
     /* Brand-logo variant: drop the text chip's pill and tint the mark with the
@@ -43,7 +43,7 @@
       padding: 0;
       background: none;
       color: var(--tone, #6b7280);
-      font-size: 18px;
+      font-size: 1.125rem;
     }
   }
 

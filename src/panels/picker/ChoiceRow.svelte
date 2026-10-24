@@ -39,6 +39,6 @@
 
   .caption {
     color: var(--on-surface-variant);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 </style>

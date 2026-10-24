@@ -107,13 +107,13 @@
     .font-name {
       overflow: hidden;
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .font-preview {
-      font-size: 11px;
+      font-size: 0.6875rem;
       opacity: 70%;
     }
   }

@@ -245,6 +245,13 @@ These are non-negotiable for all work in this repo.
      `export`.
    - Directories with too many files are grouped into semantic subfolders
      (by feature or concern), not left as one flat list.
+   - Font sizes in rem: every `font-size` is in `rem` (or `em`/`%`, and `vw`
+     or `cqi` only inside a fluid `clamp()`), never `px` - stylelint's
+     `declaration-property-unit-allowed-list` enforces it. `1rem` is the
+     user's browser base (the root is `100%`), so a size reads as designed;
+     the Appearance font-size knob (`--ui-scale`) reaches what is sized off
+     `--font-base`, and the terminal. The one px exception is a value that
+     must match xterm's pixel grid (`TerminalRtl`'s `--terminal-font-size`).
    - Tabular numerals are the app-wide default, declared once on `body` in
      `theme.css` and inherited - never re-declare `font-variant-numeric` on a
      component. Note it only *asks* the font for a `tnum` feature and nothing

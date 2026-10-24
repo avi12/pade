@@ -22,7 +22,7 @@
   .panel-load-error {
     margin: 16px;
     color: var(--on-surface-variant);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.5;
   }
 </style>

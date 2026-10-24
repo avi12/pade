@@ -236,7 +236,7 @@
 
     .save-title {
       font-weight: 700;
-      font-size: 12px;
+      font-size: 0.75rem;
     }
 
     /* Rename-in-PADE-only, tucked at the head's end: a quiet text button, so the
@@ -254,7 +254,7 @@
       color: var(--on-surface-variant);
       font: inherit;
       font-weight: 600;
-      font-size: 11px;
+      font-size: 0.6875rem;
       cursor: pointer;
       transition:
         background 150ms var(--ease),
@@ -269,7 +269,7 @@
     .save-hint {
       margin: 0;
       color: var(--on-surface-variant);
-      font-size: 10px;
+      font-size: 0.625rem;
       line-height: 1.4;
     }
 
@@ -284,7 +284,7 @@
       outline: none;
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 12px;
+      font-size: 0.75rem;
 
       &:focus-visible {
         border-color: var(--primary);
@@ -294,7 +294,7 @@
     .save-issue {
       color: var(--critical);
       font-weight: 600;
-      font-size: 10.5px;
+      font-size: 0.6563rem;
       line-height: 1.4;
     }
   }

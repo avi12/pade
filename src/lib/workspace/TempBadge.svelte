@@ -22,7 +22,7 @@
     color: var(--on-surface-variant);
     font-family: var(--font-ui);
     font-weight: 700;
-    font-size: 9px;
+    font-size: 0.5625rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }

@@ -315,11 +315,11 @@
   --font-rtl-fallback: "Segoe UI", "Noto Sans Arabic", "Noto Sans Hebrew", "Tahoma", sans-serif;
 
   /* Font scaling (video-time-manager model): --font-base is a ≥16px unit that
-     still tracks the user's browser zoom (1rem), and --ui-scale (set from the
-     uiScale pref in lib/settings/prefs) is the user's zoom knob. rem/em-sized UI and
-     the terminal derive from this one base. */
+     tracks the user's browser zoom (1rem) times --ui-scale, the zoom knob set
+     from the uiScale pref in lib/settings/prefs. What is sized off --font-base
+     and the terminal follow the knob; plain rem sizes stay at their design. */
   --ui-scale: 1;
-  --font-base: max(16px, 1rem);
+  --font-base: calc(max(16px, 1rem) * var(--ui-scale));
 
   /* Native widgets (buttons, form controls, scrollbars) follow the app theme -
      without this the UA paints its light-mode faces in dark mode. */
@@ -796,11 +796,12 @@ body,
   margin: 0;
 }
 
-/* Root font tracks the user's zoom pref (lib/settings/prefs sets --ui-scale). Using % of
-   the inherited base - never a fixed px - keeps the OS/browser a11y font size
-   honored; rem/em and `--font-base` sizing scale with it. */
+/* The root font is the inherited base - a % of it, never a fixed px, keeps the
+   OS/browser a11y font size honored - so the app's rem sizes read at their
+   designed size. The user's zoom pref (--ui-scale, set by lib/settings/prefs)
+   reaches what is built on `--font-base` and the terminal, not every rem. */
 html {
-  font-size: calc(100% * var(--ui-scale, 1));
+  font-size: 100%;
 }
 
 /* Tabular figures are the app-wide default, declared once here rather than at
@@ -1394,7 +1395,7 @@ textarea {
     background: transparent;
     color: var(--on-surface);
     font: inherit;
-    font-size: 13px;
+    font-size: 0.8125rem;
     text-align: start;
     cursor: pointer;
     transition: color 120ms var(--ease), background 120ms var(--ease);
@@ -1423,7 +1424,7 @@ textarea {
   padding-inline: 10px;
   color: var(--on-surface-variant);
   font-weight: 700;
-  font-size: 10px;
+  font-size: 0.625rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 

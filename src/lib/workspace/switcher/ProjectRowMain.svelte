@@ -162,7 +162,7 @@
   }
 
   .project-row-metadata {
-    --last-accessed-font-size: 9px;
+    --last-accessed-font-size: 0.5625rem;
 
     display: flex;
     gap: 7px;
@@ -179,7 +179,7 @@
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 9px;
+      font-size: 0.5625rem;
       white-space: nowrap;
 
       /* The branch glyph leads the branch name, tinted tertiary like the design's
@@ -205,7 +205,7 @@
     flex: none;
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .project-row-mark {

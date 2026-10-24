@@ -296,7 +296,7 @@
     color: var(--on-surface);
     font-family: var(--font-monospace);
     font-weight: 500;
-    font-size: 12px;
+    font-size: 0.75rem;
     text-align: start;
 
     &:hover,

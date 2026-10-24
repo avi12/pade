@@ -118,7 +118,7 @@
     flex: 1;
     overflow: hidden;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -130,7 +130,7 @@
     align-items: center;
     color: var(--state-color);
     font-family: var(--font-monospace);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .dot {
@@ -147,14 +147,14 @@
   .model {
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   /* Shown whole: the summary is written to fit two lines (summary.rs), never
      clipped or faded to make it fit. */
   .summary {
     margin: 0;
-    font-size: 12.5px;
+    font-size: 0.7813rem;
     line-height: 1.45;
 
     &.pending {

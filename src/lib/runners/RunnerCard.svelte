@@ -154,7 +154,7 @@
     background: var(--surface-3);
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
 
@@ -195,7 +195,7 @@
     overflow: hidden;
     min-inline-size: 0;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.8125rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -220,7 +220,7 @@
   .pipe {
     color: var(--primary);
     font-weight: 700;
-    font-size: 12px;
+    font-size: 0.75rem;
 
     &:hover {
       background: var(--primary-container);
@@ -247,7 +247,7 @@
     background: var(--tertiary-wash);
     color: var(--tertiary);
     font-weight: 700;
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
@@ -267,12 +267,12 @@
     p {
       margin: 0;
       color: var(--code-foreground);
-      font-size: 12px;
+      font-size: 0.75rem;
     }
 
     .muted {
       color: var(--on-surface-variant);
-      font-size: 11px;
+      font-size: 0.6875rem;
     }
   }
 </style>

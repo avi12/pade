@@ -233,14 +233,14 @@
       min-inline-size: 0;
       font-family: var(--font-monospace);
       font-weight: 700;
-      font-size: 12px;
+      font-size: 0.75rem;
       text-overflow: ellipsis;
     }
 
     /* Flipped by the shared .menu-host rule while the menu is open. */
     .caret {
       flex-shrink: 0;
-      font-size: 10px;
+      font-size: 0.625rem;
       opacity: 70%;
       transition: rotate 150ms var(--ease);
     }
@@ -293,7 +293,7 @@
     /* The two prose actions under the refs - sentence case, not mono. */
     .action-row {
       color: var(--on-surface-variant);
-      font-size: 12px;
+      font-size: 0.75rem;
 
       &:hover {
         color: var(--on-primary-container);

@@ -64,12 +64,12 @@
   :where(.card) :global(.field-label) {
     color: var(--on-surface);
     font-weight: 600;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   :where(.card) :global(.field-hint) {
     color: var(--on-surface-variant);
-    font-size: 10px;
+    font-size: 0.625rem;
   }
 
   /* A row's one action (Restart PADE, Check now): a filled pill. */
@@ -83,7 +83,7 @@
     color: var(--on-primary-container);
     font: inherit;
     font-weight: 700;
-    font-size: 11px;
+    font-size: 0.6875rem;
     cursor: pointer;
     transition: filter 140ms var(--ease);
 

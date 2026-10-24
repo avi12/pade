@@ -32,7 +32,7 @@
   .title {
     color: var(--on-surface);
     font-weight: 700;
-    font-size: 11px;
+    font-size: 0.6875rem;
     letter-spacing: 0.07em;
     text-transform: uppercase;
   }
@@ -41,7 +41,7 @@
   .reset {
     flex: none;
     font-family: var(--font-monospace);
-    font-size: 10px;
+    font-size: 0.625rem;
   }
 
   .scope-tag {

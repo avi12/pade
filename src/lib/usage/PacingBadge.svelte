@@ -55,7 +55,7 @@
     color: var(--warning);
     font-family: var(--font-monospace);
     font-weight: 700;
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.04em;
   }
 
@@ -66,7 +66,7 @@
     inline-size: 280px;
     padding: 10px;
     color: var(--on-surface);
-    font-size: 12px;
+    font-size: 0.75rem;
     position-area: bottom span-right;
   }
 </style>

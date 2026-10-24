@@ -37,7 +37,7 @@
     background: var(--surface-1);
     color: var(--on-surface-variant);
     font-weight: 700;
-    font-size: 11px;
+    font-size: 0.6875rem;
 
     .overflow-dot {
       flex: none;

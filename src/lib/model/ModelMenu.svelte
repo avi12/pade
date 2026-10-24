@@ -90,7 +90,7 @@
     margin: 0;
     padding: 6px 10px;
     color: var(--on-surface-variant);
-    font-size: 12px;
+    font-size: 0.75rem;
 
     &.pending {
       color: var(--primary);

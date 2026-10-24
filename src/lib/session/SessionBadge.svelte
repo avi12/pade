@@ -32,13 +32,13 @@
     gap: 10px;
     align-items: center;
     color: var(--on-surface-variant);
-    font-size: 12px;
+    font-size: 0.75rem;
 
     .label {
       color: var(--on-surface);
       font-family: var(--font-monospace);
       font-weight: 700;
-      font-size: 13px;
+      font-size: 0.8125rem;
     }
 
     /* The state phrase is 600-weight in every state (canon); each status

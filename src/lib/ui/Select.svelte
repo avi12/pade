@@ -42,7 +42,7 @@
     background: var(--surface-2);
     color: var(--on-surface);
     font: inherit;
-    font-size: 12px;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: border-color 140ms var(--ease);
 
@@ -69,7 +69,7 @@
     padding-block: 5px;
     padding-inline: 8px;
     border-radius: var(--radius-small);
-    font-size: 12px;
+    font-size: 0.75rem;
 
     &:hover,
     &:focus-visible {
