@@ -591,20 +591,29 @@ fn is_picker_catalog(entry: &std::fs::DirEntry) -> bool {
         .ends_with(CATALOG_SURFACE_SUFFIX)
 }
 
-/// The effort the user's settings hold for `model`: its own
-/// `modelSettings.<model>.effortLevel`, else the global `effortLevel`. Undated:
-/// any session - or PADE restoring the default - rewrites the file, so its last
-/// write says nothing about this session.
+/// The effort Claude starts `model` at when the session hasn't set one: the
+/// level saved for it, else the catalog's default for it. Undated: any session,
+/// or PADE restoring the default, rewrites the settings file, so its last write
+/// says nothing about this session.
 fn saved_effort(model: &str) -> Option<Saved> {
+    let settings = read_settings().unwrap_or_default();
     Some(Saved {
-        value: effort_for_model(&read_settings()?, model)?,
+        value: effort_for_model(&settings, newest_catalog().as_ref(), model)?,
         saved_at: 0,
     })
 }
 
 /// A model's own level is looked up under its exact id, then without a
 /// context-window variant: `claude-opus-5-5[1m]` shares `claude-opus-5-5`'s.
-fn effort_for_model(settings: &serde_json::Value, model: &str) -> Option<String> {
+/// Without one, a model the catalog knows runs at the catalog's default - the
+/// user's top-level `effortLevel` is a legacy key Claude Code no longer applies
+/// to current models (measured on 2.1.302), so it only stands in for a model
+/// the catalog doesn't list.
+fn effort_for_model(
+    settings: &serde_json::Value,
+    catalog: Option<&serde_json::Value>,
+    model: &str,
+) -> Option<String> {
     let model_settings = settings.get(MODEL_SETTINGS_KEY);
     let own_level = |id: &str| {
         model_settings
@@ -613,9 +622,23 @@ fn effort_for_model(settings: &serde_json::Value, model: &str) -> Option<String>
     };
     own_level(model)
         .or_else(|| own_level(without_context_variant(model)))
+        .or_else(|| catalog_default_effort(catalog?, without_context_variant(model)))
         .or_else(|| settings.get(EFFORT_LEVEL_KEY))
         .and_then(serde_json::Value::as_str)
         .map(str::to_string)
+}
+
+/// The level the catalog says `model` starts at.
+fn catalog_default_effort<'a>(
+    catalog: &'a serde_json::Value,
+    model: &str,
+) -> Option<&'a serde_json::Value> {
+    catalog
+        .pointer("/catalog/config/models")?
+        .as_array()?
+        .iter()
+        .find(|entry| entry.get("id").and_then(serde_json::Value::as_str) == Some(model))?
+        .pointer("/runtime/default_effort")
 }
 
 /// `claude-opus-5-5[1m]` → `claude-opus-5-5`.
@@ -735,13 +758,30 @@ mod tests {
             "modelSettings": { "claude-opus-5": { "effortLevel": "high" } }
         });
         assert_eq!(
-            effort_for_model(&settings, "claude-opus-5").as_deref(),
+            effort_for_model(&settings, None, "claude-opus-5").as_deref(),
             Some("high")
         );
         assert_eq!(
-            effort_for_model(&settings, "claude-fable-5-1").as_deref(),
+            effort_for_model(&settings, None, "claude-fable-5-1").as_deref(),
             Some("xhigh")
         );
+    }
+
+    #[test]
+    fn a_catalog_model_without_its_own_level_runs_at_the_catalog_default() {
+        let settings = serde_json::json!({
+            "effortLevel": "xhigh",
+            "modelSettings": { "claude-opus-5-5": { "effortLevel": "high" } }
+        });
+        let catalog = serde_json::json!({ "catalog": { "config": { "models": [
+            { "id": "claude-opus-5-5", "runtime": { "default_effort": "medium" } },
+            { "id": "claude-sonnet-5-5", "runtime": { "default_effort": "medium" } }
+        ] } } });
+        let effort = |model: &str| effort_for_model(&settings, Some(&catalog), model);
+        assert_eq!(effort("claude-sonnet-5-5").as_deref(), Some("medium"));
+        assert_eq!(effort("claude-sonnet-5-5[1m]").as_deref(), Some("medium"));
+        assert_eq!(effort("claude-opus-5-5").as_deref(), Some("high"));
+        assert_eq!(effort("claude-opus-4-8").as_deref(), Some("xhigh"));
     }
 
     #[test]
@@ -751,7 +791,7 @@ mod tests {
             "modelSettings": { "claude-opus-5-5": { "effortLevel": "medium" } }
         });
         assert_eq!(
-            effort_for_model(&settings, "claude-opus-5-5[1m]").as_deref(),
+            effort_for_model(&settings, None, "claude-opus-5-5[1m]").as_deref(),
             Some("medium")
         );
     }
