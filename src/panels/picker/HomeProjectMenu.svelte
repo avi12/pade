@@ -12,7 +12,6 @@
     roots,
     choice,
     selectedPath,
-    nameFieldId,
     onpick,
     onnew,
     ontemp,
@@ -31,7 +30,6 @@
     roots: string[];
     choice: ProjectChoice;
     selectedPath: string;
-    nameFieldId: string;
     /** A project row, or a folder opened or cloned in the foot. */
     onpick: (path: string) => void;
     onnew: (root: string) => void;
@@ -66,7 +64,6 @@
     isSeparated={hasOptions}
     isTempPicked={choice === ProjectChoice.Temp}
     {menuId}
-    {nameFieldId}
     {onnew}
     {onnewroot}
     {onpick}

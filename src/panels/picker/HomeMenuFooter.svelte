@@ -23,7 +23,6 @@
     menuId,
     roots,
     isTempPicked,
-    nameFieldId,
     isSeparated,
     onnew,
     ontemp,
@@ -34,7 +33,6 @@
     menuId: string;
     roots: string[];
     isTempPicked: boolean;
-    nameFieldId: string;
     isSeparated: boolean;
     onnew: (root: string) => void;
     ontemp: () => void;
@@ -97,7 +95,7 @@
 
   <div style:--tab-slide-direction={slideDirection} class="panels">
     <HomeMenuTabPanel isForm={false} isSelected={selectedTab === HomeMenuTab.New} {menuId} tab={HomeMenuTab.New}>
-      <HomeNewSection {isTempPicked} {menuId} {nameFieldId} {onnew} {ontemp} {roots} />
+      <HomeNewSection {isTempPicked} {menuId} {onnew} {ontemp} {roots} />
     </HomeMenuTabPanel>
     <HomeMenuTabPanel isForm isSelected={selectedTab === HomeMenuTab.Open} {menuId} tab={HomeMenuTab.Open}>
       <OpenLocalPanel isActive={selectedTab === HomeMenuTab.Open} onopen={pickFolder} />

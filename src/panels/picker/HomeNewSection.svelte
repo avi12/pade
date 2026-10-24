@@ -3,42 +3,37 @@
   import { baseName } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/RootedName.svelte";
   import { THROWAWAY_LABEL } from "@/panels/picker/home-composer";
-  import { tick } from "svelte";
 
   // The composer menu's New tab: a new project under each root, or a
   // throwaway workspace.
-  const { menuId, roots, isTempPicked, nameFieldId, onnew, ontemp }: {
+  const { menuId, roots, isTempPicked, onnew, ontemp }: {
     menuId: string;
     roots: readonly string[];
     isTempPicked: boolean;
-    /** The name field a new project focuses once the menu closes. */
-    nameFieldId: string;
-    /** Name a new project under `root` (empty when no root is set up yet). */
+    /** Name a new project under `root` (empty when no root is set up yet);
+     *  the name field takes focus once the menu has closed. */
     onnew: (root: string) => void;
     ontemp: () => void;
   } = $props();
 
   // With no root set up, one "New project…" leads to the form's own root picker.
   const newTargets = $derived(roots.length > 0 ? roots : [""]);
-
-  // Hide the menu imperatively (like RootSelect's jump-to-add): the
-  // declarative hide would run after this handler and cancel the focus into
-  // the name field.
-  async function startNew(e: MouseEvent, root: string) {
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
-    }
-
-    onnew(root);
-    await tick();
-    document.getElementById(nameFieldId)?.focus();
-  }
 </script>
 
 <div class="new-section">
   <div class="roots">
     {#each newTargets as root (root)}
-      <button class="menu-item create-option" onclick={async e => await startNew(e, root)} type="button">
+      <!-- The menu hides imperatively, inside this handler: the declarative
+           hide would run after it and hand focus back to the trigger,
+           undoing the name field's focus. -->
+      <button
+        class="menu-item create-option"
+        onclick={e => {
+          e.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
+          onnew(root);
+        }}
+        type="button"
+      >
         <Icon name="folderPlus" size={15} />
         {#if root}
           <span class="menu-item-text">New project in <RootedName name="" root={baseName(root)} /></span>

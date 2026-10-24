@@ -3,10 +3,10 @@
   import Icon from "@/lib/Icon.svelte";
   import type { Agent, OpenTarget, ProjectEntry } from "@/lib/types";
   import { realAgents as toRealAgents } from "@/lib/types";
-  import { displayName, projectRootName } from "@/lib/util/paths";
+  import { displayName } from "@/lib/util/paths";
   import { nameError } from "@/lib/validate";
   import RootedName from "@/lib/workspace/RootedName.svelte";
-  import { ProjectChoice, projectTriggerLabel, resolveHomeStart } from "@/panels/picker/home-composer";
+  import { ProjectChoice, projectTrigger, resolveHomeStart } from "@/panels/picker/home-composer";
   import HomeAgentMenu from "@/panels/picker/HomeAgentMenu.svelte";
   import HomeProjectMenu from "@/panels/picker/HomeProjectMenu.svelte";
   import HomeStartButton from "@/panels/picker/HomeStartButton.svelte";
@@ -15,10 +15,11 @@
 
   // Home: the picker's composer card - one prompt field with a project menu on
   // its left and an LLM menu on its right, then Start. The project menu lists
-  // recent and scanned projects plus a "New project…" entry that reveals the
-  // name + location form inline; starting there creates (saves) the project
-  // and opens it with the typed first prompt, while an existing project opens
-  // straight into the workspace (recorded in recent history).
+  // recent and scanned projects, then New / Open / Clone. "New project in
+  // {root}/" names the root on the trigger and reveals the name field inline;
+  // starting there creates (saves) the project and opens it with the typed
+  // first prompt, while an existing project (a row, an opened folder, a fresh
+  // clone) opens straight into the workspace (recorded in recent history).
   let {
     agents,
     defaultAgent,
@@ -115,8 +116,8 @@
     return groups;
   });
 
-  // What the project menu picked. A new project shows the inline create form:
-  // name + location (root). Collisions surface from the submit's own
+  // What the project menu picked. A new project shows the inline name field
+  // (the root was picked in the menu). Collisions surface from the submit's own
   // authoritative probe (tagged with the name + root it described, so typing on
   // never shows a stale verdict).
   let choice = $state<ProjectChoice>(ProjectChoice.Existing);
@@ -144,19 +145,20 @@
       agent: selectedAgent
     })
   );
-  // The chosen project's root before its name, as the menu rows read; a new
-  // project or a throwaway workspace has none yet.
-  const triggerRoot = $derived(choice === ProjectChoice.Existing ? projectRootName(selectedPath) : "");
   const agentTriggerLabel = $derived(selectedAgentLabel ?? "No LLMs found");
   const isExistingFolder = $derived(createTargetExists && lastProbe?.isDir === true);
   const isTakenByFile = $derived(createTargetExists && lastProbe?.isFile === true);
-  const triggerLabel = $derived(
-    projectTriggerLabel({
+  const trigger = $derived(
+    projectTrigger({
       choice,
       typedName: trimmedName,
-      selectedName
+      root: createIn,
+      selectedName,
+      selectedPath
     })
   );
+  // Bumped on every New pick, so the name field takes focus each time.
+  let nameFocusRequest = $state(0);
 </script>
 
 <section class="home" aria-label="Home">
@@ -180,14 +182,15 @@
           type="button"
         >
           <Icon name="folder" size={15} />
-          <span class="current"><RootedName name={triggerLabel} root={triggerRoot} /></span>
+          <span class="current" class:placeholder={trigger.isPlaceholder}>
+            <RootedName name={trigger.name} root={trigger.root} />
+          </span>
           <span class="caret" aria-hidden="true">▾</span>
         </button>
         <HomeProjectMenu
           {choice}
           groups={menuGroups}
           menuId={PROJECT_MENU_ID}
-          nameFieldId={NAME_FIELD_ID}
           onnew={root => {
             selectedPath = "";
 
@@ -196,6 +199,7 @@
             }
 
             choice = ProjectChoice.New;
+            nameFocusRequest += 1;
           }}
           {onnewroot}
           onpick={path => {
@@ -252,6 +256,7 @@
     {#if choice === ProjectChoice.New}
       <ProjectLocationField
         fieldId={NAME_FIELD_ID}
+        focusRequest={nameFocusRequest}
         {isExistingFolder}
         {isTakenByFile}
         menuId="home-root-menu"
@@ -316,6 +321,12 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+
+      /* A new project not named yet: its stand-in name reads as a hint. */
+      &.placeholder {
+        color: var(--on-surface-variant);
+        font-weight: 400;
+      }
     }
 
     .caret {
