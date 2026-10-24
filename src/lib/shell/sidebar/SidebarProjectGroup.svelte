@@ -80,7 +80,16 @@
   });
 </script>
 
-<section class="group" data-pin-id={isPinReorderable ? group.project : undefined}>
+<!-- A project removed from the list (Remove from list, a deleted folder)
+     closes up while the projects below glide into its place; one that joins
+     opens in. Projects there on first paint don't animate. On the section
+     itself, not a wrapper, so the pins stay siblings for drag-to-reorder. -->
+<section
+  class="group"
+  data-pin-id={isPinReorderable ? group.project : undefined}
+  in:expandRow
+  out:collapseRow
+>
   <!-- One keyboard line: the header is the project's only tab stop, and the
        arrows reach its buttons (sidebar-keyboard). -->
   <div class="project-row" data-sidebar-line>
