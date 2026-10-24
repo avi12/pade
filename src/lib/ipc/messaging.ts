@@ -108,6 +108,8 @@ export enum Command {
   windowReorder = "window_reorder",
   windowFocusLabel = "window_focus_label",
   windowTheme = "window_theme",
+  windowHandOff = "window_hand_off",
+  windowTakeHandoffs = "window_take_handoffs",
   designTools = "design_tools",
   designOpen = "design_open",
   discordSetActivity = "discord_set_activity",
@@ -211,6 +213,7 @@ export enum EventType {
   runnerData = "runner://data",
   runnerExit = "runner://exit",
   windowsChanged = "windows://changed",
+  windowHandoff = "window://handoff",
   settingsChanged = "settings://changed",
   themeChanged = "theme://changed",
   updateReady = "update://ready",
@@ -358,6 +361,10 @@ export interface CommandProtocolMap {
   [Command.windowCreate]: (data: {
     mode: WindowMode;
     path?: string;
+    /** A `handoff` window takes these live sessions of the calling window... */
+    sessions?: string[];
+    /** ...and this description of them (lib/shell/window-handoff). */
+    payload?: string;
   }) => void;
   /** Record the project this window now has open (focus-instead-of-reopen). */
   [Command.windowRegisterProject]: (data: PathData) => void;
@@ -376,6 +383,16 @@ export interface CommandProtocolMap {
   /** This window's OS theme from the native side - the authoritative answer at
    *  startup, where WebView2's media query can still say light (window.rs). */
   [Command.windowTheme]: () => Scheme;
+  /** Move this window's live sessions to the open window `to` (same PTYs, still
+   *  running), park the payload describing them there and focus it; false when
+   *  `to` is not another open window. */
+  [Command.windowHandOff]: (data: {
+    to: string;
+    sessions: string[];
+    payload: string;
+  }) => boolean;
+  /** The hand-off payloads parked for this window, taken as they are read. */
+  [Command.windowTakeHandoffs]: () => string[];
   /** AI design/UI-generation tools, ranked for the active agent. */
   [Command.designTools]: (data: { agent: string }) => DesignTool[];
   /** Open the picked tool in the companion PADE window (iframes are blocked). */
@@ -657,6 +674,8 @@ interface EventProtocolMap {
   [EventType.runnerExit]: (data: RunnerExit) => void;
   /** The open-windows set/order changed in SOME window (broadcast). */
   [EventType.windowsChanged]: (data: null) => void;
+  /** Another window handed sessions to this one - take them. */
+  [EventType.windowHandoff]: (data: null) => void;
   /** The shared settings changed in SOME window (broadcast) - re-read them
    *  through the one adoption path. */
   [EventType.settingsChanged]: (data: null) => void;
@@ -709,6 +728,8 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.windowReorder]: NO_REPLY,
   [Command.windowFocusLabel]: z.boolean(),
   [Command.windowTheme]: Scheme,
+  [Command.windowHandOff]: z.boolean(),
+  [Command.windowTakeHandoffs]: z.array(z.string()),
   [Command.designTools]: z.array(DesignTool),
   [Command.designOpen]: NO_REPLY,
   [Command.discordSetActivity]: NO_REPLY,
@@ -809,6 +830,7 @@ const EVENT_PAYLOAD_SCHEMAS = {
   [EventType.runnerData]: RunnerData,
   [EventType.runnerExit]: RunnerExit,
   [EventType.windowsChanged]: z.null(),
+  [EventType.windowHandoff]: z.null(),
   [EventType.settingsChanged]: z.null(),
   [EventType.themeChanged]: Scheme,
   [EventType.updateReady]: UpdateStatus,

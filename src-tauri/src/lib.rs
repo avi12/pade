@@ -104,6 +104,7 @@ pub fn run() {
             let handle = app.handle();
             workspace::init(handle);
             terminal::pty::init(handle);
+            platform::window_handoff::init(handle);
             terminal::runner::init(handle);
             workspace::watcher::init(handle);
             agents::running_model::init(handle);
@@ -157,6 +158,8 @@ pub fn run() {
             platform::window::window_reorder,
             platform::window::window_focus_label,
             platform::window::window_theme,
+            platform::window_handoff::window_hand_off,
+            platform::window_handoff::window_take_handoffs,
             terminal::pty::pty_spawn,
             terminal::pty::pty_write,
             terminal::pty::pty_resize,

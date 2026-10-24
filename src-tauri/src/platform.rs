@@ -12,3 +12,4 @@ pub(crate) mod media;
 pub(crate) mod os;
 pub(crate) mod recovery;
 pub(crate) mod window;
+pub(crate) mod window_handoff;

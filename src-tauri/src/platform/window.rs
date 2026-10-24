@@ -34,6 +34,8 @@ const SPAWNED_LABEL_PREFIX: &str = "w-";
 /// brings the open one up. `capabilities/default.json` lists it by this name
 /// beside `main` and `w-*`, so it gets the same permissions.
 const DASHBOARD_LABEL: &str = "dashboard";
+/// The `mode` a window spawned to receive a hand-off asks for.
+const HANDOFF_MODE: &str = "handoff";
 
 /// M3 surface colors, mirroring `--surface` in `src/theme.css` for the light and
 /// dark schemes. Painted as the webview background at window creation so a window
@@ -216,7 +218,11 @@ fn mark_left_in_background(path: String) {
 }
 
 /// A window closed: it no longer holds its project, and that project was in use
-/// until this moment.
+/// until this moment. Every session it still owned ends with it - the frontend's
+/// graceful leave normally got there first, and this is the backstop for a
+/// close that skipped it (a second X click mid-leave, a webview that died) so
+/// no agent keeps running where no window can reach it. A window being rebuilt
+/// after a webview crash keeps its sessions: its replacement re-attaches them.
 pub fn on_destroyed(window: &Window) {
     let state = window.state::<WindowProjects>();
     let previous = state
@@ -226,8 +232,14 @@ pub fn on_destroyed(window: &Window) {
         .and_then(|mut projects| projects.remove(window.label()));
     if let Some(previous) = previous {
         mark_left_in_background(previous);
-        broadcast_windows_changed(window.app_handle());
     }
+    if !crate::platform::recovery::is_recreate_pending() {
+        if let Some(pty_state) = window.try_state::<crate::terminal::pty::PtyState>() {
+            crate::terminal::pty::kill_owned(pty_state.inner(), window.label());
+        }
+        crate::platform::window_handoff::forget(window.app_handle(), window.label());
+    }
+    broadcast_windows_changed(window.app_handle());
 }
 
 /// Broadcast that the open-windows set or its order changed, so every window's
@@ -459,13 +471,20 @@ enum LaunchMode<'path> {
     Temp,
     Dashboard,
     Open(&'path str),
+    /// A project window that boots from the sessions handed to it
+    /// (`window_handoff`) instead of entering the project fresh.
+    Handoff(&'path str),
 }
 
 impl<'path> LaunchMode<'path> {
     /// Resolve the requested `mode` + optional `path` into a launch intent. A
-    /// present `path` always means "open that project", regardless of `mode`.
+    /// present `path` means "open that project" - taking a hand-off there when
+    /// the mode asks for one.
     fn resolve(mode: &str, path: Option<&'path str>) -> Self {
         if let Some(path) = path {
+            if mode == HANDOFF_MODE {
+                return Self::Handoff(path);
+            }
             return Self::Open(path);
         }
         match mode {
@@ -502,6 +521,9 @@ impl<'path> LaunchMode<'path> {
             Self::Open(path) => {
                 format!("w=open&path={}", crate::util::percent_encode(path, b""))
             }
+            Self::Handoff(path) => {
+                format!("w=handoff&path={}", crate::util::percent_encode(path, b""))
+            }
         }
     }
 }
@@ -518,17 +540,35 @@ impl<'path> LaunchMode<'path> {
 /// even be closed. Tauri's own docs say it outright: "on Windows, this function
 /// deadlocks when used in a synchronous command". An async command runs off that
 /// thread, leaving the event loop free to finish the job.
+///
+/// A `handoff` window also takes the calling window's `sessions` and the
+/// `payload` describing them (`window_handoff`), parked before the window is
+/// built so its boot always finds them - and handed back if the build fails.
 #[tauri::command]
 pub async fn window_create(
     app: AppHandle,
+    window: WebviewWindow,
     mode: String,
     path: Option<String>,
+    sessions: Option<Vec<String>>,
+    payload: Option<String>,
 ) -> Result<(), String> {
     let launch = LaunchMode::resolve(&mode, path.as_deref());
     let label = launch.label();
     if let Some(open) = app.get_webview_window(&label) {
         bring_to_front(&open);
         return Ok(());
+    }
+    let handed_sessions = sessions.unwrap_or_default();
+    let is_handoff = matches!(launch, LaunchMode::Handoff(_));
+    if is_handoff {
+        crate::platform::window_handoff::hand_off(
+            &app,
+            window.label(),
+            &label,
+            &handed_sessions,
+            payload.unwrap_or_default(),
+        )?;
     }
     let query = launch.query();
     let url = WebviewUrl::App(format!("index.html?{query}").into());
@@ -542,11 +582,21 @@ pub async fn window_create(
     // webview window doesn't reliably show from within the command.) Crash
     // recovery arms once the window's frontend boots and calls `recovery_arm`
     // with its live URL (see recovery.rs).
-    app_window_builder(&app, &label, url, main_look.as_ref())
+    let built = app_window_builder(&app, &label, url, main_look.as_ref())
         .zoom_hotkeys_enabled(launch.has_browser_zoom())
-        .build()
-        .map(|_| ())
-        .map_err(|error| error.to_string())
+        .build();
+    if let Err(error) = built {
+        if is_handoff {
+            crate::platform::window_handoff::undo_hand_off(
+                &app,
+                window.label(),
+                &label,
+                &handed_sessions,
+            );
+        }
+        return Err(error.to_string());
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -613,6 +663,15 @@ mod tests {
             LaunchMode::resolve("temp", Some(r"C:\my project")).query(),
             "w=open&path=C%3A%5Cmy%20project"
         );
+    }
+
+    #[test]
+    fn a_handoff_window_boots_its_own_route_only_with_a_project() {
+        assert_eq!(
+            LaunchMode::resolve("handoff", Some(r"C:\work")).query(),
+            "w=handoff&path=C%3A%5Cwork"
+        );
+        assert_eq!(LaunchMode::resolve("handoff", None).query(), "w=empty");
     }
 
     #[test]

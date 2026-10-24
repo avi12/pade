@@ -9,7 +9,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtyPair, PtySize};
 use serde::Serialize;
@@ -40,9 +40,38 @@ const UNIX_SHELL_VARIABLE: &str = "SHELL";
 #[derive(Default)]
 pub struct PtyState(pub Mutex<HashMap<String, Arc<Pty>>>);
 
+/// The window a session belongs to. Shared between the registry entry and the
+/// session's output pump, so moving a live session to another window
+/// (`transfer_sessions`) re-routes its output from the very next chunk without
+/// restarting anything.
+#[derive(Clone, Debug, Default)]
+struct SessionOwner(Arc<RwLock<String>>);
+
+impl SessionOwner {
+    fn new(label: String) -> Self {
+        Self(Arc::new(RwLock::new(label)))
+    }
+
+    /// The owning window's label - empty when the lock is poisoned, which no
+    /// window label matches, so a poisoned owner reads as foreign to everyone.
+    fn label(&self) -> String {
+        self.0.read().map(|label| label.clone()).unwrap_or_default()
+    }
+
+    fn is(&self, label: &str) -> bool {
+        self.0.read().is_ok_and(|owner| owner.as_str() == label)
+    }
+
+    fn set(&self, label: &str) -> Result<(), String> {
+        let mut owner = self.0.write().map_err(|error| error.to_string())?;
+        label.clone_into(&mut owner);
+        Ok(())
+    }
+}
+
 pub struct Pty {
     /// The window allowed to re-adopt and control this session.
-    owner: String,
+    owner: SessionOwner,
     master: Mutex<Box<dyn MasterPty + Send>>,
     writer: Mutex<Box<dyn Write + Send>>,
     /// The agent process itself. Held so that ending a session can end the
@@ -785,7 +814,7 @@ pub async fn pty_spawn(
         if is_already_live {
             return Ok(());
         }
-        let owner_session_count = sessions.values().filter(|pty| pty.owner == owner).count();
+        let owner_session_count = sessions.values().filter(|pty| pty.owner.is(&owner)).count();
         if owner_session_count >= MAXIMUM_SESSIONS_PER_WINDOW {
             return Err("this window has reached its PTY session limit".into());
         }
@@ -814,6 +843,7 @@ pub async fn pty_spawn(
     } = tauri::async_runtime::spawn_blocking(move || start_session(launch))
         .await
         .map_err(|error| error.to_string())??;
+    let session_owner = pty.owner.clone();
 
     // A concurrent duplicate is ended here, which terminates the unregistered
     // child through `Pty::drop`.
@@ -833,7 +863,14 @@ pub async fn pty_spawn(
         return existing.map(|_| ());
     }
 
-    spawn_session_output_pump(app.clone(), owner, id.clone(), reader, transcript, history);
+    spawn_session_output_pump(
+        app.clone(),
+        session_owner,
+        id.clone(),
+        reader,
+        transcript,
+        history,
+    );
 
     // Reap the agent when it exits on its own. The reader thread's EOF alone
     // can't be relied on for that: on Windows the ConPTY host (conhost) keeps
@@ -912,8 +949,9 @@ fn start_session(launch: SessionLaunch) -> Result<StartedSession, String> {
         .map_err(|error| error.to_string())?;
     let transcript = Arc::new(Mutex::new(String::new()));
     let history = Arc::new(Mutex::new(History::default()));
+    let owner = SessionOwner::new(launch.owner);
     let pty = Arc::new(Pty {
-        owner: launch.owner,
+        owner: owner.clone(),
         master: Mutex::new(pair.master),
         writer: Mutex::new(writer),
         child: Mutex::new(child),
@@ -941,10 +979,11 @@ async fn end_session(pty: Option<Arc<Pty>>) -> Result<(), String> {
 
 /// Pump one session's output after it has been published in the registry. A chunk
 /// enters replay history before its event is emitted, so attach/replay handover
-/// remains exact even when the frontend starts listening mid-stream.
+/// remains exact even when the frontend starts listening mid-stream. The owner
+/// is read per chunk, so a session moved to another window streams there next.
 fn spawn_session_output_pump(
     app: AppHandle,
-    owner: String,
+    owner: SessionOwner,
     id: String,
     mut reader: Box<dyn Read + Send>,
     transcript: Arc<Mutex<String>>,
@@ -964,7 +1003,7 @@ fn spawn_session_output_pump(
                     append_transcript(&transcript, &strip_ansi(&data));
                     let sequence = append_history(&history, &data);
                     let _ = app.emit_to(
-                        &owner,
+                        owner.label().as_str(),
                         PTY_DATA_EVENT,
                         Chunk {
                             id: &id,
@@ -977,7 +1016,7 @@ fn spawn_session_output_pump(
                 _ => break,
             }
         }
-        let _ = app.emit_to(&owner, PTY_EXIT_EVENT, Exit { id });
+        let _ = app.emit_to(owner.label().as_str(), PTY_EXIT_EVENT, Exit { id });
     });
 }
 
@@ -1052,7 +1091,7 @@ pub fn pty_list(window: WebviewWindow, state: State<PtyState>) -> Vec<SessionInf
     };
     let mut roster: Vec<SessionInfo> = sessions
         .iter()
-        .filter(|(_, pty)| pty.owner == owner)
+        .filter(|(_, pty)| pty.owner.is(owner))
         .map(|(id, pty)| SessionInfo {
             id: id.clone(),
             command: pty.command.clone(),
@@ -1255,10 +1294,67 @@ fn session_access<'a>(
     owner: &str,
 ) -> Result<Option<&'a Arc<Pty>>, String> {
     let session = sessions.get(id);
-    match owner_access(session.map(|pty| pty.owner.as_str()), owner) {
+    let session_owner = session.map(|pty| pty.owner.label());
+    match owner_access(session_owner.as_deref(), owner) {
         OwnerAccess::Vacant | OwnerAccess::Owned => Ok(session),
         OwnerAccess::Foreign => Err(FOREIGN_SESSION_ERROR.into()),
     }
+}
+
+/// Hand live sessions from window `from` to window `to` - the move behind
+/// "open this session in a new window" and "merge this window into another".
+/// All or nothing: every id must be a session `from` owns, or none moves. The
+/// processes keep running untouched; only where their output goes and who may
+/// drive them changes, and the receiving window re-attaches through the usual
+/// spawn-is-a-no-op plus `pty_history` replay.
+pub fn transfer_sessions(
+    state: &PtyState,
+    from: &str,
+    to: &str,
+    ids: &[String],
+) -> Result<(), String> {
+    let sessions = state.0.lock().map_err(|error| error.to_string())?;
+    let moving = ids
+        .iter()
+        .map(|id| match session_access(&sessions, id, from)? {
+            Some(pty) => Ok(Arc::clone(pty)),
+            None => Err(format!("no live session {id} to move")),
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let receiving_count = sessions.values().filter(|pty| pty.owner.is(to)).count();
+    if receiving_count + moving.len() > MAXIMUM_SESSIONS_PER_WINDOW {
+        return Err("the receiving window has reached its PTY session limit".into());
+    }
+    // Only an owner label changes hands - a pointer-sized write per session -
+    // so it happens under the registry lock and no reader sees half a move.
+    for pty in moving {
+        pty.owner.set(to)?;
+    }
+    drop(sessions);
+    Ok(())
+}
+
+/// End every session `owner` holds - a window closed for good, so nothing it
+/// ran may keep running unreachable. Ending a session blocks on the process
+/// tree kill, so the handles are released on the blocking pool.
+pub fn kill_owned(state: &PtyState, owner: &str) {
+    let Ok(mut sessions) = state.0.lock() else {
+        return;
+    };
+    let owned_ids: Vec<String> = sessions
+        .iter()
+        .filter(|(_, pty)| pty.owner.is(owner))
+        .map(|(id, _)| id.clone())
+        .collect();
+    let ended: Vec<Arc<Pty>> = owned_ids
+        .iter()
+        .filter_map(|id| sessions.remove(id))
+        .collect();
+    drop(sessions);
+    if ended.is_empty() {
+        return;
+    }
+    tauri::async_runtime::spawn_blocking(move || drop(ended));
 }
 
 /// Terminate every live session - called as the app exits so no agent lingers
@@ -1278,6 +1374,16 @@ pub fn init(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_moved_owner_is_seen_by_every_clone() {
+        let owner = SessionOwner::new("w-1".to_string());
+        let pump_view = owner.clone();
+        owner.set("w-2").expect("set owner");
+        assert!(pump_view.is("w-2"));
+        assert!(!pump_view.is("w-1"));
+        assert_eq!(pump_view.label(), "w-2");
+    }
     use crate::test_support::assert_empty;
 
     fn process(process_id: u32, parent_process_id: u32, command_line: &str) -> ProcessInfo {
