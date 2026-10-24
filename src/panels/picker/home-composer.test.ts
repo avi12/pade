@@ -1,11 +1,11 @@
-import { resolveHomeStart } from "@/panels/picker/home-composer";
+import { ProjectChoice, projectTriggerLabel, resolveHomeStart } from "@/panels/picker/home-composer";
 import { describe, expect, it } from "vitest";
 
 const ROOT = "C:\\repositories";
 
 function base(): {
   selectedPath: string;
-  isCreating: boolean;
+  choice: ProjectChoice;
   root: string;
   rawName: string;
   rawPrompt: string;
@@ -13,7 +13,7 @@ function base(): {
 } {
   return {
     selectedPath: "",
-    isCreating: false,
+    choice: ProjectChoice.Existing,
     root: ROOT,
     rawName: "",
     rawPrompt: "",
@@ -65,7 +65,7 @@ describe("resolveHomeStart", () => {
     expect(
       resolveHomeStart({
         ...base(),
-        isCreating: true,
+        choice: ProjectChoice.New,
         rawName: "  poll  ",
         rawPrompt: "scaffold it"
       })
@@ -82,7 +82,7 @@ describe("resolveHomeStart", () => {
     expect(
       resolveHomeStart({
         ...base(),
-        isCreating: true,
+        choice: ProjectChoice.New,
         rawName: "poll",
         root: ""
       })
@@ -90,16 +90,44 @@ describe("resolveHomeStart", () => {
     expect(
       resolveHomeStart({
         ...base(),
-        isCreating: true,
+        choice: ProjectChoice.New,
         rawName: "  "
       })
     ).toEqual({ kind: "none" });
     expect(
       resolveHomeStart({
         ...base(),
-        isCreating: true,
+        choice: ProjectChoice.New,
         rawName: "has/slash"
       })
     ).toEqual({ kind: "none" });
+  });
+
+  it("starts a throwaway workspace whatever else is typed", () => {
+    expect(
+      resolveHomeStart({
+        ...base(),
+        choice: ProjectChoice.Temp,
+        rawName: "ignored"
+      })
+    ).toEqual({ kind: "temp" });
+  });
+});
+
+describe("projectTriggerLabel", () => {
+  it("names what the menu picked", () => {
+    function label(choice: ProjectChoice, typedName = "", selectedName: string | null = null) {
+      return projectTriggerLabel({
+        choice,
+        typedName,
+        selectedName
+      });
+    }
+
+    expect(label(ProjectChoice.Temp)).toBe("Throwaway workspace");
+    expect(label(ProjectChoice.New)).toBe("New project");
+    expect(label(ProjectChoice.New, "poll")).toBe("New: poll");
+    expect(label(ProjectChoice.Existing, "", "pade")).toBe("pade");
+    expect(label(ProjectChoice.Existing)).toBe("Choose a project");
   });
 });

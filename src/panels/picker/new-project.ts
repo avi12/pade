@@ -2,6 +2,7 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { OpenTarget } from "@/lib/types";
 import { childPath } from "@/lib/util/paths";
 import { FirstPrompt, parseInput, ProjectName } from "@/lib/validate";
+import type { HomeStart } from "@/panels/picker/home-composer";
 
 /** What the disk holds at a would-be project path, tagged with that path so an
  *  out-of-order answer never gates the text currently typed. */
@@ -124,4 +125,38 @@ export async function submitNewProject({ root, rawName, rawPrompt, agent, onopen
       agent
     })
   );
+}
+
+/** Carry out what the home composer's Start resolved to: open the chosen
+ *  project, create a new one first, or start a throwaway workspace. */
+export async function startFromHome({ resolution, rawName, rawPrompt, agent, onopen, onprobe }: NewProjectHandoff & {
+  resolution: HomeStart;
+  rawName: string;
+  rawPrompt: string;
+  onprobe: (target: CreateTarget) => void;
+}) {
+  if (resolution.kind === "open") {
+    onopen(resolution.target);
+    return;
+  }
+
+  if (resolution.kind === "temp") {
+    await startTempWorkspace({
+      rawPrompt,
+      agent,
+      onopen
+    });
+    return;
+  }
+
+  if (resolution.kind === "create") {
+    await submitNewProject({
+      root: resolution.root,
+      rawName,
+      rawPrompt,
+      agent,
+      onopen,
+      onprobe
+    });
+  }
 }

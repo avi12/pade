@@ -5,11 +5,12 @@
   import { realAgents as toRealAgents } from "@/lib/types";
   import { displayName } from "@/lib/util/paths";
   import { nameError } from "@/lib/validate";
-  import { resolveHomeStart } from "@/panels/picker/home-composer";
-  import { submitNewProject } from "@/panels/picker/new-project";
+  import { ProjectChoice, projectTriggerLabel, resolveHomeStart } from "@/panels/picker/home-composer";
+  import HomeAgentMenu from "@/panels/picker/HomeAgentMenu.svelte";
+  import HomeProjectMenu from "@/panels/picker/HomeProjectMenu.svelte";
+  import HomeStartButton from "@/panels/picker/HomeStartButton.svelte";
   import type { CreateTarget } from "@/panels/picker/new-project";
   import ProjectLocationField from "@/panels/picker/ProjectLocationField.svelte";
-  import { tick } from "svelte";
 
   // Home: the picker's composer card - one prompt field with a project menu on
   // its left and an LLM menu on its right, then Start. The project menu lists
@@ -43,6 +44,7 @@
   const PROJECT_MENU_ID = "home-project-menu";
   const AGENT_MENU_ID = "home-agent-menu";
   const PROMPT_ID = "home-prompt";
+  const NAME_FIELD_ID = "home-project-name";
 
   // The installed coding agents (the shell fallback isn't a choice).
   const realAgents = $derived(toRealAgents(agents));
@@ -82,7 +84,6 @@
         })
       }))
   );
-  const hasOptions = $derived(recentOptions.length > 0 || scannedOptions.length > 0);
   // The menu renders every non-empty group through one item block, so the
   // recent and scanned rows can never drift apart.
   const menuGroups = $derived.by(() => {
@@ -113,11 +114,11 @@
     return groups;
   });
 
-  // The inline create form: name + location (root), shown after picking
-  // "New project…" in the menu. Collisions surface from the submit's own
+  // What the project menu picked. A new project shows the inline create form:
+  // name + location (root). Collisions surface from the submit's own
   // authoritative probe (tagged with the name + root it described, so typing on
   // never shows a stale verdict).
-  let isCreating = $state(false);
+  let choice = $state<ProjectChoice>(ProjectChoice.Existing);
   let createName = $state("");
   const trimmedName = $derived(createName.trim());
   const createNameError = $derived(nameError(createName));
@@ -135,22 +136,25 @@
   const resolution = $derived(
     resolveHomeStart({
       selectedPath,
-      isCreating,
+      choice,
       root: createIn,
       rawName: createName,
       rawPrompt: prompt,
       agent: selectedAgent
     })
   );
-  let isStarting = $state(false);
-  const startDisabled = $derived(resolution.kind === "none" || isStarting);
-  const startLabel = $derived.by(() => {
-    if (isStarting) {
-      return "Starting";
-    }
-
-    return isCreating ? "Create and open" : "Start";
-  });
+  // An empty tooltip shows no bubble.
+  const projectTooltip = $derived(selectedPath || undefined);
+  const agentTriggerLabel = $derived(selectedAgentLabel ?? "No LLMs found");
+  const isExistingFolder = $derived(createTargetExists && lastProbe?.isDir === true);
+  const isTakenByFile = $derived(createTargetExists && lastProbe?.isFile === true);
+  const triggerLabel = $derived(
+    projectTriggerLabel({
+      choice,
+      typedName: trimmedName,
+      selectedName
+    })
+  );
 </script>
 
 <section class="home" aria-label="Home">
@@ -170,74 +174,39 @@
         <button
           class="select field-trigger"
           aria-label="Project"
-          data-tooltip={selectedPath || undefined}
+          data-tooltip={projectTooltip}
           popovertarget={PROJECT_MENU_ID}
           type="button"
         >
           <Icon name="folder" size={15} />
-          <span class="current">
-            {#if isCreating}
-              {#if trimmedName}
-                New: {trimmedName}
-              {:else}
-                New project
-              {/if}
-            {:else}
-              {selectedName ?? "Choose a project"}
-            {/if}
-          </span>
+          <span class="current">{triggerLabel}</span>
           <span class="caret" aria-hidden="true">▾</span>
         </button>
-        <ul id={PROJECT_MENU_ID} style:position-anchor="--{PROJECT_MENU_ID}" class="menu popover-menu" popover>
-          {#each menuGroups as group (group.head)}
-            <li class="head" class:separator={group.isSeparated} aria-hidden="true">{group.head}</li>
-            {#each group.options as option (option.path)}
-              {@const isPicked = !isCreating && selectedPath === option.path}
-              <li>
-                <button
-                  class="menu-item"
-                  class:picked={isPicked}
-                  aria-current={isPicked}
-                  data-tooltip={option.path}
-                  onclick={() => {
-                    selectedPath = option.path;
-                    isCreating = false;
-                  }}
-                  popovertarget={PROJECT_MENU_ID}
-                  popovertargetaction="hide"
-                  type="button"
-                >
-                  <span class="menu-item-text">{option.name}</span>
-                  {#if isPicked}
-                    <span class="tick" aria-hidden="true">✓</span>
-                  {/if}
-                </button>
-              </li>
-            {/each}
-          {/each}
-          {#if !hasOptions}
-            <li class="none">No projects yet - name one below</li>
-          {/if}
-          <li class:separator={hasOptions}>
-            <button
-              class="menu-item create-option"
-              onclick={async e => {
-                // Hide the menu imperatively (like RootSelect's jump-to-add):
-                // the declarative hide would run after this handler and cancel
-                // the focus into the name field.
-                e.currentTarget.closest("ul")?.hidePopover();
-                selectedPath = "";
-                isCreating = true;
-                await tick();
-                document.getElementById("home-project-name")?.focus();
-              }}
-              type="button"
-            >
-              <Icon name="folderPlus" size={15} />
-              <span>New project…</span>
-            </button>
-          </li>
-        </ul>
+        <HomeProjectMenu
+          {choice}
+          groups={menuGroups}
+          menuId={PROJECT_MENU_ID}
+          nameFieldId={NAME_FIELD_ID}
+          onnew={root => {
+            selectedPath = "";
+
+            if (root) {
+              createIn = root;
+            }
+
+            choice = ProjectChoice.New;
+          }}
+          onpick={path => {
+            selectedPath = path;
+            choice = ProjectChoice.Existing;
+          }}
+          ontemp={() => {
+            selectedPath = "";
+            choice = ProjectChoice.Temp;
+          }}
+          {roots}
+          {selectedPath}
+        />
       </span>
 
       <span style:anchor-name="--{AGENT_MENU_ID}" class="menu-host">
@@ -251,78 +220,37 @@
           {#if selectedAgent}
             <Icon name={agentIconName(selectedAgent)} size={15} />
           {/if}
-          <span class="current">{selectedAgentLabel ?? "No LLMs found"}</span>
+          <span class="current">{agentTriggerLabel}</span>
           <span class="caret" aria-hidden="true">▾</span>
         </button>
-        <ul id={AGENT_MENU_ID} style:position-anchor="--{AGENT_MENU_ID}" class="menu popover-menu" popover>
-          {#each realAgents as agent (agent.id)}
-            {@const isPicked = selectedAgent === agent.id}
-            <li>
-              <button
-                class="menu-item"
-                class:picked={isPicked}
-                aria-current={isPicked}
-                onclick={() => (chosenAgent = agent.id)}
-                popovertarget={AGENT_MENU_ID}
-                popovertargetaction="hide"
-                type="button"
-              >
-                <Icon name={agentIconName(agent.id)} size={15} />
-                <span class="menu-item-text">{agent.label}</span>
-                {#if isPicked}
-                  <span class="tick" aria-hidden="true">✓</span>
-                {/if}
-              </button>
-            </li>
-          {/each}
-        </ul>
+        <HomeAgentMenu
+          agents={realAgents}
+          menuId={AGENT_MENU_ID}
+          onpick={agentId => (chosenAgent = agentId)}
+          {selectedAgent}
+        />
       </span>
 
-      <button
-        class="go"
-        disabled={startDisabled}
-        onclick={async () => {
-          if (startDisabled) {
-            return;
-          }
-
-          if (resolution.kind === "open") {
-            onopen(resolution.target);
-            return;
-          }
-
-          if (resolution.kind === "create") {
-            isStarting = true;
-            try {
-              await submitNewProject({
-                root: resolution.root,
-                rawName: createName,
-                rawPrompt: prompt,
-                agent: selectedAgent,
-                onopen,
-                onprobe: target =>
-                  (lastProbe = {
-                    ...target,
-                    root: resolution.root,
-                    name: trimmedName
-                  })
-              });
-            } finally {
-              isStarting = false;
-            }
-          }
-        }}
-        type="button"
-      >
-        {startLabel}
-      </button>
+      <HomeStartButton
+        agent={selectedAgent}
+        {onopen}
+        onprobe={target =>
+          (lastProbe = {
+            ...target,
+            root: createIn,
+            name: trimmedName
+          })}
+        rawName={createName}
+        rawPrompt={prompt}
+        {resolution}
+      />
     </div>
 
-    {#if isCreating}
+    {#if choice === ProjectChoice.New}
       <ProjectLocationField
-        fieldId="home-project-name"
-        isExistingFolder={createTargetExists && (lastProbe?.isDir ?? false)}
-        isTakenByFile={createTargetExists && (lastProbe?.isFile ?? false)}
+        fieldId={NAME_FIELD_ID}
+        {isExistingFolder}
+        {isTakenByFile}
         menuId="home-root-menu"
         nameError={createNameError}
         {onnewroot}
@@ -404,21 +332,5 @@
       flex: 1;
       min-inline-size: 0;
     }
-  }
-
-  .go {
-    flex: none;
-  }
-
-  /* The create action reads primary among the plain project rows. */
-  .create-option {
-    color: var(--primary);
-    font-weight: 600;
-  }
-
-  .none {
-    padding: 8px 10px;
-    color: var(--on-surface-variant);
-    font-size: 13px;
   }
 </style>

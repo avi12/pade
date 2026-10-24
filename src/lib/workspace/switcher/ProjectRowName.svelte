@@ -1,5 +1,6 @@
 <script lang="ts">
   import { isTemporaryWorkspace, projectRootName } from "@/lib/util/paths";
+  import RootedName from "@/lib/workspace/RootedName.svelte";
   import TempBadge from "@/lib/workspace/TempBadge.svelte";
 
   // A project row's name line: its root and name ("avi/pade", the top bar's
@@ -8,14 +9,10 @@
     project: string;
     name: string;
   } = $props();
-
-  const rootName = $derived(projectRootName(project));
 </script>
 
 <span class="project-row-name-line">
-  <span class="project-row-name">{#if rootName}
-    <span class="root">{rootName}/</span>
-  {/if}{name}</span>
+  <span class="project-row-name"><RootedName {name} root={projectRootName(project)} /></span>
   {#if isTemporaryWorkspace(project)}
     <TempBadge />
   {/if}
@@ -41,11 +38,5 @@
     font-size: 13px;
     overflow-wrap: anywhere;
     line-clamp: 2;
-  }
-
-  /* The root before the name, quieter, so the name still leads. */
-  .root {
-    color: var(--on-surface-variant);
-    font-weight: 400;
   }
 </style>
