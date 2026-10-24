@@ -527,7 +527,7 @@ const LINGUIST_ATTRIBUTES: &[&str] = &[
     LINGUIST_LANGUAGE,
 ];
 
-/// The Git-authored exclusions and classification that apply to one tracked
+/// The Git-authored exclusions and classification that apply to one counted
 /// file. `None` means the corresponding attribute was unspecified.
 #[derive(Default)]
 struct LinguistAttributes {
@@ -665,16 +665,55 @@ fn source_file_evidence(
     })
 }
 
-/// The Git repository root and the tracked paths below PADE's active project
-/// directory. `--full-name` keeps those paths rooted at the repository, so the
-/// census can join them safely after Git scopes the listing to the active folder.
-/// `--recurse-submodules` lists each submodule's tracked files too - a companion
-/// app kept as a submodule is part of the project's code, not one opaque entry.
+/// The Git repository root and the paths below PADE's active project directory
+/// that the census counts: every tracked file, then every untracked file Git
+/// does not ignore - what an agent has written but nobody has staged yet.
+/// `--full-name` keeps those paths rooted at the repository, so the census can
+/// join them safely after Git scopes the listing to the active folder.
 struct GitRepository {
     root: std::path::PathBuf,
-    tracked_paths: Vec<String>,
+    counted_paths: Vec<String>,
 }
 
+/// One `git ls-files -z --full-name` listing under `cwd`, or `None` when Git
+/// cannot produce it.
+fn git_file_listing(cwd: &std::path::Path, arguments: &[&str]) -> Option<Vec<String>> {
+    let output = git_in(cwd)
+        .args(["ls-files", "--full-name", "-z"])
+        .args(arguments)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(
+        String::from_utf8_lossy(&output.stdout)
+            .split('\0')
+            .filter(|path| !path.is_empty())
+            .map(str::to_string)
+            .collect(),
+    )
+}
+
+/// The untracked files Git does not ignore. Dependency and build folders are
+/// excluded on top of the project's own ignore rules, so a repository whose
+/// `.gitignore` forgot `node_modules` never lists (or counts) its contents.
+/// Git cannot combine `--others` with `--recurse-submodules`, so untracked
+/// files inside a submodule wait until they are tracked.
+fn untracked_file_listing(cwd: &std::path::Path) -> Vec<String> {
+    let excluded_directories: Vec<String> = IGNORED_PROBE_DIRECTORIES
+        .iter()
+        .map(|directory| format!("--exclude={directory}/"))
+        .collect();
+    let mut arguments = vec!["--others", "--exclude-standard"];
+    arguments.extend(excluded_directories.iter().map(String::as_str));
+    git_file_listing(cwd, &arguments).unwrap_or_default()
+}
+
+/// `--recurse-submodules` lists each submodule's tracked files too - a
+/// companion app kept as a submodule is part of the project's code, not one
+/// opaque entry. Tracked paths come first, so the census bound trims untracked
+/// files before tracked ones.
 fn git_repository(cwd: &std::path::Path) -> Option<GitRepository> {
     let root_output = git_in(cwd)
         .args(["rev-parse", "--show-toplevel"])
@@ -687,33 +726,17 @@ fn git_repository(cwd: &std::path::Path) -> Option<GitRepository> {
     if root.as_os_str().is_empty() {
         return None;
     }
-    let files_output = git_in(cwd)
-        .args([
-            "ls-files",
-            "--cached",
-            "--recurse-submodules",
-            "--full-name",
-            "-z",
-        ])
-        .output()
-        .ok()?;
-    if !files_output.status.success() {
-        return None;
-    }
-    let tracked_paths = String::from_utf8_lossy(&files_output.stdout)
-        .split('\0')
-        .filter(|path| !path.is_empty())
-        .map(str::to_string)
-        .collect();
+    let mut counted_paths = git_file_listing(cwd, &["--cached", "--recurse-submodules"])?;
+    counted_paths.extend(untracked_file_listing(cwd));
     Some(GitRepository {
         root,
-        tracked_paths,
+        counted_paths,
     })
 }
 
 /// Resolve the project's `.gitattributes` through Git itself, including nested
 /// files and Git's path-matching semantics. The fallback map is empty if Git
-/// cannot evaluate the attributes; the tracked-file census remains usable.
+/// cannot evaluate the attributes; the Git-listed census remains usable.
 fn git_linguist_attributes(
     repository_root: &std::path::Path,
     paths: &[String],
@@ -808,15 +831,16 @@ fn census_walk(
     }
 }
 
-/// Source evidence for `cwd`. The file list is git's tracked set when `cwd` is a
-/// repo - so untracked junk and ignored build output never sway the mix - and a
-/// bounded filesystem walk otherwise. Bounded to [`CENSUS_MAXIMUM_FILES`] either
-/// way so a huge tree can't stall a suggestion.
+/// Source evidence for `cwd`. The file list is git's tracked set plus the
+/// untracked files it does not ignore when `cwd` is a repo - so an agent's new
+/// file counts the moment it is written, while ignored build output never sways
+/// the mix - and a bounded filesystem walk otherwise. Bounded to
+/// [`CENSUS_MAXIMUM_FILES`] either way so a huge tree can't stall a suggestion.
 fn source_profile(cwd: &std::path::Path) -> SourceProfile {
     let mut profile = SourceProfile::default();
     if let Some(GitRepository {
         root,
-        tracked_paths: mut paths,
+        counted_paths: mut paths,
     }) = git_repository(cwd)
     {
         paths.truncate(CENSUS_MAXIMUM_FILES);
@@ -1545,12 +1569,55 @@ pub async fn ide_project_languages(paths: Vec<String>) -> BTreeMap<String, Vec<L
     .unwrap_or_default()
 }
 
-/// A project's counted shares, kept against the moment its git index last
-/// changed - the tracked set the census counts can't move without it.
-type CountedShares = (std::time::SystemTime, Vec<LanguageShare>);
+/// What a project's count was made against. The index moves when the tracked
+/// set does (a stage, commit or checkout); the working-tree generation moves
+/// when a watch reports an edit or a new file - a change the index never sees.
+/// A count is served only while both still match.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct CensusStamp {
+    index_modified: std::time::SystemTime,
+    working_tree_generation: u64,
+}
+
+type CountedShares = (CensusStamp, Vec<LanguageShare>);
 static LANGUAGE_CACHE: std::sync::LazyLock<
     std::sync::Mutex<std::collections::HashMap<String, CountedShares>>,
 > = std::sync::LazyLock::new(Default::default);
+
+/// How many working-tree changes a watch has reported per project, keyed like
+/// [`LANGUAGE_CACHE`]. In memory only: a restart starts with an empty cache.
+static WORKING_TREE_GENERATIONS: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<String, u64>>,
+> = std::sync::LazyLock::new(Default::default);
+
+/// One spelling per project folder, whichever way a caller wrote it - the
+/// switcher's row path and the Change Feed's watch root must land on the same
+/// cache entry. Windows paths compare case-insensitively.
+pub(crate) fn project_key(project: &std::path::Path) -> String {
+    let normalized: std::path::PathBuf = project.components().collect();
+    let key = normalized.to_string_lossy().into_owned();
+    if cfg!(windows) {
+        key.to_lowercase()
+    } else {
+        key
+    }
+}
+
+/// Record that a watch saw a file in `project` change, so its next language
+/// count is made afresh instead of served from [`LANGUAGE_CACHE`].
+pub(crate) fn note_working_tree_change(project: &std::path::Path) {
+    if let Ok(mut generations) = WORKING_TREE_GENERATIONS.lock() {
+        *generations.entry(project_key(project)).or_insert(0) += 1;
+    }
+}
+
+fn working_tree_generation(key: &str) -> u64 {
+    WORKING_TREE_GENERATIONS
+        .lock()
+        .ok()
+        .and_then(|generations| generations.get(key).copied())
+        .unwrap_or(0)
+}
 
 /// When anything a project tracks last changed - the newest of its own and its
 /// submodules' git index files - or `None` outside a git checkout.
@@ -1565,24 +1632,31 @@ fn index_modified(project: &std::path::Path) -> Option<std::time::SystemTime> {
         .max()
 }
 
-/// A project's language shares, counted again only when its git index changed
-/// since the last count - so re-checking every row each time the switcher opens
-/// costs one `stat` per unchanged project. A folder outside git is always counted.
+/// A project's language shares, counted again only when its git index moved or
+/// a watch reported a working-tree change since the last count - so re-checking
+/// every row each time the switcher opens costs one `stat` (plus two map
+/// lookups) per unchanged project. The stamp is taken before counting, so an
+/// edit landing mid-count leaves the entry already stale. A folder outside git
+/// is always counted.
 fn cached_language_shares(path: &str) -> Vec<LanguageShare> {
     let project = std::path::Path::new(path);
-    let modified = index_modified(project);
-    let cached = modified.and_then(|stamp| {
+    let key = project_key(project);
+    let stamp = index_modified(project).map(|index_modified| CensusStamp {
+        index_modified,
+        working_tree_generation: working_tree_generation(&key),
+    });
+    let cached = stamp.and_then(|stamp| {
         let cache = LANGUAGE_CACHE.lock().ok()?;
-        let (counted_at, shares) = cache.get(path)?;
-        (*counted_at == stamp).then(|| shares.clone())
+        let (counted_against, shares) = cache.get(&key)?;
+        (*counted_against == stamp).then(|| shares.clone())
     });
     if let Some(shares) = cached {
         return shares;
     }
 
     let shares = language_shares(&source_profile(project).languages);
-    if let (Some(stamp), Ok(mut cache)) = (modified, LANGUAGE_CACHE.lock()) {
-        cache.insert(path.to_string(), (stamp, shares.clone()));
+    if let (Some(stamp), Ok(mut cache)) = (stamp, LANGUAGE_CACHE.lock()) {
+        cache.insert(key, (stamp, shares.clone()));
     }
     shares
 }
@@ -1868,11 +1942,12 @@ pub async fn ide_open_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        census, editor_covers_project, editor_family, executable_basename, ide_kinds,
-        language_shares, open_arguments, open_style, preference_chain, primary_declared_kind,
-        project_declarations, ranked_editor_ids, required_project_kinds, source_content,
-        suggestible_editor_ids, EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind,
-        SourceFileEvidence, SourceProfile, REGISTRY,
+        cached_language_shares, census, editor_covers_project, editor_family, executable_basename,
+        ide_kinds, language_shares, note_working_tree_change, open_arguments, open_style,
+        preference_chain, primary_declared_kind, project_declarations, project_key,
+        ranked_editor_ids, required_project_kinds, source_content, suggestible_editor_ids,
+        EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind, SourceFileEvidence,
+        SourceProfile, REGISTRY,
     };
     use crate::test_support::assert_not_empty;
 
@@ -2263,7 +2338,7 @@ mod tests {
     }
 
     #[test]
-    fn the_census_honors_git_attributes_and_ignores_untracked_junk() {
+    fn the_census_honors_git_attributes_and_ignores_ignored_junk() {
         let directory =
             std::env::temp_dir().join(format!("pade-gittracked-{}", std::process::id()));
         std::fs::create_dir_all(&directory).expect("test dir");
@@ -2297,6 +2372,7 @@ mod tests {
             "generated.ts linguist-generated\ncustom.source linguist-language=Rust\nmanual.ts -linguist-generated\n",
         )
         .expect("attributes");
+        std::fs::write(directory.join(".gitignore"), "bundle.js\n").expect("ignore rules");
         let add = git(&["add", "."]).expect("git add");
         if !add.status.success() {
             std::fs::remove_dir_all(&directory).ok();
@@ -2304,7 +2380,11 @@ mod tests {
         }
 
         std::fs::write(directory.join("bundle.js"), "x = 1;\n".repeat(120_000))
-            .expect("untracked blob");
+            .expect("ignored blob");
+        let dependencies = directory.join("node_modules").join("left-pad");
+        std::fs::create_dir_all(&dependencies).expect("dependency dir");
+        std::fs::write(dependencies.join("index.js"), "x = 1;\n".repeat(120_000))
+            .expect("unignored dependency");
         let totals = census(&directory);
         assert_eq!(
             totals.get(&ProjectKind::Web),
@@ -2316,6 +2396,110 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&directory).expect("cleanup");
+    }
+
+    #[test]
+    fn the_census_counts_an_untracked_file_nobody_has_staged_yet() {
+        let directory = std::env::temp_dir().join(format!("pade-untracked-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("test dir");
+        let git = |arguments: &[&str]| {
+            crate::util::command("git")
+                .arg("-C")
+                .arg(&directory)
+                .args(arguments)
+                .output()
+        };
+        let Ok(init) = git(&["init", "-q"]) else {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        };
+        if !init.status.success() {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        }
+
+        let web_source = "const value = 1;\n".repeat(100);
+        std::fs::write(directory.join("app.ts"), &web_source).expect("web file");
+        let add = git(&["add", "."]).expect("git add");
+        if !add.status.success() {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        }
+        let rust_source = "fn main() {}\n".repeat(100);
+        std::fs::write(directory.join("written-by-an-agent.rs"), &rust_source)
+            .expect("untracked rust file");
+
+        let totals = census(&directory);
+        assert_eq!(
+            totals.get(&ProjectKind::Web),
+            Some(&(web_source.len() as u64))
+        );
+        assert_eq!(
+            totals.get(&ProjectKind::Rust),
+            Some(&(rust_source.len() as u64))
+        );
+
+        std::fs::remove_dir_all(&directory).expect("cleanup");
+    }
+
+    #[test]
+    fn a_reported_working_tree_change_recounts_a_project_whose_index_never_moved() {
+        let directory =
+            std::env::temp_dir().join(format!("pade-language-cache-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("test dir");
+        let git = |arguments: &[&str]| {
+            crate::util::command("git")
+                .arg("-C")
+                .arg(&directory)
+                .args(arguments)
+                .output()
+        };
+        let Ok(init) = git(&["init", "-q"]) else {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        };
+        if !init.status.success() {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        }
+        std::fs::write(directory.join("app.ts"), "const value = 1;\n".repeat(100))
+            .expect("web file");
+        let add = git(&["add", "."]).expect("git add");
+        if !add.status.success() {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        }
+        let path = directory.to_string_lossy().into_owned();
+        let languages = |shares: Vec<super::LanguageShare>| -> Vec<String> {
+            shares.into_iter().map(|share| share.language).collect()
+        };
+        assert_eq!(languages(cached_language_shares(&path)), ["TypeScript"]);
+
+        std::fs::write(directory.join("main.rs"), "fn main() {}\n".repeat(100))
+            .expect("untracked rust file");
+        assert_eq!(
+            languages(cached_language_shares(&path)),
+            ["TypeScript"],
+            "an unreported edit is served from the cache, one stat per row"
+        );
+
+        note_working_tree_change(&directory.join("."));
+        assert_eq!(
+            languages(cached_language_shares(&path)),
+            ["TypeScript", "Rust"]
+        );
+
+        std::fs::remove_dir_all(&directory).expect("cleanup");
+    }
+
+    #[test]
+    fn a_project_key_ignores_how_the_path_was_spelled() {
+        let project = std::env::temp_dir().join("pade-key");
+        let trailing = format!("{}{}", project.display(), std::path::MAIN_SEPARATOR);
+        assert_eq!(
+            project_key(&project),
+            project_key(std::path::Path::new(&trailing))
+        );
     }
 
     #[test]
