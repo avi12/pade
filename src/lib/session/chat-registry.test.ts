@@ -136,7 +136,8 @@ describe("sidebarProjects", () => {
       liveSessions: [session("live-1")],
       liveLabels: {
         "live-1": "Live chat"
-      }
+      },
+      recordedConversations: () => []
     });
     expect(groups[0]?.chats).toEqual([{
       id: "live-1",
@@ -155,8 +156,32 @@ describe("sidebarProjects", () => {
       projectOrder: [OTHER_PROJECT, OTHER_PROJECT, PROJECT],
       currentProject: "",
       liveSessions: [],
-      liveLabels: {}
+      liveLabels: {},
+      recordedConversations: () => []
     });
     expect(groups.map(group => group.project)).toEqual([OTHER_PROJECT, PROJECT]);
+  });
+
+  it("lists recorded conversations below the chats, skipping ones a chat holds", () => {
+    function recorded(conversationId: string, title: string | null) {
+      return {
+        agentId: "claude",
+        conversationId,
+        title,
+        updatedAt: 1,
+        resumeArguments: []
+      };
+    }
+
+    const groups = sidebarProjects({
+      registry: registry(),
+      projectOrder: [PROJECT],
+      currentProject: PROJECT,
+      liveSessions: [session("live-1")],
+      liveLabels: {},
+      recordedConversations: () => [recorded("conversation-live-1", "Live"), recorded("old", null)]
+    });
+    expect(groups[0]?.chats.map(chat => chat.label)).toEqual(["Claude Code", "Untitled conversation"]);
+    expect(groups[0]?.chats[1]?.resume?.conversationId).toBe("old");
   });
 });

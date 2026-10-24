@@ -4,14 +4,15 @@
   import type { StoredChatRegistry } from "@/lib/session/chat-registry";
   import { settings } from "@/lib/settings/settings.svelte";
   import ProjectChatRow from "@/lib/shell/screen/ProjectChatRow.svelte";
+  import { recordedConversations, refreshRecordedConversations } from "@/lib/stores/session/recordedConversations.svelte";
   import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-  import type { AgentSession } from "@/lib/types";
+  import type { AgentSession, RecordedConversation } from "@/lib/types";
   import { displayName } from "@/lib/util/paths";
 
   // The left rail: every project, with its chats grouped under it. The
   // current project's chats are its live sessions; the others are the
   // persisted ones, reopened on their own conversations when picked.
-  const { registry, project, sessions, activeId, onopenproject, onselectchat, ondeletechat, onnewchat }: {
+  const { registry, project, sessions, activeId, onopenproject, onselectchat, onresumeconversation, ondeletechat, onnewchat }: {
     registry: StoredChatRegistry;
     /** The project this window has open - its chats are the live sessions. */
     project: string;
@@ -21,6 +22,10 @@
     onselectchat: (target: {
       project: string;
       chatId: string;
+    }) => void;
+    onresumeconversation: (target: {
+      project: string;
+      conversation: RecordedConversation;
     }) => void;
     ondeletechat: (target: {
       project: string;
@@ -47,9 +52,20 @@
       projectOrder,
       currentProject: project,
       liveSessions: sessions,
-      liveLabels
+      liveLabels,
+      recordedConversations
     })
   );
+
+  // Re-read the agents' recorded conversations when the listed projects
+  // change, or a chat opens or closes (a closed chat lives on as a recorded
+  // conversation). One joined key of both, so a registry save that leaves
+  // them as they were doesn't re-read anything.
+  const refreshKey = $derived([sessions.length, ...projectOrder].join("\n"));
+  $effect(() => {
+    const [, ...projects] = refreshKey.split("\n");
+    refreshRecordedConversations(projects);
+  });
 </script>
 
 <nav class="sidebar" aria-label="Projects and chats">
@@ -97,15 +113,27 @@
               <ProjectChatRow
                 {chat}
                 isActive={group.isCurrent && chat.id === activeId}
-                ondelete={() => ondeletechat({
-                  project: group.project,
-                  chatId: chat.id
-                })}
+                ondelete={chat.resume === undefined
+                  ? () => ondeletechat({
+                    project: group.project,
+                    chatId: chat.id
+                  })
+                  : undefined}
                 onnew={() => onnewchat(group.project)}
-                onselect={() => onselectchat({
-                  project: group.project,
-                  chatId: chat.id
-                })}
+                onselect={() => {
+                  if (chat.resume !== undefined) {
+                    onresumeconversation({
+                      project: group.project,
+                      conversation: chat.resume
+                    });
+                    return;
+                  }
+
+                  onselectchat({
+                    project: group.project,
+                    chatId: chat.id
+                  });
+                }}
               />
             </li>
           {:else}

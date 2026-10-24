@@ -17,7 +17,7 @@
   import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
   import { activeMemberIn } from "@/lib/stores/workspace/workspaceMembers.svelte";
   import SendSelectionButton from "@/lib/terminal/SendSelectionButton.svelte";
-  import type { Agent, AgentSession } from "@/lib/types";
+  import type { Agent, AgentSession, RecordedConversation } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
   import { saveTempWorkspace } from "@/lib/workspace/save-temp-workspace";
   import SidePanel from "@/panels/SidePanel.svelte";
@@ -50,6 +50,7 @@
     onreroot,
     onswitch,
     onselectchat,
+    onresumeconversation,
     ondeletechat,
     onnewchat
   }: {
@@ -81,6 +82,10 @@
     onselectchat: (target: {
       project: string;
       chatId: string;
+    }) => void;
+    onresumeconversation: (target: {
+      project: string;
+      conversation: RecordedConversation;
     }) => void;
     ondeletechat: (target: {
       project: string;
@@ -114,6 +119,7 @@
     {ondeletechat}
     {onnewchat}
     onopenproject={onopen}
+    {onresumeconversation}
     {onselectchat}
     {project}
     registry={chatRegistry}

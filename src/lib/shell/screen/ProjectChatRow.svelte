@@ -12,7 +12,9 @@
     chat: SidebarChat;
     isActive: boolean;
     onselect: () => void;
-    ondelete: () => void;
+    /** Absent for a recorded conversation - its transcript is the agent's,
+     *  not PADE's to delete. */
+    ondelete?: () => void;
     onnew: () => void;
   } = $props();
 
@@ -79,18 +81,20 @@
     <span class="menu-icon"><Icon name="plus" size={15} /></span>
     <span>New chat in this project</span>
   </button>
-  <div class="menu-divider"></div>
-  <button
-    class="menu-item critical"
-    onclick={ondelete}
-    popovertarget={menuId}
-    popovertargetaction="hide"
-    role="menuitem"
-    type="button"
-  >
-    <span class="menu-icon"><Icon name="trash" size={15} /></span>
-    <span>Delete chat</span>
-  </button>
+  {#if ondelete !== undefined}
+    <div class="menu-divider"></div>
+    <button
+      class="menu-item critical"
+      onclick={ondelete}
+      popovertarget={menuId}
+      popovertargetaction="hide"
+      role="menuitem"
+      type="button"
+    >
+      <span class="menu-icon"><Icon name="trash" size={15} /></span>
+      <span>Delete chat</span>
+    </button>
+  {/if}
 </div>
 
 <style>

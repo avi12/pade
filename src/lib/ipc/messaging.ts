@@ -35,6 +35,7 @@ import {
   PtyHistory,
   PtySession,
   PullOutcome,
+  RecordedConversation,
   RelocateProgress,
   RestoreCandidate,
   RunnerData,
@@ -75,6 +76,7 @@ export enum Command {
   agentModelOptions = "agent_model_options",
   agentApplyModel = "agent_apply_model",
   agentResumeArgs = "agent_resume_args",
+  agentConversations = "agent_conversations",
   agentSessionContext = "agent_session_context",
   agentRunningModel = "agent_running_model",
   projectAutoname = "project_autoname",
@@ -266,6 +268,9 @@ export interface CommandProtocolMap {
     cwd: string;
     conversationId?: string;
   }) => string[];
+  /** Every conversation the agents recorded for `project`, newest first -
+   *  the sidebar's take on each CLI's `/resume` list. */
+  [Command.agentConversations]: (data: { project: string }) => RecordedConversation[];
   /** How full the session's context window is, read from the agent's own
    *  session log; `null` for an agent that keeps no readable log. */
   [Command.agentSessionContext]: (data: {
@@ -672,6 +677,7 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.agentModelOptions]: z.array(ModelOption),
   [Command.agentApplyModel]: SwitchOutcome,
   [Command.agentResumeArgs]: z.array(z.string()),
+  [Command.agentConversations]: z.array(RecordedConversation),
   [Command.agentSessionContext]: SessionContext.nullable(),
   [Command.agentRunningModel]: RunningModel.nullable(),
   [Command.projectAutoname]: z.string().nullable(),
