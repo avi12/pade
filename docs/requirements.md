@@ -134,7 +134,7 @@ writes.
 - R1.4.2 ✅ Working-tree status grouped: unstaged = "unreviewed", staged separate.
 - R1.4.3 ✅ Recent commits (log) with author, message, relative time.
 - R1.4.3a ✅ Ctrl/Cmd-clicking the top-left project button opens the repository
-  root in the system browser, while a plain click still opens the project menu.
+  root in the system browser, while a plain click still opens its window menu.
   A missing remote or opener failure is surfaced instead of silently doing
   nothing.
 - R1.4.3b ✅ Ctrl/Cmd-clicking the branch pill follows that branch on its remote.
@@ -322,9 +322,9 @@ writes.
   workspace as its cwd, which the OS (Windows) locks against rename. Toggle in the
   picker; disabled via `prefs.autoNameTemp`.
 - R1.9.3a ✅ **Relabel in PADE** - the user can give a temp workspace any label
-  (one line, ≤ 60 characters, any script) from the top-bar switcher (the row's
-  kebab, or the Save card's Relabel button) or the picker's Recent row menu. Like
-  auto-naming it is display-only - the folder keeps its path - and a label the
+  (one line, ≤ 60 characters, any script) from the left rail (a project row's
+  kebab), the top-bar Save card's Relabel button, or the picker's Recent row
+  menu. Like auto-naming it is display-only - the folder keeps its path - and a label the
   user sets always wins: auto-naming never replaces an existing label, enforced
   in the backend as it saves.
 - R1.9.4 ✅ Copilot (Windows) as the preferred live-session name source and
@@ -383,6 +383,21 @@ writes.
     credentials are used for that one `git clone` and **never persisted** (the
     saved remote is scrubbed back to the clean URL; error text is sanitized;
     `GIT_TERMINAL_PROMPT=0` prevents hidden prompts).
+- R1.9.10 ✅ **One place for projects: the left rail.** The rail lists every
+  project - pins first (drag to reorder), then this window's project, the
+  recents and any project holding chats - each as a rich row (language icon,
+  name, temp badge, branch, path, last-accessed age, language bar, chat count,
+  a check on this window's project or a mark on one another window has open)
+  with its chats and recorded agent conversations nested under it, a + for a
+  new chat and a kebab (pin, relabel, rename folder, remove, delete directory).
+  A long name wraps to two lines instead of clipping, and the row's hover
+  bubble carries the full name and the path. A search on top filters by name
+  or path (Ctrl+P focuses it from anywhere, Enter opens the first match), and
+  the head's menu holds Open a project, Rename this folder, Empty window,
+  Throwaway workspace and Agents dashboard. Picking a project focuses the
+  window that already has it; Ctrl/Shift-click opens it in a new window. The
+  top bar's project chip keeps only what has no other home: saving a temp
+  workspace and the open-windows list.
 
 ### 1.10 External tool launchers (✅)
 - R1.10.1 **IDE menu** - open the active project in an installed editor (`ide.rs`;
@@ -407,7 +422,7 @@ writes.
   editors are eligible and the configured fallback leads. The same ownership
   rule applies across all registered ecosystems; it has no framework-name
   exceptions.
-- R1.10.1b ✅ Project language icons are detected lazily for visible switcher
+- R1.10.1b ✅ Project language icons are detected lazily for visible project
   rows through one normalized, batched frontend cache. A newly created empty
   workspace listens to the existing filesystem feed until its first registered
   project marker appears; that same cached result updates language consumers,
