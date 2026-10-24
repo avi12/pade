@@ -13,12 +13,16 @@ export const WindowShortcut = {
   /** Ctrl+Alt+] cycles to the next open PADE window. */
   NextWindow: "nextWindow",
   /** Ctrl+Shift+N spawns a fresh empty window (the app-menu shortcut chip). */
-  NewWindow: "newWindow"
+  NewWindow: "newWindow",
+  /** Ctrl+P focuses the left rail's project search - it wins over the
+   *  terminal, which would send it to the agent, and the print dialog. */
+  FindProject: "findProject"
 } as const;
 
 const RELOAD_KEY = "F5";
 const RELOAD_LETTER = "r";
 const NEW_WINDOW_LETTER = "n";
+const FIND_PROJECT_LETTER = "p";
 // Keyed off `code`, not `key`: across layouts a bracket key can carry a
 // different character, so the layout position is the modifier-independent match.
 const PREVIOUS_WINDOW_CODE = "BracketLeft";
@@ -55,6 +59,11 @@ export function windowShortcutFor({ event, isDevelopment }: {
   const isNewWindow = event.ctrlKey && event.shiftKey && letter === NEW_WINDOW_LETTER;
   if (isNewWindow) {
     return WindowShortcut.NewWindow;
+  }
+
+  const isFindProject = event.ctrlKey && !event.shiftKey && !event.altKey && letter === FIND_PROJECT_LETTER;
+  if (isFindProject) {
+    return WindowShortcut.FindProject;
   }
 
   return cycleShortcut(event);
