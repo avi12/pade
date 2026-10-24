@@ -51,7 +51,7 @@
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
   import { isTemporaryWorkspace, shortDisplayName } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
-  import { createRelocator } from "@/lib/workspace/workspace-relocate";
+  import { createRelocator } from "@/lib/workspace/relocate/workspace-relocate";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
   import { onDestroy, onMount, tick, untrack } from "svelte";
@@ -764,7 +764,7 @@
   }
 
   // ── Relocate (move / rename) with lock handling ─────────────────────────────
-  // The kill → backend-op → resume flow lives in lib/workspace/workspace-relocate; this
+  // The kill → backend-op → resume flow lives in lib/workspace/relocate/workspace-relocate; this
   // shell only lends it the session list and takes back the results.
   const relocator = createRelocator({
     sessions: () => windowSessions.sessions,

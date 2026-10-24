@@ -3,7 +3,7 @@
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import type { EditorKind, Ide, Prefs } from "@/lib/types";
   import { formatQuantity } from "@/lib/util/format";
-  import { languageIcon } from "@/lib/workspace/language-icon";
+  import { languageIcon } from "@/lib/workspace/display/language-icon";
   import { editorsForKind } from "@/panels/picker/editor-options";
   import EditorAddition from "@/panels/picker/EditorAddition.svelte";
   import EditorRuleRow from "@/panels/picker/EditorRuleRow.svelte";

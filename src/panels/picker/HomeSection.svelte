@@ -5,7 +5,7 @@
   import { realAgents as toRealAgents } from "@/lib/types";
   import { displayName, projectRootName } from "@/lib/util/paths";
   import { nameError } from "@/lib/validate";
-  import RootedName from "@/lib/workspace/RootedName.svelte";
+  import RootedName from "@/lib/workspace/display/RootedName.svelte";
   import { ProjectChoice, projectTriggerLabel, resolveHomeStart } from "@/panels/picker/home-composer";
   import HomeAgentMenu from "@/panels/picker/HomeAgentMenu.svelte";
   import HomeProjectMenu from "@/panels/picker/HomeProjectMenu.svelte";

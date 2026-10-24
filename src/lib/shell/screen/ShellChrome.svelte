@@ -11,7 +11,7 @@
   import BranchSwitcher from "@/lib/vcs/BranchSwitcher.svelte";
   import { openRepositoryTarget } from "@/lib/vcs/repository-links";
   import AppMenu from "@/lib/workspace/AppMenu.svelte";
-  import MemberSwitcher from "@/lib/workspace/MemberSwitcher.svelte";
+  import MemberSwitcher from "@/lib/workspace/members/MemberSwitcher.svelte";
   import type { ComponentProps } from "svelte";
 
   // The top bar's chrome row: the project chip and its window menu, workspace

@@ -8,7 +8,7 @@
   import BrandMark from "@/lib/ui/BrandMark.svelte";
   import { isTemporaryWorkspace } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
-  import type { Relocator } from "@/lib/workspace/workspace-relocate";
+  import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
   import { createEditorCatalog } from "@/panels/picker/editorCatalog.svelte";

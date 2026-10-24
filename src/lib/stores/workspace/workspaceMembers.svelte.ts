@@ -8,12 +8,12 @@
 // per-group branch, and the working directory a new agent or an editor opens in
 // - so a workspace can never be two different shapes in two places at once.
 //
-// The pure half (where a member lives, what to call it) is `lib/workspace/workspace-members`.
+// The pure half (where a member lives, what to call it) is `lib/workspace/members/workspace-members`.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { WorkspaceMember } from "@/lib/types";
 import { settledValue } from "@/lib/util/settled";
-import { memberPath } from "@/lib/workspace/workspace-members";
+import { memberPath } from "@/lib/workspace/members/workspace-members";
 
 let root = $state("");
 let list = $state<WorkspaceMember[]>([]);

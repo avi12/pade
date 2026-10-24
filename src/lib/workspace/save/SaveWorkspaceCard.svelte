@@ -4,10 +4,10 @@
   import type { AddRootOutcome } from "@/lib/types";
   import { tooltip } from "@/lib/ui/truncation-tooltip";
   import { nameError, parseInput, ProjectName } from "@/lib/validate";
-  import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save-workspace-form";
-  import type { SaveProbe } from "@/lib/workspace/save-workspace-form";
-  import SaveDestinations from "@/lib/workspace/SaveDestinations.svelte";
-  import TempBadge from "@/lib/workspace/TempBadge.svelte";
+  import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
+  import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save/save-workspace-form";
+  import type { SaveProbe } from "@/lib/workspace/save/save-workspace-form";
+  import SaveDestinations from "@/lib/workspace/save/SaveDestinations.svelte";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { untrack } from "svelte";
 

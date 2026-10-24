@@ -1,7 +1,7 @@
 <script lang="ts">
   import Logo from "@/lib/ui/Logo.svelte";
   import { openRepositoryOnModifiedClick } from "@/lib/vcs/repository-links";
-  import TempBadge from "@/lib/workspace/TempBadge.svelte";
+  import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
 
   // The top bar's "Project" pill naming this window's project; it opens the
   // window menu (save a temp workspace, the open windows), and when the

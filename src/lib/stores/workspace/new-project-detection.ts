@@ -6,7 +6,7 @@ import { EventType, onMessage } from "@/lib/ipc/messaging";
 import { refreshEditors } from "@/lib/stores/workspace/editors.svelte";
 import { refreshProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
 import { ChangeKind } from "@/lib/types";
-import { isUnderDirectory } from "@/lib/workspace/workspace-relocate";
+import { isUnderDirectory } from "@/lib/workspace/relocate/workspace-relocate";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
 const MARKER_SETTLE_MS = 300;

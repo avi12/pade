@@ -1,8 +1,8 @@
 <script lang="ts">
   import { tooltip } from "@/lib/ui/truncation-tooltip";
   import { isTemporaryWorkspace, projectRootName } from "@/lib/util/paths";
-  import RootedName from "@/lib/workspace/RootedName.svelte";
-  import TempBadge from "@/lib/workspace/TempBadge.svelte";
+  import RootedName from "@/lib/workspace/display/RootedName.svelte";
+  import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
 
   // One project in the composer's menu: its root and name ("avi/pade"), the
   // TEMP badge for a throwaway workspace, a tick when picked, and its path in

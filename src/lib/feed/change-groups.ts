@@ -12,7 +12,7 @@
 
 import type { ChangeEvent, WorkspaceMember } from "@/lib/types";
 import { baseName, isSegmentPrefix } from "@/lib/util/paths";
-import { ROOT_GROUP_ID } from "@/lib/workspace/workspace-members";
+import { ROOT_GROUP_ID } from "@/lib/workspace/members/workspace-members";
 
 /** Coarse project role driving the group's badge. One authoritative home. */
 export const GroupRole = {

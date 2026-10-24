@@ -3,7 +3,7 @@
   import type { IconName } from "@/lib/Icon.svelte";
   import { observeProjectKind, projectKind } from "@/lib/stores/workspace/projectKinds.svelte";
   import { observeProjectLanguages, projectLanguageShares } from "@/lib/stores/workspace/projectLanguages.svelte";
-  import { languageIcon, languageIconOf } from "@/lib/workspace/language-icon";
+  import { languageIcon, languageIconOf } from "@/lib/workspace/display/language-icon";
 
   // A project row's language icon: the logo of the language most of its source
   // is in (a Gradle project of Kotlin shows Kotlin, not Java). Until that count

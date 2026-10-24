@@ -20,7 +20,7 @@
     selectMember,
     workspaceMembers
   } from "@/lib/stores/workspace/workspaceMembers.svelte";
-  import { hasSeveralMembers, memberLabel } from "@/lib/workspace/workspace-members";
+  import { hasSeveralMembers, memberLabel } from "@/lib/workspace/members/workspace-members";
 
   const { root }: {
     /** The open project - the root member's own directory. */

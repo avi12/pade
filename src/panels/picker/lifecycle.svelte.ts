@@ -12,7 +12,7 @@ import { errorMessage } from "@/lib/util/errors";
 import { baseName } from "@/lib/util/paths";
 import { nameError, parseInput, ProjectName } from "@/lib/validate";
 import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";
-import type { Relocator } from "@/lib/workspace/workspace-relocate";
+import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 /** What the picker provides: the app-level move/rename flows (which handle the

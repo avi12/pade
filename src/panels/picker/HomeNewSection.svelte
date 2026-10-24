@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { baseName } from "@/lib/util/paths";
-  import RootedName from "@/lib/workspace/RootedName.svelte";
+  import RootedName from "@/lib/workspace/display/RootedName.svelte";
   import { THROWAWAY_LABEL } from "@/panels/picker/home-composer";
   import { tick } from "svelte";
 

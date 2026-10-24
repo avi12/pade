@@ -4,9 +4,9 @@
   import { collapseRow } from "@/lib/ui/motion";
   import { tooltip, truncationTooltip } from "@/lib/ui/truncation-tooltip";
   import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
-  import LanguageBar from "@/lib/workspace/LanguageBar.svelte";
-  import LastAccessed from "@/lib/workspace/LastAccessed.svelte";
-  import TempBadge from "@/lib/workspace/TempBadge.svelte";
+  import LanguageBar from "@/lib/workspace/display/LanguageBar.svelte";
+  import LastAccessed from "@/lib/workspace/display/LastAccessed.svelte";
+  import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
   import RowMenu from "@/panels/picker/RowMenu.svelte";

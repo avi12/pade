@@ -7,7 +7,7 @@ import {
   memberPath,
   repositoryOfGroup,
   ROOT_GROUP_ID
-} from "@/lib/workspace/workspace-members";
+} from "@/lib/workspace/members/workspace-members";
 import { describe, expect, it } from "vitest";
 
 const ROOT = "C:\\repositories\\avi\\pade";

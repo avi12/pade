@@ -4,7 +4,7 @@
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
   import { arrowFocus } from "@/lib/ui/roving-menu";
   import { ToggleState } from "@/lib/ui/toggle-state";
-  import SaveWorkspaceCard from "@/lib/workspace/SaveWorkspaceCard.svelte";
+  import SaveWorkspaceCard from "@/lib/workspace/save/SaveWorkspaceCard.svelte";
   import { runListTransition } from "@/lib/workspace/switcher/list-transition";
   import OpenWindowList from "@/lib/workspace/switcher/OpenWindowList.svelte";
   import { windowRowsInOrder } from "@/lib/workspace/switcher/switcher-rows";

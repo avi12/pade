@@ -2,12 +2,12 @@
   import Icon from "@/lib/Icon.svelte";
   import type { WindowInfo } from "@/lib/types";
   import { isTemporaryWorkspace, shortDisplayName } from "@/lib/util/paths";
-  import ProjectKindIcon from "@/lib/workspace/ProjectKindIcon.svelte";
+  import ProjectKindIcon from "@/lib/workspace/display/ProjectKindIcon.svelte";
+  import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
   import MergeIntoButton from "@/lib/workspace/switcher/MergeIntoButton.svelte";
   import MergeIntoItem from "@/lib/workspace/switcher/MergeIntoItem.svelte";
   import ReorderGrip from "@/lib/workspace/switcher/ReorderGrip.svelte";
   import { windowRowTransitionName } from "@/lib/workspace/switcher/switcher-rows";
-  import TempBadge from "@/lib/workspace/TempBadge.svelte";
 
   // The switcher's "Open windows" section - every PADE window in creation
   // order, which is also the cycle order for Ctrl+Alt+[ / ]. Click a non-current

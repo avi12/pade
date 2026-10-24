@@ -1,4 +1,4 @@
-import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save-workspace-form";
+import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save/save-workspace-form";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ sendMessage: vi.fn() }));

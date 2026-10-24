@@ -1,5 +1,5 @@
 import type { AgentSession } from "@/lib/types";
-import { saveTempWorkspace } from "@/lib/workspace/save-temp-workspace";
+import { saveTempWorkspace } from "@/lib/workspace/save/save-temp-workspace";
 import {
   beforeEach,
   describe,

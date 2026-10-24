@@ -3,7 +3,7 @@
   import type { Ide, ProjectEntry } from "@/lib/types";
   import { collapseRow } from "@/lib/ui/motion";
   import { formatQuantity } from "@/lib/util/format";
-  import LanguageBar from "@/lib/workspace/LanguageBar.svelte";
+  import LanguageBar from "@/lib/workspace/display/LanguageBar.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
   import RowMenu from "@/panels/picker/RowMenu.svelte";

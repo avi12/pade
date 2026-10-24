@@ -4,8 +4,8 @@
   import type { RelocateStep } from "@/lib/types";
   import { baseName, normalizePath } from "@/lib/util/paths";
   import { ProjectName } from "@/lib/validate";
-  import { RELOCATE_STEP_TEXT } from "@/lib/workspace/relocate-steps";
-  import type { Relocator } from "@/lib/workspace/workspace-relocate";
+  import { RELOCATE_STEP_TEXT } from "@/lib/workspace/relocate/relocate-steps";
+  import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
 

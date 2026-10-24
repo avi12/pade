@@ -5,7 +5,7 @@
   import { branchOfMember, pathOfMember, workspaceMembers } from "@/lib/stores/workspace/workspaceMembers.svelte";
   import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
   import { formatCount } from "@/lib/util/format";
-  import { repositoryOfGroup } from "@/lib/workspace/workspace-members";
+  import { repositoryOfGroup } from "@/lib/workspace/members/workspace-members";
   import LineCounts from "@/panels/feed/LineCounts.svelte";
 
   // One project group's header: its role badge, name, git branch and totals.

@@ -3,9 +3,9 @@
   import { observeProjectBranch, projectBranch } from "@/lib/stores/workspace/projectBranches.svelte";
   import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
   import { displayName } from "@/lib/util/paths";
-  import LanguageBar from "@/lib/workspace/LanguageBar.svelte";
-  import LastAccessed from "@/lib/workspace/LastAccessed.svelte";
-  import ProjectKindIcon from "@/lib/workspace/ProjectKindIcon.svelte";
+  import LanguageBar from "@/lib/workspace/display/LanguageBar.svelte";
+  import LastAccessed from "@/lib/workspace/display/LastAccessed.svelte";
+  import ProjectKindIcon from "@/lib/workspace/display/ProjectKindIcon.svelte";
   import ProjectRowName from "@/lib/workspace/switcher/ProjectRowName.svelte";
 
   // A project row's main button in the left rail: kind icon, its root and

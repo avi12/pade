@@ -2,7 +2,12 @@
   import { observeProjectLanguages, projectLanguageShares } from "@/lib/stores/workspace/projectLanguages.svelte";
   import type { LanguageShare } from "@/lib/types";
   import { tooltip } from "@/lib/ui/truncation-tooltip";
-  import { isEnteringAfterCount, isLanguageMix, languageShareText, segmentColors } from "@/lib/workspace/language-bar";
+  import {
+    isEnteringAfterCount,
+    isLanguageMix,
+    languageShareText,
+    segmentColors
+  } from "@/lib/workspace/display/language-bar";
   import { untrack } from "svelte";
 
   // A project row's GitHub-style language bar: a slim bar along the row's foot,
