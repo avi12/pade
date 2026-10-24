@@ -77,14 +77,8 @@ struct WindowWatch {
     /// switch (see `watch_start`).
     baselines: Mutex<HashMap<PathBuf, Option<String>>>,
     /// How the current watch root decides a path is ignored, computed once per
-    /// `watch_start` and recomputed on a project switch. `None` before the first
-    /// arm. Git mode defers to git's own ignore rules; static mode carries a
-    /// tech-inferred set of directory names to exclude (see [`IgnorePolicy`]).
-    ignore_policy: Mutex<Option<IgnorePolicy>>,
-    /// Memoized `git check-ignore` results per absolute path (git mode only), so a
-    /// path shells git at most once. Cleared on a re-root and whenever a
-    /// `.gitignore` changes, since editing its rules can flip any path's state.
-    git_ignore_cache: Mutex<HashMap<PathBuf, bool>>,
+    /// `watch_start` and recomputed on a project switch (see [`IgnoreRules`]).
+    ignore_rules: IgnoreRules,
     /// The last parseable state of each registered MCP config. Existence and
     /// server membership drive automatic handoff; same-membership content edits
     /// arm frontend reload-failure recovery.
@@ -291,8 +285,8 @@ fn is_under_static_ignore_directory(path: &Path, directories: &HashSet<String>) 
     path_component_matches(path, |name| directories.contains(name))
 }
 
-/// How the Change Feed decides a path is "ignored", fixed once per watch root by
-/// `watch_start` and stored in [`WatcherState::ignore_policy`].
+/// How a watch decides a path is "ignored", fixed once per watch root (by
+/// `watch_start` for the Change Feed) and held in its [`IgnoreRules`].
 ///
 /// A git work tree defers to git itself via `git check-ignore`, which honors
 /// nested `.gitignore` files, `.git/info/exclude`, the global `core.excludesFile`,
@@ -317,6 +311,76 @@ enum IgnorePolicy {
         directories: HashSet<String>,
         rules: crate::workspace::gitignore::Rules,
     },
+}
+
+/// One watch root's [`IgnorePolicy`] plus git's memoized answers under it - the
+/// one ignore filter shared by the Change Feed and the language watch, so both
+/// skip exactly what the project's own git skips.
+#[derive(Default)]
+struct IgnoreRules {
+    /// `None` until a policy is installed. Git mode defers to git's own ignore
+    /// rules; static mode carries a tech-inferred set of directory names.
+    policy: Mutex<Option<IgnorePolicy>>,
+    /// Memoized `git check-ignore` results per absolute path (git mode only), so
+    /// a path shells git at most once. Cleared with every new policy, since
+    /// editing the rules can flip any path's state.
+    git_ignore_cache: Mutex<HashMap<PathBuf, bool>>,
+}
+
+impl IgnoreRules {
+    /// Adopt a freshly computed policy and forget every memoized decision.
+    fn install(&self, policy: IgnorePolicy) {
+        if let Ok(mut guard) = self.policy.lock() {
+            *guard = Some(policy);
+        }
+        if let Ok(mut cache) = self.git_ignore_cache.lock() {
+            cache.clear();
+        }
+    }
+
+    /// Whether the policy excludes `path`. Git mode asks git (memoized per
+    /// path); static mode matches the path's component names against the
+    /// tech-inferred ignore set. A poisoned lock, an unset policy, or a git
+    /// failure all resolve to "not excluded" so a fault never silently hides
+    /// real changes.
+    fn excludes(&self, path: &Path) -> bool {
+        let git_root = {
+            let Ok(guard) = self.policy.lock() else {
+                return false;
+            };
+            match guard.as_ref() {
+                None => return false,
+                Some(IgnorePolicy::Static {
+                    root,
+                    directories,
+                    rules,
+                }) => {
+                    return is_under_static_ignore_directory(path, directories)
+                        || gitignore_excludes(root, rules, path);
+                }
+                Some(IgnorePolicy::Git { root }) => root.clone(),
+            }
+        };
+        self.git_excludes(&git_root, path)
+    }
+
+    /// Whether git considers `path` ignored under the work tree at `root`,
+    /// memoized so each path shells git at most once.
+    fn git_excludes(&self, root: &Path, path: &Path) -> bool {
+        let memoized = self
+            .git_ignore_cache
+            .lock()
+            .ok()
+            .and_then(|cache| cache.get(path).copied());
+        if let Some(is_ignored) = memoized {
+            return is_ignored;
+        }
+        let is_ignored = git_check_ignore(root, path);
+        if let Ok(mut cache) = self.git_ignore_cache.lock() {
+            cache.insert(path.to_path_buf(), is_ignored);
+        }
+        is_ignored
+    }
 }
 
 /// The ignore-rules file whose edits invalidate the git-check-ignore cache: when
@@ -566,13 +630,7 @@ fn refresh_ignore_policy(app: &AppHandle, watch: &WindowWatch, label: &str) {
     };
     // Release the watcher lock before the policy recompute shells out to git.
     drop(watcher_guard);
-    let policy = compute_ignore_policy(&root);
-    if let Ok(mut guard) = watch.ignore_policy.lock() {
-        *guard = Some(policy);
-    }
-    if let Ok(mut cache) = watch.git_ignore_cache.lock() {
-        cache.clear();
-    }
+    watch.ignore_rules.install(compute_ignore_policy(&root));
     let _ = app.emit_to(label, FEED_IGNORE_EVENT, ());
 }
 
@@ -591,32 +649,6 @@ fn is_git_work_tree(root: &Path) -> bool {
     output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true"
 }
 
-/// Whether the watch root's ignore policy excludes `path` from the Change Feed.
-/// Git mode asks git (memoized per path); static mode matches the path's component
-/// names against the tech-inferred ignore set. A poisoned lock, an unset policy, or
-/// a git failure all resolve to "not excluded" so a fault never silently hides real
-/// changes.
-fn excluded_by_ignore_policy(watch: &WindowWatch, path: &Path) -> bool {
-    let git_root = {
-        let Ok(guard) = watch.ignore_policy.lock() else {
-            return false;
-        };
-        match guard.as_ref() {
-            None => return false,
-            Some(IgnorePolicy::Static {
-                root,
-                directories,
-                rules,
-            }) => {
-                return is_under_static_ignore_directory(path, directories)
-                    || gitignore_excludes(root, rules, path);
-            }
-            Some(IgnorePolicy::Git { root }) => root.clone(),
-        }
-    };
-    git_excludes_path(watch, &git_root, path)
-}
-
 /// Whether the static policy's `.gitignore` rules ignore `path` - matched on
 /// its root-relative, `/`-joined spelling. A path outside the root (or one that
 /// isn't valid UTF-8) can't match any rule.
@@ -632,25 +664,6 @@ fn gitignore_excludes(
         return false;
     };
     rules.is_ignored(&relative.replace('\\', "/"))
-}
-
-/// Whether git considers `path` ignored under the work tree at `root`, memoized in
-/// [`WatcherState::git_ignore_cache`] so each path shells git at most once. The
-/// cache is cleared on a re-root and whenever a `.gitignore` changes.
-fn git_excludes_path(watch: &WindowWatch, root: &Path, path: &Path) -> bool {
-    let memoized = watch
-        .git_ignore_cache
-        .lock()
-        .ok()
-        .and_then(|cache| cache.get(path).copied());
-    if let Some(is_ignored) = memoized {
-        return is_ignored;
-    }
-    let is_ignored = git_check_ignore(root, path);
-    if let Ok(mut cache) = watch.git_ignore_cache.lock() {
-        cache.insert(path.to_path_buf(), is_ignored);
-    }
-    is_ignored
 }
 
 /// Shell `git -C <root> check-ignore -q -- <path>` and report whether the path is
@@ -896,19 +909,14 @@ pub async fn watch_start(
     if let Ok(mut baselines) = watch.baselines.lock() {
         baselines.clear();
     }
-    if let Ok(mut cache) = watch.git_ignore_cache.lock() {
-        cache.clear();
-    }
     // The panel reports both counts against "watching since", so they belong to
     // this arming alone.
     watch.surfaced.store(0, Ordering::Relaxed);
     watch.ignored.store(0, Ordering::Relaxed);
 
-    // Install the policy before arming the watcher, so the very first change is
-    // already filtered.
-    if let Ok(mut guard) = watch.ignore_policy.lock() {
-        *guard = Some(policy);
-    }
+    // Install the policy (dropping the old root's memoized answers) before
+    // arming the watcher, so the very first change is already filtered.
+    watch.ignore_rules.install(policy);
 
     // Seed the MCP server baseline from what's on disk now, so opening a project
     // that already declares servers doesn't read as "all added" and restart.
@@ -1519,7 +1527,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         // baseline `ignored` pre-filter above already dropped the giant dirs, so a
         // repo never shells git for node_modules/target and each surviving path is
         // git-checked at most once (memoized).
-        if excluded_by_ignore_policy(&watch, &path) {
+        if watch.ignore_rules.excludes(&path) {
             watch.ignored.fetch_add(1, Ordering::Relaxed);
             continue;
         }
@@ -1921,7 +1929,7 @@ pub async fn feed_ignored(
             is_always_ignored(path)
                 || watch
                     .as_ref()
-                    .is_some_and(|watch| excluded_by_ignore_policy(watch, path))
+                    .is_some_and(|watch| watch.ignore_rules.excludes(path))
         })
         .collect())
 }
