@@ -170,8 +170,8 @@
         <button
           class="select field-trigger"
           aria-label="Project"
+          data-tooltip={selectedPath || undefined}
           popovertarget={PROJECT_MENU_ID}
-          title={selectedPath || undefined}
           type="button"
         >
           <Icon name="folder" size={15} />
@@ -198,13 +198,13 @@
                   class="menu-item"
                   class:picked={isPicked}
                   aria-current={isPicked}
+                  data-tooltip={option.path}
                   onclick={() => {
                     selectedPath = option.path;
                     isCreating = false;
                   }}
                   popovertarget={PROJECT_MENU_ID}
                   popovertargetaction="hide"
-                  title={option.path}
                   type="button"
                 >
                   <span class="menu-item-text">{option.name}</span>

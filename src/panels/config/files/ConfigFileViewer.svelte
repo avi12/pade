@@ -56,7 +56,7 @@
       {/if}
     </div>
     {#if isShowingPreview}
-      <SandboxedPreview document={markdownDocument(content)} title="Preview of {heading}" />
+      <SandboxedPreview document={markdownDocument(content)} label="Preview of {heading}" />
     {:else}
       <pre class="body"><ColorText
           markdown={isMarkdownFile}

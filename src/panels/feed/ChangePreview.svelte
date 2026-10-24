@@ -44,7 +44,7 @@
 {:else if view.kind === CardViewKind.Loading}
   <p class="state loading"><span class="spinner"><Icon name="refresh" size={14} /></span>{view.text}</p>
 {:else if view.kind === CardViewKind.Document}
-  <SandboxedPreview document={view.source} title="Preview of {baseName(event.path)}" />
+  <SandboxedPreview document={view.source} label="Preview of {baseName(event.path)}" />
 {:else}
   <MediaPreview name={baseName(event.path)} {view} />
 {/if}

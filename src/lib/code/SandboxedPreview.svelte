@@ -5,13 +5,14 @@
   // origin, and can't reach the parent - the web analog of PowerToys'
   // locked-down WebView2. `srcdoc` keeps it fully inline (no external ref under
   // the CSP). The frame is `--preview-height` tall (360px unless the parent says).
-  const { document, title }: {
+  const { document, label }: {
     document: string;
-    title: string;
+    /** The frame's accessible name. */
+    label: string;
   } = $props();
 </script>
 
-<iframe class="render" sandbox="" srcdoc={document} {title}></iframe>
+<iframe class="render" aria-label={label} sandbox="" srcdoc={document}></iframe>
 
 <style>
   /* Themed background shows while the isolated document loads (and behind a
