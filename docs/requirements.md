@@ -446,6 +446,12 @@ writes.
   🔭 multi-monitor tear-off (native windows).
 - R2.5 **i18n** - 🔭 full Unicode + RTL (Hebrew/Arabic bidi).
 - R2.6 **Deployment** - one codebase → desktop (Tauri) and 🔭 web (headless core).
+  ✅ The desktop app ships as **one portable exe** per GitHub release (no
+  installer; the Windows 11 context-menu handler rides inside it) and
+  **updates itself**: a published copy polls `docs/updates.json` on `main`,
+  downloads a newer exe, checks its SHA-256 and swaps it in as PADE closes or
+  on **Restart to update** (Config → Updates, with an opt-out **Check for
+  updates** switch). Every push to `main` is released (`docs/releasing.md`).
 - R2.7 **Open source** - Apache-2.0; TS plugin SDK (🔭); public RFCs.
 
 ## 3. Architecture (SoC map)

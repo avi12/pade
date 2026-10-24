@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "PADE",
-  "version": "0.0.1",
   "identifier": "dev.pade.app",
   "build": {
     "frontendDist": "../dist",

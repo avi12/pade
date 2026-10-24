@@ -91,18 +91,18 @@ Then edit any file in the repo and watch it appear in the Change Feed.
 
 ## Build (release)
 
+PADE ships as one portable exe - no installer. Download `PADE-<version>.exe`
+from the [releases](https://github.com/avi12/pade/releases), run it from
+anywhere, and it keeps itself up to date (Config → Updates).
+
 ```bash
-pnpm app:build                 # tauri build - every installer for the host OS
-pnpm tauri build --bundles nsis   # …or a single installer type
+pnpm app:build                 # tauri build --no-bundle → src-tauri/target/release/pade.exe
+pnpm release <version> <notes> # build, tag, publish the GitHub release and update manifest
 ```
-
-Artifacts land under `src-tauri/target/release/`:
-
-- the app binary - `pade.exe` (Windows) / `pade` (macOS, Linux)
-- installers under `bundle/` - e.g. `bundle/nsis/PADE_<version>_x64-setup.exe`
 
 Tauri builds for the host platform only, so run the build on each OS you target.
 Before cutting a release, run the quality gates: `pnpm lint` and `pnpm test`.
+[`docs/releasing.md`](docs/releasing.md) has the release steps and how updates work.
 
 ## Architecture
 

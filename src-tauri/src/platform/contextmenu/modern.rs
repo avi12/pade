@@ -65,6 +65,9 @@ pub fn register() -> Result<(), String> {
     let location = external_location()?;
     let handler = location.join(HANDLER_DLL);
     if !handler.is_file() {
+        write_embedded_handler(&handler)?;
+    }
+    if !handler.is_file() {
         return Err(format!(
             "the modern-menu handler is not next to PADE (expected {}). \
              Build it once with `cargo build -p contextmenu-handler` \
@@ -79,6 +82,22 @@ pub fn register() -> Result<(), String> {
         quote(&location),
     );
     interpret(&powershell(&script)?)
+}
+
+/// A release exe carries the handler (see `build.rs`) and writes it out beside
+/// itself, so the portable download needs no second file. A dev build has none
+/// and relies on `cargo build -p contextmenu-handler` instead.
+#[cfg(embedded_context_menu_handler)]
+fn write_embedded_handler(handler: &Path) -> Result<(), String> {
+    const EMBEDDED_HANDLER: &[u8] =
+        include_bytes!(concat!(env!("OUT_DIR"), "/contextmenu_handler.dll"));
+    std::fs::write(handler, EMBEDDED_HANDLER).map_err(|error| error.to_string())
+}
+
+#[cfg(not(embedded_context_menu_handler))]
+#[allow(clippy::unnecessary_wraps)] // the embedded twin above can fail; callers treat both alike
+fn write_embedded_handler(_handler: &Path) -> Result<(), String> {
+    Ok(())
 }
 
 /// Remove the sparse package and clean up the files we wrote. Idempotent - removing

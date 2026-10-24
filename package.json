@@ -1,6 +1,5 @@
 {
   "name": "pade",
-  "version": "0.0.1",
   "description": "PADE (Power ADE) - an Agentic Development Environment that wraps your agent CLI in a comprehension-first GUI",
   "license": "Apache-2.0",
   "type": "module",
@@ -11,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "app": "tauri dev",
-    "app:build": "tauri build",
+    "app:build": "tauri build --no-bundle",
+    "release": "node scripts/release.mjs",
     "check": "svelte-check --tsgo --tsconfig ./tsconfig.json",
     "lint:js": "oxlint --type-aware --fix && eslint --fix .",
     "lint:css": "stylelint --fix \"src/**/*.{css,svelte}\"",
