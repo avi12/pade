@@ -156,6 +156,5 @@
     }
   }
 
-  /* The agent choice-chips live in picker/AgentChips.svelte (shared with the
-     create form's Agent row). */
+  /* The agent choice-chips live in picker/AgentChips.svelte. */
 </style>

@@ -16,6 +16,7 @@
   import HomeSection from "@/panels/picker/HomeSection.svelte";
   import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";
+  import "@/panels/picker/project-form.css";
   import { popularRoot, watchedDirectories } from "@/panels/picker/project-roots";
   import RecentSection from "@/panels/picker/RecentSection.svelte";
   import RootsSection from "@/panels/picker/RootsSection.svelte";

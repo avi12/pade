@@ -1,36 +1,37 @@
-/* Shared chrome for the Get started panels (New, Open local, Clone). Plain CSS
-   (not Svelte-scoped) so one authoritative copy reaches every panel component;
-   every selector is prefixed with `.get-started` so nothing leaks past the card.
-   Imported once by QuickStartSection.svelte - the panels rely on it. */
+/* Shared chrome for the picker's project forms (the composer's new-project
+   location row, and its menu's Open and Clone panels). Plain CSS (not
+   Svelte-scoped) so one authoritative copy reaches every form component;
+   every selector is prefixed with `.picker` so nothing leaks past the page.
+   Imported once by ProjectPicker.svelte - the forms rely on it. */
 
 /* Zero-specificity on the class, so a panel's own scoped look (the git-missing
    warning card's tighter gap) still wins over this base. */
-.get-started :where(.panel) {
+.picker :where(.panel) {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.get-started .new-project-field {
+.picker .new-project-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.get-started .new-project-label {
+.picker .new-project-label {
   color: var(--on-surface-variant);
   font-weight: 600;
   font-size: 0.6875rem;
   letter-spacing: 0.03em;
 }
 
-.get-started .new-project-optional {
+.picker .new-project-optional {
   font-weight: 400;
   opacity: 75%;
 }
 
 /* A "Location"-style group row: folder icon + its contents in one field. */
-.get-started .new-project-location {
+.picker .new-project-location {
   display: flex;
   flex-wrap: wrap;
   gap: 2px;
@@ -74,7 +75,7 @@
   }
 }
 
-.get-started .new-project-name {
+.picker .new-project-name {
   /* Wide enough for its own "project-name" placeholder (12ch + padding) so
      the hint never clips yet shares the root's line; typing scrolls, and
      only a genuinely long root wraps the name below. */
@@ -92,7 +93,7 @@
 }
 
 /* Tonal warning surface: git missing, or the SSH→HTTPS credential fallback. */
-.get-started .warning-card {
+.picker .warning-card {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -119,14 +120,16 @@
   }
 }
 
-.get-started .actions {
+.picker .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
   align-items: center;
 }
 
-.get-started .go {
+/* A form's own submit - scoped under its panel, so the composer's Start (also
+   a `.go`) keeps the plain picker button look. */
+.picker :where(.panel) .go {
   align-self: start;
   padding: 10px 20px;
   border: none;
