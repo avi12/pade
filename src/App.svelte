@@ -11,7 +11,8 @@
     saveChatRegistry
   } from "@/lib/session/chat-registry";
   import type { StoredChatRegistry } from "@/lib/session/chat-registry";
-  import { restoreProjectChats, shouldStartFreshChat } from "@/lib/session/chat-restore";
+  import { enterProjectChats, focusReturnedProject } from "@/lib/session/project-entry";
+  import type { ProjectEntryHost } from "@/lib/session/project-entry";
   import { EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session/session-exit";
   import { clearSessionSnapshot, restoreLiveSnapshot } from "@/lib/session/session-restore";
   import { effective } from "@/lib/settings/prefs.svelte";
@@ -318,7 +319,7 @@
   async function startInTempWorkspace() {
     await startAgentFlow({
       path: await sendMessage(Command.workspaceTemp),
-      isNewProject: true
+      created: true
     });
   }
 
@@ -458,54 +459,22 @@
     });
   }
 
-  // Reopen a conversation from the sidebar's `/resume` list: bring it
-  // forward when a chat already runs it, else launch its agent on it,
-  // titled the way the agent titled it.
-  function resumeRecordedConversation(conversation: RecordedConversation) {
-    const runningChat = windowSessions.sessions.find(session => session.conversationId === conversation.conversationId);
-    if (runningChat !== undefined) {
-      windowSessions.select(runningChat.id);
-      return;
-    }
-
-    const agent = agents.find(candidate => candidate.id === conversation.agentId);
-    if (agent === undefined) {
-      return;
-    }
-
-    const id = windowSessions.launch({
-      agent,
-      conversationId: conversation.conversationId,
-      args: conversation.resumeArguments.length > 0 ? conversation.resumeArguments : undefined
-    });
-    if (conversation.title !== null) {
-      setSessionLabel({
-        id,
-        label: conversation.title
-      });
-    }
-  }
-
-  // What a return to the open project does with its target: bring the
-  // picked chat to the front, or launch a fresh one beside the live chats.
-  function focusReturnedProject(target: OpenTarget) {
-    if (target.resume !== undefined) {
-      resumeRecordedConversation(target.resume);
-      return;
-    }
-
-    if (target.chatId !== undefined && windowSessions.isOpen(target.chatId)) {
-      windowSessions.select(target.chatId);
-      return;
-    }
-
-    if (target.newChat === true) {
-      launchFreshChat({
-        path: target.path,
-        agentId: target.agent
-      });
-    }
-  }
+  // The session actions the project-entry decisions run through - getters,
+  // so each decision reads this window's current agents and registry.
+  const projectEntryHost: ProjectEntryHost = {
+    get registry() {
+      return chatRegistry;
+    },
+    get agents() {
+      return agents;
+    },
+    launch: windowSessions.launch,
+    select: windowSessions.select,
+    isOpen: windowSessions.isOpen,
+    setLabel: setSessionLabel,
+    sessions: () => windowSessions.sessions,
+    launchFreshChat
+  };
 
   // Picking the project this window already has open is a return, not a
   // reopen - the live sessions stay exactly as they were. True when this
@@ -517,7 +486,10 @@
       return false;
     }
 
-    focusReturnedProject(target);
+    focusReturnedProject({
+      host: projectEntryHost,
+      target
+    });
     phase = Phase.Ready;
     return true;
   }
@@ -542,35 +514,8 @@
 
       await sendMessage(Command.workspaceOpen, { path: target.path });
       await sendSettingsMessage(Command.settingsGet); // pick up the updated recent history
-      await startAgentFlow({
-        path: target.path,
-        initialPrompt: target.initialPrompt,
-        agentId: target.agent,
-        isNewProject: target.created === true,
-        chatId: target.chatId,
-        wantNewChat: target.newChat === true,
-        resume: target.resume
-      });
+      await startAgentFlow(target);
       await repository.load();
-    });
-  }
-
-  // Restore a project's persisted chats through this window's sessions.
-  async function restoreChatsForProject({ path, chatId }: {
-    path: string;
-    chatId?: string;
-  }) {
-    return await restoreProjectChats({
-      host: {
-        registry: chatRegistry,
-        agents,
-        launch: windowSessions.launch,
-        select: windowSessions.select,
-        isOpen: windowSessions.isOpen,
-        setLabel: setSessionLabel
-      },
-      project: path,
-      chatId
     });
   }
 
@@ -582,54 +527,20 @@
   // the restored ones. The agent picker still appears after a hand-closed
   // or exited last session, where "what next?" is a genuine question.
   // (Reused for every entry path.)
-  async function startAgentFlow({
-    path,
-    initialPrompt,
-    agentId,
-    isNewProject = false,
-    chatId,
-    wantNewChat = false,
-    resume
-  }: {
-    path: string;
-    initialPrompt?: string;
-    agentId?: string;
-    isNewProject?: boolean;
-    chatId?: string;
-    wantNewChat?: boolean;
-    resume?: RecordedConversation;
-  }) {
-    currentProject = path;
+  async function startAgentFlow(target: OpenTarget) {
+    currentProject = target.path;
 
-    if (isNewProject) {
-      armNewProjectDetection(path);
+    if (target.created === true) {
+      armNewProjectDetection(target.path);
     }
 
     // Let other windows' pickers focus this one instead of reopening the project.
-    sendMessage(Command.windowRegisterProject, { path });
+    sendMessage(Command.windowRegisterProject, { path: target.path });
 
-    const hasRestoredChats = isNewProject
-      ? false
-      : await restoreChatsForProject({
-        path,
-        chatId
-      });
-    if (resume !== undefined) {
-      resumeRecordedConversation(resume);
-    }
-
-    const wantsFreshChat = shouldStartFreshChat({
-      initialPrompt,
-      wantNewChat,
-      hasRestoredChats: hasRestoredChats || resume !== undefined
+    await enterProjectChats({
+      host: projectEntryHost,
+      target
     });
-    if (wantsFreshChat) {
-      launchFreshChat({
-        path,
-        agentId,
-        initialPrompt
-      });
-    }
   }
 
   // A create-form agent pick wins outright; otherwise honor the per-project

@@ -49,6 +49,16 @@ async function resumeArgumentsFor({ chat, project, agent }: {
   });
 }
 
+/** The launch args that reopen a conversation - none when it resumes
+ *  through its conversation id alone. */
+export function launchArgumentsFrom(resumeArguments: string[]) {
+  if (resumeArguments.length === 0) {
+    return undefined;
+  }
+
+  return resumeArguments;
+}
+
 async function restoreOneChat({ host, project, chat }: {
   host: ChatRestoreHost;
   project: string;
@@ -65,7 +75,7 @@ async function restoreOneChat({ host, project, chat }: {
     cwd: chat.cwd,
     branch: chat.branch,
     conversationId: chat.conversationId,
-    args: resumeArguments.length > 0 ? resumeArguments : undefined,
+    args: launchArgumentsFrom(resumeArguments),
     modelChoice: chat.modelChoice,
     sessionId: chat.id
   });
