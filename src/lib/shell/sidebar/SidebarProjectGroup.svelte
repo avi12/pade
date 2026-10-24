@@ -2,6 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import type { SidebarChat, SidebarProject } from "@/lib/session/chat-registry";
   import ProjectChatRow from "@/lib/shell/sidebar/ProjectChatRow.svelte";
+  import { collapseRow, expandRow } from "@/lib/ui/motion";
   import { displayName } from "@/lib/util/paths";
   import ProjectRowMain from "@/lib/workspace/switcher/ProjectRowMain.svelte";
   import ProjectRowMenu from "@/lib/workspace/switcher/ProjectRowMenu.svelte";
@@ -112,7 +113,11 @@
 
   <ul class="chats">
     {#each group.chats as chat (chat.id)}
-      <li>
+      <!-- A conversation that turns up while the rail is open (a new chat, a
+           handoff's successor, a transcript an agent just wrote) glides in, and
+           one that goes glides out; the rows already there on first paint
+           don't animate. -->
+      <li in:expandRow out:collapseRow>
         <ProjectChatRow
           {chat}
           isActive={chat.id === activeChatId}
