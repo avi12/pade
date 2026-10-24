@@ -527,7 +527,7 @@ const LINGUIST_ATTRIBUTES: &[&str] = &[
     LINGUIST_LANGUAGE,
 ];
 
-/// The Git-authored exclusions and classification that apply to one tracked
+/// The Git-authored exclusions and classification that apply to one counted
 /// file. `None` means the corresponding attribute was unspecified.
 #[derive(Default)]
 struct LinguistAttributes {
@@ -665,16 +665,55 @@ fn source_file_evidence(
     })
 }
 
-/// The Git repository root and the tracked paths below PADE's active project
-/// directory. `--full-name` keeps those paths rooted at the repository, so the
-/// census can join them safely after Git scopes the listing to the active folder.
-/// `--recurse-submodules` lists each submodule's tracked files too - a companion
-/// app kept as a submodule is part of the project's code, not one opaque entry.
+/// The Git repository root and the paths below PADE's active project directory
+/// that the census counts: every tracked file, then every untracked file Git
+/// does not ignore - what an agent has written but nobody has staged yet.
+/// `--full-name` keeps those paths rooted at the repository, so the census can
+/// join them safely after Git scopes the listing to the active folder.
 struct GitRepository {
     root: std::path::PathBuf,
-    tracked_paths: Vec<String>,
+    counted_paths: Vec<String>,
 }
 
+/// One `git ls-files -z --full-name` listing under `cwd`, or `None` when Git
+/// cannot produce it.
+fn git_file_listing(cwd: &std::path::Path, arguments: &[&str]) -> Option<Vec<String>> {
+    let output = git_in(cwd)
+        .args(["ls-files", "--full-name", "-z"])
+        .args(arguments)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(
+        String::from_utf8_lossy(&output.stdout)
+            .split('\0')
+            .filter(|path| !path.is_empty())
+            .map(str::to_string)
+            .collect(),
+    )
+}
+
+/// The untracked files Git does not ignore. Dependency and build folders are
+/// excluded on top of the project's own ignore rules, so a repository whose
+/// `.gitignore` forgot `node_modules` never lists (or counts) its contents.
+/// Git cannot combine `--others` with `--recurse-submodules`, so untracked
+/// files inside a submodule wait until they are tracked.
+fn untracked_file_listing(cwd: &std::path::Path) -> Vec<String> {
+    let excluded_directories: Vec<String> = IGNORED_PROBE_DIRECTORIES
+        .iter()
+        .map(|directory| format!("--exclude={directory}/"))
+        .collect();
+    let mut arguments = vec!["--others", "--exclude-standard"];
+    arguments.extend(excluded_directories.iter().map(String::as_str));
+    git_file_listing(cwd, &arguments).unwrap_or_default()
+}
+
+/// `--recurse-submodules` lists each submodule's tracked files too - a
+/// companion app kept as a submodule is part of the project's code, not one
+/// opaque entry. Tracked paths come first, so the census bound trims untracked
+/// files before tracked ones.
 fn git_repository(cwd: &std::path::Path) -> Option<GitRepository> {
     let root_output = git_in(cwd)
         .args(["rev-parse", "--show-toplevel"])
@@ -687,33 +726,17 @@ fn git_repository(cwd: &std::path::Path) -> Option<GitRepository> {
     if root.as_os_str().is_empty() {
         return None;
     }
-    let files_output = git_in(cwd)
-        .args([
-            "ls-files",
-            "--cached",
-            "--recurse-submodules",
-            "--full-name",
-            "-z",
-        ])
-        .output()
-        .ok()?;
-    if !files_output.status.success() {
-        return None;
-    }
-    let tracked_paths = String::from_utf8_lossy(&files_output.stdout)
-        .split('\0')
-        .filter(|path| !path.is_empty())
-        .map(str::to_string)
-        .collect();
+    let mut counted_paths = git_file_listing(cwd, &["--cached", "--recurse-submodules"])?;
+    counted_paths.extend(untracked_file_listing(cwd));
     Some(GitRepository {
         root,
-        tracked_paths,
+        counted_paths,
     })
 }
 
 /// Resolve the project's `.gitattributes` through Git itself, including nested
 /// files and Git's path-matching semantics. The fallback map is empty if Git
-/// cannot evaluate the attributes; the tracked-file census remains usable.
+/// cannot evaluate the attributes; the Git-listed census remains usable.
 fn git_linguist_attributes(
     repository_root: &std::path::Path,
     paths: &[String],
@@ -808,15 +831,16 @@ fn census_walk(
     }
 }
 
-/// Source evidence for `cwd`. The file list is git's tracked set when `cwd` is a
-/// repo - so untracked junk and ignored build output never sway the mix - and a
-/// bounded filesystem walk otherwise. Bounded to [`CENSUS_MAXIMUM_FILES`] either
-/// way so a huge tree can't stall a suggestion.
+/// Source evidence for `cwd`. The file list is git's tracked set plus the
+/// untracked files it does not ignore when `cwd` is a repo - so an agent's new
+/// file counts the moment it is written, while ignored build output never sways
+/// the mix - and a bounded filesystem walk otherwise. Bounded to
+/// [`CENSUS_MAXIMUM_FILES`] either way so a huge tree can't stall a suggestion.
 fn source_profile(cwd: &std::path::Path) -> SourceProfile {
     let mut profile = SourceProfile::default();
     if let Some(GitRepository {
         root,
-        tracked_paths: mut paths,
+        counted_paths: mut paths,
     }) = git_repository(cwd)
     {
         paths.truncate(CENSUS_MAXIMUM_FILES);
@@ -2263,7 +2287,7 @@ mod tests {
     }
 
     #[test]
-    fn the_census_honors_git_attributes_and_ignores_untracked_junk() {
+    fn the_census_honors_git_attributes_and_ignores_ignored_junk() {
         let directory =
             std::env::temp_dir().join(format!("pade-gittracked-{}", std::process::id()));
         std::fs::create_dir_all(&directory).expect("test dir");
@@ -2297,6 +2321,7 @@ mod tests {
             "generated.ts linguist-generated\ncustom.source linguist-language=Rust\nmanual.ts -linguist-generated\n",
         )
         .expect("attributes");
+        std::fs::write(directory.join(".gitignore"), "bundle.js\n").expect("ignore rules");
         let add = git(&["add", "."]).expect("git add");
         if !add.status.success() {
             std::fs::remove_dir_all(&directory).ok();
@@ -2304,11 +2329,59 @@ mod tests {
         }
 
         std::fs::write(directory.join("bundle.js"), "x = 1;\n".repeat(120_000))
-            .expect("untracked blob");
+            .expect("ignored blob");
+        let dependencies = directory.join("node_modules").join("left-pad");
+        std::fs::create_dir_all(&dependencies).expect("dependency dir");
+        std::fs::write(dependencies.join("index.js"), "x = 1;\n".repeat(120_000))
+            .expect("unignored dependency");
         let totals = census(&directory);
         assert_eq!(
             totals.get(&ProjectKind::Web),
             Some(&((web_source.len() + overridden_source.len()) as u64))
+        );
+        assert_eq!(
+            totals.get(&ProjectKind::Rust),
+            Some(&(rust_source.len() as u64))
+        );
+
+        std::fs::remove_dir_all(&directory).expect("cleanup");
+    }
+
+    #[test]
+    fn the_census_counts_an_untracked_file_nobody_has_staged_yet() {
+        let directory = std::env::temp_dir().join(format!("pade-untracked-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("test dir");
+        let git = |arguments: &[&str]| {
+            crate::util::command("git")
+                .arg("-C")
+                .arg(&directory)
+                .args(arguments)
+                .output()
+        };
+        let Ok(init) = git(&["init", "-q"]) else {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        };
+        if !init.status.success() {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        }
+
+        let web_source = "const value = 1;\n".repeat(100);
+        std::fs::write(directory.join("app.ts"), &web_source).expect("web file");
+        let add = git(&["add", "."]).expect("git add");
+        if !add.status.success() {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        }
+        let rust_source = "fn main() {}\n".repeat(100);
+        std::fs::write(directory.join("written-by-an-agent.rs"), &rust_source)
+            .expect("untracked rust file");
+
+        let totals = census(&directory);
+        assert_eq!(
+            totals.get(&ProjectKind::Web),
+            Some(&(web_source.len() as u64))
         );
         assert_eq!(
             totals.get(&ProjectKind::Rust),
