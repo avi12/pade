@@ -1,4 +1,4 @@
-import { mcpRestartTargets, rekeyLayout } from "@/lib/session/session-restart";
+import { mcpRestartTargets, rekeyLayout } from "@/lib/session/lifecycle/session-restart";
 import type { AgentSession, McpChange } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 

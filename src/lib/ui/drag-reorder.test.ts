@@ -1,11 +1,11 @@
 // The drag engine (`drag-reorder.ts`) is DOM-driven, but the decision it makes on
 // release - what order to commit - is the pure `committedOrderOnDrop` in
-// `@/lib/session/reorder`. These cover the regression it fixes: a below-threshold /
+// `@/lib/session/panes/reorder`. These cover the regression it fixes: a below-threshold /
 // same-slot drop must commit the UNCHANGED full order (never a shorter list, never
 // nothing), so the caller's session list can't drift out of sync with the DOM the
 // engine moved and later drop the "dropped-in-place" tab.
 
-import { committedOrderOnDrop } from "@/lib/session/reorder";
+import { committedOrderOnDrop } from "@/lib/session/panes/reorder";
 import { describe, expect, it } from "vitest";
 
 describe("committedOrderOnDrop", () => {

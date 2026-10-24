@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { SidebarChat, SidebarProject } from "@/lib/session/chat-registry";
+  import type { SidebarChat, SidebarProject } from "@/lib/session/chats/chat-registry";
   import ProjectChatRow from "@/lib/shell/sidebar/ProjectChatRow.svelte";
   import { collapseRow, expandRow } from "@/lib/ui/motion";
   import { displayName } from "@/lib/util/paths";

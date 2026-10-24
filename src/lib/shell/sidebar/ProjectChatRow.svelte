@@ -1,7 +1,7 @@
 <script lang="ts">
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
-  import type { SidebarChat } from "@/lib/session/chat-registry";
+  import type { SidebarChat } from "@/lib/session/chats/chat-registry";
   import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { RecordedConversation } from "@/lib/types";

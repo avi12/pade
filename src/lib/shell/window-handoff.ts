@@ -6,7 +6,7 @@
 // one schema - a trust boundary on arrival like any other IPC - and the pure
 // rules around it: which windows a merge can go to, and what it is called.
 
-import { SnapshotSession } from "@/lib/session/session-restore";
+import { SnapshotSession } from "@/lib/session/lifecycle/session-restore";
 import { RecordedConversation } from "@/lib/types";
 import type { OpenTarget, WindowInfo } from "@/lib/types";
 import { shortDisplayName } from "@/lib/util/paths";

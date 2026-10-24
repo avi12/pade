@@ -3,7 +3,7 @@ import {
   EmptyWorkspaceOutcome,
   emptyWorkspaceOutcome,
   RESPAWN_MINIMUM_LIFETIME_MS
-} from "@/lib/session/session-exit";
+} from "@/lib/session/lifecycle/session-exit";
 import { describe, expect, it } from "vitest";
 
 describe("didFailToStart", () => {

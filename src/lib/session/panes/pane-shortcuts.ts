@@ -11,7 +11,7 @@
 //   Ctrl+[  previous pane   Ctrl+]  next pane
 //   Ctrl+Alt+1..9  select the 1st..9th pane   Ctrl+Alt+W  close the active pane
 
-import { nextPaneId, paneIdAt, previousPaneId } from "@/lib/session/pane-nav";
+import { nextPaneId, paneIdAt, previousPaneId } from "@/lib/session/panes/pane-nav";
 import type { KeyChord } from "@/lib/session/tab-shortcuts";
 import { isEditingText } from "@/lib/ui/focus";
 

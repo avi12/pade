@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { ElsewhereSession } from "@/lib/dashboard/agent-board";
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
-  import type { StoredChatRegistry } from "@/lib/session/chat-registry";
-  import { sidebarProjects } from "@/lib/session/chat-registry";
+  import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
+  import { sidebarProjects } from "@/lib/session/chats/chat-registry";
   import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
   import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";

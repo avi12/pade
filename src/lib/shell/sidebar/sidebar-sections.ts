@@ -1,7 +1,7 @@
 // Pure bookkeeping for the left rail: which projects it lists and in what
 // order, and how a search splits them into the Pinned and Recent sections.
 
-import type { SidebarProject, StoredChatRegistry } from "@/lib/session/chat-registry";
+import type { SidebarProject, StoredChatRegistry } from "@/lib/session/chats/chat-registry";
 import { normalizePath } from "@/lib/util/paths";
 import { matchesProjectFilter } from "@/lib/workspace/switcher/switcher-rows";
 

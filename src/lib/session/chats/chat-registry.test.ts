@@ -5,7 +5,7 @@ import {
   registryWithoutChat,
   sidebarProjects,
   type StoredChatRegistry
-} from "@/lib/session/chat-registry";
+} from "@/lib/session/chats/chat-registry";
 import { SessionStatus } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
 import { describe, expect, it } from "vitest";

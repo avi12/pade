@@ -1,4 +1,4 @@
-import { frontProject, sessionsOfProject, sessionToFocus } from "@/lib/session/session-projects";
+import { frontProject, sessionsOfProject, sessionToFocus } from "@/lib/session/chats/session-projects";
 import { describe, expect, it } from "vitest";
 
 const PADE = "C:\\repositories\\pade";

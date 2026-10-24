@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SidebarProject } from "@/lib/session/chat-registry";
+  import type { SidebarProject } from "@/lib/session/chats/chat-registry";
   import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";
   import { sidebarArrowKeys } from "@/lib/shell/sidebar/sidebar-keyboard";
   import type { sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";

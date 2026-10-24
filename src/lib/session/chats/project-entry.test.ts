@@ -1,12 +1,12 @@
-import type { StoredChatRegistry } from "@/lib/session/chat-registry";
+import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
 import {
   enterProjectChats,
   joinProjectChats,
   JoinStep,
   joinStep,
   resumeRecordedConversation
-} from "@/lib/session/project-entry";
-import type { ProjectEntryHost } from "@/lib/session/project-entry";
+} from "@/lib/session/chats/project-entry";
+import type { ProjectEntryHost } from "@/lib/session/chats/project-entry";
 import type { RecordedConversation } from "@/lib/types";
 import { describe, expect, it, vi } from "vitest";
 

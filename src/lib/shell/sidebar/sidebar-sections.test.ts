@@ -1,4 +1,4 @@
-import type { SidebarProject, StoredChatRegistry } from "@/lib/session/chat-registry";
+import type { SidebarProject, StoredChatRegistry } from "@/lib/session/chats/chat-registry";
 import { firstListedProject, sidebarProjectOrder, sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
 import { describe, expect, it } from "vitest";
 

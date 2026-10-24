@@ -1,17 +1,17 @@
 // This window's agent sessions and how they are laid out: which exist, which
 // are shown side by side and which is active - plus their whole lifecycle,
 // launch through re-key to teardown. The shell owns one instance; the layout
-// math lives in `@/lib/session/pane-layout`, the policy for an emptied
+// math lives in `@/lib/session/panes/pane-layout`, the policy for an emptied
 // workspace stays with the shell (`onEmptied`).
 
 import { aiNamingEnabled } from "@/lib/agent/ai-naming-scope";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { startingModelChoice } from "@/lib/model/agent-model-scope";
-import { layoutWithoutSession, layoutWithoutSessions, wrappedIndex } from "@/lib/session/pane-layout";
-import type { PaneLayout } from "@/lib/session/pane-layout";
-import { didFailToStart } from "@/lib/session/session-exit";
-import { frontProject, sessionsOfProject } from "@/lib/session/session-projects";
-import { rekeyLayout } from "@/lib/session/session-restart";
+import { frontProject, sessionsOfProject } from "@/lib/session/chats/session-projects";
+import { didFailToStart } from "@/lib/session/lifecycle/session-exit";
+import { rekeyLayout } from "@/lib/session/lifecycle/session-restart";
+import { layoutWithoutSession, layoutWithoutSessions, wrappedIndex } from "@/lib/session/panes/pane-layout";
+import type { PaneLayout } from "@/lib/session/panes/pane-layout";
 import { settings } from "@/lib/settings/settings.svelte";
 import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
 import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
@@ -134,7 +134,7 @@ export function createWindowSessions(host: WindowSessionsHost) {
   );
 
   // When each session launched, so a self-exit right after reads as a failed
-  // start (lib/session/session-exit) and is not respawned into a loop.
+  // start (lib/session/lifecycle/session-exit) and is not respawned into a loop.
   const sessionLaunchedAt = new SvelteMap<string, number>();
   // A hand-close also kills the PTY, firing the exit event; the exit handler skips
   // these so the two teardown paths don't race.

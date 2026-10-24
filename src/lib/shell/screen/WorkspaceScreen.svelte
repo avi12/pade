@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import RunnerDock from "@/lib/runners/RunnerDock.svelte";
-  import type { StoredChatRegistry } from "@/lib/session/chat-registry";
-  import { paneIdsAfterSplit, sessionsAfterReorder } from "@/lib/session/pane-layout";
+  import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
+  import { paneIdsAfterSplit, sessionsAfterReorder } from "@/lib/session/panes/pane-layout";
   import SessionTabs from "@/lib/session/SessionTabs.svelte";
   import { SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/settings/prefs.svelte";
   import type { createActiveRepository } from "@/lib/shell/activeRepository.svelte";

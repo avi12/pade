@@ -1,8 +1,8 @@
 // The DOM side of the split panes: hit-testing a pointer against the shown
 // panes and springing a newly added pane in. The layout math itself lives in
-// `@/lib/session/pane-layout` (DOM-free, unit-tested).
+// `@/lib/session/panes/pane-layout` (DOM-free, unit-tested).
 
-import { paneAtPoint } from "@/lib/session/pane-layout";
+import { paneAtPoint } from "@/lib/session/panes/pane-layout";
 import { tick } from "svelte";
 
 // The spring a pane joining a split enters with.

@@ -7,7 +7,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { setWindowTitle } from "@/lib/ipc/platform";
-import { saveSessionSnapshot } from "@/lib/session/session-restore";
+import { saveSessionSnapshot } from "@/lib/session/lifecycle/session-restore";
 import { settings } from "@/lib/settings/settings.svelte";
 import { windowQueryFor } from "@/lib/shell/window-route";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";

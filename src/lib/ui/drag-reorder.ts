@@ -26,7 +26,7 @@
 //     centre (no flicker at the boundary). Reduced motion skips the transitions.
 //
 // The DOM-free order/geometry math (`insertionIndex`, `reorderedIds`, `paneDropSide`)
-// lives in `@/lib/session/reorder` so it's unit-tested and shared - the which-half decision
+// lives in `@/lib/session/panes/reorder` so it's unit-tested and shared - the which-half decision
 // has one home there. This module measures geometry, drives the DOM imperatively,
 // and reports every state change through `onHint` so a Svelte caller can mirror it
 // into `$state` and paint its own affordances. The deferred commit awaits Svelte's
@@ -34,7 +34,7 @@
 // frame (no flash).
 
 import { colorAlpha, OPAQUE_ALPHA } from "@/lib/code/colors";
-import { committedOrderOnDrop, DropSide, insertionIndex, paneDropSide } from "@/lib/session/reorder";
+import { committedOrderOnDrop, DropSide, insertionIndex, paneDropSide } from "@/lib/session/panes/reorder";
 import { Key } from "@/lib/ui/keys";
 import { prefersReducedMotion } from "@/lib/ui/motion";
 import { tick } from "svelte";

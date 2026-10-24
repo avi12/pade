@@ -10,13 +10,13 @@
     registryWithLiveChats,
     registryWithoutChat,
     saveChatRegistry
-  } from "@/lib/session/chat-registry";
-  import type { StoredChatRegistry } from "@/lib/session/chat-registry";
-  import { enterProjectChats, joinProjectChats } from "@/lib/session/project-entry";
-  import type { ProjectEntryHost } from "@/lib/session/project-entry";
-  import { EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session/session-exit";
-  import { sessionsOfProject } from "@/lib/session/session-projects";
-  import { clearSessionSnapshot, restoreLiveSnapshot } from "@/lib/session/session-restore";
+  } from "@/lib/session/chats/chat-registry";
+  import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
+  import { enterProjectChats, joinProjectChats } from "@/lib/session/chats/project-entry";
+  import type { ProjectEntryHost } from "@/lib/session/chats/project-entry";
+  import { sessionsOfProject } from "@/lib/session/chats/session-projects";
+  import { EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session/lifecycle/session-exit";
+  import { clearSessionSnapshot, restoreLiveSnapshot } from "@/lib/session/lifecycle/session-restore";
   import { effective } from "@/lib/settings/prefs.svelte";
   import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
@@ -69,7 +69,7 @@
   /** On the root while the picker morphs into the workspace (theme.css). */
   const ENTERING_WORKSPACE_CLASS = "entering-workspace";
   let agents = $state<Agent[]>([]);
-  // Every project's persisted chats (lib/session/chat-registry) - the left
+  // Every project's persisted chats (lib/session/chats/chat-registry) - the left
   // rail's memory, loaded once and kept in sync with the live sessions below.
   let chatRegistry = $state<StoredChatRegistry>(loadChatRegistry());
   // Carried through the agent picker so a new-project prompt survives onboarding.
@@ -116,7 +116,7 @@
       project: session.project,
       chatId: session.id
     }),
-    // The window's last session just ended (lib/session/session-exit decides what next).
+    // The window's last session just ended (lib/session/lifecycle/session-exit decides what next).
     onEmptied({ agent, project, isFailedStart }) {
       const outcome = emptyWorkspaceOutcome({
         isUnnamedTemp: isUnnamedTemporary(project),
@@ -597,7 +597,7 @@
     return await sendMessage(Command.windowFocusProject, { path: project });
   }
 
-  // Enter a project beside the sessions already open (lib/session/project-entry).
+  // Enter a project beside the sessions already open (lib/session/chats/project-entry).
   async function joinProject(target: OpenTarget) {
     if (target.created === true) {
       armNewProjectDetection(target.path);

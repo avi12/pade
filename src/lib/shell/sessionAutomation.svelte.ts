@@ -6,7 +6,7 @@
 // the shell only reads the notes they show.
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
-import { mcpRestartTargets } from "@/lib/session/session-restart";
+import { mcpRestartTargets } from "@/lib/session/lifecycle/session-restart";
 import { effective } from "@/lib/settings/prefs.svelte";
 import { settings } from "@/lib/settings/settings.svelte";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";

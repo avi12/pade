@@ -1,9 +1,9 @@
 // The keyboard reach into this window's sessions: the tab shortcuts (new tab,
 // launch menu, close, cycle, jump by number) and the pane shortcuts of a split.
 // The chords themselves are matched in lib/session/tab-shortcuts and
-// lib/session/pane-shortcuts; this hands them the window's sessions to act on.
+// lib/session/panes/pane-shortcuts; this hands them the window's sessions to act on.
 
-import { registerPaneShortcuts } from "@/lib/session/pane-shortcuts";
+import { registerPaneShortcuts } from "@/lib/session/panes/pane-shortcuts";
 import { ADD_SESSION_MENU_ID } from "@/lib/session/SessionTabs.svelte";
 import { registerTabShortcuts } from "@/lib/session/tab-shortcuts";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";

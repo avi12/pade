@@ -6,7 +6,7 @@
 // `--session-id`, the others through `agent_resume_args`).
 
 import type { ElsewhereSession } from "@/lib/dashboard/agent-board";
-import { isSameProject, sessionsOfProject } from "@/lib/session/session-projects";
+import { isSameProject, sessionsOfProject } from "@/lib/session/chats/session-projects";
 import { Agent, ModelChoice } from "@/lib/types";
 import type { AgentSession, RecordedConversation, SessionStatus } from "@/lib/types";
 import { normalizePath } from "@/lib/util/paths";

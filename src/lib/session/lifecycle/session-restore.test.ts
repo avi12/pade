@@ -4,7 +4,7 @@ import {
   readSessionSnapshot,
   saveSessionSnapshot,
   type SessionSnapshot
-} from "@/lib/session/session-restore";
+} from "@/lib/session/lifecycle/session-restore";
 import type { AgentSession } from "@/lib/types";
 import {
   afterEach,

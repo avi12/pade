@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { layoutWithoutPane } from "@/lib/session/pane-layout";
-  import { DropSide } from "@/lib/session/reorder";
+  import { layoutWithoutPane } from "@/lib/session/panes/pane-layout";
+  import { DropSide } from "@/lib/session/panes/reorder";
   import { animatePaneIn, paneDropAt } from "@/lib/shell/screen/pane-dom";
   import SplitMenu from "@/lib/shell/screen/SplitMenu.svelte";
   import type { Agent, AgentSession } from "@/lib/types";

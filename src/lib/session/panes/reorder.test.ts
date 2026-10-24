@@ -4,7 +4,7 @@ import {
   paneDropSide,
   paneInsertIndex,
   reorderedIds
-} from "@/lib/session/reorder";
+} from "@/lib/session/panes/reorder";
 import { describe, expect, it } from "vitest";
 
 const IDS = ["a", "b", "c", "d"];

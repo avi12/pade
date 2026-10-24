@@ -8,7 +8,7 @@
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { closeWindow } from "@/lib/ipc/platform";
-import { liveSessionOf, snapshotSessionOf } from "@/lib/session/session-restore";
+import { liveSessionOf, snapshotSessionOf } from "@/lib/session/lifecycle/session-restore";
 import {
   HandoffKind,
   handoffPayload,

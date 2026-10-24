@@ -6,15 +6,15 @@
 // live session brought forward. The app shell lends the session actions and
 // how it launches a fresh chat; this owns the decisions.
 
-import { persistedChat } from "@/lib/session/chat-registry";
+import { persistedChat } from "@/lib/session/chats/chat-registry";
 import {
   launchArgumentsFrom,
   restoreChat,
   restoreProjectChats,
   shouldStartFreshChat
-} from "@/lib/session/chat-restore";
-import type { ChatRestoreHost } from "@/lib/session/chat-restore";
-import { sessionToFocus } from "@/lib/session/session-projects";
+} from "@/lib/session/chats/chat-restore";
+import type { ChatRestoreHost } from "@/lib/session/chats/chat-restore";
+import { sessionToFocus } from "@/lib/session/chats/session-projects";
 import type { AgentSession, OpenTarget, RecordedConversation } from "@/lib/types";
 
 type RestoreLaunchOptions = Parameters<ChatRestoreHost["launch"]>[0];

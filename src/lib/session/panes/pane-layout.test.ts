@@ -6,8 +6,8 @@ import {
   paneIdsAfterSplit,
   sessionsAfterReorder,
   wrappedIndex
-} from "@/lib/session/pane-layout";
-import { DropSide } from "@/lib/session/reorder";
+} from "@/lib/session/panes/pane-layout";
+import { DropSide } from "@/lib/session/panes/reorder";
 import type { AgentSession } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 

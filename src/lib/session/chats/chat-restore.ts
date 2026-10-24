@@ -5,8 +5,8 @@
 // the restore order and which chat ends up in front.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import { chatsForProject } from "@/lib/session/chat-registry";
-import type { PersistedChat, StoredChatRegistry } from "@/lib/session/chat-registry";
+import { chatsForProject } from "@/lib/session/chats/chat-registry";
+import type { PersistedChat, StoredChatRegistry } from "@/lib/session/chats/chat-registry";
 import type { Agent, ModelChoice } from "@/lib/types";
 import { settledValue } from "@/lib/util/settled";
 

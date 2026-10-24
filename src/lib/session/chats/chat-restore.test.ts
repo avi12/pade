@@ -1,6 +1,6 @@
-import type { StoredChatRegistry } from "@/lib/session/chat-registry";
-import { restoreProjectChats, shouldStartFreshChat } from "@/lib/session/chat-restore";
-import type { ChatRestoreHost } from "@/lib/session/chat-restore";
+import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
+import { restoreProjectChats, shouldStartFreshChat } from "@/lib/session/chats/chat-restore";
+import type { ChatRestoreHost } from "@/lib/session/chats/chat-restore";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
