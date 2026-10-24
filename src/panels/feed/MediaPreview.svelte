@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { CardViewKind } from "@/lib/feed/card-view";
-  import type { MediaView } from "@/lib/feed/card-view";
+  import { CardViewKind } from "@/lib/feed/preview/card-view";
+  import type { MediaView } from "@/lib/feed/preview/card-view";
 
   // An image or video card's picture or clip, in place of a text diff.
   const { view, name }: {

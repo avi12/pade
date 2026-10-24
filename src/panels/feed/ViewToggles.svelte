@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { PreviewPane } from "@/lib/feed/feed-previews";
-  import type { FeedPreviews } from "@/lib/feed/feed-previews";
+  import { PreviewPane } from "@/lib/feed/preview/feed-previews";
+  import type { FeedPreviews } from "@/lib/feed/preview/feed-previews";
   import { DiffStyle } from "@/lib/types";
   import type { ChangeEvent } from "@/lib/types";
   import { prefersReducedMotion } from "@/lib/ui/motion";

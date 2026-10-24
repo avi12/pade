@@ -3,7 +3,7 @@
   import ColorText from "@/lib/code/ColorText.svelte";
   import { markdownDocument } from "@/lib/code/markdown";
   import SandboxedPreview from "@/lib/code/SandboxedPreview.svelte";
-  import { isMarkdownPath } from "@/lib/feed/preview";
+  import { isMarkdownPath } from "@/lib/feed/preview/preview";
   import type { ConfigFile } from "@/lib/types";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";
 

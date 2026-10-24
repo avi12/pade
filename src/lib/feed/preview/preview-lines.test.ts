@@ -1,5 +1,5 @@
 import { DiffKind } from "@/lib/code/diff";
-import { previewLines } from "@/lib/feed/preview-lines";
+import { previewLines } from "@/lib/feed/preview/preview-lines";
 import { describe, expect, it } from "vitest";
 
 function kindsOf(lines: ReturnType<typeof previewLines>) {

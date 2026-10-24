@@ -1,8 +1,8 @@
 <script lang="ts">
   import { groupChanges } from "@/lib/feed/change-groups";
-  import { createFeedPreviews } from "@/lib/feed/feed-previews";
-  import { watchSummary } from "@/lib/feed/feed-status";
-  import { countExtensions, filterByExtension } from "@/lib/feed/type-filter";
+  import { countExtensions, filterByExtension } from "@/lib/feed/filter/type-filter";
+  import { createFeedPreviews } from "@/lib/feed/preview/feed-previews";
+  import { watchSummary } from "@/lib/feed/watch/feed-status";
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { effective } from "@/lib/settings/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";

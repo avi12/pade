@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { isEveryTypeSelected } from "@/lib/feed/type-filter";
-  import type { ExtensionCount } from "@/lib/feed/type-filter";
+  import { isEveryTypeSelected } from "@/lib/feed/filter/type-filter";
+  import type { ExtensionCount } from "@/lib/feed/filter/type-filter";
   import { collapseRow, emphasized, expandRow, flipDuration } from "@/lib/ui/motion";
   import { formatCount } from "@/lib/util/format";
   import { flip } from "svelte/animate";

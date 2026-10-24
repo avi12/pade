@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ChangeGroup } from "@/lib/feed/change-groups";
-  import type { FeedPreviews } from "@/lib/feed/feed-previews";
-  import { isVideoPath } from "@/lib/feed/preview";
+  import type { FeedPreviews } from "@/lib/feed/preview/feed-previews";
+  import { isVideoPath } from "@/lib/feed/preview/preview";
   import type { DiffStyle } from "@/lib/types";
   import ChangeCard from "@/panels/feed/ChangeCard.svelte";
   import ChangeDetail from "@/panels/feed/ChangeDetail.svelte";

@@ -2,8 +2,8 @@
 // rendered document or the diff - or the one line saying why there is none
 // (yet). Pure, so every state a card can land in is tested rather than eyeballed.
 
-import { PreviewPane } from "@/lib/feed/feed-previews";
-import { isImagePath, isRenderablePath, isVideoPath } from "@/lib/feed/preview";
+import { PreviewPane } from "@/lib/feed/preview/feed-previews";
+import { isImagePath, isRenderablePath, isVideoPath } from "@/lib/feed/preview/preview";
 import { FeedVideoKind } from "@/lib/types";
 import type { FeedVideo } from "@/lib/types";
 

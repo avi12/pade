@@ -1,4 +1,4 @@
-import { watchSummary } from "@/lib/feed/feed-status";
+import { watchSummary } from "@/lib/feed/watch/feed-status";
 import { describe, expect, it } from "vitest";
 
 const PROJECT = "C:\\repositories\\avi\\pade";

@@ -7,7 +7,7 @@
 // IMAGE_MIME_TYPES (watcher.rs), where each extension is also mapped to its MIME
 // type; the two lists are kept in sync by hand.
 
-import { pathExtension } from "@/lib/feed/file-type";
+import { pathExtension } from "@/lib/feed/filter/file-type";
 import { z } from "zod";
 
 /** The image file extensions the Change Feed previews inline (lower-case, no

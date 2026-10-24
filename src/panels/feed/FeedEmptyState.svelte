@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { watchSummary } from "@/lib/feed/feed-status";
+  import type { watchSummary } from "@/lib/feed/watch/feed-status";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
 

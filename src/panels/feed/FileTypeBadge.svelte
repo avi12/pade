@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fileTypeBadge } from "@/lib/feed/file-type";
+  import { fileTypeBadge } from "@/lib/feed/filter/file-type";
   import Icon from "@/lib/Icon.svelte";
 
   // A changed file's type chip: a brand logo when the language has one, else a

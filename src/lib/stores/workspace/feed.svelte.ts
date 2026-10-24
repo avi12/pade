@@ -5,7 +5,7 @@
 // feed stream, started once and never torn down, so events keep arriving while the
 // panel is closed and survive its remount.
 
-import { eventsForLiveWatch, readFeedSnapshot, saveFeedSnapshot } from "@/lib/feed/feed-snapshot";
+import { eventsForLiveWatch, readFeedSnapshot, saveFeedSnapshot } from "@/lib/feed/watch/feed-snapshot";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import type { ChangeEvent, WatchStatus } from "@/lib/types";
 import { baseName } from "@/lib/util/paths";

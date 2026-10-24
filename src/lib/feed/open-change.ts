@@ -2,7 +2,7 @@
 // nothing in a text editor, so it is shown selected in its folder instead; every
 // other file opens in the project's ranked windowed editor, at a line.
 
-import { isBinaryPath } from "@/lib/feed/preview";
+import { isBinaryPath } from "@/lib/feed/preview/preview";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { Ide } from "@/lib/types";
 

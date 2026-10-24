@@ -1,9 +1,9 @@
 <script lang="ts">
   import { firstChangedLine } from "@/lib/code/diff";
-  import { PreviewPane } from "@/lib/feed/feed-previews";
-  import type { FeedPreviews } from "@/lib/feed/feed-previews";
   import { openAction, openChangedFile } from "@/lib/feed/open-change";
-  import { isMediaPath, isRenderablePath } from "@/lib/feed/preview";
+  import { PreviewPane } from "@/lib/feed/preview/feed-previews";
+  import type { FeedPreviews } from "@/lib/feed/preview/feed-previews";
+  import { isMediaPath, isRenderablePath } from "@/lib/feed/preview/preview";
   import Icon from "@/lib/Icon.svelte";
   import { windowedEditorFor } from "@/lib/stores/workspace/editors.svelte";
   import { DiffStyle } from "@/lib/types";

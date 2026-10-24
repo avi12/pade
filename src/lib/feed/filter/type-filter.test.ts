@@ -1,4 +1,9 @@
-import { countExtensions, filterByExtension, isEveryTypeSelected, typeFilterLabel } from "@/lib/feed/type-filter";
+import {
+  countExtensions,
+  filterByExtension,
+  isEveryTypeSelected,
+  typeFilterLabel
+} from "@/lib/feed/filter/type-filter";
 import { ChangeKind } from "@/lib/types";
 import type { ChangeEvent } from "@/lib/types";
 import { describe, expect, it } from "vitest";

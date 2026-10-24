@@ -1,4 +1,4 @@
-import { createFeedPreviews, PreviewPane } from "@/lib/feed/feed-previews";
+import { createFeedPreviews, PreviewPane } from "@/lib/feed/preview/feed-previews";
 import { Command } from "@/lib/ipc/messaging";
 import {
   beforeEach,

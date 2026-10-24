@@ -6,7 +6,7 @@ import {
   isMediaPath,
   isRenderablePath,
   isVideoPath
-} from "@/lib/feed/preview";
+} from "@/lib/feed/preview/preview";
 import { describe, expect, it } from "vitest";
 
 describe("isBinaryPath", () => {

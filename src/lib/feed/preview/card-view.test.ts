@@ -1,5 +1,5 @@
-import { cardView, CardViewKind } from "@/lib/feed/card-view";
-import { PreviewPane } from "@/lib/feed/feed-previews";
+import { cardView, CardViewKind } from "@/lib/feed/preview/card-view";
+import { PreviewPane } from "@/lib/feed/preview/feed-previews";
 import { FeedVideoKind } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 

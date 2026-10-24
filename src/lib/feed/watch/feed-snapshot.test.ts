@@ -1,4 +1,9 @@
-import { eventsForLiveWatch, type FeedSnapshot, readFeedSnapshot, saveFeedSnapshot } from "@/lib/feed/feed-snapshot";
+import {
+  eventsForLiveWatch,
+  type FeedSnapshot,
+  readFeedSnapshot,
+  saveFeedSnapshot
+} from "@/lib/feed/watch/feed-snapshot";
 import { ChangeKind } from "@/lib/types";
 import {
   afterEach,

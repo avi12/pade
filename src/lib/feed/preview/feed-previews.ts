@@ -7,8 +7,8 @@
 
 import type { DiffLine } from "@/lib/code/diff";
 import { markdownDocument, sandboxedHtmlDocument } from "@/lib/code/markdown";
-import { isImagePath, isMarkdownPath, isVideoPath } from "@/lib/feed/preview";
-import { previewLines } from "@/lib/feed/preview-lines";
+import { isImagePath, isMarkdownPath, isVideoPath } from "@/lib/feed/preview/preview";
+import { previewLines } from "@/lib/feed/preview/preview-lines";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { FeedVideo } from "@/lib/types";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";

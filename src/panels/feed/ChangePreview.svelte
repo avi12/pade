@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { DiffLine } from "@/lib/code/diff";
   import SandboxedPreview from "@/lib/code/SandboxedPreview.svelte";
-  import { cardView, CardViewKind } from "@/lib/feed/card-view";
-  import type { FeedPreviews } from "@/lib/feed/feed-previews";
+  import { cardView, CardViewKind } from "@/lib/feed/preview/card-view";
+  import type { FeedPreviews } from "@/lib/feed/preview/feed-previews";
   import Icon from "@/lib/Icon.svelte";
   import type { ChangeEvent, Ide } from "@/lib/types";
   import { baseName } from "@/lib/util/paths";

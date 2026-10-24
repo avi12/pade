@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { ExtensionCount } from "@/lib/feed/type-filter";
-  import { typeFilterLabel } from "@/lib/feed/type-filter";
+  import type { ExtensionCount } from "@/lib/feed/filter/type-filter";
+  import { typeFilterLabel } from "@/lib/feed/filter/type-filter";
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
