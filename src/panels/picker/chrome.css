@@ -79,14 +79,23 @@
 /* A picker menu grows into the room it has, up to the viewport's edge, and
    no taller than a list can be scanned: in pure CSS, under `position-area`
    its containing block is the strip between the anchor and that edge, so
-   100% of it (less the offset kept at each end) is exactly the room.
-   `most-height` lets the browser open it upward instead when more of the
-   screen lies above the trigger. */
+   100% of it, less the gap to the anchor and a 10px gap to the viewport
+   (youtube-time-manager's dashboard popover keeps the same bottom gap, from
+   a hand-counted anchor offset), is exactly the room. `most-height` lets the
+   browser open it upward instead when more of the screen lies above the
+   trigger. */
 .picker .menu {
   --picker-menu-max-block-size: 400px;
 
+  /* The space kept between the menu's far edge and the viewport's. */
+  --picker-menu-viewport-gap: 10px;
+
   overflow-y: auto;
-  max-block-size: min(calc(100% - 2 * var(--popover-menu-offset)), var(--picker-menu-max-block-size));
+  max-block-size:
+    min(
+      calc(100% - var(--popover-menu-offset) - var(--picker-menu-viewport-gap)),
+      var(--picker-menu-max-block-size)
+    );
   min-inline-size: 250px;
   position-area: bottom span-left;
   position-try-order: most-height;
