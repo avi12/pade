@@ -1,6 +1,7 @@
 <script lang="ts">
   import { growInline } from "@/lib/ui/motion";
-  import { isJustReset, NO_READING, severityClass } from "@/lib/usage/meter/usage-meter";
+  import { tooltip } from "@/lib/ui/truncation-tooltip";
+  import { isJustReset, limitTooltip, NO_READING, severityClass } from "@/lib/usage/meter/usage-meter";
   import type { AgentGroup } from "@/lib/usage/usage-groups";
 
   // One agent's limits as compact stacks - the mono kind letter over its
@@ -16,6 +17,8 @@
 {#if group.limits.length > 0}
   <span class="limits">
     {#each group.limits as limit (limit.label)}
+      <!-- The letter alone doesn't say which limit it is: the shared top-layer
+           bubble names it (a data-tooltip pseudo would widen a scrolling list). -->
       <span
         class={["limit severity", severityClass(limit.level)]}
         class:just-reset={isJustReset({
@@ -23,6 +26,7 @@
           agentId: group.id,
           limit
         })}
+        {@attach tooltip(() => limitTooltip(limit))}
         transition:growInline
       >
         <span class="kind">{limit.kindShort}</span>
