@@ -12,7 +12,7 @@
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import type { Agent } from "@/lib/types";
-  import { rovingMenu } from "@/lib/ui/roving-menu";
+  import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
 
   const { agents, branches, onlaunch, onlaunchbranch }: {
     agents: Agent[];

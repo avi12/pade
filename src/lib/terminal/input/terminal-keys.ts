@@ -9,7 +9,7 @@ import { isPromptNewlineShortcut, pathsAsPromptText, PROMPT_NEWLINE } from "@/li
 import { accumulateWheelNotches } from "@/lib/terminal/input/terminal-scroll";
 import { ERASE_WORD, PAGE_DOWN, PAGE_UP } from "@/lib/terminal/input/terminal-sequences";
 import { wheelScrollsTerminalDocument } from "@/lib/terminal/output/terminal-output";
-import { Key } from "@/lib/ui/keys";
+import { Key } from "@/lib/ui/keyboard/keys";
 import type { Terminal } from "@xterm/xterm";
 
 // The terminal's own clipboard chords (Ctrl+C with a selection, Ctrl+V),

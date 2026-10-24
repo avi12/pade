@@ -4,7 +4,7 @@
   // the way to restart into it now rather than on the next close.
   import { effective, updatePrefs } from "@/lib/settings/prefs.svelte";
   import { appUpdate, checkForUpdate, restartToUpdate } from "@/lib/stores/update/appUpdate.svelte";
-  import Checkbox from "@/lib/ui/Checkbox.svelte";
+  import Checkbox from "@/lib/ui/controls/Checkbox.svelte";
 
   const status = $derived(appUpdate.status);
   const isUpdatable = $derived(status?.isSupported === true);

@@ -283,7 +283,7 @@ These are non-negotiable for all work in this repo.
      is the frame's required accessible name, and hovering a frame shows its
      content, never a tooltip. A tooltip that repeats text the element already
      shows appears only while that text is cut short: use `truncationTooltip`
-     (`@/lib/ui/truncation-tooltip`, which counts an ellipsis or a line clamp),
+     (`@/lib/ui/tooltip/truncation-tooltip`, which counts an ellipsis or a line clamp),
      never an always-on `data-tooltip` that echoes a readable label.
      `data-tooltip` stays for what the element does not say in words: an
      icon-only button's label, or information it doesn't show.

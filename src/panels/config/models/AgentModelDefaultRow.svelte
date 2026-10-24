@@ -7,7 +7,7 @@
   import EffortPicker from "@/lib/model/EffortPicker.svelte";
   import { modelOption, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import type { Agent, ModelChoice } from "@/lib/types";
-  import Select from "@/lib/ui/Select.svelte";
+  import Select from "@/lib/ui/controls/Select.svelte";
 
   const { agent, chosen, onsave }: {
     agent: Agent;

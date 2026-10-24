@@ -3,7 +3,7 @@
   import { EventType, onMessage } from "@/lib/ipc/messaging";
   import { EMPTY_PATH_PROBE } from "@/lib/types";
   import type { DragPosition, OpenTarget, TaggedPathProbe } from "@/lib/types";
-  import { isDragOverElement } from "@/lib/ui/drag-position";
+  import { isDragOverElement } from "@/lib/ui/drag/drag-position";
   import { FolderPath, parseInput } from "@/lib/validate";
   import PathCombobox from "@/panels/picker/PathCombobox.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";

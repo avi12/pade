@@ -3,7 +3,7 @@
   import DiffView from "@/lib/code/DiffView.svelte";
   import { openChangedFile } from "@/lib/feed/open-change";
   import type { Ide } from "@/lib/types";
-  import { Key } from "@/lib/ui/keys";
+  import { Key } from "@/lib/ui/keyboard/keys";
 
   // An open card's diff. Clicking it (or Enter on it) opens the file in the
   // editor, jumped to the clicked - else the first changed - line. The launcher

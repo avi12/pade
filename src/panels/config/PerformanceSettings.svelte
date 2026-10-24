@@ -3,7 +3,7 @@
   // restart sits right beside it.
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { effective, updatePrefs } from "@/lib/settings/prefs.svelte";
-  import Checkbox from "@/lib/ui/Checkbox.svelte";
+  import Checkbox from "@/lib/ui/controls/Checkbox.svelte";
 </script>
 
 <div class="field-row">

@@ -2,7 +2,7 @@
   import type { IconName } from "@/lib/Icon.svelte";
   import { chooseThemeMode, effective } from "@/lib/settings/prefs.svelte";
   import { ThemeMode } from "@/lib/types";
-  import Segmented from "@/lib/ui/Segmented.svelte";
+  import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import FontSizeStepper from "@/panels/config/appearance/FontSizeStepper.svelte";
   import HandoffThreshold from "@/panels/config/appearance/HandoffThreshold.svelte";
   import TerminalColours from "@/panels/config/appearance/TerminalColours.svelte";

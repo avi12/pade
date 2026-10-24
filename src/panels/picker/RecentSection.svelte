@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import type { Ide } from "@/lib/types";
   import { collapseRow } from "@/lib/ui/motion";
-  import { tooltip, truncationTooltip } from "@/lib/ui/truncation-tooltip";
+  import { tooltip, truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
   import LanguageBar from "@/lib/workspace/display/LanguageBar.svelte";
   import LastAccessed from "@/lib/workspace/display/LastAccessed.svelte";

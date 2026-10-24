@@ -1,4 +1,4 @@
-import { clearOverflowTooltip, showOverflowTooltip } from "@/lib/ui/overflow-tooltip.svelte";
+import { clearOverflowTooltip, showOverflowTooltip } from "@/lib/ui/tooltip/overflow-tooltip.svelte";
 
 /** A tooltip text, or a thunk for one that must stay live (e.g. it names the
  *  currently ranked editor, which can change after the attachment mounts). */

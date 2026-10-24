@@ -15,8 +15,8 @@
 //     interleaved with per-row kebabs, and its filter field is one of the stops).
 //     Nothing but focus moves.
 
-import { Key } from "@/lib/ui/keys";
-import { ToggleState } from "@/lib/ui/toggle-state";
+import { ToggleState } from "@/lib/ui/controls/toggle-state";
+import { Key } from "@/lib/ui/keyboard/keys";
 
 const MENU_ITEM_SELECTOR = "button";
 const OPEN_NESTED_MENU_SELECTOR = ":scope [popover]:popover-open";

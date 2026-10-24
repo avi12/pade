@@ -48,7 +48,7 @@
   } from "@/lib/stores/workspace/new-project-detection";
   import { StartMode, realAgents as toRealAgents } from "@/lib/types";
   import type { Agent, AgentSession, OpenTarget } from "@/lib/types";
-  import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
+  import OverflowTooltipLayer from "@/lib/ui/tooltip/OverflowTooltipLayer.svelte";
   import { isTemporaryWorkspace, shortDisplayName } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
   import { createRelocator } from "@/lib/workspace/relocate/workspace-relocate";

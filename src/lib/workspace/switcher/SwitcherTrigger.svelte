@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Logo from "@/lib/ui/Logo.svelte";
+  import Logo from "@/lib/ui/brand/Logo.svelte";
   import { openRepositoryOnModifiedClick } from "@/lib/vcs/repository-links";
   import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
 

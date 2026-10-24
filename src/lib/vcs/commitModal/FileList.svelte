@@ -1,7 +1,7 @@
 <script lang="ts">
   import { VcsKind } from "@/lib/types";
   import type { CommitFileEntry } from "@/lib/types";
-  import { Key } from "@/lib/ui/keys";
+  import { Key } from "@/lib/ui/keyboard/keys";
   import { formatCount } from "@/lib/util/format";
   import { baseName } from "@/lib/util/paths";
   import { tick } from "svelte";

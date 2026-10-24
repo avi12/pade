@@ -1,8 +1,8 @@
 <script lang="ts">
   import { PacingStep, PacingStopThen } from "@/lib/types";
   import type { PacingSettings } from "@/lib/types";
-  import Checkbox from "@/lib/ui/Checkbox.svelte";
-  import Segmented from "@/lib/ui/Segmented.svelte";
+  import Checkbox from "@/lib/ui/controls/Checkbox.svelte";
+  import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import { PACING_STEP_ORDER, PACING_STEP_TEXT, withStep } from "@/lib/usage/pacing-policy";
 
   // Usage pacing's steps, numbered in the order they are climbed, each one

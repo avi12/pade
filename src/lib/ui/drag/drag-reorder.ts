@@ -35,7 +35,7 @@
 
 import { colorAlpha, OPAQUE_ALPHA } from "@/lib/code/colors";
 import { committedOrderOnDrop, DropSide, insertionIndex, paneDropSide } from "@/lib/session/panes/reorder";
-import { Key } from "@/lib/ui/keys";
+import { Key } from "@/lib/ui/keyboard/keys";
 import { prefersReducedMotion } from "@/lib/ui/motion";
 import { tick } from "svelte";
 

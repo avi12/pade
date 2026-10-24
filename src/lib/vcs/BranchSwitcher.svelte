@@ -15,8 +15,8 @@
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import { rovingMenu } from "@/lib/ui/roving-menu";
-  import { ToggleState } from "@/lib/ui/toggle-state";
+  import { ToggleState } from "@/lib/ui/controls/toggle-state";
+  import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
   import { errorHeadline } from "@/lib/util/error-text";
 
   const {

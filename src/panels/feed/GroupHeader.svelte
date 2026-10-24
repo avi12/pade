@@ -3,7 +3,7 @@
   import type { ChangeGroup } from "@/lib/feed/change-groups";
   import Icon from "@/lib/Icon.svelte";
   import { branchOfMember, pathOfMember, workspaceMembers } from "@/lib/stores/workspace/workspaceMembers.svelte";
-  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
+  import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { formatCount } from "@/lib/util/format";
   import { repositoryOfGroup } from "@/lib/workspace/members/workspace-members";
   import LineCounts from "@/panels/feed/LineCounts.svelte";

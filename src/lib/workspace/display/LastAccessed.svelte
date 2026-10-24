@@ -1,6 +1,6 @@
 <script lang="ts">
   import { settings } from "@/lib/settings/settings.svelte";
-  import { tooltip } from "@/lib/ui/truncation-tooltip";
+  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { formatAge, formatTimestamp } from "@/lib/util/format";
 
   // When a project was last opened or left, as a compact age ("3d ago") with the

@@ -26,7 +26,7 @@
   } from "@/lib/terminal/find/terminal-find";
   import type { FindOption } from "@/lib/terminal/find/terminal-find";
   import { rootTokenReader, xtermSearchDecorations } from "@/lib/terminal/theme/terminal-theme";
-  import { Key } from "@/lib/ui/keys";
+  import { Key } from "@/lib/ui/keyboard/keys";
   import { errorMessage } from "@/lib/util/errors";
   import { parseInput, TerminalFindTerm } from "@/lib/validate";
   import type { SearchAddon } from "@xterm/addon-search";

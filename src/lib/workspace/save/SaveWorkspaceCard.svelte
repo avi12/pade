@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { AddRootStatus } from "@/lib/types";
   import type { AddRootOutcome } from "@/lib/types";
-  import { tooltip } from "@/lib/ui/truncation-tooltip";
+  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { nameError, parseInput, ProjectName } from "@/lib/validate";
   import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
   import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save/save-workspace-form";

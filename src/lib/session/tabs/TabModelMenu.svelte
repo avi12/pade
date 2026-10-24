@@ -10,7 +10,7 @@
   import ModelMenu from "@/lib/model/ModelMenu.svelte";
   import { MODEL_MENU_ANCHOR } from "@/lib/model/ModelTag.svelte";
   import type { AgentSession, ModelChoice } from "@/lib/types";
-  import { rovingMenu } from "@/lib/ui/roving-menu";
+  import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
 
   const { session, onchoose }: {
     /** The session whose model tag last opened the menu. */

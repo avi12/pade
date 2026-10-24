@@ -6,7 +6,7 @@
     SIDE_PANEL_MINIMUM_WIDTH,
     updatePrefs
   } from "@/lib/settings/prefs.svelte";
-  import { Key } from "@/lib/ui/keys";
+  import { Key } from "@/lib/ui/keyboard/keys";
 
   // Draggable divider between the terminal area and the side panel. The
   // persisted width lives in prefs (SSOT); `width` is the local mirror the drag

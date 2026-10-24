@@ -2,8 +2,8 @@
   import RelabelDialog from "@/lib/dialogs/RelabelDialog.svelte";
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
-  import { arrowFocus } from "@/lib/ui/roving-menu";
-  import { ToggleState } from "@/lib/ui/toggle-state";
+  import { ToggleState } from "@/lib/ui/controls/toggle-state";
+  import { arrowFocus } from "@/lib/ui/keyboard/roving-menu";
   import SaveWorkspaceCard from "@/lib/workspace/save/SaveWorkspaceCard.svelte";
   import { windowRowsInOrder } from "@/lib/workspace/switcher/switcher-rows";
   import SwitcherTrigger from "@/lib/workspace/switcher/SwitcherTrigger.svelte";

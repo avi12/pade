@@ -1,5 +1,5 @@
-import { Axis, beginReorder } from "@/lib/ui/drag-reorder";
-import type { DragHint, DropOutside } from "@/lib/ui/drag-reorder";
+import { Axis, beginReorder } from "@/lib/ui/drag/drag-reorder";
+import type { DragHint, DropOutside } from "@/lib/ui/drag/drag-reorder";
 
 /** The attribute every strip pill carries its session id on - the drag's handle. */
 const SESSION_TAB_ATTRIBUTE = "data-session-tab";

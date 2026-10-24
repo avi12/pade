@@ -13,7 +13,7 @@
 
 import { nextPaneId, paneIdAt, previousPaneId } from "@/lib/session/panes/pane-nav";
 import type { KeyChord } from "@/lib/session/tab-shortcuts";
-import { isEditingText } from "@/lib/ui/focus";
+import { isEditingText } from "@/lib/ui/keyboard/focus";
 
 /** The closed set of actions a pane shortcut can trigger. */
 export const PaneAction = {

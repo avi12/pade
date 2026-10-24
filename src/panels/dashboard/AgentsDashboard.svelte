@@ -4,9 +4,9 @@
   import { createBoardReader } from "@/lib/dashboard/boardReader.svelte";
   import { setWindowTitle } from "@/lib/ipc/platform";
   import { effective } from "@/lib/settings/prefs.svelte";
+  import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import { flipDuration } from "@/lib/ui/motion";
-  import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
-  import Segmented from "@/lib/ui/Segmented.svelte";
+  import OverflowTooltipLayer from "@/lib/ui/tooltip/OverflowTooltipLayer.svelte";
   import ProjectCard from "@/panels/dashboard/ProjectCard.svelte";
   import { onMount } from "svelte";
   import { flip } from "svelte/animate";

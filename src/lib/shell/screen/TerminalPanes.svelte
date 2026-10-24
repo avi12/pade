@@ -5,7 +5,7 @@
   import { animatePaneIn, paneDropAt } from "@/lib/shell/screen/pane-dom";
   import SplitMenu from "@/lib/shell/screen/SplitMenu.svelte";
   import type { Agent, AgentSession } from "@/lib/types";
-  import type { DragHint } from "@/lib/ui/drag-reorder";
+  import type { DragHint } from "@/lib/ui/drag/drag-reorder";
   import { collapsePane } from "@/lib/ui/motion";
   import type { SvelteSet } from "svelte/reactivity";
 

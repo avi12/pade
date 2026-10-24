@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tooltip } from "@/lib/ui/truncation-tooltip";
+  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { isTemporaryWorkspace, projectRootName } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/display/RootedName.svelte";
   import TempBadge from "@/lib/workspace/display/TempBadge.svelte";

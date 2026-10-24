@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Logo from "@/lib/ui/Logo.svelte";
+  import Logo from "@/lib/ui/brand/Logo.svelte";
 </script>
 
 <!-- Loading phase: a calm branded ground so a booting window is never a

@@ -5,7 +5,7 @@
 // drop in the window, so each one claims only a drop on its own element.
 
 import { EventType, onMessage } from "@/lib/ipc/messaging";
-import { isDragOverElement } from "@/lib/ui/drag-position";
+import { isDragOverElement } from "@/lib/ui/drag/drag-position";
 
 export function listenForFileDrops({ element, onHoverChange, onDrop }: {
   element: () => HTMLElement;

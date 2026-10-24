@@ -1,4 +1,4 @@
-import { isDragOverElement } from "@/lib/ui/drag-position";
+import { isDragOverElement } from "@/lib/ui/drag/drag-position";
 import {
   afterEach,
   beforeEach,

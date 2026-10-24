@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ChangeEntry } from "@/lib/feed/change-groups";
   import { revealBlock } from "@/lib/ui/motion";
-  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
+  import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { formatAge, formatCount, formatTimestamp } from "@/lib/util/format";
   import { baseName, parentDirectory, relativeToRoot } from "@/lib/util/paths";
   import FileTypeBadge from "@/panels/feed/FileTypeBadge.svelte";

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { overflowTooltipState } from "@/lib/ui/overflow-tooltip.svelte";
+  import { overflowTooltipState } from "@/lib/ui/tooltip/overflow-tooltip.svelte";
 
   const POPOVER_OPEN_SELECTOR = ":popover-open";
 

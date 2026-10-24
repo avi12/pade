@@ -6,7 +6,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { SidebarChat } from "@/lib/session/chats/chat-registry";
-  import { rovingMenu } from "@/lib/ui/roving-menu";
+  import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
 
   // A chat row's right-click menu - open it, start another in its project,
   // stop it while it runs, or delete it for good. It hangs at the pointer

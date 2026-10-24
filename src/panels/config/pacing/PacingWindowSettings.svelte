@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PacedWindowKind, PacingSettings } from "@/lib/types";
-  import Segmented from "@/lib/ui/Segmented.svelte";
+  import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import {
     PACED_WINDOW_TEXT,
     PACING_PRESETS,

@@ -2,7 +2,7 @@
   // Discord Rich Presence: whether to report at all, and whether to name the
   // project. The second only matters once the first is on, so it waits disabled.
   import { effective, updatePrefs } from "@/lib/settings/prefs.svelte";
-  import Checkbox from "@/lib/ui/Checkbox.svelte";
+  import Checkbox from "@/lib/ui/controls/Checkbox.svelte";
 </script>
 
 <label class="check">

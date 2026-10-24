@@ -2,7 +2,7 @@
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import type { Agent } from "@/lib/types";
-  import BrandMark from "@/lib/ui/BrandMark.svelte";
+  import BrandMark from "@/lib/ui/brand/BrandMark.svelte";
 
   // Shown only when more than one agent is installed - the user picks which to
   // launch. `path` is the already-chosen workspace the agent will start in, shown

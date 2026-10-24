@@ -5,7 +5,7 @@
   import { settings } from "@/lib/settings/settings.svelte";
   import { AddRootStatus } from "@/lib/types";
   import type { Agent, OpenTarget, ProjectEntry, Settings } from "@/lib/types";
-  import BrandMark from "@/lib/ui/BrandMark.svelte";
+  import BrandMark from "@/lib/ui/brand/BrandMark.svelte";
   import { isTemporaryWorkspace } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
   import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";

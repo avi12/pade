@@ -5,7 +5,7 @@
   import TabStatusGlyph from "@/lib/session/tabs/TabStatusGlyph.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
   import type { AgentSession } from "@/lib/types";
-  import { Key } from "@/lib/ui/keys";
+  import { Key } from "@/lib/ui/keyboard/keys";
   import { parseInput, SessionName } from "@/lib/validate";
   import { untrack } from "svelte";
 

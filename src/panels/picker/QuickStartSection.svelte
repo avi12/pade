@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import type { Agent, OpenTarget } from "@/lib/types";
-  import { rovingTablist } from "@/lib/ui/roving-tabs";
+  import { rovingTablist } from "@/lib/ui/keyboard/roving-tabs";
   import ClonePanel from "@/panels/picker/ClonePanel.svelte";
   import CreateProjectPanel from "@/panels/picker/CreateProjectPanel.svelte";
   import OpenLocalPanel from "@/panels/picker/OpenLocalPanel.svelte";

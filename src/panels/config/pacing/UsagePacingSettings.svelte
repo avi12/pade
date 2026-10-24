@@ -3,7 +3,7 @@
   import { prefs } from "@/lib/settings/settings.svelte";
   import { PacedWindowKind } from "@/lib/types";
   import type { PacingSettings } from "@/lib/types";
-  import Segmented from "@/lib/ui/Segmented.svelte";
+  import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import {
     globalPacing,
     projectWindowPacing,

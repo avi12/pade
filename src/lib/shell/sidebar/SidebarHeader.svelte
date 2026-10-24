@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import { rovingMenu } from "@/lib/ui/roving-menu";
+  import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
   import SwitcherActions from "@/lib/workspace/switcher/SwitcherActions.svelte";
   import type { ComponentProps } from "svelte";
 

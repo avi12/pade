@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import { rovingMenu } from "@/lib/ui/roving-menu";
+  import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
   import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
   import { rowMenuId } from "@/lib/workspace/switcher/switcher-rows";
 

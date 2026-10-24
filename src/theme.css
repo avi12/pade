@@ -970,7 +970,7 @@ textarea {
    `view-transition-name`, a transform/filter, or `content-visibility` becomes that
    containing block *and* a stacking context, so there the bubble is clipped or
    painted under whatever follows the ancestor. Those triggers use the shared
-   top-layer bubble instead - `{@attach tooltip(…)}` from `@/lib/ui/truncation-tooltip`
+   top-layer bubble instead - `{@attach tooltip(…)}` from `@/lib/ui/tooltip/truncation-tooltip`
    - not this pseudo. */
 [data-tooltip] {
   position: relative;

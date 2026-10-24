@@ -2,7 +2,7 @@
   import { globalNaming, projectNamingChoice, withProjectNamingChoice } from "@/lib/agent/ai-naming-scope";
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
-  import Segmented from "@/lib/ui/Segmented.svelte";
+  import Segmented from "@/lib/ui/controls/Segmented.svelte";
 
   // The project scope of "name session tabs with AI". Three states, because the
   // absence of a project choice is itself a state: it follows the picker's global

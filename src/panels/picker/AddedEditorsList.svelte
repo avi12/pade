@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import type { Prefs } from "@/lib/types";
-  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
+  import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
 
   // Editors located by executable path - listed so a stale one can be dropped
   // from every menu.

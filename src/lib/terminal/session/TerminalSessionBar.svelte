@@ -2,8 +2,8 @@
   import Icon from "@/lib/Icon.svelte";
   import SessionBadge from "@/lib/session/SessionBadge.svelte";
   import type { AgentSession, SessionStatus } from "@/lib/types";
-  import { Axis, beginReorder } from "@/lib/ui/drag-reorder";
-  import type { DragHint } from "@/lib/ui/drag-reorder";
+  import { Axis, beginReorder } from "@/lib/ui/drag/drag-reorder";
+  import type { DragHint } from "@/lib/ui/drag/drag-reorder";
 
   const {
     session, status, isRemovable,

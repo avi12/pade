@@ -1,7 +1,7 @@
 <script lang="ts">
   import { observeProjectLanguages, projectLanguageShares } from "@/lib/stores/workspace/projectLanguages.svelte";
   import type { LanguageShare } from "@/lib/types";
-  import { tooltip } from "@/lib/ui/truncation-tooltip";
+  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import {
     isEnteringAfterCount,
     isLanguageMix,

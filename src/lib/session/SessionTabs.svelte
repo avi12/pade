@@ -13,7 +13,7 @@
   import TabModelMenu from "@/lib/session/tabs/TabModelMenu.svelte";
   import { awaitingChoice } from "@/lib/stores/session/sessionAttention.svelte";
   import type { Agent, AgentSession, ModelChoice } from "@/lib/types";
-  import type { DragHint } from "@/lib/ui/drag-reorder";
+  import type { DragHint } from "@/lib/ui/drag/drag-reorder";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   // The session tab strip: full pills for the sessions that fit, status dots

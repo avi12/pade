@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
-  import { ToggleState } from "@/lib/ui/toggle-state";
+  import { ToggleState } from "@/lib/ui/controls/toggle-state";
   import type { Snippet } from "svelte";
 
   // Shared confirmation prompt - an in-app themed card in place of the OS popup, so

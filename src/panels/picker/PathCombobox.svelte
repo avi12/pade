@@ -3,7 +3,7 @@
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { EMPTY_PATH_PROBE } from "@/lib/types";
   import type { TaggedPathProbe } from "@/lib/types";
-  import { Key } from "@/lib/ui/keys";
+  import { Key } from "@/lib/ui/keyboard/keys";
   import { collapseRow, expandRow, flipDuration } from "@/lib/ui/motion";
   import { normalizePath } from "@/lib/util/paths";
   import { flip } from "svelte/animate";

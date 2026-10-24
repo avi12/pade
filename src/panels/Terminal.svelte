@@ -15,8 +15,8 @@
   import TerminalSessionBar from "@/lib/terminal/session/TerminalSessionBar.svelte";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession } from "@/lib/types";
-  import type { DragHint } from "@/lib/ui/drag-reorder";
-  import { isEditingText } from "@/lib/ui/focus";
+  import type { DragHint } from "@/lib/ui/drag/drag-reorder";
+  import { isEditingText } from "@/lib/ui/keyboard/focus";
   import type { Terminal } from "@xterm/xterm";
   import "@xterm/xterm/css/xterm.css";
   import { onDestroy, onMount, untrack } from "svelte";
@@ -196,7 +196,7 @@
      Re-grab the keyboard for the front session on every window focus, so a cycled
      window is immediately promptable. Skipped while the user is mid-typing in a
      real field (a rename box, the picker) - that focus must be left alone; the
-     xterm helper textarea deliberately doesn't count as editing (see lib/ui/focus). -->
+     xterm helper textarea deliberately doesn't count as editing (see lib/ui/keyboard/focus). -->
 <svelte:window
   onblur={() => {
     isWindowFocused = false;

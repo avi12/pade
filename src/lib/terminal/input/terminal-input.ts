@@ -3,7 +3,7 @@
 // that preserves the newline in the agent's composer instead of submitting it.
 
 import { CONTROL_SEQUENCE_INTRODUCER, ENTER } from "@/lib/terminal/input/terminal-sequences";
-import { Key } from "@/lib/ui/keys";
+import { Key } from "@/lib/ui/keyboard/keys";
 
 export const PROMPT_NEWLINE = "\n";
 

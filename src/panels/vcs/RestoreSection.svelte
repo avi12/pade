@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import type { RestoreCandidate } from "@/lib/types";
-  import { Key } from "@/lib/ui/keys";
+  import { Key } from "@/lib/ui/keyboard/keys";
   import { formatPercent } from "@/lib/util/format";
   import { parseInput, RestoreQuery } from "@/lib/validate";
 

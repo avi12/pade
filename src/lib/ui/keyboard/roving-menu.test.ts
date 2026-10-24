@@ -1,4 +1,4 @@
-import { nextIndex } from "@/lib/ui/roving-menu";
+import { nextIndex } from "@/lib/ui/keyboard/roving-menu";
 import { describe, expect, it } from "vitest";
 
 describe("nextIndex - menu arrow navigation", () => {

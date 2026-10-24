@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { pastedText, referencedSnippet } from "@/lib/terminal/input/terminal-input";
-  import { focusTerminalPane } from "@/lib/ui/focus";
+  import { focusTerminalPane } from "@/lib/ui/keyboard/focus";
   import { z } from "zod";
 
   // Highlight -> agent bridge: text selected in the side panel shows this

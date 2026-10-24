@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { Key } from "@/lib/ui/keys";
+  import { Key } from "@/lib/ui/keyboard/keys";
 
   // The left rail's filter / quick-switch field: typing narrows the project
   // rows, Enter jumps to the first one left.

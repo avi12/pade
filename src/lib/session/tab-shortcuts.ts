@@ -6,8 +6,8 @@
 // which tab to activate); the registrar wires both to the app's handlers and
 // leaves app text fields alone.
 
-import { isEditingText } from "@/lib/ui/focus";
-import { Key } from "@/lib/ui/keys";
+import { isEditingText } from "@/lib/ui/keyboard/focus";
+import { Key } from "@/lib/ui/keyboard/keys";
 
 const NEW_TAB_KEY = "t";
 const CLOSE_TAB_KEY = "w";

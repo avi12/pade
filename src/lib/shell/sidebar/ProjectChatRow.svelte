@@ -5,7 +5,7 @@
   import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { RecordedConversation } from "@/lib/types";
-  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
+  import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { isNewWindowClick } from "@/lib/workspace/open-windows";
 
   // One chat row in the left rail, with its right-click menu. A live chat
