@@ -671,6 +671,17 @@ pub fn percent_encode(value: &str, extra: &[u8]) -> String {
     output
 }
 
+/// Bytes as lowercase hex - the form digests are compared and written in.
+pub fn lowercase_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    let mut hex = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        // Writing into a `String` cannot fail.
+        let _ = write!(hex, "{byte:02x}");
+    }
+    hex
+}
+
 /// The uppercase hex character for a nibble (0..=15).
 fn hex_nibble(nibble: u8) -> u8 {
     match nibble {
