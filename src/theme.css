@@ -449,6 +449,11 @@
   --control-edge: rgb(0 229 255 / 35%);
   --hairline: #00e5ff;
   --hairline-glow: 0 0 14px rgb(0 229 255 / 35%);
+
+  /* The same bloom thrown below a bar only: pulled down and pulled in by the
+     blur, so the bar's ends never light the edge of what sits beside it (the
+     left rail beside the top bar). */
+  --hairline-glow-below: 0 10px 14px -10px rgb(0 229 255 / 35%);
   --shadow-color: rgb(3 8 14 / 76%);
 
   /* How a plate that floats free of the chassis - a menu - sits off the page.
@@ -599,6 +604,7 @@
   /* Every glow off, and depth from a hard offset plate instead - the printed
      register the dashboard uses in daylight, where a bloom would only smudge. */
   --hairline-glow: none;
+  --hairline-glow-below: none;
   --focus-glow: none;
   --shadow-color: rgb(6 24 43 / 18%);
   --plate-shadow: 6px 6px 0 var(--shadow-color);
@@ -1710,7 +1716,7 @@ textarea {
      the eye skips, which is exactly what a chassis must not do. */
   :is(.topbar, .panel-head) {
     border-block-end: 2px solid var(--hairline);
-    box-shadow: var(--hairline-glow);
+    box-shadow: var(--hairline-glow-below);
   }
 
   .side-pane {
