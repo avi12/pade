@@ -46,7 +46,7 @@ function host(chats: StoredChatRegistry) {
   const restoreHost: ChatRestoreHost = {
     registry: chats,
     agents: [AGENT],
-    launch: options => {
+    launch(options) {
       launched.push(options.sessionId);
       return options.sessionId;
     },

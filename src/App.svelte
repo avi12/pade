@@ -40,7 +40,7 @@
     initNewProjectDetection
   } from "@/lib/stores/workspace/new-project-detection";
   import { StartMode, realAgents as toRealAgents } from "@/lib/types";
-  import type { Agent, OpenTarget } from "@/lib/types";
+  import type { Agent, OpenTarget, RecordedConversation } from "@/lib/types";
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
   import { isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
@@ -458,9 +458,42 @@
     });
   }
 
+  // Reopen a conversation from the sidebar's `/resume` list: bring it
+  // forward when a chat already runs it, else launch its agent on it,
+  // titled the way the agent titled it.
+  function resumeRecordedConversation(conversation: RecordedConversation) {
+    const runningChat = windowSessions.sessions.find(session => session.conversationId === conversation.conversationId);
+    if (runningChat !== undefined) {
+      windowSessions.select(runningChat.id);
+      return;
+    }
+
+    const agent = agents.find(candidate => candidate.id === conversation.agentId);
+    if (agent === undefined) {
+      return;
+    }
+
+    const id = windowSessions.launch({
+      agent,
+      conversationId: conversation.conversationId,
+      args: conversation.resumeArguments.length > 0 ? conversation.resumeArguments : undefined
+    });
+    if (conversation.title !== null) {
+      setSessionLabel({
+        id,
+        label: conversation.title
+      });
+    }
+  }
+
   // What a return to the open project does with its target: bring the
   // picked chat to the front, or launch a fresh one beside the live chats.
   function focusReturnedProject(target: OpenTarget) {
+    if (target.resume !== undefined) {
+      resumeRecordedConversation(target.resume);
+      return;
+    }
+
     if (target.chatId !== undefined && windowSessions.isOpen(target.chatId)) {
       windowSessions.select(target.chatId);
       return;
@@ -515,7 +548,8 @@
         agentId: target.agent,
         isNewProject: target.created === true,
         chatId: target.chatId,
-        wantNewChat: target.newChat === true
+        wantNewChat: target.newChat === true,
+        resume: target.resume
       });
       await repository.load();
     });
@@ -548,13 +582,14 @@
   // the restored ones. The agent picker still appears after a hand-closed
   // or exited last session, where "what next?" is a genuine question.
   // (Reused for every entry path.)
-  async function startAgentFlow({ path, initialPrompt, agentId, isNewProject = false, chatId, wantNewChat = false }: {
+  async function startAgentFlow({ path, initialPrompt, agentId, isNewProject = false, chatId, wantNewChat = false, resume }: {
     path: string;
     initialPrompt?: string;
     agentId?: string;
     isNewProject?: boolean;
     chatId?: string;
     wantNewChat?: boolean;
+    resume?: RecordedConversation;
   }) {
     currentProject = path;
 
@@ -571,11 +606,14 @@
         path,
         chatId
       });
+    if (resume !== undefined) {
+      resumeRecordedConversation(resume);
+    }
 
     const wantsFreshChat = shouldStartFreshChat({
       initialPrompt,
       wantNewChat,
-      hasRestoredChats
+      hasRestoredChats: hasRestoredChats || resume !== undefined
     });
     if (wantsFreshChat) {
       launchFreshChat({
@@ -746,6 +784,10 @@
       onopen={projectPath => openProject({ path: projectPath })}
       onrenamefolder={relocator.renameFolder}
       onreroot={path => (currentProject = path)}
+      onresumeconversation={({ project, conversation }) => openProject({
+        path: project,
+        resume: conversation
+      })}
       onselectchat={selectChat}
       onswitch={async () => {
         // "Switch project" - a DELIBERATE leave to the picker. The project's

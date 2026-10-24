@@ -6,7 +6,7 @@
 // `--session-id`, the others through `agent_resume_args`).
 
 import { Agent, ModelChoice } from "@/lib/types";
-import type { AgentSession } from "@/lib/types";
+import type { AgentSession, RecordedConversation } from "@/lib/types";
 import { normalizePath } from "@/lib/util/paths";
 import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
 import { z } from "zod";
@@ -151,13 +151,15 @@ export function chatsForProject({ registry, project }: {
   return registry.chats.filter(chat => isSameProject(chat.project, project));
 }
 
-/** One chat row in the sidebar. */
+/** One chat row in the sidebar. A recorded conversation no chat holds yet
+ *  carries `resume` - picking it reopens that conversation. */
 export interface SidebarChat {
   id: string;
   project: string;
   label: string;
   agentId: string;
   isLive: boolean;
+  resume?: RecordedConversation;
 }
 
 /** One project and its chats in the sidebar. */
@@ -167,17 +169,42 @@ export interface SidebarProject {
   chats: SidebarChat[];
 }
 
+/** A recorded conversation's row when the agent never titled it. */
+const UNTITLED_CONVERSATION_LABEL = "Untitled conversation";
+
+/** The project's recorded conversations that none of its chats already
+ *  holds, as resumable rows. */
+function recordedChats({ project, chats, recorded }: {
+  project: string;
+  chats: readonly PersistedChat[];
+  recorded: readonly RecordedConversation[];
+}): SidebarChat[] {
+  const heldConversations = new Set(chats.map(chat => chat.conversationId));
+  return recorded
+    .filter(conversation => !heldConversations.has(conversation.conversationId))
+    .map(conversation => ({
+      id: `${conversation.agentId}:${conversation.conversationId}`,
+      project,
+      label: conversation.title ?? UNTITLED_CONVERSATION_LABEL,
+      agentId: conversation.agentId,
+      isLive: false,
+      resume: conversation
+    }));
+}
+
 /** Build the sidebar's groups: the ordered projects, each with its chats.
  *  The current project's chats come from its live sessions (their labels and
  *  order are the truth on screen); every other project's come from the
- *  registry. A project with no chats still gets a group, so it can be
- *  switched to and started from. */
-export function sidebarProjects({ registry, projectOrder, currentProject, liveSessions, liveLabels }: {
+ *  registry. Below them sit the conversations the agents recorded for the
+ *  project (their `/resume` lists). A project with no chats still gets a
+ *  group, so it can be switched to and started from. */
+export function sidebarProjects({ registry, projectOrder, currentProject, liveSessions, liveLabels, recordedConversations }: {
   registry: StoredChatRegistry;
   projectOrder: readonly string[];
   currentProject: string;
   liveSessions: readonly AgentSession[];
   liveLabels: Readonly<Record<string, string | undefined>>;
+  recordedConversations: (project: string) => readonly RecordedConversation[];
 }): SidebarProject[] {
   const seen = new Set<string>();
   const ordered: string[] = [];
@@ -192,38 +219,34 @@ export function sidebarProjects({ registry, projectOrder, currentProject, liveSe
 
   return ordered.map(project => {
     const isCurrent = currentProject !== "" && isSameProject(project, currentProject);
-    if (isCurrent) {
-      return {
+    const chats = isCurrent
+      ? persistedChatsFromSessions({
         project,
-        isCurrent,
-        chats: persistedChatsFromSessions({
-          project,
-          sessions: liveSessions,
-          labels: liveLabels,
-          now: 0
-        }).map(chat => ({
+        sessions: liveSessions,
+        labels: liveLabels,
+        now: 0
+      })
+      : chatsForProject({
+        registry,
+        project
+      });
+    return {
+      project,
+      isCurrent,
+      chats: [
+        ...chats.map(chat => ({
           id: chat.id,
           project,
           label: chat.label ?? chat.agent.label,
           agentId: chat.agent.id,
-          isLive: true
-        }))
-      };
-    }
-
-    return {
-      project,
-      isCurrent,
-      chats: chatsForProject({
-        registry,
-        project
-      }).map(chat => ({
-        id: chat.id,
-        project,
-        label: chat.label ?? chat.agent.label,
-        agentId: chat.agent.id,
-        isLive: false
-      }))
+          isLive: isCurrent
+        })),
+        ...recordedChats({
+          project,
+          chats,
+          recorded: recordedConversations(project)
+        })
+      ]
     };
   });
 }

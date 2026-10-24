@@ -33,6 +33,7 @@
 mod claude;
 mod codex;
 mod copilot;
+pub(crate) use copilot::session_root as copilot_session_root;
 mod opencode;
 
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
