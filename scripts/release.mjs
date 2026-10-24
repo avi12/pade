@@ -8,12 +8,14 @@
 //
 //   1. set the version in `src-tauri/Cargo.toml` - its one home; Tauri and the
 //      exe read it from there;
-//   2. build the Windows 11 context-menu handler, then PADE itself without an
-//      installer, embedding the handler so the exe stands alone;
+//   2. build the Windows 11 context-menu handler, then PADE itself and its MSI
+//      installer (`src-tauri/windows/installer.wxs`), embedding the handler so
+//      the exe stands alone;
 //   3. commit `chore(release): <version>`, tag `v<version>` and push both;
-//   4. create the GitHub release with the exe attached as `PADE-<version>.exe`;
-//   5. write the manifest from that exe's SHA-256 and push it - last, so an
-//      installed copy never sees a release whose exe isn't uploaded yet;
+//   4. create the GitHub release with the portable exe attached as
+//      `PADE-<version>.exe` and the installer as `PADE-<version>-setup.msi`;
+//   5. write the manifest from both files' SHA-256 and push it - last, so an
+//      installed copy never sees a release whose files aren't uploaded yet;
 //   6. fill the winget manifests (`packaging/winget`), validate them and open
 //      the pull request to `microsoft/winget-pkgs` with `wingetcreate`, so a
 //      winget install sees the release once winget's reviewers merge it.
@@ -38,6 +40,7 @@ const OUTPUT_DIRECTORY = join(ROOT, "release");
 const UPDATE_MANIFEST = join(ROOT, "docs", "updates.json");
 const CONTEXT_MENU_HANDLER = join(RELEASE_TARGET, "contextmenu_handler.dll");
 const BUILT_EXECUTABLE = join(RELEASE_TARGET, "pade.exe");
+const BUILT_INSTALLER_DIRECTORY = join(RELEASE_TARGET, "bundle", "msi");
 const PACKAGE_VERSION_LINE = /^version = "(\d+\.\d+\.\d+)"$/m;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const IS_WINDOWS = process.platform === "win32";
@@ -89,6 +92,24 @@ function isNewer({ candidate, current }) {
 function fail(message) {
   console.error(message);
   process.exit(1);
+}
+
+function sha256Of(file) {
+  return createHash("sha256").update(readFileSync(file)).digest("hex");
+}
+
+/** The MSI Tauri built for `version` (`PADE_<version>_x64_en-US.msi`). */
+function builtInstaller(version) {
+  const name = readdirSync(BUILT_INSTALLER_DIRECTORY).find(file => file.startsWith(`PADE_${version}_`) && file.endsWith(".msi"));
+  if (!name) {
+    fail(`no MSI for ${version} in ${BUILT_INSTALLER_DIRECTORY}`);
+  }
+
+  return join(BUILT_INSTALLER_DIRECTORY, name);
+}
+
+function releaseUrl({ tag, assetName }) {
+  return `https://github.com/${REPOSITORY}/releases/download/${tag}/${assetName}`;
 }
 
 /** Whether winget already lists PADE - a first submission is a new package. */
@@ -179,7 +200,7 @@ run({
 });
 run({
   command: "pnpm",
-  args: ["tauri", "build", "--no-bundle"],
+  args: ["tauri", "build", "--bundles", "msi"],
   environment: {
     PADE_CONTEXT_MENU_HANDLER: CONTEXT_MENU_HANDLER
   }
@@ -189,7 +210,10 @@ mkdirSync(OUTPUT_DIRECTORY, { recursive: true });
 const assetName = `PADE-${version}.exe`;
 const asset = join(OUTPUT_DIRECTORY, assetName);
 copyFileSync(BUILT_EXECUTABLE, asset);
-const sha256 = createHash("sha256").update(readFileSync(asset)).digest("hex");
+const sha256 = sha256Of(asset);
+const installerName = `PADE-${version}-setup.msi`;
+const installer = join(OUTPUT_DIRECTORY, installerName);
+copyFileSync(builtInstaller(version), installer);
 
 run({
   command: "git",
@@ -216,13 +240,23 @@ const releaseNotesFile = join(OUTPUT_DIRECTORY, `notes-${version}.md`);
 writeFileSync(releaseNotesFile, releaseNotes);
 run({
   command: "gh",
-  args: ["release", "create", tag, asset, "--title", `PADE ${version}`, "--notes-file", releaseNotesFile]
+  args: ["release", "create", tag, asset, installer, "--title", `PADE ${version}`, "--notes-file", releaseNotesFile]
 });
 
 const manifest = {
   version,
-  url: `https://github.com/${REPOSITORY}/releases/download/${tag}/${assetName}`,
-  sha256
+  url: releaseUrl({
+    tag,
+    assetName
+  }),
+  sha256,
+  installer: {
+    url: releaseUrl({
+      tag,
+      assetName: installerName
+    }),
+    sha256: sha256Of(installer)
+  }
 };
 writeFileSync(UPDATE_MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
 run({

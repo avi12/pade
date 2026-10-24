@@ -1,10 +1,18 @@
 # Releasing PADE
 
-PADE ships as **one portable exe**, `PADE-<version>.exe`, attached to a GitHub
-release. There is no installer: the exe runs from wherever it is saved, keeps its
-settings in `%APPDATA%\pade` and its WebView2 data in `%LOCALAPPDATA%`, and
-carries the Windows 11 context-menu handler inside itself (written out beside the
-exe when "Open in PADE" is turned on). WebView2 ships with Windows 11.
+PADE ships two ways, both attached to every GitHub release:
+
+- **a portable exe**, `PADE-<version>.exe`, that runs from wherever it is saved;
+- **an MSI installer**, `PADE-<version>-setup.msi`, that installs PADE under
+  Program Files. Its Shortcuts page (added to Tauri's WiX template in
+  `src-tauri/windows/installer.wxs`) has two checkboxes, both on by default:
+  a desktop shortcut and a Start menu shortcut. A silent install turns one off
+  with `DESKTOPSHORTCUT=""` or `STARTMENUSHORTCUT=""`.
+
+Either way PADE keeps its settings in `%APPDATA%\pade` and its WebView2 data in
+`%LOCALAPPDATA%`, and carries the Windows 11 context-menu handler inside itself
+(written out beside the exe when "Open in PADE" is turned on). WebView2 ships
+with Windows 11.
 
 ## Cutting a release
 
@@ -22,15 +30,16 @@ Every push to `main` is released (see `CLAUDE.md`). With the work committed:
 
 1. sets the version in `src-tauri/Cargo.toml` - its one home; the exe and the
    Config panel read it from there;
-2. builds the context-menu handler and PADE without an installer
-   (`tauri build --no-bundle`), embedding the handler;
+2. builds the context-menu handler, then PADE and its MSI
+   (`tauri build --bundles msi`), embedding the handler;
 3. commits `chore(release): <version>`, tags `v<version>` and pushes both;
-4. creates the GitHub release with the exe, appending a link to every commit
-   since the previous tag;
-5. writes `docs/updates.json` from the exe's SHA-256 and pushes it.
+4. creates the GitHub release with the exe and the MSI, appending a link to
+   every commit since the previous tag;
+5. writes `docs/updates.json` from both files' SHA-256 (the exe at the top
+   level, the MSI under `installer`) and pushes it.
 
 The manifest goes last: installed copies see a release only once it is on
-`main`, so it never points at an exe that is not uploaded yet.
+`main`, so it never points at a file that is not uploaded yet.
 
 6. fills the winget manifests in `packaging/winget` (version, date, exe address
    and SHA-256), runs `winget validate` on them, and opens the pull request to
@@ -54,6 +63,14 @@ happens as PADE closes, so the next start is the new version.
 The swap renames the running exe aside (a running exe can be renamed, not
 overwritten), puts the new one under its name, and the next start deletes what
 was set aside.
+
+A copy the MSI installed (the folder it records under
+`HKLM\Software\avi12\PADE`) can't swap its own exe under Program Files, so it
+downloads the release's MSI the same checked way, and a hidden PowerShell waits
+for PADE to close and runs it with `msiexec /passive`, which asks for elevation.
+It passes along which shortcuts exist, so an update never brings back one the
+user removed. **Restart to update** closes PADE, and the installer starts it
+again.
 
 A copy installed with `winget install avi12.PADE` (it lives under
 `…\WinGet\Packages\`) updates through winget instead, so `winget list` stays

@@ -91,14 +91,14 @@ Then edit any file in the repo and watch it appear in the Change Feed.
 
 ## Build (release)
 
-PADE ships as one portable exe - no installer. Download `PADE-<version>.exe`
-from the [releases](https://github.com/avi12/pade/releases) and run it from
-anywhere, or install it with `winget install avi12.PADE`. Either way it keeps
-itself up to date (Config → Updates).
+Every [release](https://github.com/avi12/pade/releases) has a portable
+`PADE-<version>.exe` to run from anywhere, and a `PADE-<version>-setup.msi`
+installer that can add desktop and Start menu shortcuts. You can also
+`winget install avi12.PADE`. Every way keeps itself up to date (Config → Updates).
 
 ```bash
 pnpm app:build                 # tauri build --no-bundle → src-tauri/target/release/pade.exe
-pnpm release <version> <notes> # build, tag, publish the GitHub release and update manifest
+pnpm release <version> <notes> # build the exe and MSI, tag, publish the GitHub release and update manifest
 ```
 
 Tauri builds for the host platform only, so run the build on each OS you target.

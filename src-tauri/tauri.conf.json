@@ -26,10 +26,16 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi"],
+    "publisher": "avi12",
     "icon": [
       "icons/icon.png",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "wix": {
+        "template": "windows/installer.wxs"
+      }
+    }
   }
 }
