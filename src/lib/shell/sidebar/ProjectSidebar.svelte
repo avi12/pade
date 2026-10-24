@@ -214,14 +214,7 @@
 />
 
 <nav class="sidebar" aria-label="Projects and chats">
-  <SidebarHeader
-    labels={settings.labels}
-    onrenamefolder={() => {
-      renameFolderTarget = project;
-    }}
-    {onswitch}
-    path={project}
-  />
+  <SidebarHeader {onswitch} />
 
   <div class="search">
     <!-- Ctrl P focuses it from anywhere (a window shortcut) -->
