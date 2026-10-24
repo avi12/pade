@@ -34,11 +34,12 @@ yourself. When you use them, **their** privacy policies apply:
 - **AI coding agents** (for example Claude Code, Codex, OpenCode, Copilot
   CLI): prompts and code you submit through an agent's terminal session are
   sent to that agent's provider under your own account and their terms.
-- **Copilot naming** (Windows): to name a live session, PADE sends a short
-  excerpt of its terminal transcript to Microsoft Copilot (copilot.com) as the
-  personal Microsoft account Windows is signed in to. Each request appears as a
-  chat in that account's Copilot history, and Microsoft's terms apply. With no
-  such account, PADE names the session with the agent CLI instead.
+- **Copilot naming and summaries** (Windows): to name a live session, and to
+  summarize it on the agents dashboard, PADE sends a short excerpt of its
+  terminal transcript to Microsoft Copilot (copilot.com) as the personal
+  Microsoft account Windows is signed in to. Each request appears as a chat in
+  that account's Copilot history, and Microsoft's terms apply. With no such
+  account, PADE asks the agent CLI instead.
 - **Git remotes**: cloning, fetching, and pushing communicate with the remote
   host you chose (for example GitHub). Clone credentials are passed to your
   own `git` client for a single operation and are never stored by PADE.

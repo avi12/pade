@@ -91,8 +91,9 @@ pub(crate) fn suggest_session_name(transcript: &str) -> Option<String> {
 }
 
 /// Run one chat turn and return the reply text. `None` on any failure (no
-/// account, offline, spent allowance, malformed frames).
-fn run_chat(prompt: &str) -> Option<String> {
+/// account, offline, spent allowance, malformed frames), so a caller falls back
+/// to the agent CLI. Session naming and the dashboard's summaries both ask here.
+pub(crate) fn run_chat(prompt: &str) -> Option<String> {
     if is_allowance_spent() {
         return None;
     }

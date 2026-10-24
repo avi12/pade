@@ -587,6 +587,22 @@ pub fn oneshot_invocation(command: &str) -> Option<&'static [&'static str]> {
     definition(command).and_then(|agent| agent.oneshot)
 }
 
+/// Every agent that can answer a headless prompt, `preferred` first when it can,
+/// then the rest in registry order - the chain a Copilot failure falls back
+/// along, so a session whose own CLI has no headless mode (Copilot CLI, Cursor)
+/// still gets an answer from another installed LLM.
+pub fn headless_agents(preferred: &str) -> impl Iterator<Item = &'static str> + '_ {
+    let headless = || {
+        REGISTRY
+            .iter()
+            .filter(|agent| agent.oneshot.is_some())
+            .map(|agent| agent.command)
+    };
+    headless()
+        .filter(move |command| *command == preferred)
+        .chain(headless().filter(move |command| *command != preferred))
+}
+
 /// Environment variables to set when spawning `command` in a PTY. Empty for an
 /// unknown command or a plain shell, so `pty.rs` stays agent-agnostic.
 pub fn spawn_environment(command: &str) -> &'static [(&'static str, &'static str)] {
@@ -854,6 +870,22 @@ mod tests {
         assert!(needs_light_console_fix("opencode"));
         // Installed under its own name only - no installer aliases.
         assert_eq!(installed_names("opencode"), vec!["opencode"]);
+    }
+
+    /// A Copilot failure falls back along every headless agent, the session's
+    /// own first - and an agent with no headless mode is skipped, not tried.
+    #[test]
+    fn headless_agents_lead_with_the_preferred_one() {
+        let chain: Vec<&str> = super::headless_agents("codex").collect();
+        assert_eq!(chain.first(), Some(&"codex"));
+        assert!(chain.contains(&"claude"));
+        assert_eq!(
+            chain.iter().filter(|command| **command == "codex").count(),
+            1
+        );
+        assert!(!chain.contains(&"copilot"));
+        let without_headless: Vec<&str> = super::headless_agents("copilot").collect();
+        assert_eq!(without_headless.first(), Some(&"claude"));
     }
 
     /// Muse Code and Qwen Code: a headless one-shot, a yolo switch, and nothing

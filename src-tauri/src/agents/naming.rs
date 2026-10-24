@@ -164,15 +164,26 @@ pub(crate) fn session_naming_prompt(transcript: &str) -> String {
 }
 
 fn session_name_via_agent(agent: &str, transcript: &str) -> Option<String> {
-    let arguments = oneshot_invocation(agent)?;
-    let executable = program(agent)?;
-    run_agent_prompt(
-        &executable,
-        arguments,
-        None,
-        session_naming_prompt(transcript),
-    )
-    .and_then(|raw| sanitize(&raw))
+    first_agent_reply(agent, &session_naming_prompt(transcript), |raw| {
+        extract_name(raw).and_then(|name| sanitize(&name))
+    })
+}
+
+/// Ask the installed agents headlessly, `preferred` first, and return the first
+/// reply `accept` keeps - the fallback after Copilot, shared by naming and the
+/// dashboard's summaries, so one agent with no headless mode, or one that
+/// fails, hands the prompt to the next installed LLM.
+pub(crate) fn first_agent_reply(
+    preferred: &str,
+    prompt: &str,
+    accept: impl Fn(&str) -> Option<String>,
+) -> Option<String> {
+    crate::agents::headless_agents(preferred).find_map(|agent| {
+        let arguments = oneshot_invocation(agent)?;
+        let executable = program(agent)?;
+        run_agent_reply(&executable, arguments, None, prompt.to_string())
+            .and_then(|raw| accept(&raw))
+    })
 }
 
 fn autoname(path: &str, agent: &str) -> Option<String> {
