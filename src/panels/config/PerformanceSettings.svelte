@@ -15,29 +15,8 @@
     </span>
   </label>
   <button
-    class="restart"
+    class="field-action"
     onclick={async () => await sendMessage(Command.restart)}
     type="button"
   >Restart PADE</button>
 </div>
-
-<style>
-  .restart {
-    flex: none;
-    padding-block: 7px;
-    padding-inline: 12px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--primary-container);
-    color: var(--on-primary-container);
-    font: inherit;
-    font-weight: 700;
-    font-size: 11px;
-    cursor: pointer;
-    transition: filter 140ms var(--ease);
-
-    &:hover {
-      filter: brightness(0.96);
-    }
-  }
-</style>

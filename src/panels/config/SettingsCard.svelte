@@ -72,6 +72,30 @@
     font-size: 10px;
   }
 
+  /* A row's one action (Restart PADE, Check now): a filled pill. */
+  :where(.card) :global(.field-action) {
+    flex: none;
+    padding-block: 7px;
+    padding-inline: 12px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    font: inherit;
+    font-weight: 700;
+    font-size: 11px;
+    cursor: pointer;
+    transition: filter 140ms var(--ease);
+
+    &:hover {
+      filter: brightness(0.96);
+    }
+
+    &:disabled {
+      cursor: default;
+    }
+  }
+
   /* A checkbox beside its label; a dependent row dims while it has no effect. */
   :where(.card) :global(.check) {
     display: flex;
