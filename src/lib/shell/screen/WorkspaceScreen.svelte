@@ -7,24 +7,24 @@
   import { SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/settings/prefs.svelte";
   import type { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
   import { animatePaneIn, paneDropAt } from "@/lib/shell/screen/pane-dom";
-  import ProjectSidebar from "@/lib/shell/screen/ProjectSidebar.svelte";
   import RecoveryNotes from "@/lib/shell/screen/RecoveryNotes.svelte";
   import ShellChrome from "@/lib/shell/screen/ShellChrome.svelte";
   import ShellToast from "@/lib/shell/screen/ShellToast.svelte";
   import TerminalPanes from "@/lib/shell/screen/TerminalPanes.svelte";
   import type { createSessionAutomation } from "@/lib/shell/sessionAutomation.svelte";
   import type { Side } from "@/lib/shell/side-panels";
+  import ProjectSidebar from "@/lib/shell/sidebar/ProjectSidebar.svelte";
   import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
   import { activeMemberIn } from "@/lib/stores/workspace/workspaceMembers.svelte";
   import SendSelectionButton from "@/lib/terminal/SendSelectionButton.svelte";
-  import type { Agent, AgentSession, RecordedConversation } from "@/lib/types";
+  import type { Agent, AgentSession } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
   import { saveTempWorkspace } from "@/lib/workspace/save-temp-workspace";
   import SidePanel from "@/panels/SidePanel.svelte";
   import SidePanelResizer from "@/panels/SidePanelResizer.svelte";
   import type { ComponentProps } from "svelte";
 
-  type ChromeProps = ComponentProps<typeof ShellChrome>;
+  type SidebarProps = ComponentProps<typeof ProjectSidebar>;
 
   // The workspace screen: the top bar (chrome row + session tabs), the terminal
   // panes beside the side panel, the runner dock and the transient overlays. The
@@ -73,25 +73,16 @@
     elPanes?: HTMLElement;
     /** Every project's persisted chats, for the left rail. */
     chatRegistry: StoredChatRegistry;
-    ondelete: ChromeProps["ondelete"];
-    onopen: ChromeProps["onopen"];
-    onrenamefolder: ChromeProps["onrenamefolder"];
+    ondelete: SidebarProps["ondeleteproject"];
+    onopen: SidebarProps["onopenproject"];
+    onrenamefolder: SidebarProps["onrenamefolder"];
     /** The saved temp workspace now lives at `path` - the window follows it. */
     onreroot: (path: string) => void;
-    onswitch: ChromeProps["onswitch"];
-    onselectchat: (target: {
-      project: string;
-      chatId: string;
-    }) => void;
-    onresumeconversation: (target: {
-      project: string;
-      conversation: RecordedConversation;
-    }) => void;
-    ondeletechat: (target: {
-      project: string;
-      chatId: string;
-    }) => void;
-    onnewchat: (project: string) => void;
+    onswitch: NonNullable<SidebarProps["onswitch"]>;
+    onselectchat: SidebarProps["onselectchat"];
+    onresumeconversation: SidebarProps["onresumeconversation"];
+    ondeletechat: SidebarProps["ondeletechat"];
+    onnewchat: SidebarProps["onnewchat"];
   } = $props();
 
   let sessionTabsHandle = $state<{ closeSession: (session: AgentSession) => void } | null>(null);
@@ -117,10 +108,13 @@
   <ProjectSidebar
     activeId={windowSessions.activeId}
     {ondeletechat}
+    ondeleteproject={ondelete}
     {onnewchat}
     onopenproject={onopen}
+    {onrenamefolder}
     {onresumeconversation}
     {onselectchat}
+    {onswitch}
     {project}
     registry={chatRegistry}
     sessions={windowSessions.sessions}
@@ -132,9 +126,6 @@
         activeSession={windowSessions.activeSession}
         {isTemp}
         label={projectLabel}
-        {ondelete}
-        {onopen}
-        {onrenamefolder}
         onsavetemp={async ({ name, root }) => await saveTempWorkspace({
           name,
           root,
@@ -148,7 +139,6 @@
             closeSessions: windowSessions.closeSessions
           }
         })}
-        {onswitch}
         onterminaleditor={editor =>
           windowSessions.launch({
             agent: {

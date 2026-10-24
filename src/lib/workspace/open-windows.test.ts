@@ -1,7 +1,37 @@
-import { isOpenInAnotherWindow, otherWindowWith } from "@/lib/workspace/open-windows";
+import { isNewWindowClick, isOpenInAnotherWindow, otherWindowWith } from "@/lib/workspace/open-windows";
 import { describe, expect, it } from "vitest";
 
 const PROJECT = "C:\\repositories\\avi\\poll-avi";
+
+describe("isNewWindowClick", () => {
+  const PLAIN = {
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false
+  };
+
+  it("opens in a new window with Ctrl, Cmd or Shift held, never on a plain click", () => {
+    expect(isNewWindowClick(PLAIN)).toBe(false);
+    expect(
+      isNewWindowClick({
+        ...PLAIN,
+        ctrlKey: true
+      })
+    ).toBe(true);
+    expect(
+      isNewWindowClick({
+        ...PLAIN,
+        metaKey: true
+      })
+    ).toBe(true);
+    expect(
+      isNewWindowClick({
+        ...PLAIN,
+        shiftKey: true
+      })
+    ).toBe(true);
+  });
+});
 
 describe("isOpenInAnotherWindow", () => {
   it("finds the project in another window, whatever the path's spelling", () => {

@@ -1,7 +1,6 @@
 <script lang="ts">
   import IdeMenu from "@/lib/ide/IdeMenu.svelte";
-  import { Command } from "@/lib/ipc/messaging";
-  import { addRoot, sendSettingsMessage } from "@/lib/settings/settings-requests";
+  import { addRoot } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
   import type { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
   import SidePanelSwitch from "@/lib/shell/screen/SidePanelSwitch.svelte";
@@ -15,12 +14,10 @@
   import MemberSwitcher from "@/lib/workspace/MemberSwitcher.svelte";
   import type { ComponentProps } from "svelte";
 
-  type AppMenuProps = ComponentProps<typeof AppMenu>;
-
-  // The top bar's chrome row: the project menu, workspace member and branch on
-  // the left, usage, editor and side-panel actions pushed right. The
-  // pinned/recent lists persist straight into shared settings; everything that
-  // touches this window's sessions goes back to the shell.
+  // The top bar's chrome row: the project chip and its window menu, workspace
+  // member and branch on the left, usage, editor and side-panel actions pushed
+  // right. Switching projects lives in the left rail; everything that touches
+  // this window's sessions goes back to the shell.
   let {
     project,
     label,
@@ -29,10 +26,6 @@
     sessions,
     activeSession,
     side = $bindable(),
-    onopen,
-    onswitch,
-    ondelete,
-    onrenamefolder,
     onsavetemp,
     onterminaleditor
   }: {
@@ -43,11 +36,7 @@
     sessions: AgentSession[];
     activeSession: AgentSession | undefined;
     side: Side | null;
-    onopen: AppMenuProps["onopen"];
-    onswitch: AppMenuProps["onswitch"];
-    ondelete: AppMenuProps["ondelete"];
-    onrenamefolder: AppMenuProps["onrenamefolder"];
-    onsavetemp: AppMenuProps["onsavetemp"];
+    onsavetemp: ComponentProps<typeof AppMenu>["onsavetemp"];
     onterminaleditor: ComponentProps<typeof IdeMenu>["onterminaleditor"];
   } = $props();
 
@@ -74,29 +63,8 @@
       path: rootPath,
       create: false
     })}
-    onclearrecent={async () => {
-      // Clear the recent-projects history (pins survive).
-      await sendSettingsMessage(Command.workspaceClearRecent);
-    }}
-    {ondelete}
-    {onopen}
-    onremoverecent={async projectPath => {
-      // Forget a project from the switcher's lists (folder untouched).
-      await sendSettingsMessage(Command.workspaceRemoveRecent, { path: projectPath });
-    }}
-    {onrenamefolder}
-    onreorderpins={async paths => {
-      await sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths });
-    }}
     {onsavetemp}
-    {onswitch}
-    ontogglepin={async target => {
-      // The settings request adopts the response.
-      await sendSettingsMessage(Command.workspaceSetPinned, target);
-    }}
     path={project}
-    pinnedProjects={settings.pinnedProjects}
-    recentProjects={settings.recentProjects}
     {remoteRepository}
     roots={settings.roots}
   />

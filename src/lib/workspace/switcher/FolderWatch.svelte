@@ -4,7 +4,7 @@
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, untrack } from "svelte";
 
-  // The switcher's eyes on the folders it lists, so one deleted or renamed
+  // The left rail's eyes on the folders it lists, so one deleted or renamed
   // outside PADE leaves the list while it is on screen. It watches the PARENTS
   // of the listed projects, never the projects - a watch holds a handle on its
   // folder, and a handle on a project is the very thing that would stop it

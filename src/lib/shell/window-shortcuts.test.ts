@@ -99,4 +99,36 @@ describe("windowShortcutFor", () => {
       })
     ).toBe(WindowShortcut.NewWindow);
   });
+
+  it("finds a project on Ctrl+P, but not with Shift or Alt held", () => {
+    expect(
+      windowShortcutFor({
+        event: chord({
+          key: "p",
+          ctrlKey: true
+        }),
+        isDevelopment: false
+      })
+    ).toBe(WindowShortcut.FindProject);
+    expect(
+      windowShortcutFor({
+        event: chord({
+          key: "P",
+          ctrlKey: true,
+          shiftKey: true
+        }),
+        isDevelopment: false
+      })
+    ).toBeNull();
+    expect(
+      windowShortcutFor({
+        event: chord({
+          key: "p",
+          ctrlKey: true,
+          altKey: true
+        }),
+        isDevelopment: false
+      })
+    ).toBeNull();
+  });
 });

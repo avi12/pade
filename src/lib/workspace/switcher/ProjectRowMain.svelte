@@ -1,46 +1,83 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { observeProjectBranch, projectBranch } from "@/lib/stores/workspace/projectBranches.svelte";
-  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
   import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
   import LanguageBar from "@/lib/workspace/LanguageBar.svelte";
   import LastAccessed from "@/lib/workspace/LastAccessed.svelte";
   import ProjectKindIcon from "@/lib/workspace/ProjectKindIcon.svelte";
   import TempBadge from "@/lib/workspace/TempBadge.svelte";
 
-  // A pinned/recent switcher row's main button: kind icon, name, branch chip,
-  // path and last-accessed age, with a check on the window's current project.
-  const { project, labels, isCurrent, openedAt, onpick }: {
+  // A project row's main button in the left rail: kind icon, name (up to two
+  // lines), branch chip, path and last-accessed age, with a check on this
+  // window's project and a window mark on one another window has open. Its
+  // tooltip carries the full name and the path, whatever the row could show.
+  const { project, labels, isCurrent, isOpenElsewhere, chatCount, now, onpick }: {
     project: string;
     labels: Record<string, string>;
     /** This window's own project - wears the primary rail and the check. */
     isCurrent: boolean;
-    /** When the switcher opened - the instant the "last accessed" age is measured against. */
-    openedAt: number;
+    /** Another window has this project open - picking it focuses that window. */
+    isOpenElsewhere: boolean;
+    /** How many chats the project holds. */
+    chatCount: number;
+    /** The instant the "last accessed" age is measured against. */
+    now: number;
     /** The row was clicked - the click carries the modifier keys. */
     onpick: (e: MouseEvent) => void;
   } = $props();
 
   const branch = $derived(projectBranch(project));
+  const name = $derived(
+    displayName({
+      path: project,
+      labels
+    })
+  );
+  const OPEN_ELSEWHERE_NOTE = "Open in another window";
+  // The full name on its own line, then the path - and, for a project another
+  // window holds, where picking it will take you.
+  const rowTooltip = $derived.by(() => {
+    const nameAndPath = `${name}\n${project}`;
+    if (isOpenElsewhere) {
+      return `${nameAndPath}\n${OPEN_ELSEWHERE_NOTE}`;
+    }
+
+    return nameAndPath;
+  });
+  // The trailing mark: a check on this window's project, a window glyph on one
+  // another window has open, nothing otherwise.
+  const mark = $derived.by(() => {
+    if (isCurrent) {
+      return {
+        icon: "check",
+        size: 15
+      } as const;
+    }
+
+    if (isOpenElsewhere) {
+      return {
+        icon: "external",
+        size: 13
+      } as const;
+    }
+
+    return null;
+  });
 </script>
 
 <button
   class="project-row-main"
   class:current={isCurrent}
   {@attach observeProjectBranch({ path: project })}
-  aria-checked={isCurrent}
-  data-arrow-stop
+  aria-current={isCurrent}
+  data-tooltip={rowTooltip}
   onclick={onpick}
-  role="menuitemradio"
   type="button"
 >
   <ProjectKindIcon path={project} />
   <span class="project-row-body">
     <span class="project-row-name-line">
-      <span class="project-row-name">{displayName({
-        path: project,
-        labels
-      })}</span>
+      <span class="project-row-name">{name}</span>
       {#if isTemporaryWorkspace(project)}
         <TempBadge />
       {/if}
@@ -52,16 +89,16 @@
           {branch}
         </span>
       {/if}
-      <span
-        class="project-row-path" {@attach truncationTooltip({
-          tooltip: project
-        })}>{project}</span>
-      <LastAccessed now={openedAt} path={project} />
+      <span class="project-row-path">{project}</span>
+      <LastAccessed {now} path={project} />
     </span>
   </span>
   <LanguageBar path={project} />
-  {#if isCurrent}
-    <span class="project-row-check" aria-hidden="true"><Icon name="check" size={15} /></span>
+  <span class="project-row-count">{chatCount}</span>
+  {#if mark}
+    <span class="project-row-mark" class:current-mark={isCurrent} aria-hidden="true">
+      <Icon name={mark.icon} size={mark.size} />
+    </span>
   {/if}
 </button>
 
@@ -70,21 +107,27 @@
     position: relative;
     display: flex;
     flex: 1;
-    gap: 9px;
+    gap: 8px;
     align-items: center;
     min-inline-size: 0;
-    padding-block: 7px;
-    padding-inline: 8px;
+    padding-block: 7px 10px;
+    padding-inline: 8px 6px;
     border: none;
     border-radius: var(--radius-small);
-    background: transparent;
+    background: none;
     color: var(--on-surface);
     font: inherit;
     text-align: start;
     cursor: pointer;
-    transition: color 120ms var(--ease), background 120ms var(--ease);
+    transition: background 120ms var(--ease), color 120ms var(--ease);
 
-    /* The current project keeps a primary rail on its left edge. */
+    /* The tooltip puts the full name, the path and any note on lines of
+       their own. */
+    &::after {
+      white-space: pre-line;
+    }
+
+    /* The current project keeps a primary rail on its leading edge. */
     &.current {
       box-shadow: inset 3px 0 0 0 var(--primary);
     }
@@ -109,23 +152,29 @@
     display: flex;
     flex: 1;
     flex-direction: column;
+    gap: 2px;
     min-inline-size: 0;
     line-height: 1.25;
   }
 
+  /* A long name (a temp workspace's sentence-long label) wraps onto a second
+     line before it clips, so the rail's narrow width still shows most of it;
+     the tooltip has the rest. */
   .project-row-name-line {
     display: flex;
     gap: 6px;
-    align-items: center;
+    align-items: flex-start;
     min-inline-size: 0;
 
     .project-row-name {
       overflow: hidden;
+      max-block-size: 2lh;
+      min-inline-size: 0;
       font-family: var(--font-monospace);
       font-weight: 600;
       font-size: 13px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      overflow-wrap: anywhere;
+      line-clamp: 2;
     }
   }
 
@@ -139,16 +188,19 @@
 
     .branch {
       display: inline-flex;
-      flex: none;
+      flex: 0 1 auto;
       gap: 4px;
       align-items: center;
+      overflow: hidden;
+      min-inline-size: 0;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-weight: 600;
       font-size: 9px;
+      white-space: nowrap;
 
       /* The branch glyph leads the branch name, tinted tertiary like the design's
-         "vc" mark - it stays that colour on row hover (as the dot did). */
+         "vc" mark - it stays that colour on row hover. */
       .branch-icon {
         display: inline-flex;
         flex: none;
@@ -157,6 +209,7 @@
     }
 
     .project-row-path {
+      flex: 1;
       overflow: hidden;
       min-inline-size: 0;
       color: var(--on-surface-variant);
@@ -176,14 +229,25 @@
     color: inherit;
   }
 
-  .project-row-check {
-    display: inline-flex;
+  .project-row-count {
     flex: none;
-    color: var(--primary);
+    color: var(--on-surface-variant);
+    font-family: var(--font-monospace);
+    font-size: 11px;
   }
 
-  .project-row-main:hover .project-row-check,
-  .project-row-main:focus-visible .project-row-check {
+  .project-row-mark {
+    display: inline-flex;
+    flex: none;
+    color: var(--on-surface-variant);
+
+    &.current-mark {
+      color: var(--primary);
+    }
+  }
+
+  .project-row-main:hover :is(.project-row-mark, .project-row-count),
+  .project-row-main:focus-visible :is(.project-row-mark, .project-row-count) {
     color: inherit;
   }
 </style>

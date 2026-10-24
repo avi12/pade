@@ -3,7 +3,8 @@
   import { openRepositoryOnModifiedClick } from "@/lib/vcs/repository-links";
   import TempBadge from "@/lib/workspace/TempBadge.svelte";
 
-  // The top bar's "Project" pill that opens the switcher popover; when the
+  // The top bar's "Project" pill naming this window's project; it opens the
+  // window menu (save a temp workspace, the open windows), and when the
   // repository has a remote, a Ctrl-click opens it instead.
   const { label, isTemp, remoteRepository, menuId, menuAnchor }: {
     label: string;
@@ -16,12 +17,14 @@
     menuAnchor: string;
   } = $props();
 
+  const MENU_TOOLTIP = "Open windows";
+
   const tooltip = $derived.by(() => {
     if (remoteRepository) {
-      return "Switch project · Ctrl-click opens repository";
+      return `${MENU_TOOLTIP} · Ctrl-click opens repository`;
     }
 
-    return "Switch project";
+    return MENU_TOOLTIP;
   });
 
   function openRemoteOnModifiedClick(element: HTMLElement) {
@@ -38,7 +41,7 @@
   class="trigger menu-trigger"
   {@attach openRemoteOnModifiedClick}
   aria-haspopup="menu"
-  aria-label={`${tooltip} · Ctrl P - ${label}`}
+  aria-label={`${tooltip} - ${label}`}
   data-tooltip={tooltip}
   popovertarget={menuId}
 >

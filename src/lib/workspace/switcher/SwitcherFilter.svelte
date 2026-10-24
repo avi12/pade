@@ -2,10 +2,10 @@
   import Icon from "@/lib/Icon.svelte";
   import { Key } from "@/lib/ui/keys";
 
-  // The switcher's filter / quick-switch field: typing narrows the project rows,
-  // Enter jumps to the first one left.
+  // The left rail's filter / quick-switch field: typing narrows the project
+  // rows, Enter jumps to the first one left.
   let { id, value = $bindable(), onenter }: {
-    /** The field's id - the switcher focuses it by this as it opens. */
+    /** The field's id - Ctrl P focuses it by this. */
     id: string;
     value: string;
     /** Enter was pressed in the field. */
@@ -19,7 +19,6 @@
     {id}
     aria-label="Switch project by name or path"
     autocomplete="off"
-    data-arrow-stop
     onkeydown={e => {
       if (e.key === Key.Enter) {
         onenter();

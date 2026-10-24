@@ -1,6 +1,7 @@
-// Pure row bookkeeping for the project switcher (AppMenu): which projects a
-// filter keeps, the ids and view-transition names each row carries, and the
-// window rows re-ordered the way a drag left them.
+// Pure row bookkeeping for the project rows (the left rail) and the open-window
+// rows (the top bar's window menu): which projects a filter keeps, the ids and
+// view-transition names each row carries, and the window rows re-ordered the
+// way a drag left them.
 
 import type { WindowInfo } from "@/lib/types";
 import { displayName, normalizePath } from "@/lib/util/paths";
@@ -17,17 +18,9 @@ export function rowMenuId(project: string) {
   return `switcher-${identifierFrom(project)}`;
 }
 
-/** Stable, unique view-transition-name per row, so the scoped view transition
- *  tracks each row across a list change and morphs it (a moved row glides to its
- *  new slot) instead of cross-fading the whole list. The same project keeps the
- *  same name across sections, so pinning it glides from Recent to Pinned. */
-export function rowTransitionName(project: string) {
-  return `row-${identifierFrom(project)}`;
-}
-
-/** A separate namespace from `rowTransitionName`, keyed by the window's stable
- *  session label: a window and a pinned row can share a project path, and two
- *  elements can't carry the same view-transition-name in one transition. */
+/** Stable, unique view-transition-name per open-window row, keyed by the
+ *  window's stable session label, so the scoped view transition glides a
+ *  reordered row to its new slot instead of cross-fading the whole list. */
 export function windowRowTransitionName(windowLabel: string) {
   return `window-row-${identifierFrom(windowLabel)}`;
 }
@@ -72,25 +65,4 @@ export function windowRowsInOrder({ windowRows, order }: {
     const row = byLabel.get(windowLabel);
     return row ? [row] : [];
   });
-}
-
-/** The projects each switcher section lists. */
-export interface ListedProjects {
-  pinned: readonly string[];
-  recent: readonly string[];
-}
-
-/** Whether two listings hold the same projects in each section, in any order -
- *  a reorder isn't a change the list should animate, an arrival, departure or
- *  move between sections is. */
-export function isSameMembership({ before, after }: {
-  before: ListedProjects;
-  after: ListedProjects;
-}) {
-  function isSameMembers(first: readonly string[], second: readonly string[]) {
-    const firstSet = new Set(first.map(normalizePath));
-    return first.length === second.length && second.every(project => firstSet.has(normalizePath(project)));
-  }
-
-  return isSameMembers(before.pinned, after.pinned) && isSameMembers(before.recent, after.recent);
 }
