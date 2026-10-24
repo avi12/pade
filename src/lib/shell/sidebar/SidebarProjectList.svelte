@@ -28,8 +28,7 @@
     onrelabel,
     onrenamefolder,
     onremove,
-    ondeleteproject,
-    onclearrecent
+    ondeleteproject
   }: {
     sections: ReturnType<typeof sidebarSections>;
     /** A search narrows the rows. */
@@ -70,7 +69,6 @@
     onrenamefolder: (project: string) => void;
     onremove: (project: string) => void;
     ondeleteproject: (project: string) => void;
-    onclearrecent: () => void;
   } = $props();
 
   const NO_MATCHES = "No projects match";
@@ -156,13 +154,7 @@
      on project headers only, which the markup's tabindex already arranges. -->
 <div class="groups" {@attach sidebarArrowKeys}>
   <ProjectSection heading="Pinned" items={sections.pinned} key={entry => entry.project} row={pinnedGroup} />
-  <ProjectSection
-    heading="Recent"
-    items={sections.recent}
-    key={entry => entry.project}
-    onclear={onclearrecent}
-    row={recentGroup}
-  />
+  <ProjectSection heading="Recent" items={sections.recent} key={entry => entry.project} row={recentGroup} />
 
   {#if emptyMessage}
     <p class="empty">{emptyMessage}</p>

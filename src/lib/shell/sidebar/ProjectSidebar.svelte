@@ -238,9 +238,6 @@
     isFiltered={filter.trim() !== ""}
     labels={settings.labels}
     {now}
-    onclearrecent={async () => {
-      await sendSettingsMessage(Command.workspaceClearRecent);
-    }}
     {ondeletechat}
     ondeleteproject={target => {
       deleteTarget = target;
