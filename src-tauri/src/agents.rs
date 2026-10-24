@@ -572,6 +572,16 @@ fn definition(command: &str) -> Option<&'static AgentDefinition> {
     REGISTRY.iter().find(|agent| agent.command == command)
 }
 
+/// The executable the registry launches the agent `id` with (`cursor` runs
+/// `cursor-agent`), so a hint telling the user which CLI to run names the real
+/// one. `None` for an id the registry doesn't know.
+pub(crate) fn command_for_id(id: &str) -> Option<&'static str> {
+    REGISTRY
+        .iter()
+        .find(|agent| agent.id == id)
+        .map(|agent| agent.command)
+}
+
 /// Every executable name `command` could be installed under: its own name first,
 /// then the registry's aliases (just the name itself for a shell or a command ADE
 /// doesn't know, e.g. a task runner).

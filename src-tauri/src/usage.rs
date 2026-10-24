@@ -10,8 +10,11 @@
 //!    label) when the network / token isn't available, leaving
 //!    `used_percentage`/`resets_at` `None` if the precise numbers aren't on disk.
 //!
-//! When nothing reliable is found we return `None` and the UI shows an honest
-//! "usage unavailable" state - we never fabricate numbers.
+//! When nothing reliable is found the account reading says why
+//! ([`NoReadingReason`]: no usage source, signed out, sign-in expired, or the
+//! vendor unreachable) and the UI shows that honestly - we never fabricate
+//! numbers. We never refresh a vendor token either: refresh tokens are
+//! single-use, and rotating one under a running CLI would sign it out.
 //!
 //! `limit_reset` adds the meter's one action: offering and claiming Claude's
 //! free usage-limit reset over the same OAuth endpoint.
@@ -79,8 +82,21 @@ impl UsageAgent {
         }
     }
 
+    /// The registry id of the agent whose sign-in this adapter reads - the CLI a
+    /// signed-out or expired reading tells the user to run. opencode reads
+    /// Codex's login, so its hint names Codex.
+    fn sign_in_agent(self) -> &'static str {
+        match self {
+            Self::Claude => ID_CLAUDE,
+            Self::Codex => ID_CODEX,
+            Self::Copilot => ID_COPILOT,
+            Self::Antigravity => ID_ANTIGRAVITY,
+            Self::Cursor => ID_CURSOR,
+        }
+    }
+
     /// Read this adapter's account afresh, bypassing the cache.
-    fn fetch_account_usage(self) -> Option<AccountUsage> {
+    fn fetch_account_usage(self) -> Result<AccountUsage, NoReadingReason> {
         match self {
             Self::Claude => fetch_claude_account_usage(),
             Self::Codex => fetch_codex_account_usage(),
@@ -135,7 +151,7 @@ pub async fn usage_get(agent: String) -> Option<Usage> {
 /// windows when they can be read, else the adapter's offline plan label.
 fn usage_for(agent: &str) -> Option<Usage> {
     let agent = UsageAgent::from_id(agent)?;
-    let Some(account) = account_usage_for(AccountUsageRequest::cached(agent)) else {
+    let Some(account) = account_usage_for(AccountUsageRequest::cached(agent)).account else {
         return agent.offline_usage();
     };
     Some(usage_from_account(account, agent.headline_window()))
@@ -423,7 +439,7 @@ pub enum BillingAccount {
 /// returns (the session + weekly windows, any per-model caps, and any future
 /// windows), plus the plan label. Its `Default` is the shape of an account with
 /// no credits concept, which every adapter but Claude's builds on.
-#[derive(Serialize, Clone, Default)]
+#[derive(Serialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountUsage {
     windows: Vec<UsageWindow>,
@@ -450,6 +466,74 @@ enum UsageCachePolicy {
     Refresh,
 }
 
+/// Why an account has no reading - so the UI can say "sign-in expired" instead
+/// of a bare dash, and tell the user what to do about it.
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NoReadingReason {
+    /// PADE has no usage source it can read for this agent.
+    NoSource,
+    /// The agent's sign-in isn't on disk.
+    SignedOut,
+    /// The vendor rejected the stored sign-in (a 401/403), or its recorded
+    /// expiry has passed. The agent's CLI refreshes it on its next run.
+    SignInExpired,
+    /// The vendor didn't answer usably: no network, a refusal (429), a server
+    /// error, or a body that isn't a usage response. Transient, so the last
+    /// reading keeps standing in.
+    Unreachable,
+}
+
+/// A failed usage request, as far as the reading cares: the vendor refused the
+/// credentials, or it could not be reached / did not answer usably.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RequestFailure {
+    Rejected,
+    Unreachable,
+}
+
+impl From<RequestFailure> for NoReadingReason {
+    fn from(failure: RequestFailure) -> Self {
+        match failure {
+            RequestFailure::Rejected => Self::SignInExpired,
+            RequestFailure::Unreachable => Self::Unreachable,
+        }
+    }
+}
+
+/// Why the latest ask brought no reading, and the CLI that fixes a sign-in
+/// problem (`codex`), straight from the agent registry.
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NoReading {
+    reason: NoReadingReason,
+    sign_in_command: Option<&'static str>,
+}
+
+/// What the account command answers: the reading to show - fresh, or the last
+/// good one held over while the vendor fails (see [`LAST_READING_LIMIT`]) - and,
+/// when the latest ask brought none, why. A fresh reading carries no
+/// `no_reading`; a held-over one carries both.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountReading {
+    account: Option<AccountUsage>,
+    no_reading: Option<NoReading>,
+}
+
+impl AccountReading {
+    /// The answer for an agent PADE has no usage adapter for.
+    const fn no_source() -> Self {
+        Self {
+            account: None,
+            no_reading: Some(NoReading {
+                reason: NoReadingReason::NoSource,
+                sign_in_command: None,
+            }),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 struct AccountUsageRequest {
     agent: UsageAgent,
@@ -473,16 +557,18 @@ impl AccountUsageRequest {
 }
 
 /// Live account usage windows for a specific agent (`claude`, `codex`) - what the
-/// per-agent meter renders and the auto-resume scheduler reads. `None` for an
-/// agent we have no usage adapter for, or when its token / network isn't
-/// available (offline, `curl` missing, refused, or a token expired until the
-/// agent's next run refreshes it) and no recent reading is held to fall back on.
+/// per-agent meter renders and the auto-resume scheduler reads - and, when the
+/// latest ask brought none, why: no adapter for this agent, signed out, a
+/// rejected or expired sign-in (until the agent's next run refreshes it), or the
+/// vendor unreachable. A recent reading keeps standing in through a failure.
 // `async` + `spawn_blocking` for the same reason as [`usage_get`]: a cache miss
 // is a bounded-but-slow curl request that must never run on the UI thread.
 #[tauri::command]
-pub async fn usage_account_agent(agent: String, force_refresh: bool) -> Option<AccountUsage> {
+pub async fn usage_account_agent(agent: String, force_refresh: bool) -> AccountReading {
     tauri::async_runtime::spawn_blocking(move || {
-        let agent = UsageAgent::from_id(&agent)?;
+        let Some(agent) = UsageAgent::from_id(&agent) else {
+            return AccountReading::no_source();
+        };
         let request = if force_refresh {
             AccountUsageRequest::refresh(agent)
         } else {
@@ -491,8 +577,13 @@ pub async fn usage_account_agent(agent: String, force_refresh: bool) -> Option<A
         account_usage_for(request)
     })
     .await
-    .ok()
-    .flatten()
+    .unwrap_or(AccountReading {
+        account: None,
+        no_reading: Some(NoReading {
+            reason: NoReadingReason::Unreachable,
+            sign_in_command: None,
+        }),
+    })
 }
 
 /// How long a reading is still shown after the endpoint stops answering. A
@@ -504,13 +595,15 @@ pub async fn usage_account_agent(agent: String, force_refresh: bool) -> Option<A
 const LAST_READING_LIMIT: Duration = Duration::from_hours(1);
 
 /// What the cache knows about one agent's account: when its endpoint was last
-/// asked, and the last reading it answered. A failed ask moves `asked_at` but
-/// keeps the reading, so a refusal neither blanks the meter nor invites an
-/// immediate retry that only extends the refusal.
+/// asked, the last reading it answered, and why the latest ask failed if it
+/// did. A failed ask moves `asked_at` but keeps the reading, so a refusal
+/// neither blanks the meter nor invites an immediate retry that only extends
+/// the refusal.
 #[derive(Clone, Default)]
 struct AccountReadings {
     asked_at: Option<Instant>,
     last_reading: Option<(Instant, AccountUsage)>,
+    last_failure: Option<NoReadingReason>,
 }
 
 impl AccountReadings {
@@ -535,12 +628,28 @@ impl AccountReadings {
         !(was_asked_since_request || (is_cache_allowed && is_ask_fresh))
     }
 
-    /// Record one ask made at `asked_at`; a failed one (`None`) keeps the last
-    /// reading.
-    fn record(&mut self, answer: Option<AccountUsage>, asked_at: Instant) {
+    /// Record one ask made at `asked_at`; a failed one keeps the last reading
+    /// and remembers why it failed.
+    fn record(&mut self, answer: Result<AccountUsage, NoReadingReason>, asked_at: Instant) {
         self.asked_at = Some(asked_at);
-        if let Some(reading) = answer {
-            self.last_reading = Some((asked_at, reading));
+        match answer {
+            Ok(reading) => {
+                self.last_reading = Some((asked_at, reading));
+                self.last_failure = None;
+            }
+            Err(reason) => self.last_failure = Some(reason),
+        }
+    }
+
+    /// What `agent`'s account command answers at `now`: the reading to show and,
+    /// after a failed ask, why it failed.
+    fn reading(&self, agent: UsageAgent, now: Instant) -> AccountReading {
+        AccountReading {
+            account: self.last_known(now),
+            no_reading: self.last_failure.map(|reason| NoReading {
+                reason,
+                sign_in_command: crate::agents::command_for_id(agent.sign_in_agent()),
+            }),
         }
     }
 
@@ -594,18 +703,18 @@ fn fetch_gate(agent: UsageAgent) -> Arc<Mutex<()>> {
 /// per-token limit, with concurrent asks coalesced into one and a failed ask
 /// answered by the last real reading (see [`AccountReadings`]). The cache lock
 /// is only ever held for a lookup; the ask itself runs under the agent's gate.
-fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
+fn account_usage_for(request: AccountUsageRequest) -> AccountReading {
     let requested_at = Instant::now();
     let readings = account_readings(request.agent);
     if !readings.needs_asking(request, requested_at, Instant::now()) {
-        return readings.last_known(Instant::now());
+        return readings.reading(request.agent, Instant::now());
     }
 
     let gate = fetch_gate(request.agent);
     let _asking = gate.lock().unwrap_or_else(PoisonError::into_inner);
     let readings = account_readings(request.agent);
     if !readings.needs_asking(request, requested_at, Instant::now()) {
-        return readings.last_known(Instant::now());
+        return readings.reading(request.agent, Instant::now());
     }
 
     let answer = request.agent.fetch_account_usage();
@@ -614,37 +723,66 @@ fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
         .unwrap_or_else(PoisonError::into_inner);
     let readings = cache.entry(request.agent).or_default();
     readings.record(answer, Instant::now());
-    readings.last_known(Instant::now())
+    readings.reading(request.agent, Instant::now())
+}
+
+/// A credentials file an adapter reads, parsed - or [`NoReadingReason::SignedOut`]
+/// when it is missing or unreadable, which is what a CLI that never signed in
+/// (or signed out) leaves behind.
+fn read_sign_in(path: Option<PathBuf>) -> Result<serde_json::Value, NoReadingReason> {
+    path.as_deref()
+        .and_then(read_json)
+        .ok_or(NoReadingReason::SignedOut)
+}
+
+/// A string the sign-in must carry (the token, the account id); its absence
+/// means there is no usable sign-in.
+fn sign_in_field<'json>(
+    json: &'json serde_json::Value,
+    pointer: &str,
+) -> Result<&'json str, NoReadingReason> {
+    json.pointer(pointer)
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or(NoReadingReason::SignedOut)
+}
+
+/// A usage endpoint's body as JSON. One that doesn't parse is not a usage
+/// response - the vendor didn't answer usably.
+fn parse_usage_body(body: &str) -> Result<serde_json::Value, NoReadingReason> {
+    serde_json::from_str(body).map_err(|_| NoReadingReason::Unreachable)
 }
 
 /// Claude Code's stored OAuth login, while its token has not expired - a
 /// request on a token already known to be stale is wasted.
-fn live_claude_oauth() -> Option<serde_json::Value> {
-    let mut json = read_json(&claude_credentials_path()?)?;
-    let oauth = json.get_mut("claudeAiOauth")?.take();
+fn live_claude_oauth() -> Result<serde_json::Value, NoReadingReason> {
+    let mut json = read_sign_in(claude_credentials_path())?;
+    let oauth = json
+        .get_mut("claudeAiOauth")
+        .ok_or(NoReadingReason::SignedOut)?
+        .take();
     let expires_at_milliseconds = oauth.get("expiresAt").and_then(serde_json::Value::as_u64);
     let has_expired =
         expires_at_milliseconds.is_some_and(|expires_at| expires_at <= now_milliseconds());
     if has_expired {
-        return None;
+        return Err(NoReadingReason::SignInExpired);
     }
 
-    Some(oauth)
+    Ok(oauth)
 }
 
 /// Claude Code's OAuth access token, while it is still live.
 pub(crate) fn claude_access_token() -> Option<String> {
-    live_claude_oauth()?
+    live_claude_oauth()
+        .ok()?
         .get("accessToken")
         .and_then(serde_json::Value::as_str)
         .map(str::to_string)
 }
 
-fn fetch_claude_account_usage() -> Option<AccountUsage> {
+fn fetch_claude_account_usage() -> Result<AccountUsage, NoReadingReason> {
     let oauth = live_claude_oauth()?;
-    let token = oauth
-        .get("accessToken")
-        .and_then(serde_json::Value::as_str)?;
+    let token = sign_in_field(&oauth, "/accessToken")?;
 
     let plan = plan_label(
         CLAUDE_PLAN,
@@ -658,12 +796,12 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
         token,
         organization: None,
     })?;
-    let response: serde_json::Value = serde_json::from_str(&body).ok()?;
+    let response = parse_usage_body(&body)?;
 
     let windows = collect_windows(&response);
-    // A non-usage body (e.g. a 401 JSON error) carries no windows.
+    // A body that carries no windows isn't a usage response.
     if windows.is_empty() {
-        return None;
+        return Err(NoReadingReason::Unreachable);
     }
 
     let credits = credits_state(&response);
@@ -672,7 +810,7 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
         .then(|| claude_credit_balance(token))
         .flatten();
 
-    Some(AccountUsage {
+    Ok(AccountUsage {
         windows,
         plan,
         source: CLAUDE_OAUTH_SOURCE.to_string(),
@@ -730,7 +868,8 @@ fn claude_credit_balance(token: &str) -> Option<CreditBalance> {
         url: &url,
         token,
         organization: Some(organization),
-    })?;
+    })
+    .ok()?;
     credit_balance(&serde_json::from_str(&body).ok()?)
 }
 
@@ -899,8 +1038,9 @@ pub(crate) struct ClaudeOauthRequest<'request> {
 
 /// Call a claude.ai OAuth endpoint via `curl`. The token and organization uuid
 /// are interpolated into quoted config directives, so anything outside the
-/// OAuth-token character set is refused - see [`is_safe_header_token`].
-pub(crate) fn curl_claude_oauth(request: &ClaudeOauthRequest) -> Option<String> {
+/// OAuth-token character set is refused (as a rejected sign-in) - see
+/// [`is_safe_header_token`].
+pub(crate) fn curl_claude_oauth(request: &ClaudeOauthRequest) -> Result<String, RequestFailure> {
     let ClaudeOauthRequest {
         url,
         token,
@@ -911,7 +1051,7 @@ pub(crate) fn curl_claude_oauth(request: &ClaudeOauthRequest) -> Option<String> 
     } = *request;
     let is_organization_safe = organization.is_none_or(is_safe_header_token);
     if !is_safe_header_token(token) || !is_organization_safe {
-        return None;
+        return Err(RequestFailure::Rejected);
     }
 
     let authorization = format!("Bearer {token}");
@@ -939,7 +1079,7 @@ struct ClaudeUsageRead<'request> {
     organization: Option<&'request str>,
 }
 
-fn read_claude_usage_endpoint(read: &ClaudeUsageRead) -> Option<String> {
+fn read_claude_usage_endpoint(read: &ClaudeUsageRead) -> Result<String, RequestFailure> {
     curl_claude_oauth(&ClaudeOauthRequest {
         url: read.url,
         token: read.token,
@@ -960,8 +1100,9 @@ struct CurlRequest<'request> {
     json_body: Option<&'request str>,
 }
 
-/// The curl `--config` document for `request`. `fail` turns an HTTP error
-/// status into a non-zero exit, so an error body is never read as an answer.
+/// The curl `--config` document for `request`. `write-out` appends the HTTP
+/// status on a final line of its own, so [`http_answer`] can tell a rejected
+/// sign-in from a refusal and never reads an error body as an answer.
 fn curl_config(request: &CurlRequest) -> String {
     let CurlRequest {
         url,
@@ -969,8 +1110,9 @@ fn curl_config(request: &CurlRequest) -> String {
         headers,
         json_body,
     } = request;
-    let mut config =
-        format!("silent\nshow-error\nfail\nmax-time = {timeout_seconds}\nurl = \"{url}\"\n");
+    let mut config = format!(
+        "silent\nshow-error\nwrite-out = \"\\n%{{http_code}}\"\nmax-time = {timeout_seconds}\nurl = \"{url}\"\n"
+    );
     // Writing into a `String` cannot fail, so the `fmt::Result`s carry nothing.
     for (name, value) in *headers {
         let _ = writeln!(config, "header = \"{name}: {value}\"");
@@ -985,7 +1127,7 @@ fn curl_config(request: &CurlRequest) -> String {
 /// Run `request` by feeding its curl `--config` document on stdin - so the
 /// bearer token never appears in the process arguments. The one transport
 /// behind every vendor's usage call and the limit-reset calls.
-fn curl_json(request: &CurlRequest) -> Option<String> {
+fn curl_json(request: &CurlRequest) -> Result<String, RequestFailure> {
     let config = curl_config(request);
     let mut child = crate::util::command("curl")
         .arg("--config")
@@ -994,16 +1136,46 @@ fn curl_json(request: &CurlRequest) -> Option<String> {
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .ok()?;
+        .map_err(|_| RequestFailure::Unreachable)?;
 
     // Write the config, then drop stdin so curl sees EOF and runs the request.
-    child.stdin.take()?.write_all(config.as_bytes()).ok()?;
+    child
+        .stdin
+        .take()
+        .ok_or(RequestFailure::Unreachable)?
+        .write_all(config.as_bytes())
+        .map_err(|_| RequestFailure::Unreachable)?;
 
-    let output = child.wait_with_output().ok()?;
+    let output = child
+        .wait_with_output()
+        .map_err(|_| RequestFailure::Unreachable)?;
+    // A transport failure (no network, a timeout) exits non-zero.
     if !output.status.success() {
-        return None;
+        return Err(RequestFailure::Unreachable);
     }
-    String::from_utf8(output.stdout).ok()
+    let stdout = String::from_utf8(output.stdout).map_err(|_| RequestFailure::Unreachable)?;
+    http_answer(&stdout)
+}
+
+/// HTTP statuses that mean the vendor refused the credentials themselves.
+const UNAUTHORIZED_STATUS: u16 = 401;
+const FORBIDDEN_STATUS: u16 = 403;
+
+/// curl's output split into the body and the status `write-out` appended on the
+/// last line: the body on a success, otherwise what the status says - a 401 or
+/// 403 is a rejected sign-in, anything else (a 429, a server error, no status
+/// at all) leaves the vendor unreachable for now.
+fn http_answer(output: &str) -> Result<String, RequestFailure> {
+    let (body, status) = output.rsplit_once('\n').unwrap_or(("", output));
+    let status: u16 = status
+        .trim()
+        .parse()
+        .map_err(|_| RequestFailure::Unreachable)?;
+    match status {
+        200..=299 => Ok(body.to_string()),
+        UNAUTHORIZED_STATUS | FORBIDDEN_STATUS => Err(RequestFailure::Rejected),
+        _ => Err(RequestFailure::Unreachable),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1040,23 +1212,18 @@ const DAYS_PER_WEEK: i64 = 7;
 /// The feature name a Codex per-feature limit falls back to when it names none.
 const CODEX_UNNAMED_FEATURE: &str = "codex";
 
-fn fetch_codex_account_usage() -> Option<AccountUsage> {
-    let json = read_json(&codex_auth_path()?)?;
-    let tokens = json.get("tokens")?;
-    let token = tokens
-        .get("access_token")
-        .and_then(serde_json::Value::as_str)?;
-    let account_id = tokens
-        .get("account_id")
-        .and_then(serde_json::Value::as_str)?;
+fn fetch_codex_account_usage() -> Result<AccountUsage, NoReadingReason> {
+    let json = read_sign_in(codex_auth_path())?;
+    let token = sign_in_field(&json, "/tokens/access_token")?;
+    let account_id = sign_in_field(&json, "/tokens/account_id")?;
 
     let body = read_codex_usage_endpoint(&CodexLogin { token, account_id })?;
-    let response: serde_json::Value = serde_json::from_str(&body).ok()?;
+    let response = parse_usage_body(&body)?;
 
     let windows = collect_codex_windows(&response);
-    // A non-usage body (e.g. a 401 JSON error) carries no windows.
+    // A body that carries no windows isn't a usage response.
     if windows.is_empty() {
-        return None;
+        return Err(NoReadingReason::Unreachable);
     }
 
     let plan = plan_label(
@@ -1065,7 +1232,7 @@ fn fetch_codex_account_usage() -> Option<AccountUsage> {
             .get("plan_type")
             .and_then(serde_json::Value::as_str),
     );
-    Some(AccountUsage {
+    Ok(AccountUsage {
         windows,
         plan,
         source: CODEX_OAUTH_SOURCE.to_string(),
@@ -1224,10 +1391,10 @@ fn unix_seconds_to_iso8601(seconds: i64) -> String {
 /// GET the Codex usage endpoint. The token and account id are interpolated into
 /// quoted header directives, so anything outside the token character set is
 /// refused - see [`is_safe_header_token`].
-fn read_codex_usage_endpoint(login: &CodexLogin) -> Option<String> {
+fn read_codex_usage_endpoint(login: &CodexLogin) -> Result<String, RequestFailure> {
     let CodexLogin { token, account_id } = *login;
     if !is_safe_header_token(token) || !is_safe_header_token(account_id) {
-        return None;
+        return Err(RequestFailure::Rejected);
     }
 
     let authorization = format!("Bearer {token}");
@@ -1270,40 +1437,43 @@ const COPILOT_EDITOR_VERSION: &str = "vscode/1.99.0";
 const COPILOT_LOCAL_SOURCE: &str = "local:github-copilot";
 
 /// The Copilot account: live entitlement windows when the endpoint answers,
-/// otherwise a bare plan label confirming a local token exists. `None` only when
-/// no token is reachable at all (keychain-only login, no env override, no editor
-/// OAuth store) - an honest "-".
-fn fetch_copilot_account_usage() -> Option<AccountUsage> {
-    let token = copilot_token()?;
-    if let Some(account) = copilot_live_usage(&token) {
-        return Some(account);
+/// otherwise a bare plan label confirming a local token exists. With no token
+/// reachable at all (a keychain-only login, no env override, no editor OAuth
+/// store) PADE has no source it can read - not "signed out", since the CLI may
+/// well be signed in through the keychain. A token GitHub rejects is an expired
+/// sign-in.
+fn fetch_copilot_account_usage() -> Result<AccountUsage, NoReadingReason> {
+    let token = copilot_token().ok_or(NoReadingReason::NoSource)?;
+    match copilot_live_usage(&token) {
+        Ok(account) => Ok(account),
+        Err(NoReadingReason::SignInExpired) => Err(NoReadingReason::SignInExpired),
+        Err(_) => Ok(AccountUsage {
+            plan: COPILOT_PLAN.to_string(),
+            source: COPILOT_LOCAL_SOURCE.to_string(),
+            account: Some(BillingAccount::Github),
+            ..AccountUsage::default()
+        }),
     }
-    Some(AccountUsage {
-        plan: COPILOT_PLAN.to_string(),
-        source: COPILOT_LOCAL_SOURCE.to_string(),
-        account: Some(BillingAccount::Github),
-        ..AccountUsage::default()
-    })
 }
 
-/// Live Copilot entitlement, or `None` when the endpoint is unreachable or the
-/// body isn't a usage response (e.g. a 401 error blob carries neither
-/// `copilot_plan` nor any quota snapshot).
-fn copilot_live_usage(token: &str) -> Option<AccountUsage> {
+/// Live Copilot entitlement, or why there is none: the endpoint refused the
+/// token, could not be reached, or answered a body that isn't a usage response
+/// (neither `copilot_plan` nor any quota snapshot).
+fn copilot_live_usage(token: &str) -> Result<AccountUsage, NoReadingReason> {
     let body = read_copilot_usage_endpoint(token)?;
-    let response: serde_json::Value = serde_json::from_str(&body).ok()?;
+    let response = parse_usage_body(&body)?;
 
     let has_plan = response.get("copilot_plan").is_some();
     let windows = collect_copilot_windows(&response);
     if windows.is_empty() && !has_plan {
-        return None;
+        return Err(NoReadingReason::Unreachable);
     }
 
     let tier = response
         .get("copilot_plan")
         .and_then(serde_json::Value::as_str)
         .map(|tier| tier.replace('_', " "));
-    Some(AccountUsage {
+    Ok(AccountUsage {
         windows,
         plan: plan_label(COPILOT_PLAN, tier.as_deref()),
         source: COPILOT_OAUTH_SOURCE.to_string(),
@@ -1424,9 +1594,9 @@ fn copilot_token_from_store() -> Option<String> {
 /// authorization scheme and expects an editor `User-Agent` + `Editor-Version`.
 /// Rejects anything outside the token character set - see
 /// [`is_safe_header_token`].
-fn read_copilot_usage_endpoint(token: &str) -> Option<String> {
+fn read_copilot_usage_endpoint(token: &str) -> Result<String, RequestFailure> {
     if !is_safe_header_token(token) {
-        return None;
+        return Err(RequestFailure::Rejected);
     }
 
     let authorization = format!("token {token}");
@@ -1457,14 +1627,14 @@ fn read_copilot_usage_endpoint(token: &str) -> Option<String> {
 const ANTIGRAVITY_TOKEN_RELATIVE_PATH: &str = ".gemini/antigravity-cli/antigravity-oauth-token";
 
 /// Confirm the Antigravity OAuth token exists on disk and surface a bare plan
-/// label with no numbers (no quota-free usage endpoint we trust). `None` when no
-/// login is present - an honest "-".
-fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
-    let json = read_json(&home_directory()?.join(ANTIGRAVITY_TOKEN_RELATIVE_PATH))?;
-    json.pointer("/token/access_token")
-        .and_then(serde_json::Value::as_str)?;
+/// label with no numbers (no quota-free usage endpoint we trust). Signed out
+/// when no login is present.
+fn fetch_antigravity_account_usage() -> Result<AccountUsage, NoReadingReason> {
+    let json =
+        read_sign_in(home_directory().map(|home| home.join(ANTIGRAVITY_TOKEN_RELATIVE_PATH)))?;
+    sign_in_field(&json, "/token/access_token")?;
 
-    Some(AccountUsage {
+    Ok(AccountUsage {
         plan: ANTIGRAVITY_PLAN.to_string(),
         source: local_source(ANTIGRAVITY_TOKEN_RELATIVE_PATH),
         account: Some(BillingAccount::Google),
@@ -1496,12 +1666,13 @@ const CURSOR_AUTH_RELATIVE_PATHS: [&str; 5] = [
 ];
 
 /// Confirm a Cursor login exists on disk (or a `CURSOR_API_KEY` override) and
-/// surface a bare plan label with no numbers. `None` when no login is present.
-fn fetch_cursor_account_usage() -> Option<AccountUsage> {
+/// surface a bare plan label with no numbers. Signed out when no login is
+/// present.
+fn fetch_cursor_account_usage() -> Result<AccountUsage, NoReadingReason> {
     if !is_cursor_login_present() {
-        return None;
+        return Err(NoReadingReason::SignedOut);
     }
-    Some(AccountUsage {
+    Ok(AccountUsage {
         plan: CURSOR_PLAN.to_string(),
         source: CURSOR_LOCAL_SOURCE.to_string(),
         account: Some(BillingAccount::Cursor),
@@ -1543,10 +1714,11 @@ fn auth_file_has_login(path: &std::path::Path) -> bool {
 mod tests {
     use super::{
         collect_codex_windows, collect_copilot_windows, collect_windows, credit_balance,
-        credits_state, curl_config, humanize_key, humanize_window_seconds, is_safe_header_token,
-        uncapped_credits_spend, unix_seconds_to_iso8601, usage_from_account, AccountUsage,
-        BillingAccount, ClaudeProfile, CreditsState, CurlRequest, HeadlineWindow, Usage,
-        UsageAgent, UsageWindow, UsageWindowKind,
+        credits_state, curl_config, http_answer, humanize_key, humanize_window_seconds,
+        is_safe_header_token, uncapped_credits_spend, unix_seconds_to_iso8601, usage_from_account,
+        AccountReading, AccountUsage, BillingAccount, ClaudeProfile, CreditsState, CurlRequest,
+        HeadlineWindow, NoReadingReason, RequestFailure, Usage, UsageAgent, UsageWindow,
+        UsageWindowKind,
     };
     use super::{AccountReadings, AccountUsageRequest, LAST_READING_LIMIT, USAGE_CACHE_TTL};
     use crate::agents::{ID_CODEX, ID_OPENCODE};
@@ -1563,8 +1735,133 @@ mod tests {
 
     fn readings_answered_at(asked_at: Instant) -> AccountReadings {
         let mut readings = AccountReadings::default();
-        readings.record(Some(reading("Max")), asked_at);
+        readings.record(Ok(reading("Max")), asked_at);
         readings
+    }
+
+    #[test]
+    fn a_fresh_reading_says_nothing_is_missing() {
+        let asked_at = Instant::now();
+        let reading = readings_answered_at(asked_at).reading(UsageAgent::Codex, asked_at);
+
+        assert_eq!(
+            reading.account.map(|usage| usage.plan),
+            Some("Max".to_string())
+        );
+        assert_eq!(reading.no_reading, None);
+    }
+
+    #[test]
+    fn an_expired_sign_in_names_the_cli_that_refreshes_it() {
+        let asked_at = Instant::now();
+        let mut readings = AccountReadings::default();
+        readings.record(Err(NoReadingReason::SignInExpired), asked_at);
+
+        let reading = readings.reading(UsageAgent::Codex, asked_at);
+
+        assert!(reading.account.is_none());
+        let no_reading = reading.no_reading.expect("a reason");
+        assert_eq!(no_reading.reason, NoReadingReason::SignInExpired);
+        assert_eq!(no_reading.sign_in_command, Some("codex"));
+    }
+
+    #[test]
+    fn a_failure_after_a_reading_holds_it_over_and_says_why() {
+        let first_ask = Instant::now();
+        let mut readings = readings_answered_at(first_ask);
+        readings.record(
+            Err(NoReadingReason::Unreachable),
+            first_ask + USAGE_CACHE_TTL,
+        );
+
+        let reading = readings.reading(UsageAgent::Claude, first_ask + USAGE_CACHE_TTL);
+
+        assert!(reading.account.is_some());
+        assert_eq!(
+            reading.no_reading.map(|no_reading| no_reading.reason),
+            Some(NoReadingReason::Unreachable)
+        );
+    }
+
+    #[test]
+    fn a_reading_after_a_failure_clears_the_reason() {
+        let asked_at = Instant::now();
+        let mut readings = AccountReadings::default();
+        readings.record(Err(NoReadingReason::SignedOut), asked_at);
+        readings.record(Ok(reading("Plus")), asked_at + USAGE_CACHE_TTL);
+
+        assert_eq!(
+            readings
+                .reading(UsageAgent::Codex, asked_at + USAGE_CACHE_TTL)
+                .no_reading,
+            None
+        );
+    }
+
+    #[test]
+    fn opencode_is_told_to_refresh_codex_whose_sign_in_it_reads() {
+        let agent = UsageAgent::from_id(ID_OPENCODE).expect("an adapter");
+        assert_eq!(
+            crate::agents::command_for_id(agent.sign_in_agent()),
+            Some("codex")
+        );
+    }
+
+    #[test]
+    fn the_reading_wire_shape_is_what_the_frontend_parses() {
+        let wire = serde_json::to_value(AccountReading::no_source()).expect("serializes");
+        assert_eq!(
+            wire,
+            serde_json::json!({
+                "account": null,
+                "noReading": { "reason": "no_source", "signInCommand": null }
+            })
+        );
+
+        let reasons = [
+            (NoReadingReason::SignedOut, "signed_out"),
+            (NoReadingReason::SignInExpired, "sign_in_expired"),
+            (NoReadingReason::Unreachable, "unreachable"),
+        ];
+        for (reason, wire) in reasons {
+            assert_eq!(serde_json::to_value(reason).expect("serializes"), wire);
+        }
+    }
+
+    #[test]
+    fn a_success_status_answers_the_body() {
+        assert_eq!(
+            http_answer("{\"plan_type\":\"plus\"}\n200"),
+            Ok("{\"plan_type\":\"plus\"}".to_string())
+        );
+    }
+
+    #[test]
+    fn an_unauthorized_or_forbidden_status_is_a_rejected_sign_in() {
+        // The real Codex answer to an expired token, trimmed.
+        let expired = "{\"error\":{\"code\":\"token_expired\"}}\n401";
+        assert_eq!(http_answer(expired), Err(RequestFailure::Rejected));
+        assert_eq!(http_answer("{}\n403"), Err(RequestFailure::Rejected));
+    }
+
+    #[test]
+    fn a_refusal_or_no_status_leaves_the_vendor_unreachable() {
+        assert_eq!(http_answer("{}\n429"), Err(RequestFailure::Unreachable));
+        assert_eq!(http_answer("\n503"), Err(RequestFailure::Unreachable));
+        assert_eq!(http_answer("\n000"), Err(RequestFailure::Unreachable));
+        assert_eq!(http_answer(""), Err(RequestFailure::Unreachable));
+    }
+
+    #[test]
+    fn a_rejected_request_is_an_expired_sign_in() {
+        assert_eq!(
+            NoReadingReason::from(RequestFailure::Rejected),
+            NoReadingReason::SignInExpired
+        );
+        assert_eq!(
+            NoReadingReason::from(RequestFailure::Unreachable),
+            NoReadingReason::Unreachable
+        );
     }
 
     #[test]
@@ -1604,7 +1901,7 @@ mod tests {
         let first_ask = Instant::now();
         let mut readings = readings_answered_at(first_ask);
         let failed_ask = first_ask + USAGE_CACHE_TTL;
-        readings.record(None, failed_ask);
+        readings.record(Err(NoReadingReason::Unreachable), failed_ask);
 
         let shortly_after = failed_ask + ONE_SECOND;
         let request = AccountUsageRequest::cached(UsageAgent::Claude);
@@ -1619,7 +1916,10 @@ mod tests {
     fn a_reading_past_its_limit_is_no_longer_shown() {
         let asked_at = Instant::now();
         let mut readings = readings_answered_at(asked_at);
-        readings.record(None, asked_at + LAST_READING_LIMIT);
+        readings.record(
+            Err(NoReadingReason::Unreachable),
+            asked_at + LAST_READING_LIMIT,
+        );
         assert!(readings.last_known(asked_at + LAST_READING_LIMIT).is_none());
     }
 
@@ -1627,7 +1927,7 @@ mod tests {
     fn a_failure_before_any_reading_answers_nothing() {
         let asked_at = Instant::now();
         let mut readings = AccountReadings::default();
-        readings.record(None, asked_at);
+        readings.record(Err(NoReadingReason::Unreachable), asked_at);
         assert!(readings.last_known(asked_at).is_none());
     }
 
@@ -2023,7 +2323,8 @@ mod tests {
 
         assert_eq!(
             config,
-            "silent\nshow-error\nfail\nmax-time = 20\nurl = \"https://example.com/reset\"\n\
+            "silent\nshow-error\nwrite-out = \"\\n%{http_code}\"\nmax-time = 20\n\
+             url = \"https://example.com/reset\"\n\
              header = \"Authorization: Bearer abc\"\n\
              header = \"User-Agent: pade\"\n\
              request = \"POST\"\ndata = \"{\\\"id\\\":\\\"a\\\\b\\\"}\"\n"

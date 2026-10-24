@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import type { AccountUsage, Agent } from "@/lib/types";
+  import type { AccountReading, Agent } from "@/lib/types";
+  import { noReadingsOf } from "@/lib/usage/meter/usage-meter";
   import UsageLimitStack from "@/lib/usage/meter/UsageLimitStack.svelte";
   import { buildAgentGroup } from "@/lib/usage/usage-groups";
   import { settledValue } from "@/lib/util/settled";
@@ -17,7 +18,7 @@
     onpick: (agentId: string) => void;
   } = $props();
 
-  let accounts = $state<ReadonlyMap<string, AccountUsage | null>>(new Map());
+  let readings = $state<ReadonlyMap<string, AccountReading | null>>(new Map());
 
   async function loadAccounts() {
     const entries = await Promise.all(
@@ -32,13 +33,17 @@
         })
       ] as const)
     );
-    accounts = new Map(entries);
+    readings = new Map(entries);
   }
 
+  // Why an agent without a reading has none, so its row says "Sign in expired"
+  // (and how to fix it on hover) instead of a bare dash.
+  const noReadings = $derived(noReadingsOf(readings));
   const groups = $derived(
     agents.map(agent => buildAgentGroup({
       agent,
-      account: accounts.get(agent.id) ?? null,
+      account: readings.get(agent.id)?.account ?? null,
+      noReading: noReadings.get(agent.id) ?? null,
       now: Date.now()
     }))
   );

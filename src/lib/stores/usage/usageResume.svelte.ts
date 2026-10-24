@@ -335,10 +335,11 @@ function waitingNote({ session, resetAt }: {
  *  account can't say", which leaves the decision to the reset clock. */
 export async function readAccount(session: AgentSession) {
   try {
-    return await sendMessage(Command.usageAccountAgent, {
+    const reading = await sendMessage(Command.usageAccountAgent, {
       agent: session.agent.id,
       forceRefresh: false
     });
+    return reading.account;
   } catch {
     return null;
   }

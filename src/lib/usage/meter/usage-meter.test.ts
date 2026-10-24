@@ -1,4 +1,4 @@
-import { type AccountUsage, UsageWindowKind } from "@/lib/types";
+import { type AccountUsage, type NoReading, NoReadingReason, UsageWindowKind } from "@/lib/types";
 import {
   groupSeverityClass,
   hasClaudePill,
@@ -6,9 +6,13 @@ import {
   KEEP_LAST_READING_MS,
   limitTooltip,
   measuredAgentCount,
+  NO_READING,
+  noReadingFace,
+  noReadingsOf,
   overflowCount,
   overflowLevel,
   pendingResetBoundaries,
+  planCaption,
   severityClass,
   triggerPillGroups,
   USAGE_PANEL_LABEL,
@@ -38,9 +42,10 @@ function makeLimit({ label, level }: {
   } satisfies Limit;
 }
 
-function makeGroup({ id, levels }: {
+function makeGroup({ id, levels, noReading = null }: {
   id: string;
   levels: Level[];
+  noReading?: NoReading | null;
 }) {
   return {
     id,
@@ -49,6 +54,7 @@ function makeGroup({ id, levels }: {
     plan: "",
     icon: "bolt",
     isUnknown: levels.length === 0,
+    noReading,
     limits: levels.map((level, i) => makeLimit({
       label: `limit ${i}`,
       level
@@ -335,5 +341,124 @@ describe("limitTooltip", () => {
         reset: "in 7d 0h"
       })
     ).toBe("Premium interactions: 0%, resets in 7d 0h");
+  });
+});
+
+describe("noReadingFace", () => {
+  function groupWhy({ reason, signInCommand = null }: {
+    reason: NoReadingReason;
+    signInCommand?: string | null;
+  }) {
+    return makeGroup({
+      id: "OpenCode",
+      levels: [],
+      noReading: {
+        reason,
+        signInCommand
+      }
+    });
+  }
+
+  it("says an expired sign-in and names the CLI that refreshes it", () => {
+    expect(
+      noReadingFace(
+        groupWhy({
+          reason: NoReadingReason.enum.sign_in_expired,
+          signInCommand: "codex"
+        })
+      )
+    ).toEqual({
+      label: "Sign in expired",
+      hint: "Run codex once to refresh its sign-in",
+      isState: true
+    });
+  });
+
+  it("tells a signed-out agent how to sign in", () => {
+    expect(
+      noReadingFace(
+        groupWhy({
+          reason: NoReadingReason.enum.signed_out,
+          signInCommand: "muse"
+        })
+      )?.hint
+    ).toBe("Run muse to sign in");
+  });
+
+  it("keeps the dash for an agent with no usage source, but says why on hover", () => {
+    const face = noReadingFace(groupWhy({ reason: NoReadingReason.enum.no_source }));
+    expect(face?.label).toBe(NO_READING);
+    expect(face?.isState).toBe(false);
+    expect(face?.hint).toBe("OpenCode doesn't share its usage");
+  });
+
+  it("reads an unreachable vendor as a state of its own", () => {
+    expect(noReadingFace(groupWhy({ reason: NoReadingReason.enum.unreachable }))?.label).toBe("No answer");
+  });
+
+  it("is nothing when the backend didn't say why", () => {
+    expect(
+      noReadingFace(
+        makeGroup({
+          id: "a",
+          levels: []
+        })
+      )
+    ).toBeNull();
+  });
+});
+
+describe("planCaption", () => {
+  it("shows the plan, else why there is no reading, else the plain fallback", () => {
+    expect(
+      planCaption({
+        ...makeGroup({
+          id: "codex",
+          levels: []
+        }),
+        plan: "Codex plus"
+      })
+    ).toBe("Codex plus");
+    expect(
+      planCaption(
+        makeGroup({
+          id: "codex",
+          levels: [],
+          noReading: {
+            reason: NoReadingReason.enum.sign_in_expired,
+            signInCommand: "codex"
+          }
+        })
+      )
+    ).toBe("Sign in expired · Run codex once to refresh its sign-in");
+    expect(
+      planCaption(
+        makeGroup({
+          id: "codex",
+          levels: []
+        })
+      )
+    ).toBe("usage not available locally");
+  });
+});
+
+describe("noReadingsOf", () => {
+  it("keeps only the readings that say why there is none", () => {
+    const why = {
+      reason: NoReadingReason.enum.sign_in_expired,
+      signInCommand: "codex"
+    };
+    const noReadings = noReadingsOf([
+      ["codex", {
+        account: null,
+        noReading: why
+      }],
+      ["claude", {
+        account: makeAccount([]),
+        noReading: null
+      }],
+      ["copilot", null]
+    ]);
+    expect([...noReadings]).toEqual([["codex", why]]);
   });
 });

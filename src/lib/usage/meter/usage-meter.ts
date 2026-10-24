@@ -2,7 +2,13 @@
 // the meter itself all read it from one place (usage-groups.ts builds the data).
 
 import { AgentId } from "@/lib/agent/agent-icon";
-import { type AccountUsage, UsageWindowKind } from "@/lib/types";
+import {
+  type AccountReading,
+  type AccountUsage,
+  type NoReading,
+  NoReadingReason,
+  UsageWindowKind
+} from "@/lib/types";
 import {
   type AgentGroup,
   Level,
@@ -188,6 +194,78 @@ export function withLastGoodReadings({ fresh, kept, now }: {
     accounts,
     kept: nextKept
   };
+}
+
+/** Why each agent's latest ask brought no reading, by agent id - the agents
+ *  whose reading said, from one round of account readings (a failed IPC call
+ *  arrives as `null` and says nothing). */
+export function noReadingsOf(readings: Iterable<readonly [string, AccountReading | null]>) {
+  const noReadings = new Map<string, NoReading>();
+  for (const [agentId, reading] of readings) {
+    if (reading?.noReading) {
+      noReadings.set(agentId, reading.noReading);
+    }
+  }
+
+  return noReadings;
+}
+
+/** What an agent without a reading shows in place of its limits, and what its
+ *  hover tells the user to do - a short state ("Sign in expired") beside the
+ *  fix ("Run codex once to refresh its sign-in"). `isState` marks a named
+ *  state the user can act on, as opposed to the dash of an agent with no usage
+ *  source. `null` when the backend didn't say why, which leaves the bare dash. */
+export function noReadingFace(group: AgentGroup) {
+  if (!group.noReading) {
+    return null;
+  }
+
+  const { reason, signInCommand } = group.noReading;
+  if (reason === NoReadingReason.enum.no_source) {
+    return {
+      label: NO_READING,
+      hint: `${group.name} doesn't share its usage`,
+      isState: false
+    };
+  }
+
+  if (reason === NoReadingReason.enum.unreachable) {
+    return {
+      label: "No answer",
+      hint: `${group.name}'s usage service isn't answering - trying again in a few minutes`,
+      isState: true
+    };
+  }
+
+  const cli = signInCommand ?? group.name;
+  if (reason === NoReadingReason.enum.signed_out) {
+    return {
+      label: "Signed out",
+      hint: `Run ${cli} to sign in`,
+      isState: true
+    };
+  }
+
+  return {
+    label: "Sign in expired",
+    hint: `Run ${cli} once to refresh its sign-in`,
+    isState: true
+  };
+}
+
+/** The caption beside an agent's name in the details panel: its plan, or -
+ *  with no reading - why not and what to do about it. */
+export function planCaption(group: AgentGroup) {
+  if (group.plan) {
+    return group.plan;
+  }
+
+  const face = noReadingFace(group);
+  if (!face) {
+    return "usage not available locally";
+  }
+
+  return face.isState ? `${face.label} · ${face.hint}` : face.hint;
 }
 
 /** A limit's spoken name: its label, with "usage" after a window's

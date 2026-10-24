@@ -7,7 +7,7 @@
 
 import { defineTauriMessaging } from "@/lib/ipc/define-tauri-messaging";
 import {
-  AccountUsage,
+  AccountReading,
   AddRootOutcome,
   Agent,
   ChangeEvent,
@@ -554,11 +554,12 @@ export interface CommandProtocolMap {
   [Command.tasksList]: (data: { cwd: string }) => TaskGroup[];
   [Command.usageGet]: (data: { agent: string }) => Usage | null;
   /** Live usage windows for one agent, read from its vendor's own usage
-   *  endpoint with the locally-stored token; `null` with no usable signal. */
+   *  endpoint with the locally-stored token (or the agent's own CLI), and why
+   *  there is no reading when the latest ask brought none. */
   [Command.usageAccountAgent]: (data: {
     agent: string;
     forceRefresh: boolean;
-  }) => AccountUsage | null;
+  }) => AccountReading;
   /** The free usage-limit reset Claude's account can spend now, or `null`. */
   [Command.limitResetOffer]: () => LimitReset | null;
   /** Spend that reset: clears the account's usage limits. Cannot be undone. */
@@ -785,7 +786,7 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.tasksDescriptors]: z.array(TaskManifestDescriptor),
   [Command.tasksList]: z.array(TaskGroup),
   [Command.usageGet]: Usage.nullable(),
-  [Command.usageAccountAgent]: AccountUsage.nullable(),
+  [Command.usageAccountAgent]: AccountReading,
   [Command.limitResetOffer]: LimitReset.nullable(),
   [Command.limitResetClaim]: LimitResetOutcome,
   [Command.configList]: z.array(ConfigFile),

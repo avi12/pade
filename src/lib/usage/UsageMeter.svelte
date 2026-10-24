@@ -8,10 +8,15 @@
     limitResetSummary,
     refreshLimitResetOffer
   } from "@/lib/stores/usage/limitReset.svelte";
-  import type { AccountUsage, AgentSession } from "@/lib/types";
+  import type { AccountUsage, AgentSession, NoReading } from "@/lib/types";
   import { growInline } from "@/lib/ui/motion";
   import LimitResetConfirm from "@/lib/usage/LimitResetConfirm.svelte";
-  import { hasClaudePill, pendingResetBoundaries, withLastGoodReadings } from "@/lib/usage/meter/usage-meter";
+  import {
+    hasClaudePill,
+    noReadingsOf,
+    pendingResetBoundaries,
+    withLastGoodReadings
+  } from "@/lib/usage/meter/usage-meter";
   import type { KeptReading } from "@/lib/usage/meter/usage-meter";
   import UsagePanel from "@/lib/usage/meter/UsagePanel.svelte";
   import UsageTrigger from "@/lib/usage/meter/UsageTrigger.svelte";
@@ -30,6 +35,9 @@
   // per-model caps - read via that vendor's usage endpoint from the local token,
   // keyed by agent id. The backend caches each (~3 min), so this polls slowly.
   let accounts = $state<ReadonlyMap<string, AccountUsage | null>>(new Map());
+  // Why each agent's latest ask brought no reading (signed out, sign-in
+  // expired, …), so a pill without numbers can say so instead of a bare dash.
+  let noReadings = $state<ReadonlyMap<string, NoReading>>(new Map());
   // A ticking clock so the "resets in …" countdowns stay live between polls.
   let now = $state(Date.now());
 
@@ -47,6 +55,7 @@
   const groups = $derived(
     buildGroups({
       accounts,
+      noReadings,
       sessions,
       now
     })
@@ -74,8 +83,9 @@
         })
       ] as const)
     );
+    noReadings = noReadingsOf(entries);
     const read = withLastGoodReadings({
-      fresh: new Map(entries),
+      fresh: new Map(entries.map(([id, reading]) => [id, reading?.account ?? null])),
       kept: keptReadings,
       now: Date.now()
     });
