@@ -3,7 +3,7 @@
   import Icon from "@/lib/Icon.svelte";
   import type { Agent, OpenTarget, ProjectEntry } from "@/lib/types";
   import { realAgents as toRealAgents } from "@/lib/types";
-  import { displayName, projectRootName } from "@/lib/util/paths";
+  import { displayName, projectRootPrefix } from "@/lib/util/paths";
   import { nameError } from "@/lib/validate";
   import RootedName from "@/lib/workspace/RootedName.svelte";
   import { ProjectChoice, projectTriggerLabel, resolveHomeStart } from "@/panels/picker/home-composer";
@@ -146,7 +146,7 @@
   );
   // The chosen project's root before its name, as the menu rows read; a new
   // project or a throwaway workspace has none yet.
-  const triggerRoot = $derived(choice === ProjectChoice.Existing ? projectRootName(selectedPath) : "");
+  const triggerRoot = $derived(choice === ProjectChoice.Existing ? projectRootPrefix(selectedPath) : "");
   const agentTriggerLabel = $derived(selectedAgentLabel ?? "No LLMs found");
   const isExistingFolder = $derived(createTargetExists && lastProbe?.isDir === true);
   const isTakenByFile = $derived(createTargetExists && lastProbe?.isFile === true);
@@ -180,7 +180,7 @@
           type="button"
         >
           <Icon name="folder" size={15} />
-          <span class="current"><RootedName name={triggerLabel} root={triggerRoot} /></span>
+          <span class="current"><RootedName name={triggerLabel} prefix={triggerRoot} /></span>
           <span class="caret" aria-hidden="true">▾</span>
         </button>
         <HomeProjectMenu

@@ -10,8 +10,21 @@ const TRAILING_SLASHES = /\/+$/;
 const LAST_SEGMENT = /[\\/][^\\/]*$/;
 const TEMPORARY_WORKSPACE = /[\\/]workspaces[\\/]temp-\d+$/;
 const WINDOWS_DRIVE = /^[a-z]:/i;
+/** A Windows network share (`\\server\share`), which WSL's own share
+ *  (`\\wsl$\…`, `\\wsl.localhost\…`) is not, for display purposes. */
+const WINDOWS_SHARE = /^\\\\(?!wsl(?:\$|\.localhost)\\)/i;
+const WINDOWS_SEPARATOR = "\\";
+const POSIX_SEPARATOR = "/";
 /** "parent/leaf" - enough to tell projects apart without eating the top bar. */
 const SHORT_DIRECTORY_SEGMENTS = 2;
+
+/** The separator a path is shown with: a backslash for a Windows path (a
+ *  drive or a network share), a forward slash for any other - Linux, macOS,
+ *  and a WSL project even while PADE runs on Windows. */
+export function displaySeparator(path: string) {
+  const isWindowsPath = WINDOWS_DRIVE.test(path) || WINDOWS_SHARE.test(path);
+  return isWindowsPath ? WINDOWS_SEPARATOR : POSIX_SEPARATOR;
+}
 
 /** The final path segment (folder name), or the whole path when it has none. */
 export function baseName(path: string) {
@@ -32,7 +45,7 @@ export function displayName({ path, labels }: {
  *  module-private, reached through `shortDisplayName` so the label override always
  *  applies. */
 function shortDirectory(path: string) {
-  return path.split(SEPARATOR).filter(Boolean).slice(-SHORT_DIRECTORY_SEGMENTS).join("/");
+  return path.split(SEPARATOR).filter(Boolean).slice(-SHORT_DIRECTORY_SEGMENTS).join(displaySeparator(path));
 }
 
 /** A friendly two-segment display name: the assigned label if present, else the
@@ -107,17 +120,20 @@ export function relativeToRoot({ path, root }: {
   return `/${tail}`;
 }
 
-/** The root a project's row names before it: the part before the slash in its
- *  "parent/leaf" label (`shortDirectory`, the top bar's), so the two never
- *  disagree. Empty for a temporary workspace (its TEMP badge says where it
- *  lives) and for a path with no parent. */
-export function projectRootName(path: string) {
-  if (isTemporaryWorkspace(path)) {
-    return "";
-  }
+/** A folder's name and the separator after it ("avi\" on Windows, "home/"
+ *  elsewhere) - how a root reads before what lies inside it. */
+export function directoryPrefix(directory: string) {
+  return `${baseName(directory)}${displaySeparator(directory)}`;
+}
 
-  const [root, leaf] = shortDirectory(path).split("/");
-  return leaf === undefined ? "" : root;
+/** The root a project's row names before it ("avi\" before "pade"): the part
+ *  before the separator in its "parent/leaf" label (`shortDirectory`, the top
+ *  bar's), so the two never disagree. Empty for a temporary workspace (its
+ *  TEMP badge says where it lives) and for a path with no parent. */
+export function projectRootPrefix(path: string) {
+  const parent = parentDirectory(path);
+  const hasRoot = parent !== null && baseName(parent) !== parent && !isTemporaryWorkspace(path);
+  return hasRoot ? directoryPrefix(parent) : "";
 }
 
 /** Normalize a path for comparison. Separators and a trailing separator are

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { isTemporaryWorkspace, projectRootName } from "@/lib/util/paths";
+  import { isTemporaryWorkspace, projectRootPrefix } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/RootedName.svelte";
   import TempBadge from "@/lib/workspace/TempBadge.svelte";
 
-  // A project row's name line: its root and name ("avi/pade", the top bar's
+  // A project row's name line: its root and name ("avi\pade", the top bar's
   // label), up to two lines, then the TEMP badge for a throwaway workspace.
   const { project, name }: {
     project: string;
@@ -12,7 +12,7 @@
 </script>
 
 <span class="project-row-name-line">
-  <span class="project-row-name"><RootedName {name} root={projectRootName(project)} /></span>
+  <span class="project-row-name"><RootedName {name} prefix={projectRootPrefix(project)} /></span>
   {#if isTemporaryWorkspace(project)}
     <TempBadge />
   {/if}
