@@ -1569,12 +1569,55 @@ pub async fn ide_project_languages(paths: Vec<String>) -> BTreeMap<String, Vec<L
     .unwrap_or_default()
 }
 
-/// A project's counted shares, kept against the moment its git index last
-/// changed - the tracked set the census counts can't move without it.
-type CountedShares = (std::time::SystemTime, Vec<LanguageShare>);
+/// What a project's count was made against. The index moves when the tracked
+/// set does (a stage, commit or checkout); the working-tree generation moves
+/// when a watch reports an edit or a new file - a change the index never sees.
+/// A count is served only while both still match.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct CensusStamp {
+    index_modified: std::time::SystemTime,
+    working_tree_generation: u64,
+}
+
+type CountedShares = (CensusStamp, Vec<LanguageShare>);
 static LANGUAGE_CACHE: std::sync::LazyLock<
     std::sync::Mutex<std::collections::HashMap<String, CountedShares>>,
 > = std::sync::LazyLock::new(Default::default);
+
+/// How many working-tree changes a watch has reported per project, keyed like
+/// [`LANGUAGE_CACHE`]. In memory only: a restart starts with an empty cache.
+static WORKING_TREE_GENERATIONS: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<String, u64>>,
+> = std::sync::LazyLock::new(Default::default);
+
+/// One spelling per project folder, whichever way a caller wrote it - the
+/// switcher's row path and the Change Feed's watch root must land on the same
+/// cache entry. Windows paths compare case-insensitively.
+pub(crate) fn project_key(project: &std::path::Path) -> String {
+    let normalized: std::path::PathBuf = project.components().collect();
+    let key = normalized.to_string_lossy().into_owned();
+    if cfg!(windows) {
+        key.to_lowercase()
+    } else {
+        key
+    }
+}
+
+/// Record that a watch saw a file in `project` change, so its next language
+/// count is made afresh instead of served from [`LANGUAGE_CACHE`].
+pub(crate) fn note_working_tree_change(project: &std::path::Path) {
+    if let Ok(mut generations) = WORKING_TREE_GENERATIONS.lock() {
+        *generations.entry(project_key(project)).or_insert(0) += 1;
+    }
+}
+
+fn working_tree_generation(key: &str) -> u64 {
+    WORKING_TREE_GENERATIONS
+        .lock()
+        .ok()
+        .and_then(|generations| generations.get(key).copied())
+        .unwrap_or(0)
+}
 
 /// When anything a project tracks last changed - the newest of its own and its
 /// submodules' git index files - or `None` outside a git checkout.
@@ -1589,24 +1632,31 @@ fn index_modified(project: &std::path::Path) -> Option<std::time::SystemTime> {
         .max()
 }
 
-/// A project's language shares, counted again only when its git index changed
-/// since the last count - so re-checking every row each time the switcher opens
-/// costs one `stat` per unchanged project. A folder outside git is always counted.
+/// A project's language shares, counted again only when its git index moved or
+/// a watch reported a working-tree change since the last count - so re-checking
+/// every row each time the switcher opens costs one `stat` (plus two map
+/// lookups) per unchanged project. The stamp is taken before counting, so an
+/// edit landing mid-count leaves the entry already stale. A folder outside git
+/// is always counted.
 fn cached_language_shares(path: &str) -> Vec<LanguageShare> {
     let project = std::path::Path::new(path);
-    let modified = index_modified(project);
-    let cached = modified.and_then(|stamp| {
+    let key = project_key(project);
+    let stamp = index_modified(project).map(|index_modified| CensusStamp {
+        index_modified,
+        working_tree_generation: working_tree_generation(&key),
+    });
+    let cached = stamp.and_then(|stamp| {
         let cache = LANGUAGE_CACHE.lock().ok()?;
-        let (counted_at, shares) = cache.get(path)?;
-        (*counted_at == stamp).then(|| shares.clone())
+        let (counted_against, shares) = cache.get(&key)?;
+        (*counted_against == stamp).then(|| shares.clone())
     });
     if let Some(shares) = cached {
         return shares;
     }
 
     let shares = language_shares(&source_profile(project).languages);
-    if let (Some(stamp), Ok(mut cache)) = (modified, LANGUAGE_CACHE.lock()) {
-        cache.insert(path.to_string(), (stamp, shares.clone()));
+    if let (Some(stamp), Ok(mut cache)) = (stamp, LANGUAGE_CACHE.lock()) {
+        cache.insert(key, (stamp, shares.clone()));
     }
     shares
 }
@@ -1892,11 +1942,12 @@ pub async fn ide_open_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        census, editor_covers_project, editor_family, executable_basename, ide_kinds,
-        language_shares, open_arguments, open_style, preference_chain, primary_declared_kind,
-        project_declarations, ranked_editor_ids, required_project_kinds, source_content,
-        suggestible_editor_ids, EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind,
-        SourceFileEvidence, SourceProfile, REGISTRY,
+        cached_language_shares, census, editor_covers_project, editor_family, executable_basename,
+        ide_kinds, language_shares, note_working_tree_change, open_arguments, open_style,
+        preference_chain, primary_declared_kind, project_declarations, project_key,
+        ranked_editor_ids, required_project_kinds, source_content, suggestible_editor_ids,
+        EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind, SourceFileEvidence,
+        SourceProfile, REGISTRY,
     };
     use crate::test_support::assert_not_empty;
 
@@ -2389,6 +2440,66 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&directory).expect("cleanup");
+    }
+
+    #[test]
+    fn a_reported_working_tree_change_recounts_a_project_whose_index_never_moved() {
+        let directory =
+            std::env::temp_dir().join(format!("pade-language-cache-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("test dir");
+        let git = |arguments: &[&str]| {
+            crate::util::command("git")
+                .arg("-C")
+                .arg(&directory)
+                .args(arguments)
+                .output()
+        };
+        let Ok(init) = git(&["init", "-q"]) else {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        };
+        if !init.status.success() {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        }
+        std::fs::write(directory.join("app.ts"), "const value = 1;\n".repeat(100))
+            .expect("web file");
+        let add = git(&["add", "."]).expect("git add");
+        if !add.status.success() {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        }
+        let path = directory.to_string_lossy().into_owned();
+        let languages = |shares: Vec<super::LanguageShare>| -> Vec<String> {
+            shares.into_iter().map(|share| share.language).collect()
+        };
+        assert_eq!(languages(cached_language_shares(&path)), ["TypeScript"]);
+
+        std::fs::write(directory.join("main.rs"), "fn main() {}\n".repeat(100))
+            .expect("untracked rust file");
+        assert_eq!(
+            languages(cached_language_shares(&path)),
+            ["TypeScript"],
+            "an unreported edit is served from the cache, one stat per row"
+        );
+
+        note_working_tree_change(&directory.join("."));
+        assert_eq!(
+            languages(cached_language_shares(&path)),
+            ["TypeScript", "Rust"]
+        );
+
+        std::fs::remove_dir_all(&directory).expect("cleanup");
+    }
+
+    #[test]
+    fn a_project_key_ignores_how_the_path_was_spelled() {
+        let project = std::env::temp_dir().join("pade-key");
+        let trailing = format!("{}{}", project.display(), std::path::MAIN_SEPARATOR);
+        assert_eq!(
+            project_key(&project),
+            project_key(std::path::Path::new(&trailing))
+        );
     }
 
     #[test]
