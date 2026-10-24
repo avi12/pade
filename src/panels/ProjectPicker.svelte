@@ -13,6 +13,7 @@
   import "@/panels/picker/chrome.css";
   import { createEditorCatalog } from "@/panels/picker/editorCatalog.svelte";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
+  import HomeSection from "@/panels/picker/HomeSection.svelte";
   import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";
   import { popularRoot, watchedDirectories } from "@/panels/picker/project-roots";
@@ -186,6 +187,18 @@
          born prefilled with the persisted preferences (no defaults flash). -->
     {#if isLoaded}
       <div class="sections">
+        <HomeSection
+          {agents}
+          defaultAgent={settings.defaultAgent}
+          labels={settings.labels}
+          onnewroot={() => rootsSection?.focusAddRoot()}
+          {onopen}
+          {projectsByRoot}
+          recentProjects={settings.recentProjects}
+          roots={settings.roots}
+          bind:createIn={createRoot}
+        />
+
         <QuickStartSection
           {agents}
           defaultAgent={settings.defaultAgent}

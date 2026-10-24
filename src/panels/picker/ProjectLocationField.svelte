@@ -12,6 +12,8 @@
     nameError,
     isTakenByFile,
     isExistingFolder,
+    menuId = "new-project-root-menu-create",
+    fieldId = "new-project-name",
     createIn = $bindable(""),
     name = $bindable("")
   }: {
@@ -20,28 +22,32 @@
     nameError: string | null;
     isTakenByFile: boolean;
     isExistingFolder: boolean;
+    /** The root menu's id (and anchor) - passed when two location rows share
+     *  the page, so their popovers never answer for each other. */
+    menuId?: string;
+    /** The name input's id - passed for the same reason as `menuId`. */
+    fieldId?: string;
     createIn?: string;
     name?: string;
   } = $props();
 
-  const NAME_ERROR_ID = "new-project-name-error";
-  const describedBy = $derived(nameError ? NAME_ERROR_ID : undefined);
+  const describedBy = $derived(nameError ? `${fieldId}-error` : undefined);
 </script>
 
 <div class="new-project-field">
-  <span id="new-project-location-label" class="new-project-label">Location</span>
+  <span id="{fieldId}-location-label" class="new-project-label">Location</span>
   <div
-    style:anchor-name="--new-project-root-menu-create"
+    style:anchor-name="--{menuId}"
     class="new-project-location"
-    aria-labelledby="new-project-location-label"
+    aria-labelledby="{fieldId}-location-label"
     role="group"
   >
     <span class="new-project-location-icon" aria-hidden="true"><Icon name="folder" /></span>
-    <RootSelect menuId="new-project-root-menu-create" {onnewroot} {roots} bind:value={createIn} />
+    <RootSelect {menuId} {onnewroot} {roots} bind:value={createIn} />
     <span class="new-project-separator" aria-hidden="true">\</span>
-    <label class="visually-hidden" for="new-project-name">Project name</label>
+    <label class="visually-hidden" for={fieldId}>Project name</label>
     <input
-      id="new-project-name"
+      id={fieldId}
       class="new-project-name"
       aria-describedby={describedBy}
       aria-invalid={nameError !== null}
@@ -53,7 +59,7 @@
   </div>
   {#if nameError}
     <output
-      id={NAME_ERROR_ID}
+      id="{fieldId}-error"
       class="field-error"
       in:expandRow
       out:collapseRow
