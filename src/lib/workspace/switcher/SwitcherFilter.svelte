@@ -24,7 +24,7 @@
         onenter();
       }
     }}
-    placeholder="Switch project by name or path…"
+    placeholder="Search projects…"
     spellcheck="false"
     bind:value
   />
