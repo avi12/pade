@@ -14,7 +14,7 @@
     "caseSensitive", "check", "checks", "chevronDown", "chevronUp", "claude", "clion",
     "clock", "close", "code", "codex", "columns",
     "copilot", "cplusplus", "csharp", "css", "csv", "cursor", "dart", "docker", "elixir",
-    "env", "external", "feed", "folder", "folderPlus", "git", "github", "go", "goland",
+    "env", "external", "feed", "folder", "folderOpen", "folderPlus", "git", "github", "go", "goland",
     "gradle", "graphql", "grip", "grok", "haskell",
     "history", "html", "idea", "image", "java", "javascript", "json", "kotlin", "laravel",
     "license", "link", "llvm", "lock", "lua", "markdown", "maximize", "minimize", "monitor", "moon", "more", "npm",
