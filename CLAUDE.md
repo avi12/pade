@@ -50,6 +50,15 @@ These are non-negotiable for all work in this repo.
    a file) rather than a single mixed blob. Then **push** those commits in the
    same turn - proactively, without waiting to be asked - so `main` on the remote
    never lags behind completed, verified work.
+   **Every push is released.** Once the commits are pushed, cut a GitHub release
+   in the same turn with `pnpm release <version> <notes-file>` (see
+   `docs/releasing.md`): bump the patch version by default (minor for a feature
+   users would notice); the notes file holds the **changelog highlights** -
+   plain sentences for users, no file names - and the script appends the link to
+   the full commit range, attaches the portable `PADE-<version>.exe`, and
+   publishes the update manifest installed copies poll. A push of docs-only or
+   tooling-only commits with nothing a user would see still gets a release, its
+   highlights saying so in one line.
 
 6. **Modern & performant** - use current language features and best practices:
    - TypeScript: `strict` mode, `import type`, discriminated unions, `satisfies`,
