@@ -26,6 +26,19 @@
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+/* Figtree's ten digits on their own, for `--font-digits` to put ahead of a UI
+   font the user picks: Figtree honours `tnum`, so with the body's tabular-nums
+   its figures are one width, whatever the chosen face's own digits do. Same
+   file as the latin subset, narrowed to U+0030-0039. */
+@font-face {
+  font-family: "Figtree Digits";
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("./fonts/figtree-latin.woff2") format("woff2");
+  unicode-range: U+0030-0039;
+}
+
 /* Rajdhani - the typeface Cyberpunk 2077's own interface is set in (SIL OFL),
    and the palette's UI face. Condensed, squared and technical; the game uses
    Regular through Bold, so all four are vendored, latin subset, self-hosted
@@ -286,6 +299,11 @@
      fallback list - and App binds the result onto --font-ui/--font-monospace. */
   --font-ui-base: "Figtree", "Segoe UI", system-ui, sans-serif;
   --font-monospace-base: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+
+  /* The palette's tabular digits, which lib/settings/prefs puts ahead of a UI
+     font the user picks, so numbers keep one width whatever that face's own
+     figures do. A monospace face needs none: its digits are one width already. */
+  --font-digits: "Figtree Digits";
   --font-ui: var(--font-ui-base);
   --font-monospace: var(--font-monospace-base);
 
@@ -1516,8 +1534,10 @@ textarea {
 
      Oxanium Digits sits in front of them all and covers nothing but 0–9, so
      every number is fixed-width while every letter stays Chakra Petch (see its
-     @font-face). */
-  --font-ui-base: "Oxanium Digits", "Chakra Petch", "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
+     @font-face). It is the palette's `--font-digits` too, so a UI font the
+     user picks keeps these figures. */
+  --font-digits: "Oxanium Digits";
+  --font-ui-base: var(--font-digits), "Chakra Petch", "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
 
   /* The active tab's corner ticks: how long each L-bracket's arms are, and how
      far the whole mark floats off the frame. The structural stroke they are cut
