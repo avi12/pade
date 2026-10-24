@@ -170,6 +170,10 @@
      shrink to the rail's width rather than overflow it, and the scrollbar is
      the skin's: thin, a primary-tinted thumb over the rail's own surface. */
   .groups {
+    /* The sticky Pinned / Recent label's height - each project's header
+       sticks right under it, so both read this one length. */
+    --section-head-block-size: 27px;
+
     display: flex;
     flex: 1;
     flex-direction: column;

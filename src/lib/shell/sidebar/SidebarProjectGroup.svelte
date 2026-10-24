@@ -128,13 +128,18 @@
   }
 
   /* Project header - the switch target, with the new-chat button and the
-     options kebab riding it. Both reveal fully on hover or focus. */
+     options kebab riding it. Both reveal fully on hover or focus. It sticks
+     under the section label while its own chats scroll beneath it, and lets
+     go when the next project's header pushes it out. */
   .project-row {
-    position: relative;
+    position: sticky;
+    inset-block-start: var(--section-head-block-size, 0);
+    z-index: 1;
     display: flex;
     gap: 1px;
     align-items: center;
     min-inline-size: 0;
+    background: var(--surface-1);
 
     &:hover,
     &:focus-within {

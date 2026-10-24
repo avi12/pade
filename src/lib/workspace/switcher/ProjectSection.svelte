@@ -40,6 +40,7 @@
     gap: 8px;
     justify-content: space-between;
     align-items: center;
+    block-size: var(--section-head-block-size, auto);
     padding-block: 7px 3px;
     padding-inline: 8px;
     background: var(--surface-1);
