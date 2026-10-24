@@ -10,9 +10,9 @@ import {
   pacingPreview,
   withPreset,
   withStep
-} from "@/lib/usage/pacing-policy";
-import { paceForecasts, RESET_GRACE_MS } from "@/lib/usage/usage-pace";
-import type { PaceForecast } from "@/lib/usage/usage-pace";
+} from "@/lib/usage/pacing/pacing-policy";
+import { paceForecasts, RESET_GRACE_MS } from "@/lib/usage/pacing/usage-pace";
+import type { PaceForecast } from "@/lib/usage/pacing/usage-pace";
 import { describe, expect, it } from "vitest";
 
 const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();

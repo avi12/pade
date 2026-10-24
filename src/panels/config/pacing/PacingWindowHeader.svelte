@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PacedWindowKind } from "@/lib/types";
-  import { PACED_WINDOW_TEXT } from "@/lib/usage/pacing-policy";
+  import { PACED_WINDOW_TEXT } from "@/lib/usage/pacing/pacing-policy";
 
   // A paced window's heading: its name and how it is judged, and - in the
   // workspace scope - a tag while it follows the global settings, or the way

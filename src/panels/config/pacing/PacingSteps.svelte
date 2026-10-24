@@ -3,7 +3,7 @@
   import type { PacingSettings } from "@/lib/types";
   import Checkbox from "@/lib/ui/controls/Checkbox.svelte";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";
-  import { PACING_STEP_ORDER, PACING_STEP_TEXT, withStep } from "@/lib/usage/pacing-policy";
+  import { PACING_STEP_ORDER, PACING_STEP_TEXT, withStep } from "@/lib/usage/pacing/pacing-policy";
 
   // Usage pacing's steps, numbered in the order they are climbed, each one
   // allowed or not. What follows a stop lives inside the Stop row, the one place

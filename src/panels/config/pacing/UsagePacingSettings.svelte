@@ -10,11 +10,11 @@
     resolvedPacing,
     withGlobalWindowPacing,
     withProjectWindowPacing
-  } from "@/lib/usage/pacing-scope";
+  } from "@/lib/usage/pacing/pacing-scope";
   import PacingWindowSettings from "@/panels/config/pacing/PacingWindowSettings.svelte";
 
   // Usage pacing's settings, one block per paced window (session, weekly), and
-  // which scope they edit (lib/usage/pacing-scope): the global settings every
+  // which scope they edit (lib/usage/pacing/pacing-scope): the global settings every
   // workspace follows, or this workspace's own. A window changed in the
   // workspace scope stops following the global one until "Use global".
   const { agent, project }: {

@@ -1,13 +1,13 @@
 import { PacedWindowKind, Settings } from "@/lib/types";
 import type { Prefs } from "@/lib/types";
-import { DEFAULT_PACING, PacingPreset, withPreset } from "@/lib/usage/pacing-policy";
+import { DEFAULT_PACING, PacingPreset, withPreset } from "@/lib/usage/pacing/pacing-policy";
 import {
   globalPacing,
   projectWindowPacing,
   resolvedPacing,
   withGlobalWindowPacing,
   withProjectWindowPacing
-} from "@/lib/usage/pacing-scope";
+} from "@/lib/usage/pacing/pacing-scope";
 import { describe, expect, it } from "vitest";
 
 const PROJECT = "C:/work/app";

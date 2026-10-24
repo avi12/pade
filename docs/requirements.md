@@ -235,7 +235,7 @@ writes.
   working agent on track to run out of a usage window well before it resets is
   held back, so the account isn't locked out for hours at the end of the window.
   The two paced windows are each judged by how far ahead of pace they spend
-  (`lib/usage/usage-pace.ts`). The **session** window is judged without
+  (`lib/usage/pacing/usage-pace.ts`). The **session** window is judged without
   assuming its length - a vendor can shorten it any day - from when it resets
   and how fast it is spent while its agents work (the burn rate, from the
   account readings each minute): runway = what's left / burn rate; it is over
@@ -249,7 +249,7 @@ writes.
   60% used. Usage credits don't turn pacing off - going over costs real money.
   The Config panel's **Usage pacing** card has a **This workspace / Global**
   scope switch over one block per window (**Session window**, **Weekly
-  window**), each with its own settings (`lib/usage/pacing-scope.ts`): global
+  window**), each with its own settings (`lib/usage/pacing/pacing-scope.ts`): global
   ones in `prefs.pacing` (settings saved before the split read as the session
   window's), a workspace's own in `prefs.pacingProjects[project]`, per window.
   A workspace window shows **Global** while it follows the global settings,

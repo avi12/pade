@@ -12,7 +12,7 @@
   import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/session/sessionNaming.svelte";
   import type { AgentSession } from "@/lib/types";
-  import PacingBadge from "@/lib/usage/PacingBadge.svelte";
+  import PacingBadge from "@/lib/usage/pacing/PacingBadge.svelte";
 
   const {
     session,

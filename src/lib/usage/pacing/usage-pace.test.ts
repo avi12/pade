@@ -11,8 +11,8 @@ import {
   RESET_GRACE_MS,
   slowRestUntil,
   WEEKLY_WINDOW_MS
-} from "@/lib/usage/usage-pace";
-import type { UsageSample } from "@/lib/usage/usage-pace";
+} from "@/lib/usage/pacing/usage-pace";
+import type { UsageSample } from "@/lib/usage/pacing/usage-pace";
 import { describe, expect, it } from "vitest";
 
 const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();

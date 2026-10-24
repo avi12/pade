@@ -1,7 +1,7 @@
 <script lang="ts">
   import { AgentId } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
-  import LimitResetOffer from "@/lib/usage/LimitResetOffer.svelte";
+  import LimitResetOffer from "@/lib/usage/limit-reset/LimitResetOffer.svelte";
   import { groupSeverityClass, isJustReset } from "@/lib/usage/meter/usage-meter";
   import UsageLimitRow from "@/lib/usage/meter/UsageLimitRow.svelte";
   import type { AgentGroup } from "@/lib/usage/usage-groups";

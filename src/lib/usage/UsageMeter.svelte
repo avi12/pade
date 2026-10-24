@@ -10,7 +10,7 @@
   } from "@/lib/stores/usage/limitReset.svelte";
   import type { AccountUsage, AgentSession } from "@/lib/types";
   import { growInline } from "@/lib/ui/motion";
-  import LimitResetConfirm from "@/lib/usage/LimitResetConfirm.svelte";
+  import LimitResetConfirm from "@/lib/usage/limit-reset/LimitResetConfirm.svelte";
   import { hasClaudePill, pendingResetBoundaries, withLastGoodReadings } from "@/lib/usage/meter/usage-meter";
   import type { KeptReading } from "@/lib/usage/meter/usage-meter";
   import UsagePanel from "@/lib/usage/meter/UsagePanel.svelte";

@@ -5,7 +5,7 @@
   // the overrides right there.
 
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
-  import PacingDetails from "@/lib/usage/PacingDetails.svelte";
+  import PacingDetails from "@/lib/usage/pacing/PacingDetails.svelte";
 
   const { sessionId, isMeasuring = false }: {
     sessionId: string;

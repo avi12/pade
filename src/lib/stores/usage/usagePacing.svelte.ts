@@ -1,9 +1,9 @@
 // Usage pacing: an agent on track to run out of its usage window well before the
 // window resets is held back, so the account doesn't sit locked out for hours at
 // the end of it. The formula - how far ahead of pace each window spends, the
-// session by its burn, the week against an even spend - is lib/usage/usage-pace;
-// the steps and presets are lib/usage/pacing-policy, and which settings apply to
-// this window's workspace is lib/usage/pacing-scope, each paced window (session,
+// session by its burn, the week against an even spend - is lib/usage/pacing/usage-pace;
+// the steps and presets are lib/usage/pacing/pacing-policy, and which settings apply to
+// this window's workspace is lib/usage/pacing/pacing-scope, each paced window (session,
 // weekly) with its own. This module measures each account's burn rate from
 // its readings while its agents work, and climbs the user's allowed steps one at
 // a time while an agent stays too fast, each agent against its own account:
@@ -42,7 +42,7 @@ import {
   PACING_STEP_ORDER,
   pacingMargins,
   spokenTime
-} from "@/lib/usage/pacing-policy";
+} from "@/lib/usage/pacing/pacing-policy";
 import {
   assessPace,
   burnRate,
@@ -54,8 +54,8 @@ import {
   RATE_HISTORY_MS,
   slowRestUntil,
   windowName
-} from "@/lib/usage/usage-pace";
-import type { PaceForecast, UsageSample } from "@/lib/usage/usage-pace";
+} from "@/lib/usage/pacing/usage-pace";
+import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/usage-pace";
 import { afterDelay } from "@/lib/util/async/delay";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { formatPercent } from "@/lib/util/format";

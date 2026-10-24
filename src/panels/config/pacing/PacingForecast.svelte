@@ -1,7 +1,7 @@
 <script lang="ts">
   import { agentForecast } from "@/lib/stores/usage/usagePacing.svelte";
   import type { PacedWindowKind, PacingSettings } from "@/lib/types";
-  import { pacingPreview } from "@/lib/usage/pacing-policy";
+  import { pacingPreview } from "@/lib/usage/pacing/pacing-policy";
 
   // One window's live line for the active agent: where its usage is heading -
   // how much is spent (and, weekly, a tick where an even spend would be), when

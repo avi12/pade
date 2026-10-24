@@ -10,9 +10,9 @@
 
 import { PacedWindowKind, PacingStep, PacingStopThen } from "@/lib/types";
 import type { PacingByWindow, PacingSettings, UsageWindowKind } from "@/lib/types";
+import { isForecastOverPace, windowName } from "@/lib/usage/pacing/usage-pace";
+import type { MarginOf, PaceForecast } from "@/lib/usage/pacing/usage-pace";
 import { resetCountdown } from "@/lib/usage/usage-groups";
-import { isForecastOverPace, windowName } from "@/lib/usage/usage-pace";
-import type { MarginOf, PaceForecast } from "@/lib/usage/usage-pace";
 import { formatPercent } from "@/lib/util/format";
 
 /** Every step, in the order pacing climbs them. */

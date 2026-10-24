@@ -491,7 +491,7 @@ export type TerminalSchemeChoice = z.infer<typeof TerminalSchemeChoice>;
 export const DiffStyle = z.enum(["unified", "split"]);
 
 /** The steps usage pacing climbs, in order, while an agent stays on track to
- *  run out of usage before its window resets (lib/usage/pacing-policy). */
+ *  run out of usage before its window resets (lib/usage/pacing/pacing-policy). */
 export const PacingStep = z.enum(["effort", "model", "rest", "stop"]);
 export type PacingStep = z.infer<typeof PacingStep>;
 
@@ -592,7 +592,7 @@ const Prefs = z.object({
   /** Usage pacing's settings per window. Absent = each window's defaults. */
   pacing: StoredPacing.nullish(),
   /** Per-workspace pacing overrides, keyed by project path, per window. A
-   *  window left out follows the global `pacing` (lib/usage/pacing-scope). */
+   *  window left out follows the global `pacing` (lib/usage/pacing/pacing-scope). */
   pacingProjects: z.record(z.string(), PacingByWindow).nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
   uiScale: z.number().min(UI_SCALE_MINIMUM).max(UI_SCALE_MAXIMUM).nullish(),
