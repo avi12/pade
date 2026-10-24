@@ -1,12 +1,15 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
+  import { showToast } from "@/lib/stores/ui/toast.svelte";
   import { rovingMenu } from "@/lib/ui/roving-menu";
   import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
   import { rowMenuId } from "@/lib/workspace/switcher/switcher-rows";
 
   // A switcher row's kebab and the options popover it opens, shared by the
-  // Pinned and Recent sections. Every action only reports back - the switcher
-  // owns the list transition and the nested dialogs.
+  // Pinned and Recent sections. Every list action only reports back - the
+  // switcher owns the list transition and the nested dialogs. Browsing files
+  // touches neither, so it opens the folder itself.
   const {
     project,
     labels,
@@ -65,6 +68,21 @@
       <span>Relabel in PADE</span>
     </button>
   {/if}
+  <button
+    class="menu-item" onclick={async () => {
+      try {
+        await sendMessage(Command.openInExplorer, { path: project });
+      } catch {
+        showToast("Couldn't open that folder");
+      }
+    }}
+    popovertarget={menuId}
+    popovertargetaction="hide"
+    role="menuitem"
+    type="button">
+    <span class="menu-item-icon"><Icon name="folderOpen" size={15} /></span>
+    <span>Browse files</span>
+  </button>
   {#if isRenamable}
     <button
       class="menu-item" onclick={onrenamefolder}
@@ -126,7 +144,7 @@
     }
   }
 
-  /* Per-row options popover - Pin/Unpin, Remove, Delete. Width is capped so the
+  /* Per-row options popover - Pin/Unpin, Browse files, Remove, Delete. Width is capped so the
      Delete item's path ellipsizes (.menu-item-subtitle) instead of ballooning the menu wide
      enough to spill past the panel over the terminal. */
   .row-menu {
