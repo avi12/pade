@@ -31,7 +31,9 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
-use crate::agents::{ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_OPENCODE};
+use crate::agents::{
+    ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_MUSE, ID_OPENCODE,
+};
 use crate::util::{home_directory, now_milliseconds, read_json};
 
 /// The agents we can source usage for, and the one authoritative mapping from
@@ -46,6 +48,12 @@ use crate::util::{home_directory, now_milliseconds, read_json};
 /// the user's *own* pay-as-you-go provider API key rather than a metered
 /// subscription - Grok (an xAI key) and aider (the user's OpenAI/Anthropic key) -
 /// have no plan quota at all, so they are deliberately absent and stay "-".
+/// A *CLI* adapter (Muse) asks the agent's own CLI to print its allowance, so
+/// PADE never touches its credentials at all.
+/// Qwen Code has no usage source: its Qwen OAuth free tier closed on 2026-04-15
+/// (<https://github.com/QwenLM/qwen-code/issues/3203>), it calls no quota
+/// endpoint and keeps no counter file, and its `/stats` shows local token
+/// counts - what was used, never what is left - so it stays "no usage source".
 /// An agent id and an adapter aren't 1:1: opencode signs into the same
 /// `ChatGPT` subscription Codex does, so its id resolves to the Codex adapter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -55,6 +63,7 @@ enum UsageAgent {
     Copilot,
     Antigravity,
     Cursor,
+    Muse,
 }
 
 impl UsageAgent {
@@ -68,6 +77,7 @@ impl UsageAgent {
             ID_COPILOT => Some(Self::Copilot),
             ID_ANTIGRAVITY => Some(Self::Antigravity),
             ID_CURSOR => Some(Self::Cursor),
+            ID_MUSE => Some(Self::Muse),
             _ => None,
         }
     }
@@ -76,7 +86,7 @@ impl UsageAgent {
     fn headline_window(self) -> HeadlineWindow {
         match self {
             Self::Claude => HeadlineWindow::WeeklyOnly,
-            Self::Codex | Self::Copilot | Self::Antigravity | Self::Cursor => {
+            Self::Codex | Self::Copilot | Self::Antigravity | Self::Cursor | Self::Muse => {
                 HeadlineWindow::WeeklyOrMostConsumed
             }
         }
@@ -92,6 +102,7 @@ impl UsageAgent {
             Self::Copilot => ID_COPILOT,
             Self::Antigravity => ID_ANTIGRAVITY,
             Self::Cursor => ID_CURSOR,
+            Self::Muse => ID_MUSE,
         }
     }
 
@@ -103,6 +114,7 @@ impl UsageAgent {
             Self::Copilot => fetch_copilot_account_usage(),
             Self::Antigravity => fetch_antigravity_account_usage(),
             Self::Cursor => fetch_cursor_account_usage(),
+            Self::Muse => fetch_muse_account_usage(),
         }
     }
 
@@ -113,7 +125,7 @@ impl UsageAgent {
         match self {
             Self::Claude => claude_tier_label_usage(),
             Self::Codex => codex_tier_label_usage(),
-            Self::Copilot | Self::Antigravity | Self::Cursor => None,
+            Self::Copilot | Self::Antigravity | Self::Cursor | Self::Muse => None,
         }
     }
 }
@@ -433,6 +445,7 @@ pub enum BillingAccount {
     Github,
     Google,
     Cursor,
+    Meta,
 }
 
 /// Live account usage mirrored from the OAuth endpoint: every rate-limit window it
@@ -458,12 +471,6 @@ pub struct AccountUsage {
     /// What usage credits have cost this month when no monthly cap is set. With
     /// no cap there is no percentage to show, so the meter shows this instead.
     uncapped_spend: Option<CreditBalance>,
-}
-
-#[derive(Debug, Clone, Copy)]
-enum UsageCachePolicy {
-    UseCache,
-    Refresh,
 }
 
 /// Why an account has no reading - so the UI can say "sign-in expired" instead
@@ -532,6 +539,12 @@ impl AccountReading {
             }),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum UsageCachePolicy {
+    UseCache,
+    Refresh,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1197,12 +1210,12 @@ struct CodexLogin<'login> {
     account_id: &'login str,
 }
 
-/// Codex's two account-wide rate-limit window durations, used to classify each
-/// window the endpoint returns into the same session/weekly kinds the meter and
-/// the auto-resume scheduler understand. Any other duration passes through as
-/// [`UsageWindowKind::Opaque`].
-const CODEX_SESSION_WINDOW_SECONDS: i64 = 5 * SECONDS_PER_HOUR;
-const CODEX_WEEKLY_WINDOW_SECONDS: i64 = DAYS_PER_WEEK * SECONDS_PER_DAY;
+/// The two subscription window durations (Codex's account-wide caps, Muse's
+/// allowance), used to classify a window by its length into the same
+/// session/weekly kinds the meter and the auto-resume scheduler understand. Any
+/// other duration passes through as [`UsageWindowKind::Opaque`].
+const FIVE_HOUR_WINDOW_SECONDS: i64 = 5 * SECONDS_PER_HOUR;
+const WEEKLY_WINDOW_SECONDS: i64 = DAYS_PER_WEEK * SECONDS_PER_DAY;
 
 const SECONDS_PER_MINUTE: i64 = 60;
 const SECONDS_PER_HOUR: i64 = 60 * SECONDS_PER_MINUTE;
@@ -1310,7 +1323,7 @@ fn codex_window(value: &serde_json::Value, feature: Option<&str>) -> Option<Usag
             humanize_key(name),
         ),
         None => (
-            codex_window_kind(seconds),
+            window_kind_for_duration(seconds),
             format!("codex_{seconds}s"),
             humanize_window_seconds(seconds),
         ),
@@ -1324,11 +1337,12 @@ fn codex_window(value: &serde_json::Value, feature: Option<&str>) -> Option<Usag
     })
 }
 
-/// Classify an account-wide Codex window by its duration.
-fn codex_window_kind(seconds: i64) -> UsageWindowKind {
+/// Classify a subscription window (a Codex account-wide cap, a Muse allowance
+/// window) by its duration.
+fn window_kind_for_duration(seconds: i64) -> UsageWindowKind {
     match seconds {
-        CODEX_SESSION_WINDOW_SECONDS => UsageWindowKind::Session,
-        CODEX_WEEKLY_WINDOW_SECONDS => UsageWindowKind::Weekly,
+        FIVE_HOUR_WINDOW_SECONDS => UsageWindowKind::Session,
+        WEEKLY_WINDOW_SECONDS => UsageWindowKind::Weekly,
         _ => UsageWindowKind::Opaque,
     }
 }
@@ -1710,15 +1724,131 @@ fn auth_file_has_login(path: &std::path::Path) -> bool {
     has_named_token || json.get("authInfo").is_some()
 }
 
+// ---------------------------------------------------------------------------
+// Muse Code usage. Muse Code 1.4.13 added `muse usage --json`, which prints the
+// subscription allowance - the 5-hour window, the rolling weekly window and the
+// plan tier - without running a model turn (changelog:
+// https://dev.meta.ai/docs/muse-code/changelog; plans:
+// https://dev.meta.ai/docs/muse-code/subscriptions). The CLI itself refreshes
+// it at most once a minute, and wherever it keeps the login (a file or the OS
+// keychain) is its own business. We deliberately do not call the endpoint
+// underneath (`api.meta.ai/muse-code/key`): every call there mints a fresh API
+// key.
+// ---------------------------------------------------------------------------
+
+/// The subcommand that prints Muse's allowance as one JSON object.
+const MUSE_USAGE_ARGUMENTS: [&str; 2] = ["usage", "--json"];
+/// How long `muse usage` may take - one network refresh at most - before PADE
+/// gives up on it and kills it.
+const MUSE_USAGE_TIMEOUT: Duration = Duration::from_secs(15);
+const MUSE_PLAN: &str = "Muse";
+const MUSE_USAGE_SOURCE: &str = "cli:muse usage";
+/// The allowance's two windows: the 5-hour block and the rolling week.
+const MUSE_SESSION_KEY: &str = "window";
+const MUSE_WEEKLY_KEY: &str = "weekly";
+const MILLISECONDS_PER_SECOND: i64 = 1_000;
+
+/// What `muse usage` prints when it can't answer, and what each means. Matched
+/// case-insensitively against whatever it printed.
+const MUSE_FAILURES: [(&str, NoReadingReason); 5] = [
+    ("not logged in", NoReadingReason::SignedOut),
+    ("no meta-account login", NoReadingReason::SignedOut),
+    ("no longer valid", NoReadingReason::SignInExpired),
+    ("credential_rejected", NoReadingReason::SignInExpired),
+    // Pay-as-you-go, or no subscription: there is no allowance to read.
+    ("no subscription allowance", NoReadingReason::NoSource),
+];
+
+fn fetch_muse_account_usage() -> Result<AccountUsage, NoReadingReason> {
+    let executable = crate::agents::program(ID_MUSE).ok_or(NoReadingReason::NoSource)?;
+    let mut command = crate::util::command(executable);
+    command.args(MUSE_USAGE_ARGUMENTS);
+    let run = crate::util::capture_within(command, MUSE_USAGE_TIMEOUT)
+        .ok_or(NoReadingReason::Unreachable)?;
+    if !run.is_success {
+        return Err(muse_failure(&format!("{}\n{}", run.stdout, run.stderr)));
+    }
+    muse_account_usage(&parse_usage_body(&run.stdout)?)
+}
+
+/// Why `muse usage` failed, from what it printed. Anything unrecognized (a
+/// refresh that was rate-limited or failed, no usage data yet in a new window)
+/// is transient.
+fn muse_failure(output: &str) -> NoReadingReason {
+    let output = output.to_lowercase();
+    MUSE_FAILURES
+        .iter()
+        .find(|(marker, _)| output.contains(marker))
+        .map_or(NoReadingReason::Unreachable, |(_, reason)| *reason)
+}
+
+/// The account a `muse usage --json` object describes: `allowance.window` (the
+/// 5-hour block) and `allowance.weekly`, each `{ usedPercent, resetsAtMs }`,
+/// under the plan's `tier`. An object with no allowance belongs to an account
+/// without a subscription - no usage source.
+fn muse_account_usage(response: &serde_json::Value) -> Result<AccountUsage, NoReadingReason> {
+    let allowance = response
+        .get("allowance")
+        .filter(|allowance| allowance.is_object())
+        .ok_or(NoReadingReason::NoSource)?;
+    let windows: Vec<UsageWindow> = [MUSE_SESSION_KEY, MUSE_WEEKLY_KEY]
+        .into_iter()
+        .filter_map(|key| muse_window(key, allowance.get(key)?))
+        .collect();
+    let tier = allowance
+        .get("tier")
+        .and_then(serde_json::Value::as_str)
+        .filter(|tier| !tier.is_empty());
+    if windows.is_empty() && tier.is_none() {
+        return Err(NoReadingReason::Unreachable);
+    }
+
+    Ok(AccountUsage {
+        windows,
+        plan: plan_label(MUSE_PLAN, tier),
+        source: MUSE_USAGE_SOURCE.to_string(),
+        account: Some(BillingAccount::Meta),
+        ..AccountUsage::default()
+    })
+}
+
+/// One Muse allowance window, classified by its length: `window` is the
+/// documented 5-hour block and `weekly` the rolling week, unless the window
+/// states another length (`windowDurationMins`, which `muse serve` reports).
+/// `usedPercent` is the server's own figure and may pass 100.
+fn muse_window(key: &str, value: &serde_json::Value) -> Option<UsageWindow> {
+    let utilization = value.get("usedPercent")?.as_f64()?;
+    let resets_at = value
+        .get("resetsAtMs")
+        .and_then(serde_json::Value::as_i64)
+        .map(|milliseconds| unix_seconds_to_iso8601(milliseconds / MILLISECONDS_PER_SECOND));
+    let minutes = value
+        .get("windowDurationMins")
+        .and_then(serde_json::Value::as_i64);
+    let documented_seconds = if key == MUSE_WEEKLY_KEY {
+        WEEKLY_WINDOW_SECONDS
+    } else {
+        FIVE_HOUR_WINDOW_SECONDS
+    };
+    let seconds = minutes.map_or(documented_seconds, |minutes| minutes * SECONDS_PER_MINUTE);
+    Some(UsageWindow {
+        key: format!("muse_{key}"),
+        kind: window_kind_for_duration(seconds),
+        label: humanize_window_seconds(seconds),
+        utilization,
+        resets_at,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         collect_codex_windows, collect_copilot_windows, collect_windows, credit_balance,
         credits_state, curl_config, http_answer, humanize_key, humanize_window_seconds,
-        is_safe_header_token, uncapped_credits_spend, unix_seconds_to_iso8601, usage_from_account,
-        AccountReading, AccountUsage, BillingAccount, ClaudeProfile, CreditsState, CurlRequest,
-        HeadlineWindow, NoReadingReason, RequestFailure, Usage, UsageAgent, UsageWindow,
-        UsageWindowKind,
+        is_safe_header_token, muse_account_usage, muse_failure, uncapped_credits_spend,
+        unix_seconds_to_iso8601, usage_from_account, AccountReading, AccountUsage, BillingAccount,
+        ClaudeProfile, CreditsState, CurlRequest, HeadlineWindow, NoReadingReason, RequestFailure,
+        Usage, UsageAgent, UsageWindow, UsageWindowKind,
     };
     use super::{AccountReadings, AccountUsageRequest, LAST_READING_LIMIT, USAGE_CACHE_TTL};
     use crate::agents::{ID_CODEX, ID_OPENCODE};
@@ -1850,6 +1980,84 @@ mod tests {
         assert_eq!(http_answer("\n503"), Err(RequestFailure::Unreachable));
         assert_eq!(http_answer("\n000"), Err(RequestFailure::Unreachable));
         assert_eq!(http_answer(""), Err(RequestFailure::Unreachable));
+    }
+
+    /// The `muse usage --json` shape (Muse Code 1.4.13), values sanitized.
+    fn muse_usage_response() -> serde_json::Value {
+        serde_json::json!({
+            "schemaVersion": 1,
+            "allowance": {
+                "tier": "Plus",
+                "window": { "usedPercent": 42, "resetsAtMs": 1_785_074_467_000_i64 },
+                "weekly": { "usedPercent": 7, "resetsAtMs": 1_785_074_467_000_i64 },
+                "asOfMs": 1_785_070_000_000_i64,
+                "source": "mint"
+            }
+        })
+    }
+
+    #[test]
+    fn muse_usage_maps_the_five_hour_block_and_the_weekly_window() {
+        let account = muse_account_usage(&muse_usage_response()).expect("an account");
+
+        assert_eq!(account.plan, "Muse Plus");
+        assert_eq!(account.account, Some(BillingAccount::Meta));
+        assert_eq!(account.windows.len(), 2);
+        assert_eq!(account.windows[0].kind, UsageWindowKind::Session);
+        assert_eq!(account.windows[0].label, "5-hour");
+        assert!((account.windows[0].utilization - 42.0).abs() < f64::EPSILON);
+        assert_eq!(
+            account.windows[0].resets_at.as_deref(),
+            Some("2026-07-26T14:01:07Z")
+        );
+        assert_eq!(account.windows[1].kind, UsageWindowKind::Weekly);
+    }
+
+    #[test]
+    fn a_muse_window_of_another_length_passes_through_as_opaque() {
+        let response = serde_json::json!({
+            "allowance": {
+                "window": { "usedPercent": 105, "windowDurationMins": 180 }
+            }
+        });
+
+        let account = muse_account_usage(&response).expect("an account");
+
+        assert_eq!(account.windows[0].kind, UsageWindowKind::Opaque);
+        assert_eq!(account.windows[0].label, "3-hour");
+        // The server's own figure, even past 100 - never trimmed here.
+        assert!((account.windows[0].utilization - 105.0).abs() < f64::EPSILON);
+        assert_eq!(account.plan, "Muse");
+    }
+
+    #[test]
+    fn muse_without_an_allowance_has_no_usage_source() {
+        let response = serde_json::json!({ "schemaVersion": 1, "allowance": null });
+
+        assert_eq!(
+            muse_account_usage(&response).map(|account| account.plan),
+            Err(NoReadingReason::NoSource)
+        );
+    }
+
+    #[test]
+    fn what_muse_usage_prints_on_failure_says_why() {
+        assert_eq!(
+            muse_failure("muse: not logged in: run `muse login` first"),
+            NoReadingReason::SignedOut
+        );
+        assert_eq!(
+            muse_failure("Your saved login is no longer valid. Log in again"),
+            NoReadingReason::SignInExpired
+        );
+        assert_eq!(
+            muse_failure("No subscription allowance (payment_subscription_required)"),
+            NoReadingReason::NoSource
+        );
+        assert_eq!(
+            muse_failure("muse: usage refresh rate-limited; retry in 40s"),
+            NoReadingReason::Unreachable
+        );
     }
 
     #[test]
@@ -2306,6 +2514,7 @@ mod tests {
             (BillingAccount::Github, "github"),
             (BillingAccount::Google, "google"),
             (BillingAccount::Cursor, "cursor"),
+            (BillingAccount::Meta, "meta"),
         ];
         for (account, wire) in accounts {
             assert_eq!(serde_json::to_value(account).expect("serializes"), wire);

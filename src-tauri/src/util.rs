@@ -156,26 +156,33 @@ const OUTPUT_DRAIN_GRACE: Duration = Duration::from_secs(1);
 pub(crate) struct CapturedRun {
     pub(crate) is_success: bool,
     pub(crate) stdout: String,
+    pub(crate) stderr: String,
 }
 
-/// Run `command` under a hard deadline, capturing stdout. stdin is closed so a
-/// CLI that expects input gets EOF instead of hanging. `None` when it couldn't
-/// start, or didn't finish in time (it is killed and reaped).
+/// Run `command` under a hard deadline, capturing stdout and stderr. stdin is
+/// closed so a CLI that expects input gets EOF instead of hanging. `None` when
+/// it couldn't start, or didn't finish in time (it is killed and reaped).
 ///
-/// stdout drains on its own thread while the child runs: a child blocked on a
-/// full pipe never exits, so reading only after the exit would stall any
-/// output bigger than the pipe buffer until the deadline killed it.
+/// Both streams drain on their own threads while the child runs: a child
+/// blocked on a full pipe never exits, so reading only after the exit would
+/// stall any output bigger than the pipe buffer until the deadline killed it.
 pub(crate) fn capture_within(mut command: Command, timeout: Duration) -> Option<CapturedRun> {
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null());
+        .stderr(Stdio::piped());
     let mut child = command.spawn().ok()?;
     let stdout = drain(child.stdout.take());
+    let stderr = drain(child.stderr.take());
     let status = exit_within(&mut child, timeout)?;
     Some(CapturedRun {
         is_success: status.success(),
         stdout: stdout.recv_timeout(OUTPUT_DRAIN_GRACE).ok()?.ok()?,
+        stderr: stderr
+            .recv_timeout(OUTPUT_DRAIN_GRACE)
+            .ok()
+            .and_then(Result::ok)
+            .unwrap_or_default(),
     })
 }
 
@@ -861,6 +868,17 @@ mod tests {
         assert!(run.is_success);
         assert!(run.stdout.len() > OVERSIZED_OUTPUT_BYTES);
         assert!(started.elapsed() < CAPTURE_TIMEOUT);
+    }
+
+    #[test]
+    fn a_failed_run_still_answers_what_it_printed_to_stderr() {
+        let run = capture_within(
+            super::shell_command("echo not logged in 1>&2 && exit 3"),
+            CAPTURE_TIMEOUT,
+        )
+        .expect("the run finishes");
+        assert!(!run.is_success);
+        assert!(run.stderr.contains("not logged in"), "{}", run.stderr);
     }
 
     /// A scratch directory populated with empty, executable `files`.
