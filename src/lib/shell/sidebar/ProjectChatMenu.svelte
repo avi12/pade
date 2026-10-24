@@ -1,15 +1,21 @@
+<script lang="ts" module>
+  /** The stop action's name - the row's stop button and this menu's item. */
+  export const STOP_SESSION = "Stop session";
+</script>
+
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { SidebarChat } from "@/lib/session/chat-registry";
   import { rovingMenu } from "@/lib/ui/roving-menu";
 
-  // A chat row's right-click menu - open it, start another in its project, or
-  // delete it for good. It hangs at the pointer that opened it, not at the
-  // row.
-  const { chat, onopen, onnew, ondelete }: {
+  // A chat row's right-click menu - open it, start another in its project,
+  // stop it while it runs, or delete it for good. It hangs at the pointer
+  // that opened it, not at the row.
+  const { chat, onopen, onnew, onstop, ondelete }: {
     chat: SidebarChat;
     onopen: () => void;
     onnew: () => void;
+    onstop: () => void;
     /** Never offered for a recorded conversation, whose transcript is the
      *  agent's, not PADE's to delete. */
     ondelete: () => void;
@@ -67,6 +73,19 @@
     <span class="menu-icon"><Icon name="plus" size={15} /></span>
     <span>New chat in this project</span>
   </button>
+  {#if chat.isLive}
+    <button
+      class="menu-item"
+      onclick={onstop}
+      popovertarget={menuId}
+      popovertargetaction="hide"
+      role="menuitem"
+      type="button"
+    >
+      <span class="menu-icon"><Icon name="stop" size={15} /></span>
+      <span>{STOP_SESSION}</span>
+    </button>
+  {/if}
   {#if isDeletable}
     <div class="menu-divider"></div>
     <button

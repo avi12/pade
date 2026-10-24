@@ -2,12 +2,14 @@
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import type { SidebarChat } from "@/lib/session/chat-registry";
-  import ProjectChatMenu from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
+  import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { RecordedConversation } from "@/lib/types";
 
-  // One chat row in the left rail, with its right-click menu.
-  const { chat, isActive, onselect, onresume, ondelete, onnew }: {
+  // One chat row in the left rail, with its right-click menu. A live chat
+  // carries a stop button beside the row's own button, never inside it, so
+  // stopping never also opens the chat.
+  const { chat, isActive, onselect, onresume, ondelete, onnew, onstop }: {
     chat: SidebarChat;
     isActive: boolean;
     /** Bring up a PADE chat. */
@@ -18,6 +20,9 @@
      *  transcript is the agent's, not PADE's to delete. */
     ondelete: () => void;
     onnew: () => void;
+    /** End a live chat's agent session the way closing its tab does - it
+     *  stays in the rail as a conversation to resume. */
+    onstop: () => void;
   } = $props();
 
   // Shared by the row's click and its menu's "Open chat".
@@ -30,45 +35,59 @@
     onselect();
   }
   let menu = $state<ProjectChatMenu | null>(null);
+
+  // Shared by the row's button and its stop button, so a right-click anywhere
+  // on the row opens the same menu.
+  function openMenu(e: MouseEvent) {
+    menu?.openAt(e);
+  }
 </script>
 
-<button
-  class="chat"
-  class:active={isActive}
-  aria-current={isActive}
-  data-tooltip={chat.label}
-  onclick={open}
-  oncontextmenu={e => menu?.openAt(e)}
-  type="button"
->
-  <span class="agent-icon">
-    <Icon name={agentIconName(chat.agentId)} size={14} />
-    {#if chat.isLive}
-      <span class="status-dot {sessionStatus(chat.id)}" aria-hidden="true"></span>
-    {/if}
-  </span>
-  <span class="chat-label">{chat.label}</span>
-</button>
+<div class="row" class:active={isActive}>
+  <button
+    class="chat"
+    aria-current={isActive}
+    data-tooltip={chat.label}
+    onclick={open}
+    oncontextmenu={openMenu}
+    type="button"
+  >
+    <span class="agent-icon">
+      <Icon name={agentIconName(chat.agentId)} size={14} />
+      {#if chat.isLive}
+        <span class="status-dot {sessionStatus(chat.id)}" aria-hidden="true"></span>
+      {/if}
+    </span>
+    <span class="chat-label">{chat.label}</span>
+  </button>
+  {#if chat.isLive}
+    <button
+      class="stop"
+      aria-label="{STOP_SESSION}: {chat.label}"
+      data-tooltip={STOP_SESSION}
+      onclick={onstop}
+      oncontextmenu={openMenu}
+      type="button"
+    ><Icon name="stop" size={12} /></button>
+  {/if}
+</div>
 
-<ProjectChatMenu bind:this={menu} {chat} {ondelete} {onnew} onopen={open} />
+<ProjectChatMenu bind:this={menu} {chat} {ondelete} {onnew} onopen={open} {onstop} />
 
 <style>
-  .chat {
+  /* The row carries the hover and active fill, so the chat button and its
+     stop button read as one row. */
+  .row {
     display: flex;
-    gap: 7px;
     align-items: center;
-    inline-size: 100%;
-    padding-block: 6px;
-    padding-inline: 8px;
-    border: none;
+    min-inline-size: 0;
     border-radius: var(--radius-small);
-    background: transparent;
     color: var(--on-surface-variant);
-    font: inherit;
-    font-size: 12.5px;
-    text-align: start;
-    cursor: pointer;
     transition: background 120ms var(--ease), color 120ms var(--ease);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
 
     &:hover {
       background: var(--surface-2);
@@ -80,6 +99,32 @@
       color: var(--on-primary-container);
       font-weight: 600;
     }
+
+    /* Calm until wanted: the stop button shows on the row's hover or focus,
+       and always on the active row - the chat most likely to be stopped. It
+       only fades, so Tab still reaches it. */
+    &:hover,
+    &:focus-within,
+    &.active {
+      --stop-opacity: 100%;
+    }
+  }
+
+  .chat {
+    display: flex;
+    flex: 1;
+    gap: 7px;
+    align-items: center;
+    min-inline-size: 0;
+    padding-block: 6px;
+    padding-inline: 8px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 12.5px;
+    text-align: start;
+    cursor: pointer;
 
     .agent-icon {
       position: relative;
@@ -93,6 +138,33 @@
       min-inline-size: 0;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+  }
+
+  .stop {
+    display: inline-flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    block-size: 22px;
+    inline-size: 22px;
+    margin-inline-end: 3px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-small);
+    background: transparent;
+    color: inherit;
+    opacity: var(--stop-opacity, 0%);
+    cursor: pointer;
+    transition: background 120ms var(--ease), color 120ms var(--ease), opacity 120ms var(--ease);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+
+    &:hover {
+      background: var(--critical-wash);
+      color: var(--critical);
     }
   }
 

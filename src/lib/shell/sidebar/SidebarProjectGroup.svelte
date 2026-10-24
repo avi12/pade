@@ -31,7 +31,8 @@
     onnewchat,
     onselectchat,
     onresumeconversation,
-    ondeletechat
+    ondeletechat,
+    onstopchat
   }: {
     group: SidebarProject;
     labels: Record<string, string>;
@@ -50,6 +51,7 @@
     onselectchat: (chatId: string) => void;
     onresumeconversation: (conversation: NonNullable<SidebarChat["resume"]>) => void;
     ondeletechat: (chatId: string) => void;
+    onstopchat: (chatId: string) => void;
   } = $props();
 
   const NEW_CHAT = "New chat";
@@ -108,6 +110,7 @@
           onnew={onnewchat}
           onresume={onresumeconversation}
           onselect={() => onselectchat(chat.id)}
+          onstop={() => onstopchat(chat.id)}
         />
       </li>
     {:else}

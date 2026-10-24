@@ -42,6 +42,7 @@
     onselectchat,
     onresumeconversation,
     ondeletechat,
+    onstopchat,
     onnewchat
   }: {
     registry: StoredChatRegistry;
@@ -68,6 +69,11 @@
       conversation: RecordedConversation;
     }) => void;
     ondeletechat: (target: {
+      project: string;
+      chatId: string;
+    }) => void;
+    /** End a live chat's agent session the way closing its tab does. */
+    onstopchat: (target: {
       project: string;
       chatId: string;
     }) => void;
@@ -265,6 +271,7 @@
     }}
     {onresumeconversation}
     {onselectchat}
+    {onstopchat}
     ontogglepin={async target => {
       await sendSettingsMessage(Command.workspaceSetPinned, target);
     }}
