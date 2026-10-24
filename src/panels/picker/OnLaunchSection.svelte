@@ -1,10 +1,10 @@
 <script lang="ts">
   import { globalNaming } from "@/lib/agent/ai-naming-scope";
   import { effective } from "@/lib/settings/prefs.svelte";
-  import { StartMode, TEMP_CLEANUP_DAY_CHOICES } from "@/lib/types";
-  import type { Prefs } from "@/lib/types";
-  import { rovingTablist } from "@/lib/ui/roving-tabs";
+  import type { Prefs, StartMode } from "@/lib/types";
+  import ChoiceRow from "@/panels/picker/ChoiceRow.svelte";
   import ExplorerContextMenuToggle from "@/panels/picker/ExplorerContextMenuToggle.svelte";
+  import { START_MODE_CHOICES, TEMP_CLEANUP_CHOICES } from "@/panels/picker/on-launch";
   import ToggleRow from "@/panels/picker/ToggleRow.svelte";
 
   // "On launch" preferences: the no-project start mode, unused-temp cleanup,
@@ -27,42 +27,13 @@
 
 <section class="onlaunch">
   <h2>On launch</h2>
-  <div class="startmode">
-    <span class="sm-label">With no project, open</span>
-    <div class="pill-tabs" role="tablist" use:rovingTablist>
-      <button
-        class="pill-tab"
-        aria-selected={startMode === StartMode.enum.temp}
-        onclick={() => onstartmode(StartMode.enum.temp)}
-        role="tab"
-        tabindex={startMode === StartMode.enum.temp ? 0 : -1}
-      >Temp workspace</button>
-      <button
-        class="pill-tab"
-        aria-selected={startMode === StartMode.enum.picker}
-        onclick={() => onstartmode(StartMode.enum.picker)}
-        role="tab"
-        tabindex={startMode === StartMode.enum.picker ? 0 : -1}
-      >This picker</button>
-    </div>
-  </div>
-  <div class="startmode">
-    <span class="sm-label">Delete temp workspaces unused for</span>
-    <div class="pill-tabs" role="tablist" use:rovingTablist>
-      {#each TEMP_CLEANUP_DAY_CHOICES as days (days)}
-        <button
-          class="pill-tab"
-          aria-selected={tempCleanupDays === days}
-          onclick={() => ontempcleanup(days)}
-          role="tab"
-          tabindex={tempCleanupDays === days ? 0 : -1}
-        >
-          {#if days === null}
-            Off{:else}{days} days{/if}
-        </button>
-      {/each}
-    </div>
-  </div>
+  <ChoiceRow caption="With no project, open" choices={START_MODE_CHOICES} onpick={onstartmode} selected={startMode} />
+  <ChoiceRow
+    caption="Delete temp workspaces unused for"
+    choices={TEMP_CLEANUP_CHOICES}
+    onpick={ontempcleanup}
+    selected={tempCleanupDays}
+  />
   <ToggleRow
     caption="Auto-name temp workspaces once the agent starts working"
     checked={autoName}
@@ -78,19 +49,6 @@
      shared 12px picker-section gap. */
   .onlaunch {
     gap: 10px;
-  }
-
-  /* ── On launch - checkboxes; the pill-tabs chrome is shared (chrome.css). ── */
-  .startmode {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
-  }
-
-  .sm-label {
-    color: var(--on-surface-variant);
-    font-size: 13px;
   }
 
   /* Sits under the checkbox it qualifies, indented past the box so it reads as
