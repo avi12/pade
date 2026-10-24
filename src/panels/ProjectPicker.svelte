@@ -17,7 +17,6 @@
   import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";
   import { popularRoot, watchedDirectories } from "@/panels/picker/project-roots";
-  import QuickStartSection from "@/panels/picker/QuickStartSection.svelte";
   import RecentSection from "@/panels/picker/RecentSection.svelte";
   import RootsSection from "@/panels/picker/RootsSection.svelte";
   import WorkspaceDialogs from "@/panels/picker/WorkspaceDialogs.svelte";
@@ -199,15 +198,6 @@
           bind:createIn={createRoot}
         />
 
-        <QuickStartSection
-          {agents}
-          defaultAgent={settings.defaultAgent}
-          onnewroot={() => rootsSection?.focusAddRoot()}
-          {onopen}
-          roots={settings.roots}
-          bind:createIn={createRoot}
-        />
-
         <OnLaunchSection
           onainaming={async on => await updatePrefs({ aiSessionNaming: on })}
           onautoname={async on => await updatePrefs({ autoNameTemp: on })}
@@ -355,7 +345,7 @@
   /* Shared page chrome (eyebrows, base fields/buttons, rows, kebab menus) lives
      in picker/chrome.css so the section components share one copy. */
 
-  /* The "Start something new" cards live in picker/QuickStartSection.svelte. */
+  /* The home composer lives in picker/HomeSection.svelte. */
 
   /* "On launch" toggles live in picker/OnLaunchSection.svelte. */
 

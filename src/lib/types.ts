@@ -199,6 +199,11 @@ export type OpenTarget = {
   /** The directory was just created empty, so editor detection should wait for
    *  the agent's first project marker instead of keeping the generic fallback. */
   created?: true;
+  /** A persisted chat to bring to the front when the project opens (the
+   *  sidebar's chat pick). Its project's other chats come back with it. */
+  chatId?: string;
+  /** Open with a fresh chat added to the ones the project already has. */
+  newChat?: boolean;
 };
 
 /** One runnable task parsed from a project manifest. */
