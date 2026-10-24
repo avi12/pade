@@ -104,7 +104,7 @@ writes.
   dir never shells git; git results are memoized per path and reset when a
   `.gitignore` changes.
 - R1.2.8 ✅ **Language logos on cards.** Each change card leads with the file's
-  **brand logo** (a local `.svg` in `src/lib/icons`, rendered via `Icon.svelte`)
+  **brand logo** (a local `.svg` under `src/lib/icons/` - `languages/`, `formats/` and kin - rendered via `Icon.svelte`)
   instead of a text chip - multi-colour marks (TS/JS/Python…) keep their brand
   fills, single-colour marks and format glyphs take the card's language tone. An
   unrecognised type falls back to the text badge, so every row stays tagged.

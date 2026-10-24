@@ -262,12 +262,17 @@ These are non-negotiable for all work in this repo.
      the same way (equal digit advances with `tabular-nums` set) before it leads
      a stack.
    - Icons live in SVG only: every pictographic icon is an individual `.svg` file
-     in `src/lib/icons/` (its one authoritative home) - never a hardcoded path
+     under `src/lib/icons/` (its one authoritative home) - never a hardcoded path
      string - loaded by `Icon.svelte` and rendered via `<Icon name="…" />`. Never
      inline a raw `<svg>`/`<path>` in a component, and never use an emoji or a
      Unicode pictograph (`✓`, `⚙`, `▶`) as an icon in markup or a string. Need a
-     new glyph? Drop a `<name>.svg` in `src/lib/icons/` and add its name to
-     `ICON_NAMES` in `Icon.svelte`, then reference it by name. (Bare typographic
+     new glyph? Drop a `<name>.svg` in the semantic subfolder of `src/lib/icons/`
+     it belongs to (`agents/`, `editors/`, `languages/`, `frameworks/`,
+     `formats/`, `tooling/`, `actions/`, `find/`, `layout/`, `panels/`,
+     `status/`, `theme/`, `workspace/` - or a new one when none fits) and add its
+     name to `ICON_NAMES` in `Icon.svelte`, then reference it by name. The name
+     is the file's base name wherever it sits, so it must be unique across all
+     subfolders (the loader refuses a duplicate). (Bare typographic
      affordances like a `▾` disclosure caret or a `\` path separator are text, not
      icons, and stay as-is.)
    - No `title` attribute: a hover hint is the app's CSS tooltip

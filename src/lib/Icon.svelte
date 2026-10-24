@@ -1,10 +1,11 @@
 <script lang="ts" module>
-  // One .svg file per icon lives in ./icons - the authoritative home for each
+  // One .svg file per icon lives under ./icons, grouped into semantic subfolders
+  // (agents, editors, languages, actions, ...) - the authoritative home for each
   // glyph (no hardcoded path strings). Vite inlines every file as a raw string at
   // build time; we render its inner markup (the <path>/<circle> body) inside the
   // shared <svg> wrapper below, so all icons keep one size/stroke and the files
-  // stay valid standalone SVGs. To add an icon: drop a `<name>.svg` in ./icons and
-  // add its name to ICON_NAMES.
+  // stay valid standalone SVGs. To add an icon: drop a `<name>.svg` in the
+  // subfolder it belongs to and add its name to ICON_NAMES.
   //
   // ICON_NAMES is the type's single source of truth - a glob's keys are only
   // `string` to the type system, so the name union can't be derived from them.
@@ -29,7 +30,7 @@
   const SVG_EXTENSION = ".svg";
   const SVG_CLOSING_TAG = "</svg>";
 
-  const ICON_FILES = import.meta.glob<string>("./icons/*.svg", {
+  const ICON_FILES = import.meta.glob<string>("./icons/**/*.svg", {
     query: "?raw",
     import: "default",
     eager: true
@@ -48,9 +49,23 @@
     return base.slice(0, base.indexOf(SVG_EXTENSION));
   }
 
-  const ICONS: Record<string, string> = Object.fromEntries(
-    Object.entries(ICON_FILES).map(([path, svg]) => [iconName(path), iconBody(svg)])
-  );
+  // A name is the file's base name wherever it sits under ./icons, so two files
+  // sharing one would silently shadow each other - refuse to load instead.
+  function iconsByName(files: Record<string, string>) {
+    const icons: Record<string, string> = {};
+    for (const [path, svg] of Object.entries(files)) {
+      const name = iconName(path);
+      if (Object.hasOwn(icons, name)) {
+        throw new Error(`Duplicate icon name "${name}": ${path} clashes with another file in ./icons`);
+      }
+
+      icons[name] = iconBody(svg);
+    }
+
+    return icons;
+  }
+
+  const ICONS = iconsByName(ICON_FILES);
 </script>
 
 <script lang="ts">

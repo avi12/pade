@@ -515,7 +515,7 @@ flowchart LR
 | `src/lib/ipc/platform.ts` | The Tauri APIs that are not app commands: this window's label, title, focus and close request, the clipboard plugin | `@tauri-apps/api`, `@tauri-apps/plugin-clipboard-manager` |
 | `src/lib/types.ts` | Zod schemas + TS types for every IPC payload; shared enums | `ipc/messaging`, everywhere |
 | `src/lib/validate.ts` | User-input schemas (trust boundary) + `parseInput` / `nameError`; owns the clone-URL shape knowledge - `CloneUrl` (https / ssh / scp-like), `GitUsername`, `GitSecret`, `isSshCloneUrl`, `repositoryFolderName` | form components |
-| `src/lib/Icon.svelte` | The one icon renderer: every glyph is a `.svg` in `src/lib/icons/`, named in `ICON_NAMES` | everything |
+| `src/lib/Icon.svelte` | The one icon renderer: every glyph is a `.svg` in a semantic subfolder of `src/lib/icons/` (agents, editors, languages, actions, ...), found by its base name (a duplicate name fails loudly) and named in `ICON_NAMES` | everything |
 
 ### Agents (`src/lib/agent/`)
 
