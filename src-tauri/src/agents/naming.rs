@@ -17,9 +17,7 @@
 //!   3. a local heuristic (package/Cargo name, README heading, dominant file) -
 //!      the always-on fallback for project naming.
 
-use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use crate::agents::{oneshot_invocation, program};
@@ -84,10 +82,6 @@ const PROMPT_FILE_COUNT: usize = 12;
 const MAXIMUM_NAME_WORDS: usize = 4;
 const MAXIMUM_NAME_LENGTH: usize = 40;
 const MINIMUM_NAME_LENGTH: usize = 2;
-/// How long a cleanly exited agent's reply may take to finish draining. A
-/// descendant that outlived the agent can hold the pipe open; the reply is then
-/// abandoned rather than waited on forever.
-const REPLY_DRAIN_GRACE: Duration = Duration::from_secs(1);
 /// The closing instruction every naming prompt ends with.
 const REPLY_INSTRUCTION: &str = "Reply with ONLY the name - no quotes, no explanation.";
 
@@ -347,40 +341,9 @@ pub(crate) fn run_agent_reply(
         process.current_dir(directory);
     }
     process.args(arguments).arg(prompt);
-    run_capture(process, NAME_TIMEOUT)
-}
-
-/// Run `command`, capturing stdout and killing it after `timeout`. stdin is
-/// closed so a CLI that expects input gets EOF instead of hanging. Returns
-/// stdout on a clean exit, else `None`.
-///
-/// stdout drains on its own thread while the child runs: a child blocked on a
-/// full pipe never exits, so reading only after the exit would stall any reply
-/// bigger than the pipe buffer until the timeout killed it.
-fn run_capture(mut command: Command, timeout: Duration) -> Option<String> {
-    command
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null());
-    let mut child = command.spawn().ok()?;
-    let Some(mut stdout) = child.stdout.take() else {
-        let _ = child.kill();
-        let _ = child.wait();
-        return None;
-    };
-
-    let (sender, receiver) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let mut reply = String::new();
-        let read = stdout.read_to_string(&mut reply).map(|_| reply);
-        let _ = sender.send(read);
-    });
-
-    let has_succeeded = crate::util::exits_successfully_within(&mut child, timeout);
-    if !has_succeeded {
-        return None;
-    }
-    receiver.recv_timeout(REPLY_DRAIN_GRACE).ok()?.ok()
+    crate::util::capture_within(process, NAME_TIMEOUT)
+        .filter(|run| run.is_success)
+        .map(|run| run.stdout)
 }
 
 // ── Heuristic namer ─────────────────────────────────────────────────────────
@@ -494,36 +457,7 @@ pub(crate) fn sanitize(raw: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{dominant_stem, extract_name, run_capture, sanitize};
-    use std::time::{Duration, Instant};
-
-    /// A reply bigger than any OS pipe buffer (64 KB on Windows and Linux).
-    const OVERSIZED_REPLY_BYTES: usize = 128 * 1024;
-    const CAPTURE_TIMEOUT: Duration = Duration::from_secs(20);
-
-    /// A shell line printing more than [`OVERSIZED_REPLY_BYTES`] of text.
-    fn oversized_reply_command() -> String {
-        if cfg!(windows) {
-            "for /L %i in (1,1,2500) do @echo 0123456789012345678901234567890123456789012345678901234567890123"
-                .to_string()
-        } else {
-            format!("yes 0123456789 | head -c {}", OVERSIZED_REPLY_BYTES + 1)
-        }
-    }
-
-    /// The reader used to start only after the exit, so a reply that filled the
-    /// pipe blocked the child until the timeout killed it and nothing came back.
-    #[test]
-    fn a_reply_bigger_than_the_pipe_buffer_is_captured_without_waiting_out_the_timeout() {
-        let started = Instant::now();
-        let reply = run_capture(
-            crate::util::shell_command(&oversized_reply_command()),
-            CAPTURE_TIMEOUT,
-        );
-        let reply = reply.expect("a clean exit returns its whole reply");
-        assert!(reply.len() > OVERSIZED_REPLY_BYTES);
-        assert!(started.elapsed() < CAPTURE_TIMEOUT);
-    }
+    use super::{dominant_stem, extract_name, sanitize};
 
     #[test]
     fn sanitize_kebabs_a_titlecase_phrase() {
