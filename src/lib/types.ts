@@ -665,12 +665,14 @@ export type SaveMigration = z.infer<typeof SaveMigration>;
  *  (`isFile`), and whether its parent exists (`parentExists`) - so a not-yet-made
  *  folder in a real place reads as "will create" and a stray string reads as
  *  invalid. `suggestions` are the child directories that complete what was typed,
- *  for the autocomplete. */
+ *  for the autocomplete; `completion` is the typed path completed as far as
+ *  every matching folder agrees (empty when none match), for Ctrl+Space. */
 export const PathProbe = z.object({
   isDir: z.boolean(),
   isFile: z.boolean(),
   parentExists: z.boolean(),
-  suggestions: z.array(z.string())
+  suggestions: z.array(z.string()),
+  completion: z.string()
 });
 export type PathProbe = z.infer<typeof PathProbe>;
 
@@ -680,7 +682,8 @@ export const EMPTY_PATH_PROBE: PathProbe = {
   isDir: false,
   isFile: false,
   parentExists: false,
-  suggestions: []
+  suggestions: [],
+  completion: ""
 };
 
 /** A probe tagged with the exact text it describes - the field only trusts the

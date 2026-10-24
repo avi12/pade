@@ -591,6 +591,12 @@ pub struct PathProbe {
     /// Absolute paths of child directories that complete the text, name-sorted
     /// and capped. Empty when nothing matches or the parent can't be read.
     suggestions: Vec<String>,
+    /// The typed path completed as far as every matching folder agrees (Ctrl+Space
+    /// in the path field): the one match plus a separator to drill into it, or
+    /// the leaf prefix all matches share. Read off every match, not the capped
+    /// `suggestions`, so a long listing never completes past where it forks.
+    /// Empty when nothing matches.
+    completion: String,
 }
 
 /// How many directory completions to offer at once - enough to be useful, few
@@ -615,12 +621,11 @@ fn split_for_completion(input: &str) -> Option<(PathBuf, String)> {
 }
 
 /// Child directories of `parent` whose name starts with `prefix` (case-insensitive),
-/// as absolute paths, name-sorted and capped at [`SUGGESTION_LIMIT`]. Collecting into
-/// a `BTreeMap` keyed by the lowercased leaf yields the sort for free - no mutable
-/// scratch vector to sort in place.
-fn directory_completions(parent: &Path, prefix: &str) -> Vec<String> {
+/// keyed by the lowercased leaf. Collecting into a `BTreeMap` yields the name sort
+/// for free - no mutable scratch vector to sort in place.
+fn matching_directories(parent: &Path, prefix: &str) -> BTreeMap<String, PathBuf> {
     let Ok(entries) = std::fs::read_dir(parent) else {
-        return Vec::new();
+        return BTreeMap::new();
     };
     let needle = prefix.to_lowercase();
     // The name test runs first so only matching entries pay for the stat.
@@ -637,28 +642,77 @@ fn directory_completions(parent: &Path, prefix: &str) -> Vec<String> {
                 .then(|| (lowercase_leaf, entry.path()))
         })
         .filter(|(_, path)| path.is_dir())
-        .collect::<BTreeMap<String, PathBuf>>()
-        .into_values()
+        .collect()
+}
+
+/// The matching directories as absolute paths, capped at [`SUGGESTION_LIMIT`].
+fn directory_completions(matches: &BTreeMap<String, PathBuf>) -> Vec<String> {
+    matches
+        .values()
         .take(SUGGESTION_LIMIT)
         .map(|path| path.to_string_lossy().into_owned())
         .collect()
 }
 
-/// Probe the path being typed into the add-root field: what it is on disk, plus
-/// the child-directory completions that drive the field's autocomplete. Pure
-/// query (no persistence); a bad or unreadable path just yields empty suggestions.
+/// The longest leading run two leaf names share, compared case-insensitively
+/// (Windows names are) and spelled as `first` spells it.
+fn shared_leaf_prefix(first: &str, last: &str) -> String {
+    first
+        .chars()
+        .zip(last.chars())
+        .take_while(|(first_char, last_char)| {
+            first_char.to_lowercase().eq(last_char.to_lowercase())
+        })
+        .map(|(first_char, _)| first_char)
+        .collect()
+}
+
+/// How far every match agrees, as a path under `parent`: the one match plus a
+/// separator, so completion carries on into it; or the prefix all matches
+/// share. The map is sorted by lowercased leaf, so what its first and last
+/// entries share, every entry between them shares too.
+fn next_segment_completion(parent: &Path, matches: &BTreeMap<String, PathBuf>) -> String {
+    let (Some(first), Some(last)) = (matches.values().next(), matches.values().next_back()) else {
+        return String::new();
+    };
+    if matches.len() == 1 {
+        return format!("{}{}", first.to_string_lossy(), std::path::MAIN_SEPARATOR);
+    }
+
+    let leaf = |path: &PathBuf| {
+        path.file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    };
+    parent
+        .join(shared_leaf_prefix(&leaf(first), &leaf(last)))
+        .to_string_lossy()
+        .into_owned()
+}
+
+/// Probe the path being typed into a folder field: what it is on disk, plus the
+/// child-directory completions that drive the field's autocomplete and its
+/// Ctrl+Space completion. Pure query (no persistence); a bad or unreadable path
+/// just yields no completions.
 #[tauri::command]
 pub async fn workspace_probe_path(path: String) -> PathProbe {
     let trimmed = path.trim();
     let target = Path::new(trimmed);
-    let suggestions = split_for_completion(trimmed)
-        .map(|(parent, prefix)| directory_completions(&parent, &prefix))
+    let (suggestions, completion) = split_for_completion(trimmed)
+        .map(|(parent, prefix)| {
+            let matches = matching_directories(&parent, &prefix);
+            (
+                directory_completions(&matches),
+                next_segment_completion(&parent, &matches),
+            )
+        })
         .unwrap_or_default();
     PathProbe {
         is_dir: target.is_dir(),
         is_file: target.is_file(),
         parent_exists: target.parent().is_some_and(Path::is_dir),
         suggestions,
+        completion,
     }
 }
 
@@ -1622,12 +1676,13 @@ mod tests {
     use super::{
         apply_label, apply_prefs_patch, canonical_dedup, canonical_path,
         copy_tree_skipping_dependencies, expired_temps, is_deletable_project, is_temp_workspace_in,
-        manual_label, retry_through_sharing_race, validated_child_path, LabelSource, Prefs,
-        Settings, SettingsRepository, MILLISECONDS_PER_DAY,
+        manual_label, next_segment_completion, retry_through_sharing_race, shared_leaf_prefix,
+        validated_child_path, LabelSource, Prefs, Settings, SettingsRepository,
+        MILLISECONDS_PER_DAY,
     };
     use crate::test_support::assert_empty;
     use std::collections::BTreeMap;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::sync::Arc;
 
     const TEMP_WORKSPACE: &str = r"C:\Users\avi\AppData\Roaming\pade\workspaces\temp-42";
@@ -1645,6 +1700,51 @@ mod tests {
 
     fn expired(settings: &Settings, open_projects: &[String]) -> Vec<String> {
         expired_temps(settings, &[TEMP_WORKSPACE.to_string()], open_projects, NOW)
+    }
+
+    fn matches_of(paths: &[PathBuf]) -> BTreeMap<String, PathBuf> {
+        paths
+            .iter()
+            .map(|path| (path.to_string_lossy().to_lowercase(), path.clone()))
+            .collect()
+    }
+
+    #[test]
+    fn leaf_prefixes_are_shared_case_insensitively_in_the_first_spelling() {
+        assert_eq!(shared_leaf_prefix("Pade", "padel"), "Pade");
+        assert_eq!(shared_leaf_prefix("alpha", "beta"), "");
+    }
+
+    #[test]
+    fn a_single_match_completes_into_the_folder() {
+        let parent = Path::new("parent");
+        let only = parent.join("repositories");
+        assert_eq!(
+            next_segment_completion(parent, &matches_of(std::slice::from_ref(&only))),
+            format!("{}{}", only.display(), std::path::MAIN_SEPARATOR)
+        );
+    }
+
+    #[test]
+    fn several_matches_complete_to_their_shared_prefix() {
+        let parent = Path::new("parent");
+        let matches = matches_of(&[
+            parent.join("pade"),
+            parent.join("padding"),
+            parent.join("paddle"),
+        ]);
+        assert_eq!(
+            next_segment_completion(parent, &matches),
+            parent.join("pad").to_string_lossy()
+        );
+    }
+
+    #[test]
+    fn no_match_completes_nothing() {
+        assert_eq!(
+            next_segment_completion(Path::new("parent"), &BTreeMap::new()),
+            ""
+        );
     }
 
     #[test]
