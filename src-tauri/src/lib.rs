@@ -107,6 +107,7 @@ pub fn run() {
             terminal::runner::init(handle);
             workspace::watcher::init(handle);
             agents::running_model::init(handle);
+            agents::conversation_watch::init(handle);
             update::init(handle);
             app.manage(platform::window::WindowProjects::default());
             app.manage(platform::discord::DiscordState::default());

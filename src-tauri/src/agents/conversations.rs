@@ -22,6 +22,7 @@ use std::time::SystemTime;
 
 use serde::Serialize;
 
+use crate::agents::conversation_watch::remember_listed_project;
 use crate::agents::resume::{
     first_line, interactive_session_id, rollout_files, CODEX_SESSIONS_DIRECTORY,
 };
@@ -107,6 +108,7 @@ pub struct RecordedConversation {
 // main thread.
 #[tauri::command]
 pub async fn agent_conversations(project: String) -> Vec<RecordedConversation> {
+    remember_listed_project(&project);
     tauri::async_runtime::spawn_blocking(move || project_conversations(&project))
         .await
         .unwrap_or_default()

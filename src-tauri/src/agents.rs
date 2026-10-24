@@ -9,6 +9,7 @@
 //! its conversation (`resume`), reading its live model and effort
 //! (`running_model`) and its context fill (`session_context`).
 
+pub(crate) mod conversation_watch;
 pub(crate) mod conversations;
 pub(crate) mod copilot;
 pub(crate) mod naming;
