@@ -3,8 +3,9 @@
   import Icon from "@/lib/Icon.svelte";
   import type { Agent, OpenTarget, ProjectEntry } from "@/lib/types";
   import { realAgents as toRealAgents } from "@/lib/types";
-  import { displayName } from "@/lib/util/paths";
+  import { displayName, projectRootName } from "@/lib/util/paths";
   import { nameError } from "@/lib/validate";
+  import RootedName from "@/lib/workspace/RootedName.svelte";
   import { ProjectChoice, projectTriggerLabel, resolveHomeStart } from "@/panels/picker/home-composer";
   import HomeAgentMenu from "@/panels/picker/HomeAgentMenu.svelte";
   import HomeProjectMenu from "@/panels/picker/HomeProjectMenu.svelte";
@@ -143,8 +144,9 @@
       agent: selectedAgent
     })
   );
-  // An empty tooltip shows no bubble.
-  const projectTooltip = $derived(selectedPath || undefined);
+  // The chosen project's root before its name, as the menu rows read; a new
+  // project or a throwaway workspace has none yet.
+  const triggerRoot = $derived(choice === ProjectChoice.Existing ? projectRootName(selectedPath) : "");
   const agentTriggerLabel = $derived(selectedAgentLabel ?? "No LLMs found");
   const isExistingFolder = $derived(createTargetExists && lastProbe?.isDir === true);
   const isTakenByFile = $derived(createTargetExists && lastProbe?.isFile === true);
@@ -174,12 +176,11 @@
         <button
           class="select field-trigger"
           aria-label="Project"
-          data-tooltip={projectTooltip}
           popovertarget={PROJECT_MENU_ID}
           type="button"
         >
           <Icon name="folder" size={15} />
-          <span class="current">{triggerLabel}</span>
+          <span class="current"><RootedName name={triggerLabel} root={triggerRoot} /></span>
           <span class="caret" aria-hidden="true">▾</span>
         </button>
         <HomeProjectMenu
