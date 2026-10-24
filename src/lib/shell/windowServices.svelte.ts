@@ -24,7 +24,7 @@ import {
   loadWorkspaceMembers,
   refreshMemberBranches
 } from "@/lib/stores/workspace/workspaceMembers.svelte";
-import { registerSendShortcut, unregisterSendShortcut } from "@/lib/terminal/send-shortcut";
+import { registerSendShortcut, unregisterSendShortcut } from "@/lib/terminal/input/send-shortcut";
 import { onMount, untrack } from "svelte";
 
 export function startWindowServices({ project, windowSessions, repository, isWindowFocused }: {
@@ -201,7 +201,7 @@ export function startWindowServices({ project, windowSessions, repository, isWin
     return () => autoNamer.dispose();
   });
 
-  // Send-from-IDE bridge (lib/terminal/send-shortcut): copy in any external editor, press
+  // Send-from-IDE bridge (lib/terminal/input/send-shortcut): copy in any external editor, press
   // the global shortcut, and the clipboard lands in the active agent's input.
   onMount(() => {
     registerSendShortcut({

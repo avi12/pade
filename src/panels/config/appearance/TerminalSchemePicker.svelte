@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { terminalSchemes } from "@/lib/stores/ui/terminalSchemes.svelte";
-  import { ANSI_COLOR_TOKENS } from "@/lib/terminal/terminal-theme";
+  import { ANSI_COLOR_TOKENS } from "@/lib/terminal/theme/terminal-theme";
   import type { TerminalScheme } from "@/lib/types";
 
   // One "which colour scheme paints the terminal" control: a trigger showing the
@@ -24,7 +24,7 @@
   const FOLLOW_APP_THEME = "Follow the app theme";
 
   /** The slots the preview strip shows, named by the token that paints them, so
-   *  the ANSI index comes from the one ANSI order (lib/terminal/terminal-theme) rather
+   *  the ANSI index comes from the one ANSI order (lib/terminal/theme/terminal-theme) rather
    *  than from a literal here. */
   const PREVIEW_TOKENS = [
     "--terminal-red",

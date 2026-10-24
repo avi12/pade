@@ -241,7 +241,7 @@
   --terminal-bright-white: hsl(var(--seed-hue) 40% 99%);
   --terminal-selection: hsl(210deg 90% 45% / 22%);
 
-  /* Find-in-terminal (lib/terminal/TerminalFind). Both are washes, never solids: the
+  /* Find-in-terminal (lib/terminal/find/TerminalFind). Both are washes, never solids: the
      addon draws every other match UNDER the row's glyphs but the active one
      OVER them, so an opaque active colour would blank out the very word the
      search just found. Amber because that is what a reader already expects a
@@ -252,7 +252,7 @@
 
   /* The caret. Defined once, in terms of the accent, so it follows every scheme
      and palette; a chosen Windows Terminal scheme overwrites this token with its
-     own cursor colour (lib/terminal/terminal-palette). */
+     own cursor colour (lib/terminal/theme/terminal-palette). */
   --terminal-cursor: var(--primary);
 
   /* Syntax-highlight palette for the code / config / diff viewers. */
@@ -307,7 +307,7 @@
   --font-ui: var(--font-ui-base);
   --font-monospace: var(--font-monospace-base);
 
-  /* Appended after the monospace stack for right-to-left text (lib/terminal/TerminalRtl).
+  /* Appended after the monospace stack for right-to-left text (lib/terminal/rtl/TerminalRtl).
      Programming fonts carry no Arabic or Hebrew at all, so those runs would fall
      back to whatever the platform picked - naming the faces keeps a terminal's
      Arabic legible and consistent instead of leaving it to chance. Installed
@@ -568,7 +568,7 @@
    the deepest layer on screen; here it is the lightest, so the terminal still
    reads as the surface you are looking into rather than a panel sitting on top.
    A chosen Windows Terminal scheme still overrides all sixteen slots plus the
-   surface (lib/terminal/terminal-palette) - that is the user's pick and it wins. */
+   surface (lib/terminal/theme/terminal-palette) - that is the user's pick and it wins. */
 :root[data-palette="cyberpunk"][data-theme="light"] {
   --seed-hue: 197deg;
 

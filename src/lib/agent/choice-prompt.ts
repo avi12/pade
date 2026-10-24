@@ -6,7 +6,7 @@
 // output - deliberately conservative so ordinary numbered lists in agent prose
 // never trip it. What it keys on, and its limits, are documented at the export.
 
-import { stripAnsi } from "@/lib/terminal/ansi";
+import { stripAnsi } from "@/lib/terminal/output/ansi";
 
 /** The selection-cursor glyph Claude Code (Ink's select prompt) draws next to
  *  the highlighted option - U+276F, distinct from the input line's plain ">". */

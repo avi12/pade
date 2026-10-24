@@ -16,7 +16,7 @@
   import ProjectSidebar from "@/lib/shell/sidebar/ProjectSidebar.svelte";
   import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
   import { activeMemberIn } from "@/lib/stores/workspace/workspaceMembers.svelte";
-  import SendSelectionButton from "@/lib/terminal/SendSelectionButton.svelte";
+  import SendSelectionButton from "@/lib/terminal/input/SendSelectionButton.svelte";
   import type { Agent, AgentSession } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
   import { saveTempWorkspace } from "@/lib/workspace/save-temp-workspace";

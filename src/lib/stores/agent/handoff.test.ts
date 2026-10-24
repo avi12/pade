@@ -14,7 +14,7 @@ import {
   successorPrompt
 } from "@/lib/stores/agent/handoff.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
-import { BRACKETED_PASTE_END, PROMPT_SUBMIT } from "@/lib/terminal/terminal-input";
+import { BRACKETED_PASTE_END, PROMPT_SUBMIT } from "@/lib/terminal/input/terminal-input";
 import { CreditsState, SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
 import {

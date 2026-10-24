@@ -124,7 +124,7 @@ struct AgentDefinition {
     /// **visual** order rather than the logical order a program normally writes.
     ///
     /// It inverts what the terminal must do. ADE's right-to-left overlay
-    /// (`lib/terminal-rtl`) hands a run to the browser and lets it reorder -
+    /// (`lib/terminal/rtl/terminal-rtl`) hands a run to the browser and lets it reorder -
     /// correct for every program that writes logical order, and exactly wrong
     /// here, because reordering already-reordered text puts it back the way it
     /// started and the reader sees the sentence backwards. So the overlay is not

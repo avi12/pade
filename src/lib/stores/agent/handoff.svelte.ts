@@ -24,7 +24,7 @@ import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActi
 import { compactionHeadroom, dropContext, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/session/sessions.svelte";
-import { submittedPrompt } from "@/lib/terminal/terminal-input";
+import { submittedPrompt } from "@/lib/terminal/input/terminal-input";
 import { CreditsState, SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
 import { USAGE_SPENT_PERCENTAGE } from "@/lib/usage/usage-groups";

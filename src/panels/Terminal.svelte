@@ -3,16 +3,16 @@
   // A terminal has TWO screens and they invert every rule: the normal screen
   // (scrollback document; never send height, debounce width) vs the alternate
   // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
-  // program to repaint). lib/terminal/terminalFit owns that policy, and
-  // lib/terminal/terminalSession the live session behind this view.
+  // program to repaint). lib/terminal/fit/terminalFit owns that policy, and
+  // lib/terminal/session/terminalSession the live session behind this view.
   import { appearance, effective } from "@/lib/settings/prefs.svelte";
   import { compactionHeadroom } from "@/lib/stores/agent/context.svelte";
   import { setSessionStatus } from "@/lib/stores/session/sessions.svelte";
-  import { currentXtermTheme, terminalFontSize } from "@/lib/terminal/create-terminal";
-  import TerminalFind from "@/lib/terminal/TerminalFind.svelte";
-  import TerminalRtl from "@/lib/terminal/TerminalRtl.svelte";
-  import { createTerminalSession } from "@/lib/terminal/terminalSession.svelte";
-  import TerminalSessionBar from "@/lib/terminal/TerminalSessionBar.svelte";
+  import TerminalFind from "@/lib/terminal/find/TerminalFind.svelte";
+  import TerminalRtl from "@/lib/terminal/rtl/TerminalRtl.svelte";
+  import { currentXtermTheme, terminalFontSize } from "@/lib/terminal/session/create-terminal";
+  import { createTerminalSession } from "@/lib/terminal/session/terminalSession.svelte";
+  import TerminalSessionBar from "@/lib/terminal/session/TerminalSessionBar.svelte";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
@@ -58,7 +58,7 @@
   // onMount long after the first effects have run. Its presence IS "attached":
   // one value rather than a flag kept beside it.
   let attachedTerminal = $state<Terminal | undefined>();
-  // The pane's find bar (lib/terminal/TerminalFind), bound so Ctrl+F can ask it to open.
+  // The pane's find bar (lib/terminal/find/TerminalFind), bound so Ctrl+F can ask it to open.
   // Null until the component has mounted itself.
   let findBar = $state<{ reveal: () => Promise<void> } | null>(null);
   let isWindowFocused = $state(document.hasFocus());
@@ -83,7 +83,7 @@
     });
   });
 
-  // Re-read the context fill off the session log (see lib/terminal/session-readings).
+  // Re-read the context fill off the session log (see lib/terminal/session/session-readings).
   // A session settling back to `ready` is the event to hang this off - no timer
   // needed: the agent has just finished a turn, which is both when the log has
   // grown and when the flows that gate on the fill (auto-handoff, usage-resume)

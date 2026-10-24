@@ -8,7 +8,7 @@ import {
   UI_SCALE_MAXIMUM,
   UI_SCALE_MINIMUM
 } from "@/lib/settings/prefs-bounds";
-import { ANSI_COLOR_TOKENS } from "@/lib/terminal/terminal-theme";
+import { ANSI_COLOR_TOKENS } from "@/lib/terminal/theme/terminal-theme";
 import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
 import { z } from "zod";
 
@@ -467,7 +467,7 @@ export type Scheme = z.infer<typeof Scheme>;
  *  (`terminal_schemes`): the surface colours plus the 16 ANSI slots in ANSI
  *  order - the order `ANSI_COLOR_TOKENS` maps onto the `--terminal-*` design
  *  tokens, so an index here IS the SGR colour. `cursor` and `selection` are
- *  absent in several shipped schemes; `lib/terminal/terminal-palette` derives those. */
+ *  absent in several shipped schemes; `lib/terminal/theme/terminal-palette` derives those. */
 export const TerminalScheme = z.object({
   name: z.string(),
   background: z.string(),

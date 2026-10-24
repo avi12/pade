@@ -1,0 +1,73 @@
+// Terminal input shortcuts shared by every agent. A newline is pasted rather
+// than typed so xterm uses bracketed-paste mode when the running TUI enables it;
+// that preserves the newline in the agent's composer instead of submitting it.
+
+import { CONTROL_SEQUENCE_INTRODUCER, ENTER } from "@/lib/terminal/input/terminal-sequences";
+import { Key } from "@/lib/ui/keys";
+
+export const PROMPT_NEWLINE = "\n";
+
+// Bracketed-paste delivery for a whole programmatic prompt (the first prompt,
+// the handoff request): the paste markers make the TUI hold the text in its
+// composer, and the ENTER appended AFTER the closing marker is an unambiguous,
+// separate keystroke that submits it. Raw bytes with a trailing CR instead let
+// the agent fold the CR into the same burst and leave the prompt sitting
+// unsent. Wire constants composed from named parts (no obfuscated values).
+const BRACKETED_PASTE_START_PARAMETER = "200";
+const BRACKETED_PASTE_END_PARAMETER = "201";
+const TILDE_FINAL_BYTE = "~";
+
+/** The lone submitting keystroke. Sent as its own write AFTER a bracketed paste
+ *  has settled, it is an unambiguous Enter the TUI can't fold into the paste
+ *  burst - the reliable way to submit a composer a paste left holding text. */
+export const PROMPT_SUBMIT = ENTER;
+
+export const BRACKETED_PASTE_START =
+  `${CONTROL_SEQUENCE_INTRODUCER}${BRACKETED_PASTE_START_PARAMETER}${TILDE_FINAL_BYTE}`;
+export const BRACKETED_PASTE_END =
+  `${CONTROL_SEQUENCE_INTRODUCER}${BRACKETED_PASTE_END_PARAMETER}${TILDE_FINAL_BYTE}`;
+
+/** Text inserted from outside the terminal, framed so embedded newlines stay in
+ * the active composer's paste instead of becoming shell Enter keystrokes. */
+export function pastedText(text: string) {
+  return `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}`;
+}
+
+const PATH_SEPARATOR = " ";
+const PATH_QUOTE = "\"";
+
+/** File paths as typed into an agent's composer - the form a pasted clipboard
+ *  image and a file dropped onto the terminal both arrive in. A path holding a
+ *  space is quoted so it stays one token (as Windows Terminal does on a drop),
+ *  and the trailing space ends the last token so the agent's parser picks it up
+ *  as a complete path (an image path is then attached). */
+export function pathsAsPromptText(paths: readonly string[]) {
+  const tokens = paths.map(path => (path.includes(PATH_SEPARATOR) ? `${PATH_QUOTE}${path}${PATH_QUOTE}` : path));
+  return `${tokens.join(PATH_SEPARATOR)}${PATH_SEPARATOR}`;
+}
+
+/** Add source coordinates to code copied from an inline diff so the agent can
+ * locate the selection without inferring its file or line range. */
+export function referencedSnippet({ path, anchorLine, focusLine, snippet }: {
+  path: string;
+  anchorLine: number;
+  focusLine: number;
+  snippet: string;
+}) {
+  const firstLine = Math.min(anchorLine, focusLine);
+  const lastLine = Math.max(anchorLine, focusLine);
+  return `${path}:${firstLine}-${lastLine}\n${snippet}`;
+}
+
+/** A prompt wrapped for paste-then-submit delivery to a TUI's composer. */
+export function submittedPrompt(prompt: string) {
+  return `${pastedText(prompt)}${PROMPT_SUBMIT}`;
+}
+
+/** Shift+Enter alone - the chord that types a newline into the composer. */
+export function isPromptNewlineShortcut(event: Pick<KeyboardEvent,
+  "key" | "shiftKey" | "altKey" | "ctrlKey" | "metaKey"
+>) {
+  const isShiftOnly = event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+  return event.key === Key.Enter && isShiftOnly;
+}

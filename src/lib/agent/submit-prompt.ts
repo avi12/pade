@@ -11,8 +11,8 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
-import { SUBMIT_VERIFY_MS } from "@/lib/terminal/activity-timing";
-import { pastedText, PROMPT_SUBMIT } from "@/lib/terminal/terminal-input";
+import { SUBMIT_VERIFY_MS } from "@/lib/terminal/activity/activity-timing";
+import { pastedText, PROMPT_SUBMIT } from "@/lib/terminal/input/terminal-input";
 import { SessionStatus } from "@/lib/types";
 
 const SUBMIT_SETTLE_MS = 1_200;

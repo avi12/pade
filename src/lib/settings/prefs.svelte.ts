@@ -13,7 +13,7 @@ import {
   schemeOfBackground,
   TERMINAL_PALETTE_PROPERTIES,
   terminalPaletteProperties
-} from "@/lib/terminal/terminal-palette";
+} from "@/lib/terminal/theme/terminal-palette";
 import {
   DiffStyle,
   type Prefs,

@@ -9,7 +9,7 @@
 //
 // This module owns the pieces of that flow worth testing in isolation - reading
 // the trust gate off the rendered screen and confirming the prompt's echo. The
-// byte I/O and timing live in lib/terminal/initial-prompt-delivery, which the
+// byte I/O and timing live in lib/terminal/input/initial-prompt-delivery, which the
 // pane's terminal session drives next to the rest of the PTY plumbing.
 //
 // Coupled to the CLI's *observable* output (the gate's wording), the same
@@ -17,7 +17,7 @@
 // stable PADE contract.
 
 import { SELECTION_CURSOR } from "@/lib/agent/choice-prompt";
-import { stripAnsi } from "@/lib/terminal/ansi";
+import { stripAnsi } from "@/lib/terminal/output/ansi";
 
 // The trust gate is the one choice prompt it is always safe to auto-answer before
 // the first prompt - it's the user's own project, opened in PADE. Keying on the

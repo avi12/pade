@@ -1,8 +1,8 @@
 // Splitting a runner line's styled segments at its URLs, so the plain-HTML
 // output makes the same links clickable that a terminal pane does.
 
-import type { AnsiSegment } from "@/lib/terminal/ansi";
-import { findUrls } from "@/lib/terminal/terminal-links";
+import { findUrls } from "@/lib/terminal/links/terminal-links";
+import type { AnsiSegment } from "@/lib/terminal/output/ansi";
 
 type LinkedSegment = AnsiSegment & { url?: string };
 

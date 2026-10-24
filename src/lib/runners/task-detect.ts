@@ -6,7 +6,7 @@
 // while a visible shell invocation begins at a prompt. Strip ANSI, then recognise
 // only those two concrete forms.
 
-import { stripAnsi } from "@/lib/terminal/ansi";
+import { stripAnsi } from "@/lib/terminal/output/ansi";
 
 const TOOL_NAMES = "Bash|PowerShell|Shell|Terminal";
 const REGEX_SPECIAL_CHARACTER = /[.*+?^${}()|[\]\\]/g;

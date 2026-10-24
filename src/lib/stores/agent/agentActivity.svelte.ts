@@ -31,7 +31,7 @@ const IDLE_TITLE_GLYPH = "✳";
 const GLYPH_SEPARATOR = " ";
 
 // A window-title escape: OSC 0 (icon + title) or OSC 2 (title), terminated by
-// BEL or ST (ESC \). Built from strings, like lib/terminal/ansi, so no raw control byte
+// BEL or ST (ESC \). Built from strings, like lib/terminal/output/ansi, so no raw control byte
 // sits in the source.
 const TITLE_SEQUENCE_RE = new RegExp("\\u001b\\][02];([^\\u0007\\u001b]*)(?:\\u0007|\\u001b\\\\)", "g");
 const SEQUENCE_START = "]";

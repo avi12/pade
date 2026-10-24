@@ -3,7 +3,7 @@
 // normal reload path. Only if that pending session then reports an MCP reload
 // failure do we ask App to intervene with the safe document handoff.
 
-import { stripAnsi } from "@/lib/terminal/ansi";
+import { stripAnsi } from "@/lib/terminal/output/ansi";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 const FAILURE_RE = /(?:\bmcp\b[\s\S]{0,200}\b(?:error|fail(?:ed|ure)?|invalid|unable)\b|\b(?:error|fail(?:ed|ure)?|invalid|unable)\b[\s\S]{0,200}\bmcp\b)/i;

@@ -6,7 +6,7 @@
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
-import { pastedText } from "@/lib/terminal/terminal-input";
+import { pastedText } from "@/lib/terminal/input/terminal-input";
 import type { TaskGroup } from "@/lib/types";
 import { RunnerStream } from "@/lib/types";
 import { settledValue } from "@/lib/util/settled";

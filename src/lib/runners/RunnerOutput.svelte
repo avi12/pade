@@ -1,8 +1,8 @@
 <script lang="ts">
   import { linkSegments } from "@/lib/runners/runner-links";
   import type { RunnerRow } from "@/lib/stores/tasks/runners.svelte";
-  import { parseAnsi } from "@/lib/terminal/ansi";
-  import { openTerminalLink } from "@/lib/terminal/open-terminal-link";
+  import { openTerminalLink } from "@/lib/terminal/links/open-terminal-link";
+  import { parseAnsi } from "@/lib/terminal/output/ansi";
   import { RunnerStream } from "@/lib/types";
 
   // A spawned runner's streamed output, its SGR styling kept and stderr tinted,
