@@ -1485,10 +1485,10 @@ textarea {
 }
 
 /* Cyberpunk's shape language: corners are CUT, not rounded. `corner-shape:
-   bevel` reinterprets every radius in the app as a chamfer, and the scale below
-   runs the cut down one diagonal - `<size> 0` is the two-value border-radius
-   form, so the TOP-LEFT and BOTTOM-RIGHT corners are chamfered and the other
-   two stay square.
+   bevel` reinterprets every radius in the app as a chamfer. A container runs
+   the cut down one diagonal - `<size> 0` is the two-value border-radius form,
+   so its TOP-LEFT and BOTTOM-RIGHT corners are chamfered - while a control
+   (anything you click) cuts its BOTTOM-RIGHT corner alone.
 
    That diagonal is the admin console's, and it used to be the other one here.
    The direction is not arbitrary decoration: the skin cuts the corner the eye
@@ -1517,11 +1517,15 @@ textarea {
      that cuts a diagonal both read the same number. */
   --chamfer-control: 7px;
   --chamfer-container: 12px;
-  --radius-small: var(--chamfer-control) 0;
-  --radius-medium: var(--chamfer-control) 0;
+
+  /* Anything you click cuts one corner only, the bottom-right - the corner a
+     row of controls leaves by - so a button reads as a key, not a tile.
+     Containers keep the diagonal (top-left and bottom-right) below. */
+  --radius-small: 0 0 var(--chamfer-control) 0;
+  --radius-medium: 0 0 var(--chamfer-control) 0;
   --radius-large: var(--chamfer-container) 0;
   --radius-extra-large: var(--chamfer-container) 0;
-  --radius-full: var(--chamfer-control) 0;
+  --radius-full: 0 0 var(--chamfer-control) 0;
 
   /* Motion snaps rather than eases. The skin's own curve and its short end of
      the duration scale: a HUD acknowledges an input, it does not glide. */
@@ -1589,7 +1593,7 @@ textarea {
      a corner the parent shaped - a corner is hit-tested against the shape it is
      given, so a square child inside a shaped parent takes clicks from air (see
      SessionTabs). Rounding is the right instinct and the wrong amount here: this
-     palette cuts ONE diagonal, top-left and bottom-right, so a cap that cuts both
+     palette cuts a control's bottom-right corner only, so a cap that cuts both
      corners on its side puts a bevel where the container has none - and at the
      999px those caps ask for, that bevel collapses to half the control's height.
      A 26px tab came out a parallelogram.
@@ -1598,7 +1602,7 @@ textarea {
      nothing on the other. */
   :is(.tab .pick) {
     border-end-start-radius: 0;
-    border-start-start-radius: var(--chamfer-control);
+    border-start-start-radius: 0;
   }
 
   :is(.tab .close-button, .ide-more) {
