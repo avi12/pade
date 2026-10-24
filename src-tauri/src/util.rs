@@ -290,7 +290,7 @@ pub(crate) fn registry_query(arguments: &[&str]) -> Option<String> {
 /// One string value out of the registry. The value comes back unexpanded, because
 /// `Path` is stored as a `REG_EXPAND_SZ` full of `%VAR%` references.
 #[cfg(windows)]
-fn registry_string(key: &str, name: &str) -> Option<String> {
+pub(crate) fn registry_string(key: &str, name: &str) -> Option<String> {
     let text = registry_query(&[key, "/v", name])?;
     // A hit prints as `    Path    REG_EXPAND_SZ    C:\one;C:\two`.
     text.lines()

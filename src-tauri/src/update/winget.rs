@@ -12,7 +12,7 @@ use std::path::{Component, Path};
 
 use serde::Deserialize;
 
-use super::Version;
+use super::{AfterUpgrade, Version};
 
 /// PADE's identifier in the winget repository.
 const PACKAGE_IDENTIFIER: &str = "avi12.PADE";
@@ -25,15 +25,6 @@ const VERSIONS_URL: &str =
 /// per user (`%LOCALAPPDATA%\Microsoft`) or per machine (`%ProgramFiles%`).
 const PACKAGES_PATH: [&str; 2] = ["WinGet", "Packages"];
 const DIRECTORY_KIND: &str = "dir";
-
-/// What happens once winget has installed the new version.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum AfterUpgrade {
-    /// PADE was closing anyway; the next start is the new version.
-    Stay,
-    /// The user asked to restart into the new version.
-    Relaunch,
-}
 
 /// Whether `executable` is a copy winget installed.
 pub(super) fn is_installed_by_winget(executable: &Path) -> bool {
@@ -81,37 +72,21 @@ pub(super) fn newer_release(floor: Version, user_agent: &str) -> Result<Option<V
     Ok(newest_listed(&listing).filter(|newest| *newest > floor))
 }
 
-/// The PowerShell that waits for this PADE to end, has winget upgrade it, and
-/// starts it again when asked.
-fn upgrade_script(process_id: u32, after: AfterUpgrade) -> String {
+/// The PowerShell that has winget upgrade PADE and starts it again when asked.
+pub(super) fn upgrade_command(after: AfterUpgrade) -> String {
     let relaunch = match after {
         AfterUpgrade::Stay => String::new(),
         AfterUpgrade::Relaunch => format!("; Start-Process {COMMAND_ALIAS}"),
     };
     format!(
-        "Wait-Process -Id {process_id} -ErrorAction SilentlyContinue; \
-         winget upgrade --id {PACKAGE_IDENTIFIER} --exact --silent --disable-interactivity \
+        "winget upgrade --id {PACKAGE_IDENTIFIER} --exact --silent --disable-interactivity \
          --accept-package-agreements --accept-source-agreements{relaunch}"
     )
 }
 
-/// Hand the upgrade to a hidden PowerShell that outlives this process.
-pub(super) fn upgrade_after_exit(after: AfterUpgrade) -> Result<(), String> {
-    crate::util::command("powershell.exe")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            &upgrade_script(std::process::id(), after),
-        ])
-        .spawn()
-        .map(drop)
-        .map_err(|error| error.to_string())
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{is_installed_by_winget, newest_listed, upgrade_script, AfterUpgrade};
+    use super::{is_installed_by_winget, newest_listed, upgrade_command, AfterUpgrade};
     use crate::update::Version;
     use std::path::Path;
 
@@ -145,11 +120,10 @@ mod tests {
     }
 
     #[test]
-    fn the_upgrade_waits_for_this_process_and_relaunches_only_when_asked() {
-        let staying = upgrade_script(42, AfterUpgrade::Stay);
-        assert!(staying.starts_with("Wait-Process -Id 42"));
-        assert!(staying.contains("winget upgrade --id avi12.PADE --exact"));
+    fn the_upgrade_relaunches_only_when_asked() {
+        let staying = upgrade_command(AfterUpgrade::Stay);
+        assert!(staying.starts_with("winget upgrade --id avi12.PADE --exact"));
         assert!(!staying.contains("Start-Process"));
-        assert!(upgrade_script(42, AfterUpgrade::Relaunch).ends_with("Start-Process pade"));
+        assert!(upgrade_command(AfterUpgrade::Relaunch).ends_with("Start-Process pade"));
     }
 }

@@ -17,7 +17,9 @@
 //! and every connection it makes - off.
 //!
 //! A copy installed through winget updates through winget instead (`winget`
-//! submodule), so winget's own record of what it installed stays true.
+//! submodule), so winget's own record of what it installed stays true. A copy
+//! installed by PADE's MSI downloads the release's MSI the same checked way and
+//! runs it once PADE has closed (`installer` submodule).
 
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -30,9 +32,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+mod installer;
 mod winget;
-
-use winget::AfterUpgrade;
 
 /// The manifest every published copy polls.
 const FEED_URL: &str = "https://raw.githubusercontent.com/avi12/pade/main/docs/updates.json";
@@ -89,15 +90,42 @@ impl std::fmt::Display for Version {
     }
 }
 
-/// The manifest as the repository hosts it.
+/// One file a release publishes, and its digest.
 #[derive(Deserialize)]
-struct Manifest {
-    version: String,
+struct Asset {
     url: String,
     sha256: String,
 }
 
-/// A release newer than the running one: the exe to fetch and its digest.
+/// The manifest as the repository hosts it: the portable exe at the top level
+/// (what every released copy has always read), the MSI beside it.
+#[derive(Deserialize)]
+struct Manifest {
+    version: String,
+    #[serde(flatten)]
+    executable: Asset,
+    installer: Option<Asset>,
+}
+
+/// Which of a release's files this copy installs from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Package {
+    /// The portable exe, swapped in for the running one.
+    Executable,
+    /// The MSI, for a copy that MSI installed.
+    Installer,
+}
+
+impl Package {
+    fn file_name(self, version: Version) -> String {
+        match self {
+            Self::Executable => format!("PADE-{version}.exe"),
+            Self::Installer => format!("PADE-{version}-setup.msi"),
+        }
+    }
+}
+
+/// A release newer than the running one: the file to fetch and its digest.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Offer {
     version: Version,
@@ -105,26 +133,31 @@ struct Offer {
     sha256: String,
 }
 
-/// The offer a manifest makes to a copy running `current` - none unless it names
-/// a newer version, a full SHA-256 and an https address (or this machine's, for
-/// a test's stand-in server).
-fn offer_from(manifest: &str, current: Version) -> Option<Offer> {
+/// The offer a manifest makes to a copy running `current` that installs from
+/// `package` - none unless it names a newer version and, for that file, a full
+/// SHA-256 and an https address (or this machine's, for a test's stand-in
+/// server).
+fn offer_from(manifest: &str, current: Version, package: Package) -> Option<Offer> {
     let manifest: Manifest = serde_json::from_str(manifest).ok()?;
     let version = Version::parse(&manifest.version)?;
-    let has_digest = manifest.sha256.len() == SHA256_HEX_LENGTH
-        && manifest
+    let asset = match package {
+        Package::Executable => manifest.executable,
+        Package::Installer => manifest.installer?,
+    };
+    let has_digest = asset.sha256.len() == SHA256_HEX_LENGTH
+        && asset
             .sha256
             .chars()
             .all(|character| character.is_ascii_hexdigit());
-    let is_trusted_address = manifest.url.starts_with(HTTPS_SCHEME)
+    let is_trusted_address = asset.url.starts_with(HTTPS_SCHEME)
         || LOOPBACK_PREFIXES
             .iter()
-            .any(|prefix| manifest.url.starts_with(prefix));
+            .any(|prefix| asset.url.starts_with(prefix));
     let is_offered = version > current && has_digest && is_trusted_address;
     is_offered.then(|| Offer {
         version,
-        url: manifest.url,
-        sha256: manifest.sha256.to_ascii_lowercase(),
+        url: asset.url,
+        sha256: asset.sha256.to_ascii_lowercase(),
     })
 }
 
@@ -133,8 +166,41 @@ fn offer_from(manifest: &str, current: Version) -> Option<Offer> {
 enum Delivery {
     /// A portable copy: the downloaded, checked exe swapped in for the running one.
     Download { file: PathBuf, sha256: String },
+    /// An MSI install: the downloaded, checked MSI, run once PADE has closed.
+    Installer { file: PathBuf },
     /// A winget install: `winget upgrade`, once PADE has closed.
     Winget,
+}
+
+impl Delivery {
+    /// Whether the new version is installed by another program once this
+    /// process has ended, rather than swapped in by PADE itself.
+    fn is_installed_after_exit(&self) -> bool {
+        matches!(self, Self::Installer { .. } | Self::Winget)
+    }
+}
+
+/// What happens once the new version is installed after PADE has closed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AfterUpgrade {
+    /// PADE was closing anyway; the next start is the new version.
+    Stay,
+    /// The user asked to restart into the new version.
+    Relaunch,
+}
+
+/// Hand an upgrade to a hidden PowerShell that outlives this process: it
+/// waits for PADE to end, then runs `upgrade`.
+fn upgrade_after_exit(upgrade: &str) -> Result<(), String> {
+    let script = format!(
+        "Wait-Process -Id {} -ErrorAction SilentlyContinue; {upgrade}",
+        std::process::id()
+    );
+    crate::util::command("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .spawn()
+        .map(drop)
+        .map_err(|error| error.to_string())
 }
 
 /// A newer release ready to install.
@@ -244,9 +310,21 @@ fn is_winget_install() -> bool {
     running_executable().is_some_and(|path| winget::is_installed_by_winget(&path))
 }
 
+/// The release file this copy installs from.
+fn package() -> Package {
+    let is_msi_install =
+        running_executable().is_some_and(|path| installer::is_installed_by_msi(&path));
+    if is_msi_install {
+        Package::Installer
+    } else {
+        Package::Executable
+    }
+}
+
 /// Look for a release newer than both the running one and any already ready:
 /// winget's repository for a winget install, the manifest otherwise (downloading
-/// and checking the exe). Answers the release now ready, if any.
+/// and checking the exe, or the MSI for an MSI install). Answers the release now
+/// ready, if any.
 fn check(state: &UpdateState) -> Result<Option<Ready>, String> {
     let Some(current) = Version::running() else {
         return Ok(None);
@@ -260,7 +338,7 @@ fn check(state: &UpdateState) -> Result<Option<Ready>, String> {
             delivery: Delivery::Winget,
         })
     } else {
-        downloaded_release(floor)?
+        downloaded_release(floor, package())?
     };
     if let Some(ready) = &ready {
         state.set_ready(ready.clone());
@@ -268,8 +346,9 @@ fn check(state: &UpdateState) -> Result<Option<Ready>, String> {
     Ok(ready)
 }
 
-/// The manifest's release, downloaded and checked, when it is newer than `floor`.
-fn downloaded_release(floor: Version) -> Result<Option<Ready>, String> {
+/// The manifest's release, its `package` downloaded and checked, when it is
+/// newer than `floor`.
+fn downloaded_release(floor: Version, package: Package) -> Result<Option<Ready>, String> {
     let manifest = ureq::get(&feed_url())
         .header("User-Agent", &user_agent())
         .call()
@@ -277,34 +356,37 @@ fn downloaded_release(floor: Version) -> Result<Option<Ready>, String> {
         .body_mut()
         .read_to_string()
         .map_err(|error| error.to_string())?;
-    let Some(offer) = offer_from(&manifest, floor) else {
+    let Some(offer) = offer_from(&manifest, floor, package) else {
         return Ok(None);
     };
-    let file = download(&offer)?;
-    Ok(Some(Ready {
-        version: offer.version,
-        delivery: Delivery::Download {
+    let file = download(&offer, &package.file_name(offer.version))?;
+    let delivery = match package {
+        Package::Executable => Delivery::Download {
             file,
             sha256: offer.sha256,
         },
+        Package::Installer => Delivery::Installer { file },
+    };
+    Ok(Some(Ready {
+        version: offer.version,
+        delivery,
     }))
 }
 
-/// Fetch the offered exe into PADE's updates folder, checked against its digest
-/// before it is kept. A download from an earlier run that still matches is used
-/// as it is; other leftovers are removed.
-fn download(offer: &Offer) -> Result<PathBuf, String> {
+/// Fetch the offered file into PADE's updates folder as `file_name`, checked
+/// against its digest before it is kept. A download from an earlier run that
+/// still matches is used as it is; other leftovers are removed.
+fn download(offer: &Offer, file_name: &str) -> Result<PathBuf, String> {
     let directory = updates_directory().ok_or("no local data folder")?;
     std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-    let target = directory.join(format!("PADE-{}.exe", offer.version));
+    let target = directory.join(file_name);
     if is_digest_of(&target, &offer.sha256) {
         return Ok(target);
     }
     // Several PADE windows can run as separate processes; each downloads into
     // its own partial file so two never write one.
     let partial = directory.join(format!(
-        "PADE-{}.exe{DOWNLOAD_SUFFIX}-{}",
-        offer.version,
+        "{file_name}{DOWNLOAD_SUFFIX}-{}",
         std::process::id()
     ));
     let response = ureq::get(&offer.url)
@@ -391,9 +473,9 @@ fn delete_leftovers(running: &Path) {
     }
 }
 
-/// Install a ready release, once: swap the exe in for a portable copy, or have
-/// winget upgrade a winget install once this process has ended (then start
-/// PADE again when `after` asks).
+/// Install a ready release, once: swap the exe in for a portable copy, or run
+/// the MSI or winget once this process has ended (then start PADE again when
+/// `after` asks).
 fn apply(state: &UpdateState, after: AfterUpgrade) -> Result<(), String> {
     let Some(ready) = state.ready() else {
         return Ok(());
@@ -406,7 +488,12 @@ fn apply(state: &UpdateState, after: AfterUpgrade) -> Result<(), String> {
             let running = running_executable().ok_or("cannot find PADE's own exe")?;
             install(file, &running, sha256)?;
         }
-        Delivery::Winget => winget::upgrade_after_exit(after)?,
+        Delivery::Installer { file } => upgrade_after_exit(&installer::upgrade_command(
+            file,
+            installer::kept_shortcuts(),
+            after,
+        ))?,
+        Delivery::Winget => upgrade_after_exit(&winget::upgrade_command(after))?,
     }
     state.is_applied.store(true, Ordering::Release);
     Ok(())
@@ -483,16 +570,18 @@ pub async fn update_check(app: AppHandle) -> Result<UpdateStatus, String> {
 }
 
 /// Install the ready release and restart into it. A portable copy swaps its exe
-/// and restarts; a winget install exits so winget can replace it, and the
-/// upgrade starts PADE again.
+/// and restarts; an MSI or winget install exits so the installer can replace
+/// it, and the upgrade starts PADE again.
 #[tauri::command]
 pub async fn update_restart(app: AppHandle) -> Result<(), String> {
     let state = Arc::clone(app.state::<Arc<UpdateState>>().inner());
-    let is_winget = is_winget_install();
+    let is_installed_after_exit = state
+        .ready()
+        .is_some_and(|ready| ready.delivery.is_installed_after_exit());
     tauri::async_runtime::spawn_blocking(move || apply(&state, AfterUpgrade::Relaunch))
         .await
         .map_err(|error| error.to_string())??;
-    if is_winget {
+    if is_installed_after_exit {
         app.exit(0);
     } else {
         app.request_restart();
@@ -503,7 +592,7 @@ pub async fn update_restart(app: AppHandle) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        delete_leftovers, install, offer_from, suffixed, Offer, Version, RETIRED_MARKER,
+        delete_leftovers, install, offer_from, suffixed, Offer, Package, Version, RETIRED_MARKER,
         STAGED_SUFFIX,
     };
     use std::path::PathBuf;
@@ -547,7 +636,11 @@ mod tests {
     fn a_newer_checked_https_release_is_offered() {
         let url = "https://github.com/avi12/pade/releases/download/v0.0.3/PADE-0.0.3.exe";
         assert_eq!(
-            offer_from(&manifest("0.0.3", url, &DIGEST.to_uppercase()), RUNNING),
+            offer_from(
+                &manifest("0.0.3", url, &DIGEST.to_uppercase()),
+                RUNNING,
+                Package::Executable
+            ),
             Some(Offer {
                 version: Version::parse("0.0.3").expect("a version"),
                 url: url.to_string(),
@@ -559,20 +652,43 @@ mod tests {
     #[test]
     fn nothing_is_offered_without_a_newer_version_a_digest_or_a_safe_address() {
         let url = "https://example.com/PADE.exe";
-        assert!(offer_from(&manifest("0.0.2", url, DIGEST), RUNNING).is_none());
-        assert!(offer_from(&manifest("0.0.3", url, "abc"), RUNNING).is_none());
         assert!(offer_from(
-            &manifest("0.0.3", "http://example.com/PADE.exe", DIGEST),
-            RUNNING
+            &manifest("0.0.2", url, DIGEST),
+            RUNNING,
+            Package::Executable
         )
         .is_none());
-        assert!(offer_from("not json", RUNNING).is_none());
+        assert!(offer_from(&manifest("0.0.3", url, "abc"), RUNNING, Package::Executable).is_none());
+        assert!(offer_from(
+            &manifest("0.0.3", "http://example.com/PADE.exe", DIGEST),
+            RUNNING,
+            Package::Executable
+        )
+        .is_none());
+        assert!(offer_from("not json", RUNNING, Package::Executable).is_none());
         // A stand-in server on this machine is accepted, for trying an update.
         assert!(offer_from(
             &manifest("0.0.3", "http://127.0.0.1:8000/PADE.exe", DIGEST),
-            RUNNING
+            RUNNING,
+            Package::Executable
         )
         .is_some());
+    }
+
+    #[test]
+    fn an_msi_install_is_offered_the_installer_and_only_when_one_is_published() {
+        let installer_url =
+            "https://github.com/avi12/pade/releases/download/v0.0.3/PADE-0.0.3-setup.msi";
+        let with_installer = format!(
+            r#"{{"version":"0.0.3","url":"https://example.com/PADE.exe","sha256":"{DIGEST}","installer":{{"url":"{installer_url}","sha256":"{DIGEST}"}}}}"#
+        );
+        assert_eq!(
+            offer_from(&with_installer, RUNNING, Package::Installer).map(|offer| offer.url),
+            Some(installer_url.to_string())
+        );
+        let without_installer = manifest("0.0.3", "https://example.com/PADE.exe", DIGEST);
+        assert!(offer_from(&without_installer, RUNNING, Package::Installer).is_none());
+        assert!(offer_from(&without_installer, RUNNING, Package::Executable).is_some());
     }
 
     #[test]
