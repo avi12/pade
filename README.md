@@ -1,7 +1,7 @@
 # PADE - Power ADE (Agentic Development Environment)
 
 An open-source, comprehension-first GUI that wraps your agent CLI (Claude Code,
-Codex, Antigravity CLI, …) running **unmodified in an integrated terminal**, and
+Codex, Copilot CLI, Grok CLI, Muse Code, Qwen Code, …) running **unmodified in an integrated terminal**, and
 builds an environment around it. No token metering - it uses your existing
 subscription, and stays ToS-clean by only reading the terminal's output and
 typing into it (the same posture as the official editor integrations).

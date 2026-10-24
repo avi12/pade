@@ -8,7 +8,8 @@ use serde::Serialize;
 use tauri::WebviewWindow;
 
 use crate::agents::{
-    ID_AIDER, ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_OPENCODE,
+    ID_AIDER, ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_MUSE, ID_OPENCODE,
+    ID_QWEN,
 };
 
 /// What a surfaced config file holds, in the wire strings the frontend's
@@ -66,7 +67,13 @@ const KNOWN_CONFIG_FILES: &[ConfigDefinition] = &[
     ConfigDefinition {
         relative_path: "AGENTS.md",
         kind: ConfigKind::Instructions,
-        agents: &[ID_CODEX, ID_CURSOR, ID_ANTIGRAVITY, ID_AIDER],
+        agents: &[ID_CODEX, ID_CURSOR, ID_ANTIGRAVITY, ID_AIDER, ID_MUSE],
+        mcp_format: None,
+    },
+    ConfigDefinition {
+        relative_path: "QWEN.md",
+        kind: ConfigKind::Instructions,
+        agents: &[ID_QWEN],
         mcp_format: None,
     },
     ConfigDefinition {

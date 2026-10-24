@@ -35,6 +35,8 @@ pub const ID_GROK: &str = "grok";
 pub const ID_ANTIGRAVITY: &str = "antigravity";
 pub const ID_CURSOR: &str = "cursor";
 pub const ID_AIDER: &str = "aider";
+pub const ID_MUSE: &str = "muse";
+pub const ID_QWEN: &str = "qwen";
 
 /// The variable that relocates Codex's whole home (config, sessions, auth).
 const CODEX_HOME_VARIABLE: &str = "CODEX_HOME";
@@ -446,6 +448,51 @@ const REGISTRY: &[AgentDefinition] = &[
         reorders_bidi: false,
     },
     AgentDefinition {
+        id: ID_MUSE,
+        label: "Muse Code",
+        // Meta's terminal coding agent on Muse Spark; its installers (`install.sh`,
+        // `install.ps1` from dev.meta.ai) drop a plain `muse`.
+        command: "muse",
+        aliases: &[],
+        // `muse exec "<prompt>"` runs one prompt to completion - Meta's documented
+        // headless mode for scripts and CI.
+        oneshot: Some(&["exec"]),
+        // Meta's permissions page: `--yolo` disables approval and the sandbox and
+        // trusts the workspace - the Unrestricted profile.
+        session_arguments: &["--yolo"],
+        // No documented theme setting or variable; its TUI inherits the palette.
+        theme_config: None,
+        // Only `muse resume --last` is documented - no caller-chosen id.
+        session_id_flag: None,
+        environment: &[],
+        needs_light_console_fix: false,
+        reorders_bidi: false,
+    },
+    AgentDefinition {
+        id: ID_QWEN,
+        label: "Qwen Code",
+        // Alibaba's Qwen Code (`npm i -g @qwen-code/qwen-code`), a fork of Gemini
+        // CLI; npm lays down `qwen` / `qwen.cmd`.
+        command: "qwen",
+        aliases: &[],
+        // A positional prompt is one-shot by default (`-p` is deprecated in its
+        // favour, verified on 0.15.1), so the prompt alone, appended last, is the
+        // whole headless invocation.
+        oneshot: Some(&[]),
+        // "Automatically accept all actions (aka YOLO mode)".
+        session_arguments: &["--yolo"],
+        // Its `ui.theme` lives in the user-level settings.json only - forcing it
+        // would leak ADE's scheme into the user's other terminals.
+        theme_config: None,
+        // `--session-id` names a NEW session; resuming one takes `--resume <id>`,
+        // a different flag - so one id can't both create and resume, which the
+        // restart-to-resume flow needs.
+        session_id_flag: None,
+        environment: &[],
+        needs_light_console_fix: false,
+        reorders_bidi: false,
+    },
+    AgentDefinition {
         id: ID_ANTIGRAVITY,
         label: "Antigravity CLI",
         command: "antigravity",
@@ -807,6 +854,20 @@ mod tests {
         assert!(needs_light_console_fix("opencode"));
         // Installed under its own name only - no installer aliases.
         assert_eq!(installed_names("opencode"), vec!["opencode"]);
+    }
+
+    /// Muse Code and Qwen Code: a headless one-shot, a yolo switch, and nothing
+    /// ADE can force or resume by id.
+    #[test]
+    fn muse_and_qwen_run_headless_and_autonomous() {
+        assert_eq!(oneshot_invocation("muse"), Some(&["exec"][..]));
+        assert_eq!(oneshot_invocation("qwen"), Some(&[][..]));
+        for command in ["muse", "qwen"] {
+            assert_eq!(session_arguments(command), &["--yolo"]);
+            assert!(theme_config(command).is_none());
+            assert!(session_id_flag(command).is_none());
+            assert_eq!(installed_names(command), vec![command]);
+        }
     }
 
     #[test]
