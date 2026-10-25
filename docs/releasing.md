@@ -31,7 +31,10 @@ Every push to `main` is released (see `CLAUDE.md`). With the work committed:
 1. sets the version in `src-tauri/Cargo.toml` - its one home; the exe and the
    Config panel read it from there;
 2. builds the context-menu handler, then PADE and its MSI
-   (`tauri build --bundles msi`), embedding the handler;
+   (`tauri build --bundles msi`), embedding the handler. It links the MSI
+   itself with WiX's `light -sval`, skipping the ICE checks: they run on
+   VBScript, which Windows no longer installs by default, so the `Installer`
+   GitHub Actions workflow runs them whenever the installer's sources change;
 3. commits `chore(release): <version>`, tags `v<version>` and pushes both;
 4. creates the GitHub release with the exe and the MSI, appending a link to
    every commit since the previous tag;

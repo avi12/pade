@@ -10,7 +10,9 @@
 //      exe read it from there;
 //   2. build the Windows 11 context-menu handler, then PADE itself and its MSI
 //      installer (`src-tauri/windows/installer.wxs`), embedding the handler so
-//      the exe stands alone;
+//      the exe stands alone. The MSI is linked here with WiX's validation
+//      skipped: its ICE checks run on VBScript, which Windows no longer ships
+//      by default, so CI runs them instead (`.github/workflows/installer.yml`);
 //   3. commit `chore(release): <version>`, tag `v<version>` and push both;
 //   4. create the GitHub release with the portable exe attached as
 //      `PADE-<version>.exe` and the installer as `PADE-<version>-setup.msi`;
@@ -27,6 +29,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  statSync,
   writeFileSync
 } from "node:fs";
 import { join, resolve } from "node:path";
@@ -40,7 +43,12 @@ const OUTPUT_DIRECTORY = join(ROOT, "release");
 const UPDATE_MANIFEST = join(ROOT, "docs", "updates.json");
 const CONTEXT_MENU_HANDLER = join(RELEASE_TARGET, "contextmenu_handler.dll");
 const BUILT_EXECUTABLE = join(RELEASE_TARGET, "pade.exe");
-const BUILT_INSTALLER_DIRECTORY = join(RELEASE_TARGET, "bundle", "msi");
+/** Where Tauri leaves the compiled WiX objects and its locale strings. */
+const WIX_INTERMEDIATE = join(RELEASE_TARGET, "wix", "x64");
+const WIX_MAIN_OBJECT = join(WIX_INTERMEDIATE, "main.wixobj");
+/** The WiX toolset Tauri downloads on its first MSI build. */
+const WIX_TOOLS = join(process.env.LOCALAPPDATA ?? "", "tauri", "WixTools314");
+const WIX_CULTURE = "en-us";
 const PACKAGE_VERSION_LINE = /^version = "(\d+\.\d+\.\d+)"$/m;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const IS_WINDOWS = process.platform === "win32";
@@ -98,14 +106,48 @@ function sha256Of(file) {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
 }
 
-/** The MSI Tauri built for `version` (`PADE_<version>_x64_en-US.msi`). */
-function builtInstaller(version) {
-  const name = readdirSync(BUILT_INSTALLER_DIRECTORY).find(file => file.startsWith(`PADE_${version}_`) && file.endsWith(".msi"));
-  if (!name) {
-    fail(`no MSI for ${version} in ${BUILT_INSTALLER_DIRECTORY}`);
+/** Build PADE and compile its WiX source. Tauri's own link of the MSI runs the
+ *  ICE checks, so it fails wherever VBScript is missing; only a fresh compiled
+ *  object matters here, and `linkInstaller` links it without them. */
+function buildApplication() {
+  const startedAt = Date.now();
+  try {
+    run({
+      command: "pnpm",
+      args: ["tauri", "build", "--bundles", "msi"],
+      environment: {
+        PADE_CONTEXT_MENU_HANDLER: CONTEXT_MENU_HANDLER
+      }
+    });
+  } catch {
+    console.warn("Tauri's MSI link failed; linking it without ICE validation instead");
   }
 
-  return join(BUILT_INSTALLER_DIRECTORY, name);
+  const isWixObjectFresh = statSync(WIX_MAIN_OBJECT, { throwIfNoEntry: false })?.mtimeMs >= startedAt;
+  if (!isWixObjectFresh) {
+    fail("the build stopped before compiling the installer - see the output above");
+  }
+}
+
+function linkInstaller(destination) {
+  const objects = readdirSync(WIX_INTERMEDIATE).filter(file => file.endsWith(".wixobj")).map(file => join(WIX_INTERMEDIATE, file));
+  run({
+    command: join(WIX_TOOLS, "light.exe"),
+    args: [
+      "-nologo",
+      "-sval",
+      "-ext",
+      join(WIX_TOOLS, "WixUIExtension.dll"),
+      "-ext",
+      join(WIX_TOOLS, "WixUtilExtension.dll"),
+      `-cultures:${WIX_CULTURE}`,
+      "-loc",
+      join(WIX_INTERMEDIATE, "locale.wxl"),
+      "-o",
+      destination,
+      ...objects
+    ]
+  });
 }
 
 function releaseUrl({ tag, assetName }) {
@@ -198,13 +240,7 @@ run({
   command: "cargo",
   args: ["build", "--release", "--manifest-path", CARGO_MANIFEST, "-p", "contextmenu-handler"]
 });
-run({
-  command: "pnpm",
-  args: ["tauri", "build", "--bundles", "msi"],
-  environment: {
-    PADE_CONTEXT_MENU_HANDLER: CONTEXT_MENU_HANDLER
-  }
-});
+buildApplication();
 
 mkdirSync(OUTPUT_DIRECTORY, { recursive: true });
 const assetName = `PADE-${version}.exe`;
@@ -213,7 +249,7 @@ copyFileSync(BUILT_EXECUTABLE, asset);
 const sha256 = sha256Of(asset);
 const installerName = `PADE-${version}-setup.msi`;
 const installer = join(OUTPUT_DIRECTORY, installerName);
-copyFileSync(builtInstaller(version), installer);
+linkInstaller(installer);
 
 run({
   command: "git",

@@ -394,9 +394,10 @@ only.
 - Rust stable via rustup.
 - Platform prerequisites per Tauri: on Windows, WebView2 (preinstalled on
   Windows 11) and the MSVC build tools.
-- For the MSI: Windows' VBScript feature, which WiX's validation needs and
-  newer Windows 11 no longer installs by default
-  (`DISM /Online /Add-Capability /CapabilityName:VBSCRIPT~~~~`, elevated).
+- No VBScript: WiX's ICE checks need it, but `pnpm release` links the MSI
+  with them skipped and the `Installer` GitHub Actions workflow runs them.
+  A plain `pnpm tauri build --bundles msi` still runs them, so it fails
+  without VBScript; that is expected, not a reason to enable VBScript.
 
 If `pnpm` is not recognized in your shell, fix that before building anything:
 Tauri's `beforeBuildCommand` spawns `pnpm build` as a child process, so
