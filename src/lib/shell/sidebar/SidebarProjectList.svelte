@@ -3,7 +3,7 @@
   import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";
   import { sidebarArrowKeys } from "@/lib/shell/sidebar/sidebar-keyboard";
   import type { sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
-  import SidebarProjectGroup from "@/lib/shell/sidebar/SidebarProjectGroup.svelte";
+  import SidebarProjectGroup, { PIN_ID_ATTRIBUTE } from "@/lib/shell/sidebar/SidebarProjectGroup.svelte";
   import type { WindowInfo } from "@/lib/types";
   import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";
   import ProjectSection from "@/lib/workspace/switcher/projects/ProjectSection.svelte";
@@ -148,7 +148,13 @@
      `data-sidebar-line`, its controls marked `data-sidebar-item`); Tab stops
      on project headers only, which the markup's tabindex already arranges. -->
 <div class="groups" {@attach sidebarArrowKeys}>
-  <ProjectSection heading="Pinned" items={sections.pinned} key={entry => entry.project} row={pinnedGroup} />
+  <ProjectSection
+    heading="Pinned"
+    itemAttributes={entry => ({ [PIN_ID_ATTRIBUTE]: isPinListReorderable ? entry.project : undefined })}
+    items={sections.pinned}
+    key={entry => entry.project}
+    row={pinnedGroup}
+  />
   <ProjectSection heading="Recent" items={sections.recent} key={entry => entry.project} row={recentGroup} />
 
   {#if emptyMessage}

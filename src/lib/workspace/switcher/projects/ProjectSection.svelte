@@ -1,13 +1,17 @@
 <script generics="Item" lang="ts">
+  import { collapseRow, expandRow } from "@/lib/ui/motion";
   import type { Snippet } from "svelte";
 
   // One titled section of the rail's project list (Pinned or Recent): a sticky
   // head, then one row per item. Nothing renders for an empty section.
-  const { heading, items, key, row }: {
+  const { heading, items, key, itemAttributes, row }: {
     heading: string;
     items: readonly Item[];
     /** Each item's stable identity, keying its row. */
     key: (item: Item) => string;
+    /** Attributes for an item's wrapper, the list's direct child (a drag
+     *  engine's item id). */
+    itemAttributes?: (item: Item) => Record<string, string | undefined>;
     /** One item's row. */
     row: Snippet<[Item]>;
   } = $props();
@@ -16,15 +20,22 @@
 {#if items.length > 0}
   <div class="list-head">{heading}</div>
   {#each items as item (key(item))}
-    {@render row(item)}
+    <!-- An item that leaves (a narrowed search, Remove from list) closes up
+         while the ones below glide into its place; one that joins opens in.
+         On this wrapper, the each's own element, so the transitions are local:
+         they play for an item coming or going, never for the whole rail. -->
+    <div class="item" {...itemAttributes?.(item)} in:expandRow out:collapseRow>
+      {@render row(item)}
+    </div>
   {/each}
 {/if}
 
 <style>
-  /* Sticky section label (Pinned / Recent) over the scrolling list. It
-     never shrinks: the rail's list is a flex column, and once its projects
-     outgrow the rail it would squeeze the label to its text, jerking every
-     row under it up as a project opens in. */
+  /* Sticky section label (Pinned / Recent) over the scrolling list. Neither
+     it nor an item ever shrinks: the rail's list is a flex column, and once
+     its projects outgrow the rail it would squeeze them - the label to its
+     text, an item closing up (its transition clips it) shut in a frame -
+     jerking every row under them up. */
   .list-head {
     position: sticky;
     inset-block-start: 0;
@@ -54,5 +65,9 @@
       background-repeat: no-repeat;
       font-family: var(--font-monospace);
     }
+  }
+
+  .item {
+    flex: none;
   }
 </style>

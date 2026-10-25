@@ -1,3 +1,9 @@
+<script lang="ts" module>
+  /** The attribute naming a pinned project to drag-to-reorder, on the
+   *  list's wrapper around each project. */
+  export const PIN_ID_ATTRIBUTE = "data-pin-id";
+</script>
+
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { SidebarChat, SidebarProject } from "@/lib/session/chats/chat-registry";
@@ -80,23 +86,16 @@
   });
 </script>
 
-<!-- A project removed from the list (Remove from list, a deleted folder)
-     closes up while the projects below glide into its place; one that joins
-     opens in. Projects there on first paint don't animate. On the section
-     itself, not a wrapper, so the pins stay siblings for drag-to-reorder. -->
-<section
-  class="group"
-  data-pin-id={isPinReorderable ? group.project : undefined}
-  in:expandRow
-  out:collapseRow
->
+<!-- Opening in and closing up, and the pin id drag-to-reorder moves by, sit
+     on the list's wrapper around it (ProjectSection), the pins' siblings. -->
+<section class="group">
   <!-- One keyboard line: the header is the project's only tab stop, and the
        arrows reach its buttons (sidebar-keyboard). -->
   <div class="project-row" data-sidebar-line>
     <ReorderGrip
-      idAttribute="data-pin-id"
+      idAttribute={PIN_ID_ATTRIBUTE}
       isEnabled={isPinReorderable}
-      itemSelector="[data-pin-id]"
+      itemSelector="[{PIN_ID_ATTRIBUTE}]"
       oncommit={onreorderpins}
     />
     <ProjectRowMain
