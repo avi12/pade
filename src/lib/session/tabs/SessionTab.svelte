@@ -5,12 +5,13 @@
 
   import Icon from "@/lib/Icon.svelte";
   import ModelTag from "@/lib/model/ModelTag.svelte";
+  import AgentStatusGlyph from "@/lib/session/AgentStatusGlyph.svelte";
   import { MODEL_MENU_ID } from "@/lib/session/tabs/TabModelMenu.svelte";
   import TabRenameField from "@/lib/session/tabs/TabRenameField.svelte";
-  import TabStatusGlyph from "@/lib/session/tabs/TabStatusGlyph.svelte";
   import { refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/session/sessionNaming.svelte";
+  import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { AgentSession } from "@/lib/types";
   import PacingBadge from "@/lib/usage/pacing/PacingBadge.svelte";
 
@@ -86,7 +87,12 @@
     }}
     onmousedown={onTabPointer}
   >
-    <TabStatusGlyph {isAwaitingChoice} {session} />
+    <AgentStatusGlyph
+      agentId={session.agent.id}
+      {isAwaitingChoice}
+      sessionId={session.id}
+      status={sessionStatus(session.id)}
+    />
     <span class="label">{sessionLabel(session.id) ?? session.agent.label}</span>
   </button>
   <ModelTag

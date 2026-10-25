@@ -2,8 +2,9 @@
   // A tab's inline manual rename: the status glyph and a text field seeded with
   // the session's current label. Enter or blur commits the draft, Escape drops it.
 
-  import TabStatusGlyph from "@/lib/session/tabs/TabStatusGlyph.svelte";
+  import AgentStatusGlyph from "@/lib/session/AgentStatusGlyph.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
+  import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { AgentSession } from "@/lib/types";
   import { Key } from "@/lib/ui/keyboard/keys";
   import { parseInput, SessionName } from "@/lib/validate";
@@ -51,7 +52,12 @@
 </script>
 
 <span class="rename">
-  <TabStatusGlyph {isAwaitingChoice} {session} />
+  <AgentStatusGlyph
+    agentId={session.agent.id}
+    {isAwaitingChoice}
+    sessionId={session.id}
+    status={sessionStatus(session.id)}
+  />
   <input
     class="rename-input"
     {@attach focusOnMount}

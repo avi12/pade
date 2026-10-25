@@ -1,6 +1,7 @@
 <script lang="ts">
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
+  import AgentStatusGlyph from "@/lib/session/AgentStatusGlyph.svelte";
   import type { SidebarChat } from "@/lib/session/chats/chat-registry";
   import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
@@ -80,12 +81,13 @@
     tabindex="-1"
     type="button"
   >
-    <span class="agent-icon">
-      <Icon name={agentIconName(chat.agentId)} size={14} />
-      {#if chat.isLive}
-        <span class="status-dot {status}" aria-hidden="true"></span>
-      {/if}
-    </span>
+    {#if chat.isLive}
+      <!-- Measured here only when this window runs it; another window's chat
+           still breathes with its reported status. -->
+      <AgentStatusGlyph agentId={chat.agentId} sessionId={isElsewhere ? null : chat.id} {status} />
+    {:else}
+      <span class="agent-icon"><Icon name={agentIconName(chat.agentId)} size={14} /></span>
+    {/if}
     <span class="chat-label">{chat.label}</span>
     <span class="elsewhere" hidden={!isElsewhere}>
       <Icon name="external" size={12} />
@@ -161,7 +163,6 @@
     cursor: pointer;
 
     .agent-icon {
-      position: relative;
       display: inline-flex;
       flex: none;
     }
@@ -219,42 +220,6 @@
     &:hover {
       background: var(--critical-wash);
       color: var(--critical);
-    }
-  }
-
-  /* Live status, mirroring the tab strip's dot colours - a badge on the agent
-     icon's corner, so a live chat's label lines up with every other row's. */
-  .status-dot {
-    position: absolute;
-    inset-block-end: -2px;
-    inset-inline-end: -3px;
-    z-index: 1;
-    block-size: 7px;
-    inline-size: 7px;
-
-    /* Half its own size, not the pill token: the cyberpunk palette's
-       `--radius-full` is a 7px chamfer, which bevels a 7px dot down to a
-       sliver. 50% is a circle elsewhere and a diamond under the bevel. */
-    border-radius: 50%;
-    background: var(--on-surface-variant);
-
-    @media (prefers-reduced-motion: reduce) {
-      &.working {
-        animation: none;
-      }
-    }
-
-    &.working {
-      background: var(--primary);
-      animation: pulse 1100ms var(--ease) infinite;
-    }
-
-    &.ready {
-      background: var(--tertiary);
-    }
-
-    &.exited {
-      background: var(--critical);
     }
   }
 </style>
