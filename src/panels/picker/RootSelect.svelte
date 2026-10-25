@@ -8,12 +8,15 @@
   // hides imperatively BEFORE handing off to `onnewroot`, because the
   // declarative popovertargetaction="hide" would run after the click handler
   // and cancel the smooth scroll to the add field.
-  let { roots, menuId, onnewroot, label, value = $bindable("") }: {
+  let { roots, menuId, onnewroot, label, isChip = false, value = $bindable("") }: {
     roots: string[];
     menuId: string;
     onnewroot: () => void;
     /** How the trigger names the chosen root, when not its full path. */
     label?: string;
+    /** The trigger reads as a select of its own - a tonal chip - where it
+     *  sits inside a field's path (the home composer's new project). */
+    isChip?: boolean;
     value?: string;
   } = $props();
 
@@ -23,6 +26,7 @@
 <span class="root-selector menu-host">
   <button
     class="root-trigger menu-trigger"
+    class:chip={isChip}
     aria-label="Root folder"
     popovertarget={menuId}
     type="button"
@@ -97,6 +101,21 @@
     &:hover {
       color: var(--primary);
       filter: none;
+    }
+
+    /* The root reads as a select of its own - a tonal chip with its caret -
+       so changing it is plainly one click away. */
+    &.chip {
+      padding-block: 3px;
+      padding-inline: 8px 6px;
+      border-radius: var(--radius-small);
+      background: var(--surface-3);
+      font-weight: 500;
+
+      &:hover {
+        background: var(--primary-container);
+        color: var(--on-primary-container);
+      }
     }
 
     /* The chosen root prints in full - a long path wraps (the row is

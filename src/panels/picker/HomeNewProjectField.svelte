@@ -130,6 +130,7 @@
   <Icon name="folderPlus" size={15} />
   <span class="path">
     <RootSelect
+      isChip
       label={rootLabel}
       menuId={rootMenuId}
       {onnewroot}
@@ -233,21 +234,6 @@
   .separator {
     padding-inline: 2px;
     color: var(--on-surface-variant);
-  }
-
-  /* The root reads as a select of its own - a tonal chip with its caret -
-     so changing it is plainly one click away. */
-  .path :global(.root-trigger) {
-    padding-block: 3px;
-    padding-inline: 8px 6px;
-    border-radius: var(--radius-small);
-    background: var(--surface-3);
-    font-weight: 500;
-
-    &:hover {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-    }
   }
 
   /* Wide enough for its placeholder, so the hint never clips. */
