@@ -18,6 +18,7 @@
   import HomeProjectMenu from "@/panels/picker/HomeProjectMenu.svelte";
   import HomeStartButton from "@/panels/picker/HomeStartButton.svelte";
   import type { CreateTarget } from "@/panels/picker/new-project";
+  import type { ProjectOption } from "@/panels/picker/project-suggestions";
 
   // Home: the picker's composer card - one prompt field with a project menu on
   // its left and an LLM menu on its right, then Start. The project menu lists
@@ -101,10 +102,7 @@
     const groups: {
       head: string;
       isSeparated: boolean;
-      options: {
-        path: string;
-        name: string;
-      }[];
+      options: ProjectOption[];
     }[] = [];
     if (recentOptions.length > 0) {
       groups.push({
@@ -179,6 +177,13 @@
   );
   // Bumped on every New pick, so the name field takes focus each time.
   let nameFocusRequest = $state(0);
+
+  // An existing project becomes the composer's project - a menu row, a folder
+  // opened or cloned in its foot, or a suggestion under the new name.
+  function pickProject(path: string) {
+    selectedPath = path;
+    choice = ProjectChoice.Existing;
+  }
 </script>
 
 <section class="home" aria-label="Home">
@@ -209,8 +214,10 @@
               isInvalid={nameProblem !== null}
               menuId={PROJECT_MENU_ID}
               {onnewroot}
+              onpick={pickProject}
               prefix={trigger.prefix}
               problemId={NAME_PROBLEM_ID}
+              projects={[...recentOptions, ...scannedOptions]}
               rootMenuId={ROOT_MENU_ID}
               {roots}
               bind:createIn
@@ -245,10 +252,7 @@
               nameFocusRequest += 1;
             }}
             {onnewroot}
-            onpick={path => {
-              selectedPath = path;
-              choice = ProjectChoice.Existing;
-            }}
+            onpick={pickProject}
             ontemp={() => {
               selectedPath = "";
               choice = ProjectChoice.Temp;

@@ -3,6 +3,7 @@
   import { ProjectChoice } from "@/panels/picker/home-composer";
   import HomeMenuFooter from "@/panels/picker/HomeMenuFooter.svelte";
   import HomeProjectOption from "@/panels/picker/HomeProjectOption.svelte";
+  import type { ProjectOption } from "@/panels/picker/project-suggestions";
 
   // The composer's project menu: recent and scanned projects, each with its
   // root ("avi/pade"), in a list that scrolls, then the New / Open / Clone
@@ -23,10 +24,7 @@
     groups: readonly {
       head: string;
       isSeparated: boolean;
-      options: readonly {
-        path: string;
-        name: string;
-      }[];
+      options: readonly ProjectOption[];
     }[];
     roots: string[];
     choice: ProjectChoice;
