@@ -67,7 +67,7 @@
   } as const;
   type Phase = (typeof Phase)[keyof typeof Phase];
   let phase = $state<Phase>(Phase.Loading);
-  /** On the root while the picker morphs into the workspace (theme.css). */
+  /** On the root while the picker morphs into the workspace (ProjectSidebar). */
   const ENTERING_WORKSPACE_CLASS = "entering-workspace";
   let agents = $state<Agent[]>([]);
   // Every project's persisted chats (lib/session/chats/chat-registry) - the left
@@ -642,7 +642,7 @@
   }
 
   // The one way into the workspace screen. Leaving the picker morphs through a
-  // view transition with the project rail held still (theme.css), instead of
+  // view transition with the project rail held still (ProjectSidebar), instead of
   // the screen snapping; from anywhere else it simply shows.
   async function showWorkspace() {
     const isLeavingPicker = phase === Phase.Project;

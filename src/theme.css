@@ -938,19 +938,6 @@ textarea {
   animation-timing-function: var(--ease);
 }
 
-/* Starting from the picker, the project rail is the same on both screens, so
-   it holds still while the rest cross-fades into the workspace. Named only for
-   the transition (App's showWorkspace sets the class): a standing name would
-   make the rail the containing block of every fixed tooltip inside it. */
-:root.entering-workspace .sidebar {
-  view-transition-name: project-sidebar;
-}
-
-::view-transition-group(project-sidebar) {
-  animation-duration: 260ms;
-  animation-timing-function: var(--ease);
-}
-
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

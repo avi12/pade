@@ -301,6 +301,20 @@
     inline-size: 272px;
     border-inline-end: 1px solid var(--outline);
     background: var(--surface-1);
+
+    /* Starting from the picker, the project rail is the same on both screens,
+       so it holds still while the rest cross-fades into the workspace. Named
+       only for the transition (App's showWorkspace sets the class): a standing
+       name would make the rail the containing block of every fixed tooltip
+       inside it. */
+    :global(:root.entering-workspace) & {
+      view-transition-name: project-sidebar;
+    }
+  }
+
+  :global(::view-transition-group(project-sidebar)) {
+    animation-duration: 260ms;
+    animation-timing-function: var(--ease);
   }
 
   .search {
