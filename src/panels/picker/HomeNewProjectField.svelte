@@ -126,7 +126,7 @@
   });
 </script>
 
-<div style:anchor-name={anchorName} class="new-field field-trigger">
+<div style:anchor-name={anchorName} class="new-field field-trigger menu-trigger">
   <Icon name="folderPlus" size={15} />
   <span class="path">
     <RootSelect
@@ -189,7 +189,7 @@
     popovertarget={menuId}
     type="button"
   >
-    <span aria-hidden="true">▾</span>
+    <span class="caret" aria-hidden="true">▾</span>
   </button>
   <HomeProjectSuggestions
     {anchorName}
@@ -301,17 +301,14 @@
       outline: 2px solid var(--hairline);
       outline-offset: -2px;
     }
-  }
 
-  :global(:root[data-palette="cyberpunk"]) .name-input {
-    background: none;
-
-    &:is(:focus-visible, :not(:focus-visible)) {
+    .name-input {
+      background: none;
       outline: none;
     }
-  }
 
-  :global(:root[data-palette="cyberpunk"]) .caret-button:not(:focus-visible) {
-    outline: none;
+    .caret-button:not(:focus-visible) {
+      outline: none;
+    }
   }
 </style>

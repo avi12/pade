@@ -1036,8 +1036,10 @@ textarea {
   border-color: var(--primary);
   background: var(--surface-3);
 
-  /* A caret in the trigger flips to point at the open menu. */
-  .caret {
+  /* A caret in the trigger flips to point at the open menu - not one of a
+     select nested inside it (the new project's root chip) whose own menu is
+     closed. */
+  .caret:not(.menu-host:not(:has([popover]:popover-open)) *) {
     rotate: 180deg;
   }
 
@@ -1919,6 +1921,14 @@ textarea {
     :is(button, a, [role="menuitem"]) {
       transition: none;
     }
+  }
+
+  /* An open menu's trigger wears the menu's own 2px frame, so the two read
+     as one control; the shared open look's border colour is invisible here,
+     where controls draw their edge as an outline. */
+  .menu-host:has([popover]:popover-open) .menu-trigger:not([popover] *) {
+    outline: 2px solid var(--hairline);
+    outline-offset: -2px;
   }
 
   /* A section label is a titled section, so it takes the console's signature: the

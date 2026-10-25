@@ -225,7 +225,7 @@
             />
           {:else}
             <button
-              class="select field-trigger"
+              class="select field-trigger menu-trigger"
               aria-label="Project"
               popovertarget={PROJECT_MENU_ID}
               type="button"
@@ -265,7 +265,7 @@
 
         <span style:anchor-name="--{AGENT_MENU_ID}" class="menu-host">
           <button
-            class="select field-trigger"
+            class="select field-trigger menu-trigger"
             aria-label="LLM"
             disabled={realAgents.length === 0}
             popovertarget={AGENT_MENU_ID}
