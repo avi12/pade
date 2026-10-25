@@ -1396,14 +1396,20 @@ textarea {
      it has (the picker's) also keeps from the viewport's edge. */
   --popover-menu-offset: 6px;
 
+  /* The frame, as tokens a skin re-points and a menu that draws its frame on
+     a layer of its own (the composer's project menu) reads. */
+  --popover-menu-border-width: 1px;
+  --popover-menu-border-color: var(--outline);
+  --popover-menu-background: var(--surface-2);
+
   position: absolute;
   inset: auto;
   margin-block: var(--popover-menu-offset) 0;
   margin-inline: 0;
   padding: var(--popover-menu-padding);
-  border: 1px solid var(--outline);
+  border: var(--popover-menu-border-width) solid var(--popover-menu-border-color);
   border-radius: var(--radius-medium);
-  background: var(--surface-2);
+  background: var(--popover-menu-background);
   list-style: none;
   position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 
@@ -1933,8 +1939,16 @@ textarea {
      everywhere at once, which is the same "active means framed" the selected tab
      states. Fields keep theirs - a place to type has to read as one. */
   :is(.popover-menu, .typeahead) {
-    border: 2px solid var(--hairline);
+    --popover-menu-border-width: 2px;
+    --popover-menu-border-color: var(--hairline);
+
     border-radius: var(--radius-large);
+
+    /* A menu draws its border from the tokens in the shell, so one that
+       moves its frame onto a layer of its own can still hide the box's. */
+    &.typeahead {
+      border: var(--popover-menu-border-width) solid var(--popover-menu-border-color);
+    }
 
     :is(button, [role="menuitem"]):not(:focus-visible) {
       outline: none;
