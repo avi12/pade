@@ -5,9 +5,12 @@
   import type { CreateTarget } from "@/panels/picker/new-project";
 
   // The composer's Start: carries out what the composer resolved, busy while
-  // a project is created or a throwaway workspace started.
-  const { resolution, rawName, rawPrompt, agent, onopen, onprobe }: {
+  // a project is created or a throwaway workspace started. It submits its
+  // form, so Enter in a field of that form presses it too (and only while it
+  // is enabled).
+  const { resolution, rawName, rawPrompt, agent, formId, onopen, onprobe }: {
     resolution: HomeStart;
+    formId: string;
     rawName: string;
     rawPrompt: string;
     agent: string | null;
@@ -46,7 +49,13 @@
   }
 </script>
 
-<button class="go" disabled={!isEnabled} onclick={async () => isEnabled && await start()} type="button">
+<button
+  class="go"
+  disabled={!isEnabled}
+  form={formId}
+  onclick={async () => isEnabled && await start()}
+  type="submit"
+>
   {label}
 </button>
 

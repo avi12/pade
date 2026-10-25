@@ -111,19 +111,17 @@ export function newProjectNameProblem({ nameError, isTakenByFile, isExistingFold
 
 /** The throwaway-workspace choice's name - the menu item and the trigger. */
 export const THROWAWAY_LABEL = "Throwaway workspace";
-/** The name a new project shows until one is typed - the name field's
- *  placeholder and the trigger's muted stand-in. */
+/** The name a new project shows until one is typed - its name field's
+ *  placeholder. */
 export const NEW_PROJECT_PLACEHOLDER = "new-project";
 const NO_PROJECT_LABEL = "Choose a project";
 
-/** What the project menu trigger reads for what is picked, in the menu rows'
+/** What the project slot reads for what is picked, in the menu rows'
  *  "root/name" format: the throwaway workspace; a new project as the root it
- *  goes under and its typed name - the placeholder name, muted, until one is
- *  typed - so the trigger says where Start will create it; or the chosen
- *  project with its root. */
-export function projectTrigger({ choice, typedName, root, selectedName, selectedPath }: {
+ *  goes under (the name field types the rest), so the slot says where Start
+ *  will create it; or the chosen project with its root. */
+export function projectTrigger({ choice, root, selectedName, selectedPath }: {
   choice: ProjectChoice;
-  typedName: string;
   /** The root a new project goes under (empty while none is chosen). */
   root: string;
   selectedName: string | null;
@@ -132,30 +130,26 @@ export function projectTrigger({ choice, typedName, root, selectedName, selected
   if (choice === ProjectChoice.Temp) {
     return {
       prefix: "",
-      name: THROWAWAY_LABEL,
-      isPlaceholder: false
+      name: THROWAWAY_LABEL
     };
   }
 
   if (choice === ProjectChoice.New) {
     return {
       prefix: root ? directoryPrefix(root) : "",
-      name: typedName || NEW_PROJECT_PLACEHOLDER,
-      isPlaceholder: !typedName
+      name: NEW_PROJECT_PLACEHOLDER
     };
   }
 
   if (selectedName === null) {
     return {
       prefix: "",
-      name: NO_PROJECT_LABEL,
-      isPlaceholder: false
+      name: NO_PROJECT_LABEL
     };
   }
 
   return {
     prefix: projectRootPrefix(selectedPath),
-    name: selectedName,
-    isPlaceholder: false
+    name: selectedName
   };
 }

@@ -3,20 +3,26 @@
   import Icon from "@/lib/Icon.svelte";
   import type { Agent, OpenTarget, ProjectEntry } from "@/lib/types";
   import { realAgents as toRealAgents } from "@/lib/types";
+  import { collapseRow, expandRow } from "@/lib/ui/motion";
   import { displayName } from "@/lib/util/paths";
   import { nameError } from "@/lib/validate";
   import RootedName from "@/lib/workspace/display/RootedName.svelte";
-  import { ProjectChoice, projectTrigger, resolveHomeStart } from "@/panels/picker/home-composer";
+  import {
+    newProjectNameProblem,
+    ProjectChoice,
+    projectTrigger,
+    resolveHomeStart
+  } from "@/panels/picker/home-composer";
   import HomeAgentMenu from "@/panels/picker/HomeAgentMenu.svelte";
+  import HomeNewProjectField from "@/panels/picker/HomeNewProjectField.svelte";
   import HomeProjectMenu from "@/panels/picker/HomeProjectMenu.svelte";
   import HomeStartButton from "@/panels/picker/HomeStartButton.svelte";
   import type { CreateTarget } from "@/panels/picker/new-project";
-  import ProjectLocationField from "@/panels/picker/ProjectLocationField.svelte";
 
   // Home: the picker's composer card - one prompt field with a project menu on
   // its left and an LLM menu on its right, then Start. The project menu lists
   // recent and scanned projects, then New / Open / Clone. "New project in
-  // {root}/" names the root on the trigger and reveals the name field inline;
+  // {root}/" turns the trigger into the name field, under that root;
   // starting there creates (saves) the project and opens it with the typed
   // first prompt, while an existing project (a row, an opened folder, a fresh
   // clone) opens straight into the workspace (recorded in recent history).
@@ -47,6 +53,9 @@
   const AGENT_MENU_ID = "home-agent-menu";
   const PROMPT_ID = "home-prompt";
   const NAME_FIELD_ID = "home-project-name";
+  const NAME_PROBLEM_ID = "home-project-name-problem";
+  const ROOT_MENU_ID = "home-root-menu";
+  const START_FORM_ID = "home-start";
 
   // The installed coding agents (the shell fallback isn't a choice).
   const realAgents = $derived(toRealAgents(agents));
@@ -116,14 +125,14 @@
     return groups;
   });
 
-  // What the project menu picked. A new project shows the inline name field
-  // (the root was picked in the menu). Collisions surface from the submit's own
-  // authoritative probe (tagged with the name + root it described, so typing on
-  // never shows a stale verdict).
+  // What the project menu picked. A new project turns the trigger into its
+  // name field (the root was picked in the menu). Collisions surface from the
+  // submit's own authoritative probe (tagged with the name + root it
+  // described, so typing on never shows a stale verdict).
   let choice = $state<ProjectChoice>(ProjectChoice.Existing);
+  const isNewProject = $derived(choice === ProjectChoice.New);
   let createName = $state("");
   const trimmedName = $derived(createName.trim());
-  const createNameError = $derived(nameError(createName));
   let lastProbe = $state<(CreateTarget & {
     root: string;
     name: string;
@@ -148,10 +157,21 @@
   const agentTriggerLabel = $derived(selectedAgentLabel ?? "No LLMs found");
   const isExistingFolder = $derived(createTargetExists && lastProbe?.isDir === true);
   const isTakenByFile = $derived(createTargetExists && lastProbe?.isFile === true);
+  // Why the new name can't be created - only while a new project is picked.
+  const nameProblem = $derived.by(() => {
+    if (!isNewProject) {
+      return null;
+    }
+
+    return newProjectNameProblem({
+      nameError: nameError(createName),
+      isTakenByFile,
+      isExistingFolder
+    });
+  });
   const trigger = $derived(
     projectTrigger({
       choice,
-      typedName: trimmedName,
       root: createIn,
       selectedName,
       selectedPath
@@ -173,100 +193,114 @@
       bind:value={prompt}
     ></textarea>
 
-    <div class="row">
-      <span style:anchor-name="--{PROJECT_MENU_ID}" class="menu-host">
-        <button
-          class="select field-trigger"
-          aria-label="Project"
-          popovertarget={PROJECT_MENU_ID}
-          type="button"
-        >
-          <Icon name="folder" size={15} />
-          <span class="current" class:placeholder={trigger.isPlaceholder}>
-            <RootedName name={trigger.name} prefix={trigger.prefix} />
-          </span>
-          <span class="caret" aria-hidden="true">▾</span>
-        </button>
-        <HomeProjectMenu
-          {choice}
-          groups={menuGroups}
-          menuId={PROJECT_MENU_ID}
-          onnew={root => {
-            selectedPath = "";
+    <!-- Its own empty form, because the project menu's Open and Clone panels
+         are forms of their own inside the row: the name field and Start join
+         it by id, so Enter in the name starts exactly as Start does. -->
+    <form id={START_FORM_ID} hidden onsubmit={e => e.preventDefault()}></form>
 
-            if (root) {
-              createIn = root;
-            }
-
-            choice = ProjectChoice.New;
-            nameFocusRequest += 1;
-          }}
-          {onnewroot}
-          onpick={path => {
-            selectedPath = path;
-            choice = ProjectChoice.Existing;
-          }}
-          ontemp={() => {
-            selectedPath = "";
-            choice = ProjectChoice.Temp;
-          }}
-          {roots}
-          {selectedPath}
-          bind:createIn
-        />
-      </span>
-
-      <span style:anchor-name="--{AGENT_MENU_ID}" class="menu-host">
-        <button
-          class="select field-trigger"
-          aria-label="LLM"
-          disabled={realAgents.length === 0}
-          popovertarget={AGENT_MENU_ID}
-          type="button"
-        >
-          {#if selectedAgent}
-            <Icon name={agentIconName(selectedAgent)} size={15} />
+    <div class="controls">
+      <div class="row">
+        <span style:anchor-name="--{PROJECT_MENU_ID}" class="menu-host">
+          {#if isNewProject}
+            <HomeNewProjectField
+              fieldId={NAME_FIELD_ID}
+              focusRequest={nameFocusRequest}
+              formId={START_FORM_ID}
+              isInvalid={nameProblem !== null}
+              menuId={PROJECT_MENU_ID}
+              {onnewroot}
+              prefix={trigger.prefix}
+              problemId={NAME_PROBLEM_ID}
+              rootMenuId={ROOT_MENU_ID}
+              {roots}
+              bind:createIn
+              bind:name={createName}
+            />
+          {:else}
+            <button
+              class="select field-trigger"
+              aria-label="Project"
+              popovertarget={PROJECT_MENU_ID}
+              type="button"
+            >
+              <Icon name="folder" size={15} />
+              <span class="current">
+                <RootedName name={trigger.name} prefix={trigger.prefix} />
+              </span>
+              <span class="caret" aria-hidden="true">▾</span>
+            </button>
           {/if}
-          <span class="current">{agentTriggerLabel}</span>
-          <span class="caret" aria-hidden="true">▾</span>
-        </button>
-        <HomeAgentMenu
-          agents={realAgents}
-          menuId={AGENT_MENU_ID}
-          onpick={agentId => (chosenAgent = agentId)}
-          {selectedAgent}
+          <HomeProjectMenu
+            {choice}
+            groups={menuGroups}
+            menuId={PROJECT_MENU_ID}
+            onnew={root => {
+              selectedPath = "";
+
+              if (root) {
+                createIn = root;
+              }
+
+              choice = ProjectChoice.New;
+              nameFocusRequest += 1;
+            }}
+            {onnewroot}
+            onpick={path => {
+              selectedPath = path;
+              choice = ProjectChoice.Existing;
+            }}
+            ontemp={() => {
+              selectedPath = "";
+              choice = ProjectChoice.Temp;
+            }}
+            {roots}
+            {selectedPath}
+            bind:createIn
+          />
+        </span>
+
+        <span style:anchor-name="--{AGENT_MENU_ID}" class="menu-host">
+          <button
+            class="select field-trigger"
+            aria-label="LLM"
+            disabled={realAgents.length === 0}
+            popovertarget={AGENT_MENU_ID}
+            type="button"
+          >
+            {#if selectedAgent}
+              <Icon name={agentIconName(selectedAgent)} size={15} />
+            {/if}
+            <span class="current">{agentTriggerLabel}</span>
+            <span class="caret" aria-hidden="true">▾</span>
+          </button>
+          <HomeAgentMenu
+            agents={realAgents}
+            menuId={AGENT_MENU_ID}
+            onpick={agentId => (chosenAgent = agentId)}
+            {selectedAgent}
+          />
+        </span>
+
+        <HomeStartButton
+          agent={selectedAgent}
+          formId={START_FORM_ID}
+          {onopen}
+          onprobe={target =>
+            (lastProbe = {
+              ...target,
+              root: createIn,
+              name: trimmedName
+            })}
+          rawName={createName}
+          rawPrompt={prompt}
+          {resolution}
         />
-      </span>
+      </div>
 
-      <HomeStartButton
-        agent={selectedAgent}
-        {onopen}
-        onprobe={target =>
-          (lastProbe = {
-            ...target,
-            root: createIn,
-            name: trimmedName
-          })}
-        rawName={createName}
-        rawPrompt={prompt}
-        {resolution}
-      />
+      {#if nameProblem !== null}
+        <output id={NAME_PROBLEM_ID} class="field-error" in:expandRow out:collapseRow>{nameProblem}</output>
+      {/if}
     </div>
-
-    {#if choice === ProjectChoice.New}
-      <ProjectLocationField
-        fieldId={NAME_FIELD_ID}
-        focusRequest={nameFocusRequest}
-        {isExistingFolder}
-        {isTakenByFile}
-        menuId="home-root-menu"
-        nameError={createNameError}
-        {onnewroot}
-        {roots}
-        bind:createIn
-        bind:name={createName}
-      />
-    {/if}
   </div>
 </section>
 
@@ -292,6 +326,13 @@
   .prompt {
     inline-size: 100%;
     resize: vertical;
+  }
+
+  /* The row and the new name's problem under it, which sits closer to the
+     row than the card's gap. */
+  .controls {
+    display: flex;
+    flex-direction: column;
   }
 
   .row {
@@ -321,12 +362,6 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-
-      /* A new project not named yet: its stand-in name reads as a hint. */
-      &.placeholder {
-        color: var(--on-surface-variant);
-        font-weight: 400;
-      }
     }
 
     .caret {
