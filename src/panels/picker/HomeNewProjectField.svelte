@@ -55,6 +55,7 @@
   } = $props();
 
   const NAME_FIELD_LABEL = "New project name";
+  const CARET_LABEL = "Open a recent project";
 
   const listboxId = $derived(`${fieldId}-suggestions`);
   const anchorName = $derived(`--${rootMenuId}`);
@@ -181,7 +182,13 @@
       bind:value={name}
     />
   </span>
-  <button class="caret-button" aria-label="Change project" popovertarget={menuId} type="button">
+  <button
+    class="caret-button"
+    aria-label={CARET_LABEL}
+    data-tooltip={CARET_LABEL}
+    popovertarget={menuId}
+    type="button"
+  >
     <span aria-hidden="true">▾</span>
   </button>
   <HomeProjectSuggestions
