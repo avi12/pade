@@ -4,6 +4,7 @@
   import { DropSide } from "@/lib/session/panes/reorder";
   import { animatePaneIn, paneDropAt } from "@/lib/shell/screen/pane-dom";
   import SplitMenu from "@/lib/shell/screen/SplitMenu.svelte";
+  import { dockBlockSize } from "@/lib/stores/tasks/runnerDock.svelte";
   import type { Agent, AgentSession } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag/drag-reorder";
   import { collapsePane } from "@/lib/ui/motion";
@@ -14,6 +15,7 @@
   // previews where it will land. The shell owns the layout state; this binds it.
   let {
     sessions,
+    project,
     agents,
     dragHint,
     collapsingSplitPanes,
@@ -26,6 +28,8 @@
     onlaunch
   }: {
     sessions: AgentSession[];
+    /** The project in front, whose runner dock sits under the panes. */
+    project: string;
     agents: Agent[];
     /** Live drag state from the tab strip; drives the "drop here" overlay + halves. */
     dragHint: DragHint | null;
@@ -100,6 +104,7 @@
     {#await import("@/panels/Terminal.svelte") then { default: Terminal }}
       {#each orderedSessions as session (session.id)}
         <div
+          style:--dock-difference="{dockBlockSize(session.project) - dockBlockSize(project)}px"
           class="terminal-slot"
           class:shown={paneIds.includes(session.id)}
           data-pane-id={session.id}
@@ -190,7 +195,11 @@
      background PTY to a 2×1 grid, which some agents (Codex) exit on. Instead it
      is lifted out of flow over the whole pane and turned invisible, so it keeps
      a real, full-pane layout size: the background PTY stays sized to exactly what
-     its tab will show, and switching tabs needs no refit at all. */
+     its tab will show, and switching tabs needs no refit at all. That holds
+     across projects too: the runner dock under the panes is the FRONT
+     project's, so a slot of another project ends by the difference between
+     its project's dock and the one shown - the height it will have once its
+     project, and its dock, come to the front. */
   .terminal-pane {
     position: relative;
     display: flex;
@@ -212,7 +221,7 @@
       slot via animatePaneIn (pane-enter), never here on every `.shown`. */
     &:not(.shown) {
       position: absolute;
-      inset: 0;
+      inset: 0 0 var(--dock-difference);
       visibility: hidden;
       pointer-events: none;
     }

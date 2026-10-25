@@ -1,5 +1,6 @@
 <script lang="ts">
   import RunnerCard from "@/lib/runners/RunnerCard.svelte";
+  import { dockBlockSize, isAttachedOnlyDock, runnerDock } from "@/lib/stores/tasks/runnerDock.svelte";
   import { projectRunnerRows } from "@/lib/stores/tasks/runners.svelte";
   import { formatCount } from "@/lib/util/format";
 
@@ -11,14 +12,6 @@
     project: string;
   } = $props();
 
-  // Dock height, drag-resizable from the top grip. Clamped so the dock can never
-  // swallow the whole window nor collapse below a usable minimum.
-  const MINIMUM_DOCK_HEIGHT = 140;
-  const INITIAL_DOCK_HEIGHT = 360;
-  const MAXIMUM_DOCK_VIEWPORT_SHARE = 0.75;
-  // Header + one attached card's bar + its note, no output pane.
-  const COMPACT_DOCK_HEIGHT = 132;
-
   const rows = $derived(projectRunnerRows(project));
   // A lone runner has nothing to sort - its header only becomes a drag handle
   // (grab cursor + tooltip) once a second card exists, like every other list.
@@ -27,36 +20,15 @@
   // NOTE: the feed-toggle chip and the per-runner maximize/float control from the
   // canvas are backend/planned - deferred until the runner backend supports them.
 
-  let dockHeight = $state(clampDock(INITIAL_DOCK_HEIGHT));
-
-  function clampDock(height: number) {
-    return Math.min(Math.max(height, MINIMUM_DOCK_HEIGHT), innerHeight * MAXIMUM_DOCK_VIEWPORT_SHARE);
-  }
-
-  // The dock height is clamped against the viewport; a window resize can push the
-  // stored height past the new max, so re-clamp on every resize.
-  $effect(() => {
-    function reclamp() {
-      dockHeight = clampDock(dockHeight);
-    }
-    addEventListener("resize", reclamp);
-    return () => removeEventListener("resize", reclamp);
-  });
-
-  // When every card is an ATTACHED runner (a task the AGENT runs, tracked but not
-  // owned), the dock carries no streaming output - just a one-line note - so it
-  // stays compact instead of taking the full streaming height and needlessly
-  // squeezing the terminal above it (which, while a busy agent hasn't repainted at
-  // the new size, shows squished). Any spawned runner restores the resizable height.
-  const isAttachedOnly = $derived(rows.length > 0 && rows.every(row => row.attached));
-  const shownHeight = $derived.by(() => {
-    if (isAttachedOnly) {
-      return COMPACT_DOCK_HEIGHT;
-    }
-
-    return dockHeight;
-  });
+  // A compact attached-only dock has nothing to grow into; the height itself is
+  // the shared one the terminal panes size against (stores/tasks/runnerDock).
+  const isAttachedOnly = $derived(isAttachedOnlyDock(project));
+  const shownHeight = $derived(dockBlockSize(project));
 </script>
+
+<!-- The height is clamped against the viewport; a window resize can push the
+     stored height past the new max, so re-clamp on every resize. -->
+<svelte:window onresize={() => runnerDock.reclamp()} />
 
 {#if rows.length > 0}
   <section style:block-size="{shownHeight}px" class="dock" aria-label="Task runners">
@@ -77,11 +49,11 @@
 
           const elGrip = e.currentTarget;
           const startY = e.clientY;
-          const startHeight = dockHeight;
+          const startHeight = runnerDock.resizableHeight;
           elGrip.setPointerCapture(e.pointerId);
 
           function onMove(move: PointerEvent) {
-            dockHeight = clampDock(startHeight + (startY - move.clientY));
+            runnerDock.resizeTo(startHeight + (startY - move.clientY));
           }
           function cleanup() {
             elGrip.removeEventListener("pointermove", onMove);

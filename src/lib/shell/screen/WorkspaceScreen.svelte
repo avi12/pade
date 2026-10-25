@@ -254,6 +254,7 @@
           split: true
         })}
         onselect={windowSessions.select}
+        {project}
         sessions={windowSessions.sessions}
         bind:elPanes
         bind:paneIds={windowSessions.paneIds}
