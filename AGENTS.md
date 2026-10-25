@@ -310,11 +310,17 @@ These are non-negotiable for all work in this repo.
      `setTimeout(…)`, `addEventListener(…)`, `location.reload()` - never
      `window.matchMedia` / `window.setTimeout`. The global is implicit; the prefix
      is noise.
-   - Component-scoped CSS over global: keep styles in the component's own
-     `<style>` (Svelte scopes them) rather than global `theme.css` whenever
-     possible. Reserve global CSS for genuinely cross-cutting utilities many
-     components share by token/attribute/name - the design tokens, `[popover]`,
-     the `.ck` checkbox, the `[data-tooltip]` bubble, the shared keyframes.
+   - Always scope CSS: a component's styles live in its own `<style>`
+     (Svelte scopes them), never in global `theme.css` or a shared stylesheet.
+     That includes a palette's take on one component: write it in that
+     component, under `:global(:root[data-palette="…"]) &` - not as a
+     global rule reaching into it by class name. Reserve global CSS for
+     genuinely cross-cutting utilities many components share by
+     token/attribute/name - the design tokens, `[popover]`, the `.ck`
+     checkbox, the `[data-tooltip]` bubble, the shared field and menu shells,
+     the shared keyframes. Avoid `:global(...)` inside a component except to
+     key off the root's palette/theme attributes or to style a child
+     component that offers no prop for it.
 
 7. **Semantic HTML over ARIA** - reach for the element that already carries the
    role and behavior (`<button>`, `<nav>`, `<dialog>`, `<details>`, `<output>`,
