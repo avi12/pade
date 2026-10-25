@@ -160,6 +160,18 @@ export function expandRow(node: Element, { duration = EXPAND_DURATION }: { durat
   });
 }
 
+/** Both ways at once for a row that can leave and come straight back (a list
+ *  a search narrows): one reversible transition, so a row filtered out and
+ *  back in mid-flight glides back from where it is. Separate in- and
+ *  out-transitions restart from nothing instead, toward a height measured
+ *  mid-collapse, and snap at the end. */
+export function toggleRow(node: Element, { duration = COLLAPSE_DURATION }: { duration?: number } = {}) {
+  return slideRow({
+    node,
+    duration
+  });
+}
+
 /** Out-transition for a split PANE being closed: the flex-row pane collapses its
  *  inline-size - and the column-gap it was holding - to nothing while it fades
  *  and dips slightly in scale, so the surviving panes glide across to fill the

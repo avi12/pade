@@ -1,5 +1,5 @@
 <script generics="Item" lang="ts">
-  import { collapseRow, expandRow } from "@/lib/ui/motion";
+  import { toggleRow } from "@/lib/ui/motion";
   import type { Snippet } from "svelte";
 
   // One titled section of the rail's project list (Pinned or Recent): a sticky
@@ -21,10 +21,11 @@
   <div class="list-head">{heading}</div>
   {#each items as item (key(item))}
     <!-- An item that leaves (a narrowed search, Remove from list) closes up
-         while the ones below glide into its place; one that joins opens in.
-         On this wrapper, the each's own element, so the transitions are local:
-         they play for an item coming or going, never for the whole rail. -->
-    <div class="item" {...itemAttributes?.(item)} in:expandRow out:collapseRow>
+         while the ones below glide into its place; one that joins opens in,
+         and one that comes back mid-flight reverses from where it is. On this
+         wrapper, the each's own element, so the transition is local: it plays
+         for an item coming or going, never for the whole rail. -->
+    <div class="item" {...itemAttributes?.(item)} transition:toggleRow>
       {@render row(item)}
     </div>
   {/each}
