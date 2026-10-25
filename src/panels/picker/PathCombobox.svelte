@@ -282,3 +282,15 @@
     </li>
   {/each}
 </ul>
+
+<style>
+  /* Under the field still, but as wide as the frame it sits in (the Open
+     tab's panel), so long paths get the room the field's row lacks. The
+     typeahead's own shell is the picker's shared `.typeahead` (chrome.css). */
+  .typeahead.framed {
+    inset-block-start: anchor(bottom);
+    inset-inline-start: anchor(var(--typeahead-frame) left);
+    inline-size: anchor-size(var(--typeahead-frame) width);
+    position-area: none;
+  }
+</style>

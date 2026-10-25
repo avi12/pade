@@ -106,4 +106,53 @@
   .menu-host {
     display: contents;
   }
+
+  /* Trailing kebab - a subtle pill circle that fills on hover. */
+  .kebab {
+    display: inline-flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    block-size: 30px;
+    inline-size: 30px;
+    margin-inline-start: auto;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    transition: background 150ms var(--ease);
+
+    &:hover {
+      background: var(--surface-2);
+      color: var(--on-surface);
+    }
+  }
+
+  .menu {
+    /* Modifier hint on an item that takes a shortcut (Shift = skip the
+       confirmation). A tooltip would be clipped by the menu's own overflow. */
+    .menu-item kbd {
+      flex: none;
+      padding-block: 1px;
+      padding-inline: 5px;
+      border-radius: var(--radius-small);
+      background: var(--surface-3);
+      color: var(--on-surface-variant);
+      font-family: var(--font-ui);
+      font-size: 0.625rem;
+    }
+
+    /* Destructive item reads critical-red at rest (not only on hover), so a
+       delete action is legible as dangerous before the pointer lands. */
+    .danger {
+      color: var(--critical);
+
+      &:hover {
+        background: var(--critical-wash);
+        color: var(--critical);
+      }
+    }
+  }
 </style>

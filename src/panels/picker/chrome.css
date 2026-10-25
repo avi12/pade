@@ -50,29 +50,6 @@
   align-items: center;
 }
 
-/* Trailing kebab - a subtle pill circle that fills on hover. */
-.picker .kebab {
-  display: inline-flex;
-  flex: none;
-  justify-content: center;
-  align-items: center;
-  block-size: 30px;
-  inline-size: 30px;
-  margin-inline-start: auto;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--on-surface-variant);
-  cursor: pointer;
-  transition: background 150ms var(--ease);
-
-  &:hover {
-    background: var(--surface-2);
-    color: var(--on-surface);
-  }
-}
-
 /* Shell comes from the shared .popover-menu; the picker's menus add a scroll
    cap plus their width and anchor side. */
 
@@ -116,47 +93,6 @@
       flex: 1;
       min-inline-size: 0;
     }
-
-    /* Modifier hint on an item that takes a shortcut (Shift = skip the
-       confirmation). A tooltip would be clipped by the menu's own overflow. */
-    kbd {
-      flex: none;
-      padding-block: 1px;
-      padding-inline: 5px;
-      border-radius: var(--radius-small);
-      background: var(--surface-3);
-      color: var(--on-surface-variant);
-      font-family: var(--font-ui);
-      font-size: 0.625rem;
-    }
-  }
-
-  /* Uppercase section header inside the menu. */
-  .head {
-    padding-block: 6px 3px;
-    padding-inline: 10px;
-    color: var(--on-surface-variant);
-    font-weight: 700;
-    font-size: 0.625rem;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-  }
-
-  .separator {
-    margin-block-start: 6px;
-    padding-block-start: 9px;
-    border-block-start: 1px solid var(--outline);
-  }
-
-  /* Destructive item reads critical-red at rest (not only on hover), so a
-     delete action is legible as dangerous before the pointer lands. */
-  .danger {
-    color: var(--critical);
-  }
-
-  .danger:hover {
-    background: var(--critical-wash);
-    color: var(--critical);
   }
 }
 
@@ -197,15 +133,6 @@
 
   &:popover-open {
     display: flex;
-  }
-
-  /* Under the field still, but as wide as the frame it sits in (the Open
-     tab's panel), so long paths get the room the field's row lacks. */
-  &.framed {
-    inset-block-start: anchor(bottom);
-    inset-inline-start: anchor(var(--typeahead-frame) left);
-    inline-size: anchor-size(var(--typeahead-frame) width);
-    position-area: none;
   }
 }
 

@@ -101,6 +101,25 @@
     }
   }
 
+  .menu {
+    /* Uppercase group header over the project list. */
+    .head {
+      padding-block: 6px 3px;
+      padding-inline: 10px;
+      color: var(--on-surface-variant);
+      font-weight: 700;
+      font-size: 0.625rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .separator {
+      margin-block-start: 6px;
+      padding-block-start: 9px;
+      border-block-start: 1px solid var(--outline);
+    }
+  }
+
   .options {
     --home-menu-options-min-block-size: 30px;
 

@@ -56,6 +56,13 @@
 {/if}
 
 <style>
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+  }
+
   /* Outlined secondary action (Re-check). */
   .ghost {
     padding: 9px 16px;

@@ -165,3 +165,28 @@
 
   <button class="go" disabled={cloneDisabled} type="submit">{submitLabel}</button>
 </form>
+
+<style>
+  .new-project-optional {
+    font-weight: 400;
+    opacity: 75%;
+  }
+
+  .new-project-location .new-project-separator {
+    flex: none;
+    color: var(--on-surface-variant);
+    font-family: var(--font-monospace);
+    font-size: 0.8125rem;
+  }
+
+  .new-project-name {
+    /* Wide enough for its own "project-name" placeholder so the hint never
+       clips yet shares the root's line; typing scrolls, and only a genuinely
+       long root wraps the name below. */
+    --new-project-name-min-inline-size: 12ch;
+
+    flex: 1 1 var(--new-project-name-min-inline-size);
+    min-inline-size: var(--new-project-name-min-inline-size);
+    font-family: var(--font-monospace);
+  }
+</style>

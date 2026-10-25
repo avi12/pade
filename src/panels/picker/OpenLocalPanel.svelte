@@ -151,6 +151,14 @@
 </form>
 
 <style>
+  /* An OS drag hovering the field - signal it will accept the drop, on
+     whichever edge the palette draws (Cyberpunk's is the outline). */
+  .new-project-location.drop-ready {
+    border-color: var(--primary);
+    background-color: var(--primary-container);
+    outline-color: var(--primary);
+  }
+
   .browse {
     flex: none;
     padding: 6px 12px;

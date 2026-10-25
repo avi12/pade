@@ -25,11 +25,6 @@
   letter-spacing: 0.03em;
 }
 
-.picker .new-project-optional {
-  font-weight: 400;
-  opacity: 75%;
-}
-
 /* A "Location"-style group row: folder icon + its contents in one field. Its
    frame, focus and the bare input inside come from the shared
    `.text-field-plate` the markup pairs it with. */
@@ -46,32 +41,6 @@
     flex: none;
     color: var(--on-surface-variant);
   }
-
-  .new-project-separator {
-    flex: none;
-    color: var(--on-surface-variant);
-    font-family: var(--font-monospace);
-    font-size: 0.8125rem;
-  }
-
-  /* An OS drag hovering the field - signal it will accept the drop, on
-     whichever edge the palette draws (Cyberpunk's is the outline). */
-  &.drop-ready {
-    border-color: var(--primary);
-    background-color: var(--primary-container);
-    outline-color: var(--primary);
-  }
-}
-
-.picker .new-project-name {
-  /* Wide enough for its own "project-name" placeholder so the hint never
-     clips yet shares the root's line; typing scrolls, and only a genuinely
-     long root wraps the name below. */
-  --new-project-name-min-inline-size: 12ch;
-
-  flex: 1 1 var(--new-project-name-min-inline-size);
-  min-inline-size: var(--new-project-name-min-inline-size);
-  font-family: var(--font-monospace);
 }
 
 /* Tonal warning surface: git missing, or the SSH→HTTPS credential fallback. */
@@ -100,13 +69,6 @@
     margin-block-start: 1px;
     color: var(--warning);
   }
-}
-
-.picker .actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  align-items: center;
 }
 
 /* A form's own submit - scoped under its panel, so the composer's Start (also
