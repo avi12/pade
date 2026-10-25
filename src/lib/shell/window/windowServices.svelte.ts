@@ -25,6 +25,7 @@ import {
   refreshMemberBranches
 } from "@/lib/stores/workspace/workspaceMembers.svelte";
 import { registerSendShortcut, unregisterSendShortcut } from "@/lib/terminal/input/send-shortcut";
+import { coalesced } from "@/lib/util/async/coalesce";
 import { onMount, untrack } from "svelte";
 
 export function startWindowServices({ project, windowSessions, repository, isWindowFocused }: {
@@ -65,15 +66,18 @@ export function startWindowServices({ project, windowSessions, repository, isWin
     await initTaskRunDetection(project);
   });
 
-  // Adopt settings another window changed - it deleted a workspace, renamed one,
-  // toggled a pin - so this window's switcher and picker never list a project
-  // that is already gone. Best-effort because an event handler can't await: a
+  // Adopt settings another window - or another PADE instance - changed: it
+  // deleted a workspace, created or renamed one, toggled a pin. So this window's
+  // rail, switcher and picker never list a project that is already gone or miss
+  // one just made. A burst of announcements costs one re-read in flight and at
+  // most one more after it. Best-effort because an event handler can't await: a
   // failed re-read leaves the settings already adopted in place.
+  const rereadSettings = coalesced(async () => {
+    await Promise.allSettled([sendSettingsMessage(Command.settingsGet)]);
+  });
   let unlistenSettings: (() => void) | undefined;
   async function subscribeToSettingsChanges() {
-    unlistenSettings = await onMessage(EventType.settingsChanged, async () => {
-      await Promise.allSettled([sendSettingsMessage(Command.settingsGet)]);
-    });
+    unlistenSettings = await onMessage(EventType.settingsChanged, rereadSettings);
   }
   onMount(() => {
     subscribeToSettingsChanges();

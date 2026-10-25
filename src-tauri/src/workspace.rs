@@ -14,7 +14,8 @@
 //! project: the Change Feed's watcher (`watcher`, filtering through
 //! `gitignore`, whose segment matcher `glob` it shares with `members`), the
 //! project's make-up (`members`, `ide`, `config`, `mcp`), and keeping a moved
-//! or saved workspace working (`refs`, `provision`).
+//! or saved workspace working (`refs`, `provision`); `settings_sync` carries
+//! the settings writes other PADE processes make to this one's windows.
 
 pub(crate) mod config;
 pub(crate) mod gitignore;
@@ -24,6 +25,7 @@ pub(crate) mod mcp;
 pub(crate) mod members;
 pub(crate) mod provision;
 pub(crate) mod refs;
+mod settings_sync;
 pub(crate) mod watcher;
 
 use std::collections::BTreeMap;
@@ -54,9 +56,16 @@ const SETTINGS_CHANGED_EVENT: &str = "settings://changed";
 /// emit from, hence this one handle, planted at startup by [`init`].
 static APP: OnceLock<AppHandle> = OnceLock::new();
 
-/// Hand this module the app handle it broadcasts settings changes through.
+/// Hand this module the app handle it broadcasts settings changes through, and
+/// start passing on the settings writes other PADE processes make.
 pub fn init(app: &AppHandle) {
     let _ = APP.set(app.clone());
+    let watched = settings_path().and_then(|path| {
+        settings_sync::watch(&path, broadcast_settings_changed).map_err(|error| error.to_string())
+    });
+    if let Err(error) = watched {
+        eprintln!("[pade] settings from other PADE instances won't sync live: {error}");
+    }
 }
 
 /// PADE's directory under the OS config base, and the `ade` one it replaced.
@@ -250,10 +259,11 @@ struct SettingsRepository {
     path: Option<PathBuf>,
 }
 
-/// The settings after a mutation, plus whether that mutation moved anything.
+/// The settings after a mutation, plus the file text it wrote - `None` when the
+/// mutation moved nothing and so wrote nothing.
 struct Update {
     settings: Settings,
-    changed: bool,
+    written: Option<String>,
 }
 
 impl SettingsRepository {
@@ -295,15 +305,17 @@ impl SettingsRepository {
         let before = self.load_unlocked();
         let mut settings = before.clone();
         mutate(&mut settings)?;
-        let changed = settings != before;
-        if changed {
-            self.save_unlocked(&settings)?;
-        }
+        let written = if settings == before {
+            None
+        } else {
+            Some(self.save_unlocked(&settings)?)
+        };
 
-        Ok(Update { settings, changed })
+        Ok(Update { settings, written })
     }
 
-    fn save_unlocked(&self, settings: &Settings) -> Result<(), String> {
+    /// Persists `settings` atomically, answering the text it wrote.
+    fn save_unlocked(&self, settings: &Settings) -> Result<String, String> {
         let path = self.path()?;
         let sequence = TEMP_FILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let temporary = path.with_extension(format!("json.tmp-{}-{sequence}", std::process::id()));
@@ -317,7 +329,8 @@ impl SettingsRepository {
         if path.exists() {
             std::fs::remove_file(&path).map_err(|error| error.to_string())?;
         }
-        std::fs::rename(&temporary, path).map_err(|error| error.to_string())
+        std::fs::rename(&temporary, path).map_err(|error| error.to_string())?;
+        Ok(json)
     }
 }
 
@@ -338,11 +351,14 @@ fn broadcast_settings_changed() {
 /// Every settings mutation funnels through here, so this is also the one place
 /// that can tell the *other* windows their copy went stale - a project deleted
 /// from one window's switcher stays listed in the next window's until it does.
+/// What it wrote is remembered as announced, so the settings-file watcher that
+/// carries other processes' writes (`settings_sync`) doesn't announce it twice.
 fn update_settings(
     mutate: impl FnOnce(&mut Settings) -> Result<(), String>,
 ) -> Result<Settings, String> {
     let update = SETTINGS_REPOSITORY.update(mutate)?;
-    if update.changed {
+    if let Some(written) = update.written {
+        settings_sync::ANNOUNCED.record(written);
         broadcast_settings_changed();
     }
 
@@ -2124,11 +2140,11 @@ mod tests {
                 Ok(())
             })
             .expect("add a root");
-        assert!(added.changed, "adding a root moves the settings");
+        assert!(added.written.is_some(), "adding a root moves the settings");
 
         let pruned = repository.update(|_| Ok(())).expect("prune nothing");
         assert!(
-            !pruned.changed,
+            pruned.written.is_none(),
             "a prune with nothing to forget must stay silent, or two windows \
              refreshing off each other's announcements would never settle"
         );
