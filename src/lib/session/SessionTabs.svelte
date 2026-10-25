@@ -223,13 +223,15 @@
   <div bind:this={elStrip} class="tab-strip" class:drop-target={popPaneActive} data-tab-strip>
     <span class="popout-hint" aria-hidden="true">Drop here - new tab</span>
     {#each visibleSessions as session (session.id)}
+      {@const isActive = session.id === activeId}
       <!-- Pointer-only reorder handle; select/close/rename stay keyboard-reachable
            through the buttons inside, so the drag is a pure enhancement. -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="tab"
-        class:active={session.id === activeId}
+        class:active={isActive}
         class:shown={paneIds.includes(session.id)}
+        data-selected-tab={isActive}
         data-session-tab={session.id}
         onoutroend={() => closingIds.delete(session.id)}
         onpointerdown={e => beginTabDrag({
@@ -271,7 +273,13 @@
        the active/shown classes so the measured width matches the rendered pill. -->
   <span bind:this={elMeasure} class="tab-measure" aria-hidden="true">
     {#each sessions as session (session.id)}
-      <div class="tab" class:active={session.id === activeId} class:shown={paneIds.includes(session.id)}>
+      {@const isActive = session.id === activeId}
+      <div
+        class="tab"
+        class:active={isActive}
+        class:shown={paneIds.includes(session.id)}
+        data-selected-tab={isActive}
+      >
         {@render tabInner(session, true)}
       </div>
     {/each}
@@ -378,6 +386,42 @@
         background: var(--primary-container);
       }
     }
+  }
+
+  /* Cyberpunk frames every control with an outline drawn one pixel inside.
+     The pill is a DIV wrapping three buttons, so the frame goes on the pill and
+     its parts carry none (below) - the console draws one chamfered shape per
+     control, never boxes inside boxes. Hover lights the frame and a press snaps
+     it one step inward, like any button's. `:where` keeps all three weaker than
+     the selected-tab look (theme.css, `data-selected-tab`), which re-colours the
+     active pill's frame. */
+  :global(:root[data-palette="cyberpunk"]) :where(.tab):not(:focus-visible) {
+    outline: 1px solid var(--control-edge);
+    outline-offset: -1px;
+
+    &:hover {
+      outline-color: var(--hairline);
+    }
+
+    &:active {
+      outline-width: 2px;
+      outline-offset: -3px;
+    }
+  }
+
+  /* On paper the frame is already the ink it would light to, so hover takes
+     the card weight instead. */
+  :global(:root[data-palette="cyberpunk"][data-theme="light"]) :where(.tab):hover:not(:focus-visible, :active) {
+    outline-width: 2px;
+    outline-offset: -2px;
+  }
+
+  /* The pill carries the frame, so the buttons inside it (SessionTab's, the
+     model tag's, the pacing badge's - child components with no hook for it)
+     carry none. Kept outside `.tabs` so it stays weaker than an open menu
+     trigger's frame and a menu row's hover frame. */
+  :global(:root[data-palette="cyberpunk"]) .tab :global(button:not(:focus-visible)) {
+    outline: none;
   }
 
   /* Red attention ripple for a tab whose agent is waiting on a multiple-choice

@@ -154,6 +154,20 @@
       font-size: 0.75rem;
       white-space: nowrap;
       cursor: pointer;
+
+      /* Each cap follows the pill's cut, not its own (`.close-button` too).
+         The 999px caps above round BOTH corners on their side so a child never
+         squares off a corner the parent shaped. Rounding is the right instinct
+         and the wrong amount under Cyberpunk: that palette cuts a control's
+         bottom-right corner only, so a cap that cuts both corners on its side
+         puts a bevel where the pill has none - and at 999px that bevel
+         collapses to half the control's height. A 26px tab came out a
+         parallelogram. Each cap takes the chamfer on the corner the pill
+         actually cuts, and nothing on the other. */
+      :global(:root[data-palette="cyberpunk"]) & {
+        border-end-start-radius: 0;
+        border-start-start-radius: 0;
+      }
     }
 
     /* The ✦ AI-name toggle - subdued on every pill, brighter on the one being
@@ -260,6 +274,11 @@
         background: var(--critical-wash);
         color: var(--critical);
         opacity: 100%;
+      }
+
+      :global(:root[data-palette="cyberpunk"]) & {
+        border-end-end-radius: var(--chamfer-control);
+        border-start-end-radius: 0;
       }
     }
 

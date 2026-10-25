@@ -209,6 +209,14 @@
     .caret {
       font-size: 0.625rem;
     }
+
+    /* The trailing cap follows the split pill's cut under Cyberpunk, which
+       chamfers a control's bottom-right corner only: a cap rounding both
+       corners on its side would put a bevel where the pill has none. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      border-end-end-radius: var(--chamfer-control);
+      border-start-end-radius: 0;
+    }
   }
 
   /* Shell comes from the shared .popover-menu; only width and anchor side

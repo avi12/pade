@@ -1640,38 +1640,15 @@ textarea {
      a tab into a stack of heavy tiles. Its own buttons carry no border
      at all; its segmented tabs carry one pixel.
 
+     The session tab, a DIV wrapping three buttons, wears the same frame on the
+     pill itself (SessionTabs), so the frame never lands on its three parts.
+
      The panel tabs also take the game's uppercase-with-tracking treatment. Only
      those: every other label in the app is a project, file or session name, and
      shouting someone's data back at them is not a theme. */
-  :is(button, [role="tab"], .tab):not(:focus-visible) {
+  :is(button, [role="tab"]):not(:focus-visible) {
     outline: 1px solid var(--control-edge);
     outline-offset: -1px;
-  }
-
-  .tab button:not(:focus-visible) {
-    outline: none;
-  }
-
-  /* A segmented control's caps follow the container's cut, not their own. Each
-     end button rounds BOTH corners on its side so that a child never squares off
-     a corner the parent shaped - a corner is hit-tested against the shape it is
-     given, so a square child inside a shaped parent takes clicks from air (see
-     SessionTabs). Rounding is the right instinct and the wrong amount here: this
-     palette cuts a control's bottom-right corner only, so a cap that cuts both
-     corners on its side puts a bevel where the container has none - and at the
-     999px those caps ask for, that bevel collapses to half the control's height.
-     A 26px tab came out a parallelogram.
-
-     Each cap takes the chamfer on the corner its container actually cuts, and
-     nothing on the other. */
-  :is(.tab .pick) {
-    border-end-start-radius: 0;
-    border-start-start-radius: 0;
-  }
-
-  :is(.tab .close-button, .ide-more) {
-    border-end-end-radius: var(--chamfer-control);
-    border-start-end-radius: 0;
   }
 
   [role="tab"] {
@@ -1746,7 +1723,7 @@ textarea {
   /* Buttons acknowledge the pointer the way the HUD does: the frame lights on
      hover and snaps one step inward while pressed - a plate being pushed, drawn
      without moving the button, so nothing that positions one is disturbed. */
-  :is(button, [role="tab"], .tab):not(:disabled, :focus-visible) {
+  :is(button, [role="tab"]):not(:disabled, :focus-visible) {
     &:hover {
       outline-color: var(--hairline);
     }
@@ -1759,7 +1736,7 @@ textarea {
 
   /* On paper the frame is already the ink it would light to, so hover takes
      the card weight instead. */
-  &[data-theme="light"] :is(button, [role="tab"], .tab):hover:not(:disabled, :focus-visible, :active) {
+  &[data-theme="light"] :is(button, [role="tab"]):hover:not(:disabled, :focus-visible, :active) {
     outline-width: 2px;
     outline-offset: -2px;
   }
@@ -1877,8 +1854,12 @@ textarea {
      (An earlier version of this rule inverted them PALE, which was right when the
      day face filled its slab with a deep teal. Adopting the console's palette
      flipped that fill to bright cyan and left the override pointing the wrong
-     way: a near-white icon on near-white cyan, at 1.07:1.) */
-  &[data-theme="light"] :is([role="tab"][aria-selected="true"], .tab.active) {
+     way: a near-white icon on near-white cyan, at 1.07:1.)
+
+     A selected tab is either a `[role="tab"]` or, for a tab that cannot carry
+     that role - the session strip's pill, a DIV wrapping its own buttons - an
+     element that opts in with `data-selected-tab` (SessionTabs). */
+  &[data-theme="light"] :is([role="tab"][aria-selected="true"], [data-selected-tab="true"]) {
     --context-ok: #00445f;
     --context-warning: hsl(26deg 95% 26%);
     --context-critical: #8f0039;
@@ -1887,9 +1868,10 @@ textarea {
   /* Active means FRAMED, not filled. The app's selected tab is a solid slab of
      accent; the HUD's is a dark plate with the frame and the label brightened
      around it. Both of the app's tab kinds - the side panel's `[role="tab"]` and
-     the session strip's `.tab` - take it from one rule, so "selected" can never
-     mean two different things. `:not(:focus-visible)` keeps this out of the focus
-     ring's way, exactly as the control-frame rule above does.
+     the session strip's pill (`data-selected-tab`) - take it from one rule, so
+     "selected" can never mean two different things. `:not(:focus-visible)` keeps
+     this out of the focus ring's way, exactly as the control-frame rule above
+     does.
 
      This re-points the TOKEN PAIR rather than setting `background-color` and
      `color`, and the difference is not cosmetic. Every component that draws a
@@ -1908,7 +1890,7 @@ textarea {
      frame against, so the same treatment collapses into a hairline box around
      pale ink. The day face fills instead, in the same cyan, so "selected" is one
      colour on both faces even though it is drawn two ways. */
-  &[data-theme="dark"] :is([role="tab"][aria-selected="true"], .tab.active):not(:focus-visible) {
+  &[data-theme="dark"] :is([role="tab"][aria-selected="true"], [data-selected-tab="true"]):not(:focus-visible) {
     --primary-container: color-mix(in sRGB, var(--primary) 12%, var(--surface-1));
     --on-primary-container: var(--primary);
 
