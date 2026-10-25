@@ -1899,26 +1899,26 @@ textarea {
      and then that row takes it: the frame moves with you rather than being
      everywhere at once, which is the same "active means framed" the selected tab
      states. Fields keep theirs - a place to type has to read as one. */
-  .popover-menu {
+  :is(.popover-menu, .typeahead) {
     border: 2px solid var(--hairline);
     border-radius: var(--radius-large);
-  }
 
-  .popover-menu :is(button, [role="menuitem"]):not(:focus-visible) {
-    outline: none;
-  }
+    :is(button, [role="menuitem"]):not(:focus-visible) {
+      outline: none;
+    }
 
-  .popover-menu :is(button, [role="menuitem"]):hover:not(:focus-visible) {
-    outline: 1px solid var(--hairline);
-    outline-offset: -1px;
-  }
+    :is(button:hover, [role="menuitem"]:hover, [role="option"][aria-selected="true"]):not(:focus-visible) {
+      outline: 1px solid var(--hairline);
+      outline-offset: -1px;
+    }
 
-  /* Menu rows switch, they do not ease. Every other palette cross-fades a row's
-     colour and fill over 120ms, which reads as soft on a HUD: this screen snaps
-     between states, and a row that fades in under the cursor is the one place
-     that softness is most visible. */
-  .popover-menu :is(button, a, [role="menuitem"]) {
-    transition: none;
+    /* Menu rows switch, they do not ease. Every other palette cross-fades a
+       row's colour and fill over 120ms, which reads as soft on a HUD: this
+       screen snaps between states, and a row that fades in under the cursor
+       is the one place that softness is most visible. */
+    :is(button, a, [role="menuitem"]) {
+      transition: none;
+    }
   }
 
   /* A section label is a titled section, so it takes the console's signature: the

@@ -254,8 +254,8 @@
   bind:this={elList}
   id={listboxId}
   style:position-anchor={anchorName}
-  style:--suggestions-frame={frameAnchor}
-  class="suggestions"
+  style:--typeahead-frame={frameAnchor}
+  class="typeahead"
   class:framed={frameAnchor !== undefined}
   popover="manual"
   role="listbox"
@@ -264,11 +264,11 @@
     <li in:expandRow out:collapseRow animate:flip={{ duration: flipDuration() }}>
       <button
         id={optionId(index)}
-        class="suggestion"
+        class="typeahead-option"
         class:active={index === activeIndex}
         {@attach truncationTooltip({
           tooltip: directory,
-          measureSelector: ".suggestion-path"
+          measureSelector: ".typeahead-text"
         })}
         aria-selected={index === activeIndex}
         onclick={() => pick(directory)}
@@ -277,72 +277,8 @@
         type="button"
       >
         <Icon name="folder" size={15} />
-        <span class="suggestion-path">{directory}</span>
+        <span class="typeahead-text">{directory}</span>
       </button>
     </li>
   {/each}
 </ul>
-
-<style>
-  /* Directory autocomplete - a card of child folders shown as a top-layer popover
-     anchored to the field. The top layer lifts it out of the picker's own scroll
-     container (so it never clips), `anchor-size(width)` matches the field's width,
-     and `flip-block` flips it above the field near the viewport bottom. The reveal
-     transition and `margin: 0` come from the shared `[popover]` base. The
-     `position-anchor` is set inline (per instance) so two combos never collide. */
-  .suggestions {
-    position: absolute;
-    inset: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    overflow-y: auto;
-    max-block-size: 280px;
-    inline-size: anchor-size(width);
-    margin-block: 6px 0;
-    padding: 6px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    list-style: none;
-    position-area: bottom span-right;
-    position-try-fallbacks: flip-block;
-
-    /* Under the field still, but as wide as the frame it sits in. */
-    &.framed {
-      inset-block-start: anchor(bottom);
-      inset-inline-start: anchor(var(--suggestions-frame) left);
-      inline-size: anchor-size(var(--suggestions-frame) width);
-      position-area: none;
-    }
-  }
-
-  .suggestion {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    inline-size: 100%;
-    padding: 8px 10px;
-    border: none;
-    border-radius: var(--radius-small);
-    background: transparent;
-    color: var(--on-surface);
-    font-family: var(--font-monospace);
-    font-weight: 500;
-    font-size: 0.75rem;
-    text-align: start;
-
-    &:hover,
-    &.active {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-      filter: none;
-    }
-
-    .suggestion-path {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  }
-</style>

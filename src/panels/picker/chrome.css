@@ -218,12 +218,20 @@
   border-radius: var(--radius-medium);
   background: var(--surface-2);
   list-style: none;
-  box-shadow: 0 16px 40px var(--shadow-color);
   position-area: bottom span-right;
   position-try-fallbacks: flip-block;
 
   &:popover-open {
     display: flex;
+  }
+
+  /* Under the field still, but as wide as the frame it sits in (the Open
+     tab's panel), so long paths get the room the field's row lacks. */
+  &.framed {
+    inset-block-start: anchor(bottom);
+    inset-inline-start: anchor(var(--typeahead-frame) left);
+    inline-size: anchor-size(var(--typeahead-frame) width);
+    position-area: none;
   }
 }
 
