@@ -86,7 +86,7 @@
 <style>
   /* Anchored below the chip. Uses the shared .popover-menu shell for its flip
      fallbacks, but overrides the surface to a tonal surface-container card with
-     the M3 large radius, softer elevation, and airier padding to match design. */
+     the M3 large radius and airier padding to match design. */
   .type-popover {
     overflow-y: auto;
     max-block-size: 60vh;
@@ -95,7 +95,6 @@
     border: none;
     border-radius: var(--radius-large);
     background: var(--surface-2);
-    box-shadow: 0 8px 28px var(--shadow-color);
     position-area: bottom span-right;
 
     .popover-header {
