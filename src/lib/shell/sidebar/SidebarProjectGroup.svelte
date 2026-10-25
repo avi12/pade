@@ -7,6 +7,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { SidebarChat, SidebarProject } from "@/lib/session/chats/chat-registry";
+  import InactiveChatsFold from "@/lib/shell/sidebar/InactiveChatsFold.svelte";
   import ProjectChatRow from "@/lib/shell/sidebar/ProjectChatRow.svelte";
   import { collapseRow, expandRow } from "@/lib/ui/motion";
   import { displayName } from "@/lib/util/paths";
@@ -84,7 +85,32 @@
 
     return null;
   });
+  // Live chats always show; the inactive ones (stopped chats and recorded
+  // conversations) sit in a fold under them.
+  const liveChats = $derived(group.chats.filter(chat => chat.isLive));
+  const inactiveChats = $derived(group.chats.filter(chat => !chat.isLive));
 </script>
+
+{#snippet chatRow(chat: SidebarChat)}
+  <!-- A conversation that turns up while the rail is open (a new chat, a
+       handoff's successor, a transcript an agent just wrote) glides in, and
+       one that goes glides out; the rows already there on first paint
+       don't animate. -->
+  <li in:expandRow out:collapseRow>
+    <ProjectChatRow
+      {chat}
+      isActive={chat.id === activeChatId}
+      ondelete={() => ondeletechat(chat.id)}
+      onnew={onnewchat}
+      onresume={onresumeconversation}
+      onselect={opensNewWindow => onselectchat({
+        chatId: chat.id,
+        opensNewWindow
+      })}
+      onstop={() => onstopchat(chat.id)}
+    />
+  </li>
+{/snippet}
 
 <!-- Opening in and closing up, and the pin id drag-to-reorder moves by, sit
      on the list's wrapper around it (ProjectSection), the pins' siblings. -->
@@ -120,29 +146,22 @@
   </div>
 
   <ul class="chats">
-    {#each group.chats as chat (chat.id)}
-      <!-- A conversation that turns up while the rail is open (a new chat, a
-           handoff's successor, a transcript an agent just wrote) glides in, and
-           one that goes glides out; the rows already there on first paint
-           don't animate. -->
-      <li in:expandRow out:collapseRow>
-        <ProjectChatRow
-          {chat}
-          isActive={chat.id === activeChatId}
-          ondelete={() => ondeletechat(chat.id)}
-          onnew={onnewchat}
-          onresume={onresumeconversation}
-          onselect={opensNewWindow => onselectchat({
-            chatId: chat.id,
-            opensNewWindow
-          })}
-          onstop={() => onstopchat(chat.id)}
-        />
-      </li>
+    {#each liveChats as chat (chat.id)}
+      {@render chatRow(chat)}
     {:else}
-      <li class="no-chats">No chats yet</li>
+      {#if inactiveChats.length === 0}
+        <li class="no-chats">No chats yet</li>
+      {/if}
     {/each}
   </ul>
+
+  <InactiveChatsFold count={inactiveChats.length} project={group.project}>
+    <ul class="chats">
+      {#each inactiveChats as chat (chat.id)}
+        {@render chatRow(chat)}
+      {/each}
+    </ul>
+  </InactiveChatsFold>
 </section>
 
 <style>

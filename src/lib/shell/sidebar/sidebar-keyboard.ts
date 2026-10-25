@@ -1,6 +1,7 @@
 // Arrow-key movement through the left rail. Tab stops only on project headers
 // (the markup takes every other control out of the tab order); the arrows walk
-// the rest. The rail reads as lines - a project header, or one chat - each a
+// the rest. The rail reads as lines - a project header, one chat, or the
+// inactive fold's summary - each a
 // main control followed by its own small buttons. Up and down move between
 // lines and land on a line's main control; left and right move along a line.
 
@@ -88,8 +89,14 @@ export function sidebarArrowKeys(element: HTMLElement) {
       return;
     }
 
-    const lines = [...element.querySelectorAll(LINE_SELECTOR)].map(line =>
-      [...line.querySelectorAll<HTMLElement>(ITEM_SELECTOR)]);
+    // A line can be its own control (a fold's summary), and a closed fold's
+    // rows are skipped - they can't take focus.
+    const lines = [...element.querySelectorAll<HTMLElement>(LINE_SELECTOR)]
+      .filter(line => line.checkVisibility())
+      .map(line => [
+        ...line.matches(ITEM_SELECTOR) ? [line] : [],
+        ...line.querySelectorAll<HTMLElement>(ITEM_SELECTOR)
+      ]);
     const line = lines.findIndex(items => items.includes(target));
     if (line === -1) {
       return;
