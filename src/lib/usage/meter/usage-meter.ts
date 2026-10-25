@@ -211,8 +211,8 @@ export function noReadingsOf(readings: Iterable<readonly [string, AccountReading
 }
 
 /** What an agent without a reading shows in place of its limits, and what its
- *  hover tells the user to do - a short state ("Sign in expired") beside the
- *  fix ("Run codex once to refresh its sign-in"). `isState` marks a named
+ *  hover tells the user to do - a short state ("Run to refresh") beside the
+ *  fix ("Start codex once - it renews its sign-in as it runs"). `isState` marks a named
  *  state the user can act on, as opposed to an agent with no usage source,
  *  which says so quietly. `null` when the backend didn't say why, which
  *  leaves the bare dash. */
@@ -247,9 +247,11 @@ export function noReadingFace(group: AgentGroup) {
     };
   }
 
+  // The agent renews its own sign-in whenever it runs (PADE never refreshes a
+  // vendor token), so a lapsed one only means it hasn't run in a while.
   return {
-    label: "Sign in expired",
-    hint: `Run ${cli} once to refresh its sign-in`,
+    label: "Run to refresh",
+    hint: `Start ${cli} once - it renews its sign-in as it runs`,
     isState: true
   };
 }

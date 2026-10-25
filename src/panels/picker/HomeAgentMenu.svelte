@@ -36,7 +36,7 @@
     readings = new Map(entries);
   }
 
-  // Why an agent without a reading has none, so its row says "Sign in expired"
+  // Why an agent without a reading has none, so its row says "Run to refresh"
   // (and how to fix it on hover) instead of a bare dash.
   const noReadings = $derived(noReadingsOf(readings));
   const groups = $derived(

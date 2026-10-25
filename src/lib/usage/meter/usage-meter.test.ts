@@ -358,7 +358,7 @@ describe("noReadingFace", () => {
     });
   }
 
-  it("says an expired sign-in and names the CLI that refreshes it", () => {
+  it("asks for a run to renew a lapsed sign-in, naming the CLI", () => {
     expect(
       noReadingFace(
         groupWhy({
@@ -367,8 +367,8 @@ describe("noReadingFace", () => {
         })
       )
     ).toEqual({
-      label: "Sign in expired",
-      hint: "Run codex once to refresh its sign-in",
+      label: "Run to refresh",
+      hint: "Start codex once - it renews its sign-in as it runs",
       isState: true
     });
   });
@@ -429,7 +429,7 @@ describe("planCaption", () => {
           }
         })
       )
-    ).toBe("Sign in expired · Run codex once to refresh its sign-in");
+    ).toBe("Run to refresh · Start codex once - it renews its sign-in as it runs");
     expect(
       planCaption(
         makeGroup({

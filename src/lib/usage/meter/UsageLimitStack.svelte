@@ -91,7 +91,7 @@
     font-size: 0.6875rem;
     white-space: nowrap;
 
-    /* A named state ("Sign in expired") asks for action: it reads in the
+    /* A named state ("Run to refresh") asks for action: it reads in the
        warning colour, quieter than a limit's number. */
     &.state {
       color: var(--warning);
