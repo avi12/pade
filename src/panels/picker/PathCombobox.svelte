@@ -5,6 +5,7 @@
   import type { TaggedPathProbe } from "@/lib/types";
   import { Key } from "@/lib/ui/keyboard/keys";
   import { collapseRow, expandRow, flipDuration } from "@/lib/ui/motion";
+  import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { normalizePath } from "@/lib/util/paths";
   import { nextSegmentCompletion } from "@/panels/picker/path-completion";
   import { flip } from "svelte/animate";
@@ -28,6 +29,7 @@
     id,
     inputClass = "",
     placeholder = "",
+    frameAnchor,
     elInput = $bindable(null)
   }: {
     value?: string;
@@ -39,6 +41,9 @@
     id?: string;
     inputClass?: string;
     placeholder?: string;
+    /** An anchor-name the list spans instead of the field (the menu panel
+     *  the field sits in), so long paths get the room the field's row lacks. */
+    frameAnchor?: string;
     elInput?: HTMLInputElement | null;
   } = $props();
 
@@ -249,7 +254,9 @@
   bind:this={elList}
   id={listboxId}
   style:position-anchor={anchorName}
+  style:--suggestions-frame={frameAnchor}
   class="suggestions"
+  class:framed={frameAnchor !== undefined}
   popover="manual"
   role="listbox"
 >
@@ -259,6 +266,10 @@
         id={optionId(index)}
         class="suggestion"
         class:active={index === activeIndex}
+        {@attach truncationTooltip({
+          tooltip: directory,
+          measureSelector: ".suggestion-path"
+        })}
         aria-selected={index === activeIndex}
         onclick={() => pick(directory)}
         onmousedown={e => e.preventDefault()}
@@ -294,9 +305,16 @@
     border-radius: var(--radius-medium);
     background: var(--surface-2);
     list-style: none;
-    box-shadow: 0 16px 40px var(--shadow-color);
     position-area: bottom span-right;
     position-try-fallbacks: flip-block;
+
+    /* Under the field still, but as wide as the frame it sits in. */
+    &.framed {
+      inset-block-start: anchor(bottom);
+      inset-inline-start: anchor(var(--suggestions-frame) left);
+      inline-size: anchor-size(var(--suggestions-frame) width);
+      position-area: none;
+    }
   }
 
   .suggestion {

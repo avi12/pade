@@ -19,6 +19,8 @@
     onopen: (target: OpenTarget) => void;
   } = $props();
 
+  const PANEL_ANCHOR = "--open-local-panel";
+
   let localPath = $state("");
   let elLocalInput = $state<HTMLInputElement | null>(null);
   // True while an OS drag hovers the Local field - the drop-affordance state.
@@ -98,6 +100,7 @@
 </script>
 
 <form
+  style:anchor-name={PANEL_ANCHOR}
   class="panel"
   onsubmit={e => {
     e.preventDefault();
@@ -119,6 +122,7 @@
       <PathCombobox
         id="local-path"
         name="local"
+        frameAnchor={PANEL_ANCHOR}
         placeholder="C:\repositories\my-app  ·  or drop a folder here"
         bind:value={localPath}
         bind:probe={localProbe}
