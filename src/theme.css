@@ -1392,8 +1392,8 @@ textarea {
     gap: 9px;
     align-items: center;
     inline-size: 100%;
-    padding: 8px 10px;
-    border: none;
+    padding: 6px 8px;
+    border: 2px solid transparent;
     border-radius: var(--radius-small);
     background: transparent;
     color: var(--on-surface);
@@ -1406,6 +1406,14 @@ textarea {
     &:hover {
       background: var(--primary-container);
       color: var(--on-primary-container);
+    }
+
+    /* A scrolling menu clips anything drawn outside its rows, so the focus
+       ring is the row's own border rather than an outline around it. */
+    &:focus-visible {
+      border-color: var(--primary);
+      outline: none;
+      box-shadow: none;
     }
   }
 }
