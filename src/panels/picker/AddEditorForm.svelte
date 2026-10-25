@@ -45,7 +45,7 @@
     onadded(result.label);
   }}
 >
-  <div class="editor-location">
+  <div class="editor-location text-field-plate">
     <span class="editor-location-icon" aria-hidden="true"><Icon name="folder" /></span>
     <label class="visually-hidden" for="editor-location-input">Path to editor executable</label>
     <input
@@ -86,16 +86,14 @@
     gap: 8px;
   }
 
-  /* Path field - mono input with a folder lead and a ghost Browse…, primary edge. */
+  /* Path field - the shared field plate: mono input with a folder lead and a
+     ghost Browse…. */
   .editor-location {
+    --field-plate-padding-inline-end: 4px;
+
     display: flex;
     gap: 4px;
     align-items: center;
-    padding-block: 3px;
-    padding-inline: 10px 3px;
-    border: 1px solid var(--primary);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
 
     .editor-location-icon {
       display: inline-flex;
@@ -107,12 +105,7 @@
   .editor-location-input {
     flex: 1;
     min-inline-size: 0;
-    padding: 6px 4px;
-    border: none;
-    background: transparent;
-    color: var(--on-surface);
     font-family: var(--font-monospace);
-    font-size: 0.75rem;
   }
 
   .editor-browse {

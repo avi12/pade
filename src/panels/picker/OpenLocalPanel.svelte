@@ -117,7 +117,7 @@
 >
   <div class="new-project-field">
     <label class="new-project-label" for="local-path">Project folder</label>
-    <div class="new-project-location" class:drop-ready={isDropReady}>
+    <div class="new-project-location text-field-plate" class:drop-ready={isDropReady}>
       <span class="new-project-location-icon" aria-hidden="true"><Icon name="folder" /></span>
       <PathCombobox
         id="local-path"

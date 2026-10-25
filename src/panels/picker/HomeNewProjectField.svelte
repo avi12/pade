@@ -126,7 +126,7 @@
   });
 </script>
 
-<div style:anchor-name={anchorName} class="new-field field-trigger menu-trigger">
+<div style:anchor-name={anchorName} class="new-field text-field-plate menu-trigger">
   <Icon name="folderPlus" size={15} />
   <span class="path">
     <RootSelect
@@ -203,25 +203,16 @@
 </div>
 
 <style>
-  /* One control the size of the trigger it replaces: the field-trigger frame
-     around a bare input, its border the single focus indicator. */
+  /* One control the size of the trigger it replaces: the shared field plate
+     around a bare input, the caret button running to its end edge. */
   .new-field {
+    --field-plate-padding-inline-end: 0;
+
     display: flex;
     flex: 1;
     gap: 8px;
     align-items: center;
     min-inline-size: 0;
-    padding-inline-start: 14px;
-    border-radius: var(--radius-medium);
-    transition: border-color 150ms var(--ease);
-
-    &:focus-within {
-      border-color: var(--primary);
-    }
-
-    &:has([aria-invalid="true"]) {
-      border-color: var(--critical);
-    }
   }
 
   /* The root and the name share one line with no gap, so they read as one
@@ -265,16 +256,8 @@
 
     flex: 1 1 var(--name-input-min-inline-size);
     min-inline-size: var(--name-input-min-inline-size);
-    padding-block: 10px;
-    padding-inline: 0;
-    border: none;
-    background: transparent;
-    color: var(--on-surface);
-    outline: none;
     font-family: var(--font-monospace);
     font-weight: 400;
-    font-size: 0.8125rem;
-    box-shadow: none;
   }
 
   .caret-button {
@@ -287,28 +270,5 @@
     color: inherit;
     font-size: 0.5625rem;
     opacity: 70%;
-  }
-
-  /* The skin frames every control and draws an accent line under every
-     field; here the whole control is the one plate, so the frame moves onto
-     it and the input and caret carry none. */
-  :global(:root[data-palette="cyberpunk"]) .new-field {
-    outline: 1px solid var(--control-edge);
-    outline-offset: -1px;
-
-    /* The skin's focused-field ring, on the plate the input lives in. */
-    &:focus-within {
-      outline: 2px solid var(--hairline);
-      outline-offset: -2px;
-    }
-
-    .name-input {
-      background: none;
-      outline: none;
-    }
-
-    .caret-button:not(:focus-visible) {
-      outline: none;
-    }
   }
 </style>

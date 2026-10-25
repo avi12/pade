@@ -347,14 +347,16 @@
   }
 
   /* The project / LLM triggers read as fields (the shared .field-trigger
-     look), labels that ellipsis instead of pushing Start off the row. */
+     look, padded like the new-project field that takes their place),
+     labels that ellipsis instead of pushing Start off the row. */
   .select {
     display: inline-flex;
     gap: 8px;
     align-items: center;
     min-inline-size: 0;
     max-inline-size: 100%;
-    padding: 10px 14px;
+    padding-block: var(--field-padding-block);
+    padding-inline: var(--field-padding-inline);
     transition: border-color 150ms var(--ease);
 
     &:disabled {

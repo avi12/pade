@@ -49,7 +49,7 @@
         <li class="row" out:collapseRow>
           {#if lifecycle.renaming === path}
             <form
-              class="rename" onsubmit={async e => {
+              class="rename text-field-plate" onsubmit={async e => {
                 e.preventDefault(); await lifecycle.commitRename(path);
               }}>
               <input
@@ -193,28 +193,21 @@
     text-transform: uppercase;
   }
 
-  /* Inline rename - a bordered field with Save (primary) + Cancel. */
+  /* Inline rename - the shared field plate with Save (primary) + Cancel. */
   .rename {
+    --field-plate-padding-inline-end: 4px;
+
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
     inline-size: 100%;
-    padding: 6px 8px;
-    border: 1px solid var(--primary);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
 
     input {
       flex: 1;
       min-inline-size: 0;
-      padding: 0;
-      border: none;
-      background: transparent;
-      color: var(--on-surface);
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 0.8125rem;
     }
 
     button {
@@ -255,9 +248,9 @@
   }
 
   /* The error sits on its own full-width line below the field + buttons
-     (the row is flex; this breaks to a new line). */
+     (the row is flex; this breaks to a new line), clear of the plate's foot. */
   .rename-error {
     flex-basis: 100%;
-    margin-block-start: 2px;
+    margin-block: 2px var(--field-padding-block);
   }
 </style>

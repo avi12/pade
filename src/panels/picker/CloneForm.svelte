@@ -135,7 +135,7 @@
     </span>
     <div
       style:anchor-name="--new-project-root-menu-clone"
-      class="new-project-location"
+      class="new-project-location text-field-plate"
       aria-labelledby="clone-location-label"
       role="group"
     >
