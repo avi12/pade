@@ -45,6 +45,7 @@ const SECONDS_PER_DAY = 86_400;
 const SUB_MILLISECOND_DIGITS = /(\.\d{3})\d+/;
 
 const NON_ALPHANUMERIC_RUN = /[^a-z0-9]+/i;
+const DIGITS_ONLY = /^\d+$/;
 /** The vendor word a model label leads with - never the distinctive one. */
 const VENDOR_WORD = "claude";
 const TRAILING_CODE_OR_CLI = /\s+(code|cli)$/i;
@@ -198,7 +199,15 @@ export function resetCountdown({ iso, now }: {
 // Used for per-model and any opaque windows (session/weekly get fixed codes).
 function labelShort(name: string) {
   const words = name.split(NON_ALPHANUMERIC_RUN).filter(Boolean);
-  const word = words.find(candidate => candidate.toLowerCase() !== VENDOR_WORD) ?? words[0] ?? name;
+  const iWord = words.findIndex(candidate => candidate.toLowerCase() !== VENDOR_WORD);
+  const word = words[iWord] ?? words[0] ?? name;
+  const unit = words[iWord + 1];
+  // A first letter of "30-day" would be a lone "3": a span keeps its number.
+  const isSpan = DIGITS_ONLY.test(word) && unit !== undefined;
+  if (isSpan) {
+    return `${word}${unit.slice(0, 1).toUpperCase()}`;
+  }
+
   return word.slice(0, 1).toUpperCase();
 }
 

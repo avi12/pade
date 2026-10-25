@@ -283,6 +283,24 @@ describe("buildGroups", () => {
       now
     });
     expect(only.limits.map(limit => limit.reading)).toEqual(["0%"]);
+
+    // A span-named window (the free plan's "30-day") keeps its number in its
+    // code rather than shrinking to a lone digit.
+    const [span] = buildGroups({
+      accounts: accountsFor({
+        opencode: makeAccount({
+          windows: [{
+            key: "codex_2592000s",
+            kind: UsageWindowKind.enum.opaque,
+            label: "30-day",
+            utilization: 0
+          }]
+        })
+      }),
+      sessions: [makeSession({ agentId: "opencode" })],
+      now
+    });
+    expect(span.limits.map(limit => limit.kindShort)).toEqual(["30D"]);
   });
 
   it("populates the Claude group with real limits + plan from the account", () => {
