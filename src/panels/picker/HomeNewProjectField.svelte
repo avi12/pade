@@ -168,10 +168,20 @@
   :global(:root[data-palette="cyberpunk"]) .new-field {
     outline: 1px solid var(--control-edge);
     outline-offset: -1px;
+
+    /* The skin's focused-field ring, on the plate the input lives in. */
+    &:focus-within {
+      outline: 2px solid var(--hairline);
+      outline-offset: -2px;
+    }
   }
 
   :global(:root[data-palette="cyberpunk"]) .name-input {
     background: none;
+
+    &:is(:focus-visible, :not(:focus-visible)) {
+      outline: none;
+    }
   }
 
   :global(:root[data-palette="cyberpunk"]) .caret-button:not(:focus-visible) {
