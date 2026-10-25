@@ -25,13 +25,16 @@ const ANCHOR_NAME_PROPERTY = "anchor-name";
  *  `position: fixed`, and inside a `.picker`-style scroller Chromium paints that
  *  escaped fixed box *behind* the scrolled rows, so a following row occludes it
  *  (see overflow-tooltip.svelte). */
-function overflowTooltip(textToShow: (elTrigger: HTMLElement) => string) {
+function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => {
+  text: string;
+  fontFamily?: string;
+}) {
   return (elTrigger: HTMLElement) => {
     const anchorName = `--overflow-tooltip-${nextAnchorId++}`;
     elTrigger.style.setProperty(ANCHOR_NAME_PROPERTY, anchorName);
 
     function activate() {
-      const text = textToShow(elTrigger);
+      const { text, fontFamily } = bubbleToShow(elTrigger);
       if (!text) {
         clearOverflowTooltip(anchorName);
         return;
@@ -39,7 +42,8 @@ function overflowTooltip(textToShow: (elTrigger: HTMLElement) => string) {
 
       showOverflowTooltip({
         anchorName,
-        text
+        text,
+        fontFamily
       });
       // Any scroll dismisses the bubble, as a native tooltip does: its row
       // may slide under a pinned section (which `anchors-visible` can't see,
@@ -91,7 +95,7 @@ function overflowTooltip(textToShow: (elTrigger: HTMLElement) => string) {
  *  reorder morph) are another, where the bubble showed *underneath* the next
  *  row's icon and text. */
 export function tooltip(text: TooltipText) {
-  return overflowTooltip(() => resolve(text));
+  return overflowTooltip(() => ({ text: resolve(text) }));
 }
 
 /** Attachment that surfaces `tooltip` only while the element's text is actually
@@ -116,13 +120,17 @@ export function truncationTooltip({ tooltip: text, restingTooltip, measureSelect
 }) {
   return overflowTooltip(elTrigger => {
     const elsMeasured = measureSelector ? [...elTrigger.querySelectorAll(measureSelector)] : [elTrigger];
-    const isClipped = elsMeasured.some(elMeasured =>
+    const elClipped = elsMeasured.find(elMeasured =>
       elMeasured.scrollWidth > elMeasured.clientWidth || elMeasured.scrollHeight > elMeasured.clientHeight);
-    if (isClipped) {
-      return resolve(text);
+    if (elClipped) {
+      // The bubble finishes the clipped line, so it reads in that line's face.
+      return {
+        text: resolve(text),
+        fontFamily: getComputedStyle(elClipped).fontFamily
+      };
     }
 
     // An empty resting text (e.g. "no editor ranked yet") means no bubble.
-    return restingTooltip === undefined ? "" : resolve(restingTooltip);
+    return { text: restingTooltip === undefined ? "" : resolve(restingTooltip) };
   });
 }

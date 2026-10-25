@@ -13,6 +13,9 @@ interface ActiveOverflowTooltip {
   /** The trigger's `anchor-name`, so the layer positions itself back onto it. */
   anchorName: string;
   text: string;
+  /** The face of the text the bubble echoes (a monospace path), when it
+   *  repeats a clipped line; the bubble's own face otherwise. */
+  fontFamily?: string;
 }
 
 export const overflowTooltipState = $state<{ active: ActiveOverflowTooltip | null }>({

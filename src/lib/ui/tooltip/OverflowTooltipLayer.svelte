@@ -24,6 +24,7 @@
 <div
   bind:this={elBubble}
   style:position-anchor={overflowTooltipState.active?.anchorName ?? "none"}
+  style:font-family={overflowTooltipState.active?.fontFamily}
   class="overflow-tooltip"
   popover="manual"
   role="tooltip"
