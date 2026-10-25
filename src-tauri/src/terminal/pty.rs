@@ -9,7 +9,8 @@
 
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
+use std::time::Duration;
 
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtyPair, PtySize};
 use serde::Serialize;
@@ -36,9 +37,64 @@ const AGENT_COMMAND_OVERRIDE_VARIABLE: &str = "ADE_AGENT_CMD";
 /// The login shell outside Windows, when the spawn names no command.
 const UNIX_SHELL_VARIABLE: &str = "SHELL";
 
-/// All live PTY sessions, keyed by session id.
+/// How long the app's exit waits for sessions still being ended - long enough
+/// for a window's worth of process-tree kills, never a hang behind a wedged one.
+const EXIT_TEARDOWN_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// All live PTY sessions, keyed by session id, plus the sessions already out
+/// of the map but still being ended.
 #[derive(Default)]
-pub struct PtyState(pub Mutex<HashMap<String, Arc<Pty>>>);
+pub struct PtyState {
+    sessions: Mutex<HashMap<String, Arc<Pty>>>,
+    teardowns: Arc<Teardowns>,
+}
+
+/// How many sessions are being ended off the calling thread right now. The
+/// app's exit waits for them: the process ends the moment the last window has
+/// gone, and a process-tree kill it cut short would leave that agent running
+/// with no window left to reach it.
+#[derive(Debug, Default)]
+struct Teardowns {
+    running: Mutex<usize>,
+    finished: Condvar,
+}
+
+impl Teardowns {
+    fn begin(self: &Arc<Self>) -> Teardown {
+        *self
+            .running
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) += 1;
+        Teardown(Arc::clone(self))
+    }
+
+    /// Block until every teardown has finished, or `timeout` has passed.
+    fn wait_for_all(&self, timeout: Duration) {
+        let running = self
+            .running
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _ = self
+            .finished
+            .wait_timeout_while(running, timeout, |running| *running > 0);
+    }
+}
+
+/// One teardown in flight, counted until it is dropped - after the sessions it
+/// ends, or on a panic, so the count can never stay up.
+struct Teardown(Arc<Teardowns>);
+
+impl Drop for Teardown {
+    fn drop(&mut self) {
+        let mut running = self
+            .0
+            .running
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *running = running.saturating_sub(1);
+        self.0.finished.notify_all();
+    }
+}
 
 /// The window a session belongs to. Shared between the registry entry and the
 /// session's output pump, so moving a live session to another window
@@ -342,7 +398,7 @@ const TRANSCRIPT_CAPACITY: usize = 16 * 1024;
 
 /// How often each session's reaper checks whether its agent process has exited
 /// on its own (see the reaper thread in `pty_spawn`).
-const CHILD_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
+const CHILD_POLL_INTERVAL: Duration = Duration::from_millis(500);
 
 /// How much raw output to keep per session for replay. Bigger than the transcript
 /// because this is the unstripped stream - escape codes and repaints included.
@@ -809,7 +865,7 @@ pub async fn pty_spawn(
         return Err("PTY request exceeds its input limits".into());
     }
     {
-        let sessions = state.0.lock().map_err(|error| error.to_string())?;
+        let sessions = state.sessions.lock().map_err(|error| error.to_string())?;
         let is_already_live = session_access(&sessions, &id, &owner)?.is_some();
         if is_already_live {
             return Ok(());
@@ -848,7 +904,7 @@ pub async fn pty_spawn(
     // A concurrent duplicate is ended here, which terminates the unregistered
     // child through `Pty::drop`.
     let duplicate = {
-        let mut sessions = state.0.lock().map_err(|error| error.to_string())?;
+        let mut sessions = state.sessions.lock().map_err(|error| error.to_string())?;
         let existing = session_access(&sessions, &id, &owner).map(|found| found.is_some());
         let is_vacant = existing == Ok(false);
         if is_vacant {
@@ -859,7 +915,7 @@ pub async fn pty_spawn(
         }
     };
     if let Some((pty, existing)) = duplicate {
-        end_session(Some(pty)).await?;
+        end_session(state.inner(), Some(pty)).await?;
         return existing.map(|_| ());
     }
 
@@ -971,10 +1027,24 @@ fn start_session(launch: SessionLaunch) -> Result<StartedSession, String> {
 /// Release a session handle on the blocking pool: the last handle's `Drop`
 /// kills and reaps the process tree, a blocking `taskkill` wait on Windows.
 /// Awaited, so the caller still returns only once the cwd is unlocked.
-async fn end_session(pty: Option<Arc<Pty>>) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || drop(pty))
+async fn end_session(state: &PtyState, pty: Option<Arc<Pty>>) -> Result<(), String> {
+    end_in_background(state, pty.into_iter().collect())
         .await
         .map_err(|error| error.to_string())
+}
+
+/// End sessions already taken out of the map on the blocking pool - each drop
+/// kills a process tree (see `Pty`'s `Drop`) - counted so the app's exit waits
+/// for them (`kill_all`).
+fn end_in_background(
+    state: &PtyState,
+    ended: Vec<Arc<Pty>>,
+) -> tauri::async_runtime::JoinHandle<()> {
+    let teardown = state.teardowns.begin();
+    tauri::async_runtime::spawn_blocking(move || {
+        drop(ended);
+        drop(teardown);
+    })
 }
 
 /// Pump one session's output after it has been published in the registry. A chunk
@@ -1030,7 +1100,7 @@ fn spawn_session_exit_monitor(app: AppHandle, id: String) {
             break;
         };
         let pty = {
-            let Ok(sessions) = state.0.lock() else {
+            let Ok(sessions) = state.sessions.lock() else {
                 break;
             };
             sessions.get(&id).cloned()
@@ -1048,7 +1118,7 @@ fn spawn_session_exit_monitor(app: AppHandle, id: String) {
         // A caller can kill and immediately recreate an id. Only remove the
         // exact PTY this reaper owns; a stale reaper must not reap its successor.
         let removed = {
-            let Ok(mut sessions) = state.0.lock() else {
+            let Ok(mut sessions) = state.sessions.lock() else {
                 break;
             };
             if sessions
@@ -1086,7 +1156,7 @@ pub struct SessionInfo {
 #[tauri::command]
 pub fn pty_list(window: WebviewWindow, state: State<PtyState>) -> Vec<SessionInfo> {
     let owner = window.label();
-    let Ok(sessions) = state.0.lock() else {
+    let Ok(sessions) = state.sessions.lock() else {
         return Vec::new();
     };
     let mut roster: Vec<SessionInfo> = sessions
@@ -1218,11 +1288,11 @@ pub async fn pty_kill(
     id: String,
 ) -> Result<(), String> {
     let pty = {
-        let mut sessions = state.0.lock().map_err(|error| error.to_string())?;
+        let mut sessions = state.sessions.lock().map_err(|error| error.to_string())?;
         session_access(&sessions, &id, window.label())?;
         sessions.remove(&id)
     };
-    end_session(pty).await
+    end_session(state.inner(), pty).await
 }
 
 /// The agent session's root process id, owner-checked. `None` when the session is gone or
@@ -1281,7 +1351,7 @@ pub async fn session_task_running(
 /// Session `id` when `owner` may use it, released from the registry lock so the
 /// caller's PTY or process work never holds it. `None` for an unknown id.
 fn owned_pty(state: &PtyState, owner: &str, id: &str) -> Result<Option<Arc<Pty>>, String> {
-    let sessions = state.0.lock().map_err(|error| error.to_string())?;
+    let sessions = state.sessions.lock().map_err(|error| error.to_string())?;
     Ok(session_access(&sessions, id, owner)?.cloned())
 }
 
@@ -1313,7 +1383,7 @@ pub fn transfer_sessions(
     to: &str,
     ids: &[String],
 ) -> Result<(), String> {
-    let sessions = state.0.lock().map_err(|error| error.to_string())?;
+    let sessions = state.sessions.lock().map_err(|error| error.to_string())?;
     let moving = ids
         .iter()
         .map(|id| match session_access(&sessions, id, from)? {
@@ -1336,9 +1406,10 @@ pub fn transfer_sessions(
 
 /// End every session `owner` holds - a window closed for good, so nothing it
 /// ran may keep running unreachable. Ending a session blocks on the process
-/// tree kill, so the handles are released on the blocking pool.
+/// tree kill, so it runs on the blocking pool, which the app's exit waits for
+/// when this was the last window.
 pub fn kill_owned(state: &PtyState, owner: &str) {
-    let Ok(mut sessions) = state.0.lock() else {
+    let Ok(mut sessions) = state.sessions.lock() else {
         return;
     };
     let owned_ids: Vec<String> = sessions
@@ -1354,17 +1425,21 @@ pub fn kill_owned(state: &PtyState, owner: &str) {
     if ended.is_empty() {
         return;
     }
-    tauri::async_runtime::spawn_blocking(move || drop(ended));
+    // Not awaited: the window is already gone, and `kill_all` waits for it.
+    drop(end_in_background(state, ended));
 }
 
 /// Terminate every live session - called as the app exits so no agent lingers
-/// after the window is gone and every workspace cwd-lock is freed.
+/// after the window is gone and every workspace cwd-lock is freed - and wait
+/// for the sessions already being ended elsewhere (a closed window's, a tab
+/// closed just before), since the process ends right after this returns.
 pub fn kill_all(state: &PtyState) {
-    if let Ok(mut sessions) = state.0.lock() {
+    if let Ok(mut sessions) = state.sessions.lock() {
         let all = std::mem::take(&mut *sessions);
         drop(sessions);
         drop(all);
     }
+    state.teardowns.wait_for_all(EXIT_TEARDOWN_TIMEOUT);
 }
 
 pub fn init(app: &AppHandle) {
@@ -1383,6 +1458,33 @@ mod tests {
         assert!(pump_view.is("w-2"));
         assert!(!pump_view.is("w-1"));
         assert_eq!(pump_view.label(), "w-2");
+    }
+
+    #[test]
+    fn exit_waits_for_a_teardown_still_running() {
+        let teardowns = Arc::new(Teardowns::default());
+        let teardown = teardowns.begin();
+        let is_finished = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let worker = {
+            let is_finished = Arc::clone(&is_finished);
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(100));
+                is_finished.store(true, std::sync::atomic::Ordering::SeqCst);
+                drop(teardown);
+            })
+        };
+        teardowns.wait_for_all(Duration::from_secs(5));
+        assert!(is_finished.load(std::sync::atomic::Ordering::SeqCst));
+        worker.join().expect("worker thread");
+    }
+
+    #[test]
+    fn exit_never_waits_past_its_timeout() {
+        let teardowns = Arc::new(Teardowns::default());
+        let _stuck = teardowns.begin();
+        let started = std::time::Instant::now();
+        teardowns.wait_for_all(Duration::from_millis(50));
+        assert!(started.elapsed() < Duration::from_secs(2));
     }
     use crate::test_support::assert_empty;
 
