@@ -1,5 +1,6 @@
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { readFileSync } from "node:fs";
+import { relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
@@ -15,6 +16,31 @@ const tauriConfig: {
 );
 const devServerPort = Number(new URL(tauriConfig.build.devUrl).port);
 
+const PROJECT_ROOT = fileURLToPath(new URL(".", import.meta.url));
+
+// The top-level entries the running app is built from: its sources and the
+// configuration Vite itself reads.
+const APP_SOURCE_ENTRIES = new Set([
+  "src",
+  "public",
+  "index.html",
+  "vite.config.ts",
+  "svelte.config.js",
+  "tsconfig.json",
+  "package.json"
+]);
+
+function isOutsideAppSources(file: string) {
+  const fromRoot = relative(PROJECT_ROOT, file);
+  const isProjectRoot = fromRoot === "";
+  if (isProjectRoot) {
+    return false;
+  }
+
+  const [topLevelEntry] = fromRoot.split(sep);
+  return !APP_SOURCE_ENTRIES.has(topLevelEntry);
+}
+
 // Tauri expects a fixed port and no clobbering of its own env vars.
 export default defineConfig({
   plugins: [svelte()],
@@ -29,15 +55,16 @@ export default defineConfig({
     port: devServerPort,
     strictPort: true,
     watch: {
-      // Files a build/check step writes but the running app never loads. Watching
-      // them needlessly disturbs a live session:
-      //  • src-tauri - its locked .pdb/.exe artifacts crash the watcher (EBUSY on
-      //    Windows).
-      //  • .svelte-check - `svelte-check --tsgo` regenerates a tsconfig here on
-      //    every run; Vite treats a changed tsconfig as a reason to force a FULL
-      //    reload, so running the type gate against a live dev server reloaded (and
-      //    could crash) the app. A static checker must never touch the app.
-      ignored: ["**/src-tauri/**", "**/.svelte-check/**"]
+      // Only what the app loads is watched, never the rest of the repository.
+      // Everything else there is written by tools beside a live session, and on
+      // Windows a watched file locked or deleted under the watcher kills it for
+      // good: the app keeps running but never receives another hot update until
+      // `pnpm app` restarts. That is src-tauri's locked .pdb/.exe artifacts
+      // (EBUSY), `release/` getting each release's exe and installer, `dist/`
+      // emptied by every build, the subagent worktrees under `.claude/` (copies
+      // of the whole source, deleted again), and `.svelte-check/`, whose
+      // regenerated tsconfig Vite would answer with a FULL reload.
+      ignored: (file: string) => isOutsideAppSources(file)
     }
   },
   // Produce assets Tauri can bundle; keep sourcemaps in dev.
