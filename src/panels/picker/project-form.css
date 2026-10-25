@@ -1,5 +1,5 @@
-/* Shared chrome for the picker's project forms (the composer's new-project
-   location row, and its menu's Open and Clone panels). Plain CSS (not
+/* Shared chrome for the picker's project forms (the composer menu's Open and
+   Clone panels, and the clone credentials). Plain CSS (not
    Svelte-scoped) so one authoritative copy reaches every form component;
    every selector is prefixed with `.picker` so nothing leaks past the page.
    Imported once by ProjectPicker.svelte - the forms rely on it. */

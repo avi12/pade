@@ -121,16 +121,14 @@ describe("resolveHomeStart", () => {
 });
 
 describe("projectTrigger", () => {
-  function trigger({ choice, typedName = "", root = ROOT, selectedName = null, selectedPath = "" }: {
+  function trigger({ choice, root = ROOT, selectedName = null, selectedPath = "" }: {
     choice: ProjectChoice;
-    typedName?: string;
     root?: string;
     selectedName?: string | null;
     selectedPath?: string;
   }) {
     return projectTrigger({
       choice,
-      typedName,
       root,
       selectedName,
       selectedPath
@@ -140,38 +138,22 @@ describe("projectTrigger", () => {
   it("names the throwaway workspace", () => {
     expect(trigger({ choice: ProjectChoice.Temp })).toEqual({
       prefix: "",
-      name: "Throwaway workspace",
-      isPlaceholder: false
+      name: "Throwaway workspace"
     });
   });
 
-  it("says where a new project goes, with a muted stand-in until it is named", () => {
+  it("says which root a new project goes under", () => {
     expect(trigger({ choice: ProjectChoice.New })).toEqual({
       prefix: "repositories\\",
-      name: NEW_PROJECT_PLACEHOLDER,
-      isPlaceholder: true
+      name: NEW_PROJECT_PLACEHOLDER
     });
   });
 
-  it("names a new project as it is typed, under its root", () => {
+  it("names no root for a new project while none is chosen", () => {
     expect(
       trigger({
         choice: ProjectChoice.New,
-        typedName: "poll"
-      })
-    ).toEqual({
-      prefix: "repositories\\",
-      name: "poll",
-      isPlaceholder: false
-    });
-  });
-
-  it("names a new project alone while no root is chosen", () => {
-    expect(
-      trigger({
-        choice: ProjectChoice.New,
-        root: "",
-        typedName: "poll"
+        root: ""
       }).prefix
     ).toBe("");
   });
@@ -185,8 +167,7 @@ describe("projectTrigger", () => {
       })
     ).toEqual({
       prefix: "avi\\",
-      name: "pade",
-      isPlaceholder: false
+      name: "pade"
     });
   });
 
