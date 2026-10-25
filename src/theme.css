@@ -930,16 +930,6 @@ textarea {
   background: transparent;
 }
 
-/* The terminal shows no scrollbar at all - it stays scrollable via the wheel. */
-.xterm-viewport {
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    block-size: 0;
-    inline-size: 0;
-  }
-}
-
 /* SPA phase changes (onboarding ↔ picker ↔ workspace) cross-fade via the View
    Transitions API - styled here in pure CSS on the M3 emphasized easing. */
 ::view-transition-old(root),
@@ -1374,16 +1364,6 @@ textarea {
   input:not(:checked):hover + .box {
     border-color: var(--primary);
   }
-}
-
-/* The hover underline the terminal link provider paints over a URL's glyphs.
-   Lives here because the elements are appended into xterm's own screen DOM
-   (outside any component's scoped styles); only their position is set inline. */
-.terminal-link-underline {
-  position: absolute;
-  box-sizing: border-box;
-  border-block-end: 2px solid var(--primary);
-  pointer-events: none;
 }
 
 /* Native popovers (menus) reveal with a spring; light-dismiss is handled by the

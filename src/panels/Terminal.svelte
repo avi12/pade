@@ -307,6 +307,27 @@
       position: relative; /* the containing block for the right-to-left overlay */
       flex: none;
       transform-origin: top left;
+
+      /* The terminal shows no scrollbar at all - it stays scrollable via the
+         wheel. xterm builds the viewport itself, so `:global` reaches it. */
+      :global(.xterm-viewport) {
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar {
+          block-size: 0;
+          inline-size: 0;
+        }
+      }
+
+      /* The hover underline the terminal link provider paints over a URL's
+         glyphs. It is appended into xterm's own screen DOM, which no scoped
+         class reaches, so `:global` styles it; only its position is inline. */
+      :global(.terminal-link-underline) {
+        position: absolute;
+        box-sizing: border-box;
+        border-block-end: 2px solid var(--primary);
+        pointer-events: none;
+      }
     }
   }
 
