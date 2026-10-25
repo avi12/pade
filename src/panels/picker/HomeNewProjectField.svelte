@@ -1,14 +1,14 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import RootedName from "@/lib/workspace/display/RootedName.svelte";
+  import { baseName, displaySeparator } from "@/lib/util/paths";
   import { NEW_PROJECT_PLACEHOLDER } from "@/panels/picker/home-composer";
   import RootSelect from "@/panels/picker/RootSelect.svelte";
 
   // The composer's project slot while a new project is picked: the trigger
   // turns into the name field itself, so the path reads as one line - the
-  // root picked in the menu, then the name being typed - and the caret still
-  // opens the project menu to pick another root, a project or a throwaway.
-  // With no root chosen yet, the root select stands where the root would.
+  // root, then the name being typed. The root is its own small select, so
+  // switching roots is one click on it; the trailing caret still opens the
+  // project menu to pick a project or a throwaway instead.
   let {
     menuId,
     rootMenuId,
@@ -47,6 +47,7 @@
   const NAME_FIELD_LABEL = "New project name";
 
   let elName = $state<HTMLInputElement | null>(null);
+  const separator = $derived(displaySeparator(createIn || (roots[0] ?? "")));
   const accessibleName = $derived.by(() => {
     if (prefix) {
       return `${NAME_FIELD_LABEL} in ${prefix}`;
@@ -66,12 +67,14 @@
 <div style:anchor-name="--{rootMenuId}" class="new-field field-trigger">
   <Icon name="folderPlus" size={15} />
   <span class="path">
-    {#if createIn}
-      <span class="prefix"><RootedName name="" {prefix} /></span>
-    {:else}
-      <RootSelect menuId={rootMenuId} {onnewroot} {roots} bind:value={createIn} />
-      <span class="prefix separator" aria-hidden="true">\</span>
-    {/if}
+    <RootSelect
+      label={createIn ? baseName(createIn) : undefined}
+      menuId={rootMenuId}
+      {onnewroot}
+      {roots}
+      bind:value={createIn}
+    />
+    <span class="prefix separator" aria-hidden="true">{separator}</span>
     <input
       bind:this={elName}
       id={fieldId}
@@ -129,7 +132,23 @@
   }
 
   .separator {
+    padding-inline: 2px;
     color: var(--on-surface-variant);
+  }
+
+  /* The root reads as a select of its own - a tonal chip with its caret -
+     so changing it is plainly one click away. */
+  .path :global(.root-trigger) {
+    padding-block: 3px;
+    padding-inline: 8px 6px;
+    border-radius: var(--radius-small);
+    background: var(--surface-3);
+    font-weight: 500;
+
+    &:hover {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
   }
 
   /* Wide enough for its placeholder, so the hint never clips. */

@@ -8,14 +8,16 @@
   // hides imperatively BEFORE handing off to `onnewroot`, because the
   // declarative popovertargetaction="hide" would run after the click handler
   // and cancel the smooth scroll to the add field.
-  let { roots, menuId, onnewroot, value = $bindable("") }: {
+  let { roots, menuId, onnewroot, label, value = $bindable("") }: {
     roots: string[];
     menuId: string;
     onnewroot: () => void;
+    /** How the trigger names the chosen root, when not its full path. */
+    label?: string;
     value?: string;
   } = $props();
 
-  const triggerLabel = $derived(value || "Choose a root…");
+  const triggerLabel = $derived(label || value || "Choose a root…");
 </script>
 
 <span class="root-selector menu-host">
