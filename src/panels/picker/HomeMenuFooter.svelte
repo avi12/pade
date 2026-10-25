@@ -144,14 +144,16 @@
     flex-direction: column;
     gap: 6px;
 
+    /* The menu box lets clicks through (HomeProjectMenu); the tabs and the
+       shown panel (HomeMenuTabPanel) take them back. */
     .pill-tabs {
       margin-inline: 4px;
+      pointer-events: auto;
     }
   }
 
-  /* Every panel (HomeMenuTabPanel) slides the way the selection last moved,
-     the selected one in the first row and the one leaving in the second, so
-     the height blends from one to the other. */
+  /* Every panel (HomeMenuTabPanel) shares this grid's one cell and slides
+     the way the selection last moved; the clip keeps the slide inside. */
   .panels {
     display: grid;
     overflow: clip;
