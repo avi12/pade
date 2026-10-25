@@ -55,15 +55,25 @@ function overflowTooltip(textToShow: (elTrigger: HTMLElement) => string) {
       clearOverflowTooltip(anchorName);
     }
 
+    // Focus speaks only when the browser shows its ring - keyboard focus. A
+    // menu opened by click still focuses its first row, and that row's bubble
+    // would pop up under a cursor that is somewhere else.
+    function activateOnVisibleFocus() {
+      const isFocusVisible = elTrigger.matches(":focus-visible, :has(:focus-visible)");
+      if (isFocusVisible) {
+        activate();
+      }
+    }
+
     elTrigger.addEventListener("pointerenter", activate);
     elTrigger.addEventListener("pointerleave", deactivate);
-    elTrigger.addEventListener("focusin", activate);
+    elTrigger.addEventListener("focusin", activateOnVisibleFocus);
     elTrigger.addEventListener("focusout", deactivate);
     return () => {
       deactivate();
       elTrigger.removeEventListener("pointerenter", activate);
       elTrigger.removeEventListener("pointerleave", deactivate);
-      elTrigger.removeEventListener("focusin", activate);
+      elTrigger.removeEventListener("focusin", activateOnVisibleFocus);
       elTrigger.removeEventListener("focusout", deactivate);
       elTrigger.style.removeProperty(ANCHOR_NAME_PROPERTY);
     };
