@@ -5,6 +5,7 @@
   import { onWindowCloseRequested } from "@/lib/ipc/platform";
   import {
     chatsForProject,
+    isChatRegistryKey,
     loadChatRegistry,
     persistedChatsFromSessions,
     registryWithLiveChats,
@@ -783,6 +784,17 @@
 </script>
 
 <WindowEvents onvisible={redetectAgents} bind:isFocused={isWindowFocused} />
+
+<!-- Another window of this instance saved the chat registry: adopt its copy, so
+     this rail lists the chats (and their projects) it made or forgot, and this
+     window's next save builds on it rather than writing a stale copy back -->
+<svelte:window
+  onstorage={e => {
+    if (isChatRegistryKey(e.key)) {
+      chatRegistry = loadChatRegistry();
+    }
+  }}
+/>
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monospaceFamily} class="app-root">

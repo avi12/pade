@@ -1,14 +1,22 @@
 import {
   chatsForProject,
+  isChatRegistryKey,
   persistedChatsFromSessions,
   registryWithLiveChats,
   registryWithoutChat,
+  saveChatRegistry,
   sidebarProjects,
   type StoredChatRegistry
 } from "@/lib/session/chats/chat-registry";
 import { SessionStatus } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
-import { describe, expect, it } from "vitest";
+import {
+  afterEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest";
 
 const PROJECT = "C:\\repositories\\pade";
 const OTHER_PROJECT = "C:\\repositories\\poll";
@@ -79,6 +87,32 @@ function elsewhere(id: string, extra: Partial<{
     ...extra
   };
 }
+
+describe("isChatRegistryKey", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("recognises the key a save writes, so another window adopts it", () => {
+    const writtenKeys: string[] = [];
+    vi.stubGlobal("localStorage", {
+      setItem(key: string) {
+        writtenKeys.push(key);
+      }
+    });
+
+    saveChatRegistry({
+      chats: [],
+      activeChatByProject: {},
+      lastProject: ""
+    });
+
+    expect(writtenKeys.map(isChatRegistryKey)).toEqual([true]);
+  });
+
+  it("treats a cleared storage as a change and ignores other keys", () => {
+    expect(isChatRegistryKey(null)).toBe(true);
+    expect(isChatRegistryKey("pade.session-snapshot:main")).toBe(false);
+  });
+});
 
 describe("persistedChatsFromSessions", () => {
   it("maps sessions to chats and skips terminal editors", () => {

@@ -58,6 +58,12 @@ export function loadChatRegistry(): StoredChatRegistry {
   }) ?? emptyChatRegistry();
 }
 
+/** Whether a `storage` event - another window of this PADE instance saving -
+ *  touched the registry (a `null` key is the whole storage being cleared). */
+export function isChatRegistryKey(key: string | null) {
+  return key === null || key === CHAT_REGISTRY_STORAGE_KEY;
+}
+
 export function saveChatRegistry(registry: StoredChatRegistry) {
   writeStoredJson({
     key: CHAT_REGISTRY_STORAGE_KEY,

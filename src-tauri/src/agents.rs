@@ -139,19 +139,39 @@ struct AgentDefinition {
 /// How a CLI takes the conversation id it should pin a session to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionIdFlag {
-    /// The flag, then the id as its own argument: `--session-id <id>`.
-    Separate(&'static str),
     /// The flag and id joined with `=`: `--resume=<id>` - for a flag whose value
     /// is optional, where a separate id would be read as a prompt.
     Joined(&'static str),
+    /// One flag names a new conversation and another resumes a recorded one,
+    /// each followed by the id: Claude's `--session-id <id>` refuses an id it
+    /// already recorded ("Session ID … is already in use", verified on
+    /// 2.1.302), so a respawn of a recorded conversation needs `--resume <id>`.
+    CreateOrResume {
+        create: &'static str,
+        resume: &'static str,
+    },
+}
+
+/// Whether the agent has already recorded the conversation a session is
+/// pinned to - it decides between creating and resuming it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConversationRecord {
+    Unrecorded,
+    Recorded,
 }
 
 impl SessionIdFlag {
     /// The arguments that pin a session to `conversation_id`.
-    pub fn arguments(self, conversation_id: &str) -> Vec<String> {
+    pub fn arguments(self, conversation_id: &str, record: ConversationRecord) -> Vec<String> {
         match self {
-            Self::Separate(flag) => vec![flag.to_string(), conversation_id.to_string()],
             Self::Joined(flag) => vec![format!("{flag}={conversation_id}")],
+            Self::CreateOrResume { create, resume } => {
+                let flag = match record {
+                    ConversationRecord::Unrecorded => create,
+                    ConversationRecord::Recorded => resume,
+                };
+                vec![flag.to_string(), conversation_id.to_string()]
+            }
         }
     }
 }
@@ -237,10 +257,14 @@ const REGISTRY: &[AgentDefinition] = &[
             light: PADE_CLAUDE_LIGHT_THEME,
             dark: PADE_CLAUDE_DARK_THEME,
         }),
-        // `--session-id <uuid>` creates-or-continues the conversation with that
-        // id (non-interactive), so ADE can restart a specific session and land
-        // back in its own conversation - see `session_id_flag`.
-        session_id_flag: Some(SessionIdFlag::Separate("--session-id")),
+        // `--session-id <uuid>` creates the conversation with that id and
+        // `--resume <uuid>` brings it back (non-interactive), so ADE can restart
+        // a specific session and land back in its own conversation - see
+        // `session_id_flag`.
+        session_id_flag: Some(SessionIdFlag::CreateOrResume {
+            create: "--session-id",
+            resume: "--resume",
+        }),
         // ADE does NOT force Claude's renderer - this is the one agent where the
         // choice is the user's, because it decides who owns the scrollback.
         //
@@ -649,6 +673,36 @@ pub fn session_id_flag(command: &str) -> Option<SessionIdFlag> {
     definition(command).and_then(|agent| agent.session_id_flag)
 }
 
+/// The arguments that pin `command`'s session to `conversation_id`, creating
+/// the conversation or resuming the one already recorded under it. `None` for
+/// a CLI with no session-id flag.
+pub fn session_id_arguments(command: &str, conversation_id: &str) -> Option<Vec<String>> {
+    let flag = session_id_flag(command)?;
+    let is_resumable = matches!(flag, SessionIdFlag::CreateOrResume { .. });
+    let record = if is_resumable && is_claude_conversation_recorded(conversation_id) {
+        ConversationRecord::Recorded
+    } else {
+        ConversationRecord::Unrecorded
+    };
+    Some(flag.arguments(conversation_id, record))
+}
+
+/// Whether Claude has a transcript for `conversation_id` under any project.
+/// Searched by file name rather than by the project's encoded folder, so it
+/// holds whatever folder name Claude derived from the working directory.
+fn is_claude_conversation_recorded(conversation_id: &str) -> bool {
+    let Some(projects) = claude_projects_directory() else {
+        return false;
+    };
+    let Ok(entries) = std::fs::read_dir(projects) else {
+        return false;
+    };
+    let transcript = format!("{conversation_id}.jsonl");
+    entries
+        .flatten()
+        .any(|entry| entry.path().join(&transcript).is_file())
+}
+
 /// How `command`'s own UI theme is forced to ADE's scheme, if the registry
 /// knows a mechanism (`theming.rs` interprets it). `None` for an unknown
 /// command or a CLI with no theme setting.
@@ -725,7 +779,8 @@ fn detect_installed() -> Vec<Agent> {
 mod tests {
     use super::{
         installed_names, needs_light_console_fix, oneshot_invocation, resolve_codex_home,
-        session_arguments, session_id_flag, spawn_environment, theme_config, REGISTRY,
+        session_arguments, session_id_flag, spawn_environment, theme_config, ConversationRecord,
+        REGISTRY,
     };
     use std::path::PathBuf;
 
@@ -772,12 +827,19 @@ mod tests {
     #[test]
     fn only_agents_with_a_session_id_flag_can_be_resumed_by_id() {
         assert_eq!(
-            session_id_flag("claude").map(|flag| flag.arguments("id")),
+            session_id_flag("claude")
+                .map(|flag| flag.arguments("id", ConversationRecord::Unrecorded)),
             Some(vec!["--session-id".to_string(), "id".to_string()])
         );
         assert_eq!(
-            session_id_flag("copilot").map(|flag| flag.arguments("id")),
+            session_id_flag("copilot")
+                .map(|flag| flag.arguments("id", ConversationRecord::Unrecorded)),
             Some(vec!["--resume=id".to_string()])
+        );
+        assert_eq!(
+            session_id_flag("claude")
+                .map(|flag| flag.arguments("id", ConversationRecord::Recorded)),
+            Some(vec!["--resume".to_string(), "id".to_string()])
         );
         assert!(session_id_flag("codex").is_none());
         assert!(session_id_flag("powershell.exe").is_none());
