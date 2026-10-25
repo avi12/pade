@@ -13,7 +13,7 @@
   <label class="new-project-label" for="clone-url">Repository URL</label>
   <input
     id="clone-url"
-    class="path-input framed"
+    class="path-input text-field"
     autocomplete="off"
     placeholder="https://github.com/org/repo.git  ·  git@github.com:org/repo.git"
     spellcheck="false"

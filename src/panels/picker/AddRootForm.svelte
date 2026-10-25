@@ -75,12 +75,12 @@
     }}
   >
     <div class="combo">
-      <!-- Typed path + directory autocomplete (shared PathCombobox); `framed`
-           gives the standalone field its own chrome. Its bound `probe` drives
-           the live status banner and the add gate below. -->
+      <!-- Typed path + directory autocomplete (shared PathCombobox);
+           `text-field` gives the standalone field the shared field look. Its
+           bound `probe` drives the live status banner and the add gate below. -->
       <PathCombobox
         name="root"
-        inputClass="framed"
+        inputClass="text-field"
         placeholder="C:\repositories  ·  paste or start typing a folder path"
         bind:value={newRoot}
         bind:probe

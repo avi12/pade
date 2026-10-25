@@ -192,7 +192,7 @@
     <label class="prompt-label" for={PROMPT_ID}>First prompt</label>
     <textarea
       id={PROMPT_ID}
-      class="prompt"
+      class="prompt text-field"
       placeholder="What should the agent do first?"
       rows="3"
       bind:value={prompt}

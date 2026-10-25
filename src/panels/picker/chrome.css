@@ -160,39 +160,13 @@
   }
 }
 
-/* Base field + button chrome every section builds on (overridden per class). */
-.picker input,
-.picker textarea {
-  padding: 10px 14px;
-  border: 1px solid var(--outline);
-  border-radius: var(--radius-medium);
-  background: var(--surface-2);
-  color: var(--on-surface);
-  font: inherit;
-  font-size: 0.875rem;
-}
-
-/* A full-width monospace path / URL input. Bare (borderless, transparent) inside
-   a `.new-project-location` group row or a `PathCombobox`; `framed` gives the standalone one
-   its own field chrome. Shared by the local-folder, add-root, and clone-URL
-   fields - one home for the path-field look. */
+/* A full-width monospace path / URL input, shared by the local-folder,
+   add-root, and clone-URL fields. Its frame is the shared text-field look:
+   bare inside a `.text-field-plate` row, or `.text-field` standing alone. */
 .picker .path-input {
   flex: 1;
   min-inline-size: 0;
-  padding: 6px;
-  border: none;
-  border-radius: var(--radius-small);
-  background: transparent;
-  color: var(--on-surface);
   font-family: var(--font-monospace);
-  font-size: 0.8125rem;
-
-  &.framed {
-    padding: 9px 12px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-  }
 }
 
 /* A typeahead's suggestions - a card shown as a top-layer popover anchored to

@@ -19,7 +19,7 @@
     <label class="new-project-label" for="clone-user">Email or username</label>
     <input
       id="clone-user"
-      class="credential-input"
+      class="text-field"
       autocomplete="username"
       placeholder="you@example.com"
       spellcheck="false"
@@ -30,7 +30,7 @@
     <label class="new-project-label" for="clone-password">Password or access token</label>
     <input
       id="clone-password"
-      class="credential-input"
+      class="text-field"
       autocomplete="current-password"
       placeholder="••••••••••••"
       type="password"
@@ -38,15 +38,3 @@
     />
   </div>
 </div>
-
-<style>
-  .credential-input {
-    padding: 7px 10px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-small);
-    background: var(--surface-1);
-    color: var(--on-surface);
-    font: inherit;
-    font-size: 0.8125rem;
-  }
-</style>
