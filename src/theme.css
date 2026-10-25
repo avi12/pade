@@ -475,10 +475,10 @@
   --shadow-color: rgb(3 8 14 / 76%);
 
   /* How a plate that floats free of the chassis - a menu - sits off the page.
-     Night lights its own edge and drops it deep; the day face states the same
-     token as a hard offset with no blur, the printed register it takes all its
-     depth from. */
-  --plate-shadow: var(--hairline-glow), 0 18px 44px var(--shadow-color);
+     Night only lights its own edge, its 2px frame carrying the rest (the HUD
+     never casts a soft drop); the day face states the same token as a hard
+     offset with no blur, the printed register it takes all its depth from. */
+  --plate-shadow: var(--hairline-glow);
   --primary-shadow: rgb(0 229 255 / 40%);
   --focus-glow: 0 0 0 1px rgb(0 229 255 / 50%), 0 0 14px rgb(0 229 255 / 45%);
   --scanline: rgb(0 229 255 / 3.5%);
