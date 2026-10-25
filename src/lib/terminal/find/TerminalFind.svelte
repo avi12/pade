@@ -228,7 +228,7 @@
 {/snippet}
 
 {#if isOpen}
-  <search class="find-bar">
+  <search class="find-bar text-field-plate">
     <span class="lead" aria-hidden="true"><Icon name="search" size={14} /></span>
     <input
       bind:this={elInput}
@@ -315,6 +315,8 @@
      viewport decides the PTY's rows and columns, so a bar that took layout space
      would resize the agent's grid every time it opened. */
   .find-bar {
+    --field-plate-padding-inline-end: 4px;
+
     position: absolute;
     inset-block-start: 4px;
     inset-inline-end: 4px;
@@ -322,11 +324,6 @@
     display: flex;
     gap: 4px;
     align-items: center;
-    padding-block: 5px;
-    padding-inline: 9px 5px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-1);
     box-shadow: 0 6px 18px var(--shadow-color);
     animation: find-bar-in 140ms var(--ease);
 
@@ -338,20 +335,7 @@
 
     input {
       inline-size: 20ch;
-      padding: 2px 4px;
-      border: none;
-      background: transparent;
-      color: var(--on-surface);
       font-family: var(--font-monospace);
-      font-size: 0.75rem;
-
-      &:focus-visible {
-        outline: none;
-      }
-
-      &::placeholder {
-        color: var(--on-surface-variant);
-      }
     }
 
     /* The count changes on every keystroke, so it also reserves its width -

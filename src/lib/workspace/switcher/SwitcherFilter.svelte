@@ -13,7 +13,7 @@
   } = $props();
 </script>
 
-<label class="search">
+<label class="search text-field-plate">
   <span class="lead" aria-hidden="true"><Icon name="search" size={15} /></span>
   <input
     {id}
@@ -39,11 +39,6 @@
     align-items: center;
     margin-block: 1px 5px;
     margin-inline: 2px;
-    padding-block: 6px;
-    padding-inline: 10px;
-    border: 1px solid var(--outline);
-    border-radius: 10px;
-    background: var(--surface-1);
 
     .lead {
       display: inline-flex;
@@ -54,12 +49,6 @@
     input {
       flex: 1;
       min-inline-size: 0;
-      border: none;
-      background: transparent;
-      color: var(--on-surface);
-      outline: none;
-      font: inherit;
-      font-size: 0.8125rem;
     }
 
     .kbd {
