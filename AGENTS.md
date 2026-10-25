@@ -413,6 +413,11 @@ pnpm app          # tauri dev: Rust core + native window, frontend on :1430
 pnpm dev          # Vite only, no native window
 ```
 
+`tauri dev` restarts the app, and every agent session in it, on any change
+under `src-tauri/` except what `src-tauri/.taurignore` lists: `Cargo.toml`
+and `Cargo.lock`, so a release's version bump leaves the app running. After
+changing a dependency, restart `pnpm app` by hand.
+
 ### Build the frontend only
 
 ```powershell
