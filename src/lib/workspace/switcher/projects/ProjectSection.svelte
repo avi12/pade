@@ -21,12 +21,16 @@
 {/if}
 
 <style>
-  /* Sticky section label (Pinned / Recent) over the scrolling list. */
+  /* Sticky section label (Pinned / Recent) over the scrolling list. It
+     never shrinks: the rail's list is a flex column, and once its projects
+     outgrow the rail it would squeeze the label to its text, jerking every
+     row under it up as a project opens in. */
   .list-head {
     position: sticky;
     inset-block-start: 0;
     z-index: 2;
     display: flex;
+    flex: none;
     align-items: center;
     block-size: var(--section-head-block-size, auto);
     padding-block: 7px 3px;
