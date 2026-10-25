@@ -289,6 +289,12 @@
   --tooltip-gap: 6px;
   --tooltip-edge-gutter: 8px;
 
+  /* A text field's inner padding, shared by `.text-field` and the plate that
+     wraps a bare input (`.text-field-plate`, below), and by a dropdown trigger
+     that sits in a row with them, so all three come out the same height. */
+  --field-padding-block: 8px;
+  --field-padding-inline: 12px;
+
   /* M3 emphasized easing, plus a spring that overshoots for expressive,
      spatial motion (cards rising, chips popping, menus springing open). */
   --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -829,6 +835,69 @@ select,
 textarea {
   color: inherit;
   font: inherit;
+}
+
+/* The one text-field look. `.text-field` is a field standing on its own;
+   `.text-field-plate` is a framed row holding a bare input with its icon and
+   buttons (the switcher's search, the Open tab's path row), and it wears
+   exactly what a standalone field wears, so the two can never read as two
+   different controls. The plate's border is the focus indicator for the input
+   inside it, which carries no frame, fill or ring of its own. A plate with
+   trailing buttons trims its end padding through
+   `--field-plate-padding-inline-end`. Each palette's skin restates the frame
+   in its own terms further down. */
+:is(.text-field, .text-field-plate) {
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-medium);
+  background-color: var(--surface-2);
+  color: var(--on-surface);
+  font-size: 0.8125rem;
+  transition: border-color 150ms var(--ease);
+
+  &::placeholder,
+  & ::placeholder {
+    color: var(--on-surface-variant);
+  }
+}
+
+.text-field {
+  padding-block: var(--field-padding-block);
+  padding-inline: var(--field-padding-inline);
+
+  &:focus-visible {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: none;
+  }
+
+  &:is(:user-invalid, [aria-invalid="true"]) {
+    border-color: var(--critical);
+  }
+}
+
+.text-field-plate {
+  padding-block: 0;
+  padding-inline: var(--field-padding-inline) var(--field-plate-padding-inline-end, var(--field-padding-inline));
+
+  &:focus-within {
+    border-color: var(--primary);
+  }
+
+  &:has(:user-invalid, [aria-invalid="true"]) {
+    border-color: var(--critical);
+  }
+
+  :read-write {
+    &,
+    &:focus-visible {
+      padding-block: var(--field-padding-block);
+      padding-inline: 0;
+      border: none;
+      background: none;
+      outline: none;
+      box-shadow: none;
+    }
+  }
 }
 
 :focus-visible {
@@ -1650,9 +1719,11 @@ textarea {
      while the frame lights - the ring sits ON the cut plate rather than
      floating 2px outside it, so it follows the bevel. On paper there is no
      glow, so that line is what says "focused" there. `:read-write` is every
-     field you type into and none of the checkboxes, radios or sliders. The
-     frame itself is set apart, below this block. */
-  :is(:read-write, select) {
+     field you type into and none of the checkboxes, radios or sliders; a
+     `.text-field-plate` takes all of it in place of the bare input it holds,
+     so the line runs under the whole plate. The frame itself is set apart,
+     below this block. */
+  :is(:read-write, select, .text-field-plate) {
     background-image: linear-gradient(var(--stripe) 0 0);
     background-position: left bottom;
     background-size: 0 2px;
@@ -1670,18 +1741,39 @@ textarea {
       letter-spacing: 0.04em;
     }
 
-    &:focus {
+    &:focus-within {
       background-size: 100% 2px;
     }
   }
 
   /* `:user-invalid` waits for the user to have touched the field, so a form
      never opens already red. */
-  :is(:user-invalid, [aria-invalid="true"]) {
+  :is(:user-invalid, [aria-invalid="true"], .text-field-plate:has(:user-invalid, [aria-invalid="true"])) {
     background-color: var(--critical-wash);
     background-image: linear-gradient(var(--critical) 0 0);
     background-size: 100% 2px;
     outline-color: var(--critical);
+  }
+
+  /* The shared field look's edge is an outline here, like every control's, so
+     its border only keeps the box the same size. Inside a plate the plate is
+     the field: the input drops the line and the wash above, and the plate's
+     buttons drop their own frames - one cut plate, never boxes inside it. */
+  :is(.text-field, .text-field-plate) {
+    border-color: transparent;
+  }
+
+  .text-field-plate {
+    :read-write {
+      &,
+      &:focus {
+        background: none;
+      }
+    }
+
+    button:not(:focus-visible) {
+      outline: none;
+    }
   }
 
   /* Buttons acknowledge the pointer the way the HUD does: the frame lights on
@@ -1992,19 +2084,18 @@ textarea {
 }
 
 /* A field's frame, kept out of the skin block on purpose: `:where()` drops the
-   palette's weight, so a field set inside a plate of its own (the switcher's
-   search, the terminal's find bar) - whose component already says
-   `outline: none` - stays one plate instead of a box inside a box. A
-   standalone field keeps the frame, and focus lights it ON the cut plate
-   rather than floating a glowing ring around it - the accent line drawn along
-   its foot already says where the caret is. */
-:where(:root[data-palette="cyberpunk"]) :is(:read-write, select) {
+   palette's weight, so the bare input inside a `.text-field-plate` - which the
+   shared rule strips of its outline - stays one plate instead of a box inside
+   a box. A standalone field and a plate wear the same frame, and focus lights
+   it ON the cut plate rather than floating a glowing ring around it - the
+   accent line drawn along its foot already says where the caret is. */
+:where(:root[data-palette="cyberpunk"]) :is(:read-write, select, .text-field-plate) {
   outline: 1px solid var(--control-edge);
   outline-offset: -1px;
+}
 
-  &:focus-visible {
-    outline: 2px solid var(--hairline);
-    outline-offset: -2px;
-    box-shadow: none;
-  }
+:where(:root[data-palette="cyberpunk"]) :is(:is(:read-write, select):focus-visible, .text-field-plate:focus-within) {
+  outline: 2px solid var(--hairline);
+  outline-offset: -2px;
+  box-shadow: none;
 }
