@@ -213,8 +213,9 @@ export function noReadingsOf(readings: Iterable<readonly [string, AccountReading
 /** What an agent without a reading shows in place of its limits, and what its
  *  hover tells the user to do - a short state ("Sign in expired") beside the
  *  fix ("Run codex once to refresh its sign-in"). `isState` marks a named
- *  state the user can act on, as opposed to the dash of an agent with no usage
- *  source. `null` when the backend didn't say why, which leaves the bare dash. */
+ *  state the user can act on, as opposed to an agent with no usage source,
+ *  which says so quietly. `null` when the backend didn't say why, which
+ *  leaves the bare dash. */
 export function noReadingFace(group: AgentGroup) {
   if (!group.noReading) {
     return null;
@@ -223,7 +224,7 @@ export function noReadingFace(group: AgentGroup) {
   const { reason, signInCommand } = group.noReading;
   if (reason === NoReadingReason.enum.no_source) {
     return {
-      label: NO_READING,
+      label: "Not shared",
       hint: `${group.name} doesn't share its usage`,
       isState: false
     };

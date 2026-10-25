@@ -6,7 +6,6 @@ import {
   KEEP_LAST_READING_MS,
   limitTooltip,
   measuredAgentCount,
-  NO_READING,
   noReadingFace,
   noReadingsOf,
   overflowCount,
@@ -385,9 +384,9 @@ describe("noReadingFace", () => {
     ).toBe("Run muse to sign in");
   });
 
-  it("keeps the dash for an agent with no usage source, but says why on hover", () => {
+  it("says an agent with no usage source doesn't share it, quietly", () => {
     const face = noReadingFace(groupWhy({ reason: NoReadingReason.enum.no_source }));
-    expect(face?.label).toBe(NO_READING);
+    expect(face?.label).toBe("Not shared");
     expect(face?.isState).toBe(false);
     expect(face?.hint).toBe("OpenCode doesn't share its usage");
   });
