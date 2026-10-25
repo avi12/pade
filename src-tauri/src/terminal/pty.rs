@@ -589,10 +589,10 @@ fn build_command(
     // later spawn with the same id resumes THIS conversation rather than the most
     // recent - how ADE restarts one specific session (e.g. after `.mcp.json`
     // changed). Only for an agent whose CLI supports it; a shell/editor ignores it.
-    if let (Some(flag), Some(conversation_id)) =
-        (crate::agents::session_id_flag(&program), conversation_id)
+    if let Some(arguments) = conversation_id
+        .and_then(|conversation_id| crate::agents::session_id_arguments(&program, conversation_id))
     {
-        leading_arguments.extend(flag.arguments(conversation_id));
+        leading_arguments.extend(arguments);
     }
 
     let mut process = launcher(&program, &executable, scheme, &leading_arguments);
