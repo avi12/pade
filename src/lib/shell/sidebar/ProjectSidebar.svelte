@@ -159,6 +159,8 @@
     project: string;
     opensNewWindow: boolean;
   }) {
+    // The search found what it was for; the full rail comes back.
+    filter = "";
     const openWindow = otherWindowWith({
       windowRows,
       path: picked
