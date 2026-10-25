@@ -1,6 +1,6 @@
 [package]
 name = "pade"
-version = "0.3.8"
+version = "0.3.9"
 description = "PADE -Power ADE (Agentic Development Environment)"
 authors = ["Avi"]
 edition = "2021"
