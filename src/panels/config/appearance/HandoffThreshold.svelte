@@ -39,7 +39,7 @@
     />
     <span class="handoff-value">
       <input
-        class="handoff-number"
+        class="handoff-number text-field"
         aria-label="Auto-handoff threshold percent"
         max={MAXIMUM_HANDOFF_PERCENTAGE}
         min={MINIMUM_HANDOFF_PERCENTAGE}
@@ -89,17 +89,11 @@
       appearance: textfield;
 
       /* Two digits plus the inset % suffix; ch tracks the real digit width so
-         a zoomed UI can never clip "30" down to a lone digit. */
+         a zoomed UI can never clip "30" down to a lone digit. The shared
+         field look, with its end padding making room for the suffix. */
       inline-size: calc(3ch + 2.5rem);
-      padding-block: 6px;
-      padding-inline: 8px 1.375rem;
-      border: none;
-      border-radius: 12px;
-      background: var(--surface-2);
-      color: var(--on-surface);
-      font: inherit;
+      padding-inline-end: 1.375rem;
       font-weight: 700;
-      font-size: 0.75rem;
       text-align: end;
     }
   }

@@ -66,6 +66,7 @@
   <h3 class="eyebrow"><span class="lead"><Icon name="history" /></span> Restore a version</h3>
   <div class="restore-input">
     <input
+      class="text-field"
       aria-label="Restore to a previous version"
       onkeydown={e => {
         const isSubmit = e.key === Key.Enter;
@@ -169,19 +170,6 @@
     input {
       flex: 1;
       min-inline-size: 0;
-      padding-block: 8px;
-      padding-inline: 14px;
-      border: 1px solid var(--outline);
-      border-radius: var(--radius-full);
-      background: var(--surface-2);
-      color: var(--on-surface);
-      font: inherit;
-      font-size: 0.8125rem;
-
-      &:focus-visible {
-        border-color: var(--primary);
-        outline: none;
-      }
     }
 
     .go {
