@@ -52,7 +52,7 @@ All values are HSL. Two full schemes.
 Neutrals are **blue-tinted** (210–214° hue), never pure grey - this is deliberate,
 part of the M3 tonal system seeded from the blue primary. Prefer stepping between
 `surface`→`surface-1`→`surface-2`→`surface-3` for elevation instead of drop shadows
-(shadows appear only on floating popovers).
+(shadows appear only on floating dialogs and toasts; dropdown menus cast none).
 
 ### 1.2 Shape scale
 
@@ -302,7 +302,7 @@ An inline row: a **status dot** + optional mono label + a state phrase.
 ### 4.8 Popover menus & tooltips (shared)
 
 All dropdowns are **native popovers** anchored to their trigger (light-dismiss on
-outside click): rounded (`14px`), `surface-2`, 1px `outline`, soft shadow, ~180–220px
+outside click): rounded (`14px`), `surface-2`, 1px `outline`, no shadow, ~180–220px
 min width; items are full-width ghost buttons (8px radius) that fill
 `primary-container` on hover; optional uppercase section separators. Tooltips: tiny
 `surface-3` bubble below the anchor, fade in on hover/focus.
@@ -333,7 +333,7 @@ min width; items are full-width ghost buttons (8px radius) that fill
 > Design a calm, developer-grade desktop **Agentic Development Environment** in
 > **Material 3 Expressive**, seeded from a **blue (210°) primary**, with a
 > green **tertiary** and red **crit** as semantic accents, blue-tinted tonal
-> surfaces (no hard shadows except floating menus), **full-pill** buttons/chips/tabs,
+> surfaces (no hard shadows), **full-pill** buttons/chips/tabs,
 > **20–28px** rounded cards, an expressive bold display type paired with
 > **JetBrains Mono** for all code/paths, and **emphasized-easing** motion (pulse for
 > "working", halo for "ready", rise-in cards). Auto light/dark from the OS. Screens:

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { OpenTarget } from "@/lib/types";
+  import { ToggleState } from "@/lib/ui/controls/toggle-state";
   import { rovingTablist } from "@/lib/ui/keyboard/roving-tabs";
   import ClonePanel from "@/panels/picker/ClonePanel.svelte";
   import {
@@ -55,6 +56,24 @@
     }
   }
 
+  // A closed menu forgets the last switch, so reopening it shows the
+  // selected panel in place: the slide and the height blend belong to
+  // switching tabs, not to the menu opening.
+  function forgetSlideOnClose() {
+    const elMenu = document.getElementById(menuId);
+    if (!elMenu) {
+      return;
+    }
+
+    const listening = new AbortController();
+    elMenu.addEventListener("toggle", e => {
+      if (e.newState === ToggleState.Closed) {
+        slideDirection = 0;
+      }
+    }, { signal: listening.signal });
+    return () => listening.abort();
+  }
+
   // Shared by Open and Clone: the folder becomes the composer's project.
   function pickFolder({ path }: OpenTarget) {
     onpick(path);
@@ -95,7 +114,7 @@
     {/each}
   </div>
 
-  <div style:--tab-slide-direction={slideDirection} class="panels">
+  <div style:--tab-slide-direction={slideDirection} class="panels" {@attach forgetSlideOnClose}>
     <HomeMenuTabPanel isForm={false} isSelected={selectedTab === HomeMenuTab.New} {menuId} tab={HomeMenuTab.New}>
       <HomeNewSection {isTempPicked} {menuId} {onnew} {ontemp} {roots} />
     </HomeMenuTabPanel>
@@ -130,8 +149,9 @@
     }
   }
 
-  /* Every panel (HomeMenuTabPanel) shares this one grid cell, and slides
-     the way the selection last moved. */
+  /* Every panel (HomeMenuTabPanel) slides the way the selection last moved,
+     the selected one in the first row and the one leaving in the second, so
+     the height blends from one to the other. */
   .panels {
     display: grid;
     overflow: clip;
