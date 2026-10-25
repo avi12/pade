@@ -23,6 +23,7 @@
   }}>
   <p>{@render children()}</p>
   <input
+    class="text-field"
     aria-label={label}
     autocomplete="off"
     data-initial-focus
@@ -45,20 +46,7 @@
     }
 
     input {
-      padding-block: 9px;
-      padding-inline: 12px;
-      border: 1px solid var(--outline);
-      border-radius: var(--radius-medium);
-      background: var(--surface-2);
-      color: var(--on-surface);
-      font: inherit;
       font-weight: 600;
-      font-size: 0.875rem;
-
-      &:focus-visible {
-        border-color: var(--primary);
-        outline: none;
-      }
     }
 
     code {

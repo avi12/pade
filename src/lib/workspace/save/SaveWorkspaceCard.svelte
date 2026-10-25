@@ -188,7 +188,7 @@
       await saveIntoListedRoot(primaryRoot);
     }}>
     <input
-      class="save-name"
+      class="save-name text-field"
       aria-label="Project name"
       autocomplete="off"
       placeholder="project-name"
@@ -275,20 +275,8 @@
 
     .save-name {
       inline-size: 100%;
-      padding-block: 7px;
-      padding-inline: 8px;
-      border: 1px solid var(--outline);
-      border-radius: var(--radius-small);
-      background: var(--surface-2);
-      color: var(--on-surface);
-      outline: none;
       font-family: var(--font-monospace);
       font-weight: 600;
-      font-size: 0.75rem;
-
-      &:focus-visible {
-        border-color: var(--primary);
-      }
     }
 
     .save-issue {
