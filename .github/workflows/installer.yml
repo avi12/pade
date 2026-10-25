@@ -1,0 +1,61 @@
+# Validate the MSI installer with WiX's ICE checks. A release links the MSI
+# locally with those checks skipped (scripts/release.mjs): they run on VBScript,
+# which Windows no longer installs by default, and need rights a desktop build
+# shouldn't. The hosted Windows runner has both, so the checks live here.
+name: Installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src-tauri/windows/**
+      - src-tauri/tauri.conf.json
+      - scripts/release.mjs
+      - .github/workflows/installer.yml
+  pull_request:
+    paths:
+      - src-tauri/windows/**
+      - src-tauri/tauri.conf.json
+      - scripts/release.mjs
+      - .github/workflows/installer.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the context-menu handler
+        run: cargo build --release --manifest-path src-tauri/Cargo.toml -p contextmenu-handler
+
+      - name: Build PADE and its MSI
+        shell: pwsh
+        run: |
+          $env:PADE_CONTEXT_MENU_HANDLER = (Resolve-Path 'src-tauri/target/release/contextmenu_handler.dll').Path
+          pnpm tauri build --bundles msi
+
+      - name: Run the ICE checks
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem 'src-tauri/target/release/bundle/msi/*.msi' | Select-Object -First 1
+          & "$env:LOCALAPPDATA/tauri/WixTools314/smoke.exe" -nologo $installer.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
