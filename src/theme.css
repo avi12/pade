@@ -1486,6 +1486,7 @@ textarea {
   block-size: 1px;
   margin-block: 6px;
   margin-inline: 8px;
+  border: none;
   background: var(--outline);
 }
 

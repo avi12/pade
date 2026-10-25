@@ -81,7 +81,10 @@
   }
 </script>
 
-<div class="footer" class:separator={isSeparated}>
+<div class="footer">
+  {#if isSeparated}
+    <hr class="menu-divider" />
+  {/if}
   <div class="pill-tabs" aria-label="Start from" role="tablist" use:rovingTablist>
     {#each HOME_MENU_TABS as { id, label, icon, entersList } (id)}
       <button
@@ -143,6 +146,12 @@
     flex: none;
     flex-direction: column;
     gap: 6px;
+
+    /* The rule parting the tabs from the project list; the foot's own gap
+       already spaces it from the tabs. */
+    .menu-divider {
+      margin-block-end: 0;
+    }
 
     /* The menu box lets clicks through (HomeProjectMenu); the tabs and the
        shown panel (HomeMenuTabPanel) take them back. */
