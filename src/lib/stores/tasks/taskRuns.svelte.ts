@@ -22,7 +22,13 @@
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { isTaskInvocation } from "@/lib/runners/task-detect";
-import { attachedRunner, attachRunner, runnerRows, TASK_LIVENESS_POLL_MS } from "@/lib/stores/tasks/runners.svelte";
+import {
+  adoptRunner,
+  attachedRunner,
+  attachRunner,
+  runnerRows,
+  TASK_LIVENESS_POLL_MS
+} from "@/lib/stores/tasks/runners.svelte";
 import { taskCatalog, type TaskCatalogSnapshot } from "@/lib/stores/tasks/taskCatalog.svelte";
 import type { TaskGroup } from "@/lib/types";
 import { settledValue } from "@/lib/util/async/settled";
@@ -195,6 +201,40 @@ export async function initTaskRunDetection(project: () => string) {
     } finally {
       listenerInitialization = undefined;
     }
+  }
+}
+
+/** Re-adopt the tasks this window still runs whose dock cards are gone - a
+ *  reload starts the dock empty while the backend keeps the processes - once
+ *  the project they belong to is in front and its catalog lists them. */
+export async function adoptRunningTasks(snapshot: TaskCatalogSnapshot) {
+  if (!snapshot.project) {
+    return;
+  }
+
+  const running = await settledValue({
+    promise: sendMessage(Command.runnerList),
+    fallback: []
+  });
+  const tasks = knownTaskCommands(snapshot);
+  for (const runner of running) {
+    const key = taskKey({
+      directory: runner.cwd ?? "",
+      command: runner.command
+    });
+    const task = tasks.find(candidate => candidate.key === key);
+    if (task === undefined) {
+      continue;
+    }
+
+    adoptRunner({
+      id: runner.id,
+      label: task.label,
+      kind: task.kind,
+      command: task.command,
+      cwd: task.dir,
+      project: snapshot.project
+    });
   }
 }
 

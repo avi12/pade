@@ -14,7 +14,8 @@ import { updateDiscordPresence } from "@/lib/shell/window/discord-presence";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { ensureChoiceAttention } from "@/lib/stores/session/sessionAttention.svelte";
 import { ensureRunnerListeners } from "@/lib/stores/tasks/runners.svelte";
-import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
+import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
+import { adoptRunningTasks, initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
 import { watchAppUpdate } from "@/lib/stores/update/appUpdate.svelte";
 import { refreshEditors } from "@/lib/stores/workspace/editors.svelte";
 import { projectKind, requestProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
@@ -64,6 +65,13 @@ export function startWindowServices({ project, windowSessions, repository, isWin
   // Reflect known tasks the agent runs as "running" in the Tasks panel.
   onMount(async () => {
     await initTaskRunDetection(project);
+  });
+
+  // Each time a project's task list arrives - the project came to the front,
+  // or the window reloaded onto it - bring back the cards of its tasks still
+  // running in the backend.
+  $effect(() => {
+    adoptRunningTasks(taskCatalog.snapshot);
   });
 
   // Adopt settings another window - or another PADE instance - changed: it

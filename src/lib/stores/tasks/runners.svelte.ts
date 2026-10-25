@@ -158,6 +158,20 @@ export async function startRunner({ label, kind, command, cwd, project }: Runner
   }
 }
 
+/** Give a dock card back to a task the backend still runs for this window but
+ *  the dock lost track of (a reload starts it empty), under its backend id so
+ *  its output and exit land on the card. Idempotent per backend id. */
+export function adoptRunner({ id, ...task }: RunnerTask & Pick<RunnerRow, "id">) {
+  if (rowByBackendId(id)) {
+    return;
+  }
+
+  addRow({
+    id,
+    ...task
+  });
+}
+
 /** How often PADE asks the OS whether a task the agent started is still alive.
  *  A poll, not an event: a process the agent owns has no exit signal PADE hears.
  *  The one cadence for that question - `taskRuns` throttles its own checks to it

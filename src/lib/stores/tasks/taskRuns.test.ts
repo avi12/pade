@@ -1,6 +1,8 @@
 import { Command, EventType } from "@/lib/ipc/messaging";
 import { projectRunnerRows, runnerRows, stopRunner } from "@/lib/stores/tasks/runners.svelte";
-import { initTaskRunDetection, isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
+import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
+import { adoptRunningTasks, initTaskRunDetection, isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
+import type { RunnerInfo } from "@/lib/types";
 import {
   beforeEach,
   describe,
@@ -21,12 +23,14 @@ const mocks = vi.hoisted<{
   onData: PtyChunkHandler | undefined;
   taskRunning: boolean;
   runningChecks: number;
+  backendRunners: RunnerInfo[];
   sendMessage: Mock<(command: Command, data?: unknown) => Promise<unknown>>;
   onMessage: Mock<(type: EventType, handler: MessageHandler) => Promise<() => void>>;
 }>(() => ({
   onData: undefined,
   taskRunning: true,
   runningChecks: 0,
+  backendRunners: [],
   sendMessage: vi.fn(),
   onMessage: vi.fn()
 }));
@@ -63,6 +67,10 @@ mocks.sendMessage.mockImplementation(async command => {
 
   if (command === Command.tasksList) {
     return DEMO_TASKS;
+  }
+
+  if (command === Command.runnerList) {
+    return mocks.backendRunners;
   }
 
   return undefined;
@@ -167,5 +175,27 @@ describe("task run detection", () => {
 
     // Another project in front sees none of it, and its dock stays hidden.
     expect(projectRunnerRows("other")).toHaveLength(0);
+  });
+
+  it("brings back the card of a task still running once its project lists it", async () => {
+    await initTaskRunDetection(() => "demo");
+    mocks.backendRunners = [{
+      id: "run-left-over",
+      command: "cargo check",
+      cwd: "demo",
+      startedAt: 0
+    }, {
+      id: "run-elsewhere",
+      command: "cargo check",
+      cwd: "other",
+      startedAt: 0
+    }];
+
+    await adoptRunningTasks(taskCatalog.snapshot);
+    await adoptRunningTasks(taskCatalog.snapshot);
+
+    // Only the task the catalog in front lists, and only once.
+    expect(projectRunnerRows("demo").map(row => row.backendId)).toEqual(["run-left-over"]);
+    mocks.backendRunners = [];
   });
 });
