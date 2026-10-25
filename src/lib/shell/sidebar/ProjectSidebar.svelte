@@ -216,7 +216,7 @@
 <nav class="sidebar" aria-label="Projects and chats">
   <SidebarHeader {onswitch} />
 
-  <div class="search">
+  <search class="search">
     <!-- Ctrl P focuses it from anywhere (a window shortcut) -->
     <SwitcherFilter
       id={PROJECT_SEARCH_ID}
@@ -231,7 +231,7 @@
       }}
       bind:value={filter}
     />
-  </div>
+  </search>
 
   <SidebarProjectList
     {activeId}

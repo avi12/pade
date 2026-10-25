@@ -26,6 +26,7 @@
     }}
     placeholder="Search projects…"
     spellcheck="false"
+    type="search"
     bind:value
   />
   <span class="kbd" aria-hidden="true">Ctrl P</span>
