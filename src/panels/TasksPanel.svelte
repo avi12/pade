@@ -1,8 +1,8 @@
 <script lang="ts">
+  import type { RunnerTask } from "@/lib/stores/tasks/runners.svelte";
   import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
   import { isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
-  import type { TaskGroup } from "@/lib/types";
   import { collapseRow, emphasized, expandRow, flipDuration } from "@/lib/ui/motion";
   import { baseName } from "@/lib/util/paths";
   import RunningMarker from "@/panels/tasks/RunningMarker.svelte";
@@ -11,12 +11,8 @@
   const { project, onrun }: {
     /** The workspace displayed by this window, never the process-global cwd. */
     project: string;
-    onrun: (task: {
-      label: string;
-      command: string;
-      cwd: string;
-      kind: TaskGroup["kind"];
-    }) => void;
+    /** Run a task in the dock; the caller files it under its project. */
+    onrun: (task: Omit<RunnerTask, "project">) => void;
   } = $props();
 
   const snapshot = $derived(taskCatalog.snapshot);

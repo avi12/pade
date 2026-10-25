@@ -1,11 +1,14 @@
 <script lang="ts">
   import RunnerCard from "@/lib/runners/RunnerCard.svelte";
-  import { runnerRows } from "@/lib/stores/tasks/runners.svelte";
+  import { projectRunnerRows } from "@/lib/stores/tasks/runners.svelte";
   import { formatCount } from "@/lib/util/format";
 
-  // The active agent session - pipe target for a runner's output.
-  const { activeSessionId }: {
+  const { activeSessionId, project }: {
+    /** The active agent session - pipe target for a runner's output. */
     activeSessionId: string | null;
+    /** The project in front: the dock shows its runners alone, and hides when
+     *  it has none. */
+    project: string;
   } = $props();
 
   // Dock height, drag-resizable from the top grip. Clamped so the dock can never
@@ -16,7 +19,7 @@
   // Header + one attached card's bar + its note, no output pane.
   const COMPACT_DOCK_HEIGHT = 132;
 
-  const rows = $derived(runnerRows());
+  const rows = $derived(projectRunnerRows(project));
   // A lone runner has nothing to sort - its header only becomes a drag handle
   // (grab cursor + tooltip) once a second card exists, like every other list.
   const isReorderable = $derived(rows.length > 1);

@@ -89,9 +89,11 @@ export function knownTaskCommands(snapshot: TaskCatalogSnapshot) {
  *  It outlives the agent's turn (a dev server keeps running), so nothing clears
  *  it on idle; the liveness poll in `runners` drops the card when the process
  *  exits, and the next real invocation earns a new one. */
-async function attachWhenRunning({ sessionId, task }: {
+async function attachWhenRunning({ sessionId, task, project }: {
   sessionId: string;
   task: KnownTaskCommand;
+  /** The project whose catalog listed the task. */
+  project: string;
 }) {
   const isAlreadyShown = attachedRunner({
     sessionId,
@@ -126,7 +128,8 @@ async function attachWhenRunning({ sessionId, task }: {
     label: task.label,
     kind: task.kind,
     command: task.command,
-    cwd: task.dir
+    cwd: task.dir,
+    project
   });
 }
 
@@ -139,7 +142,8 @@ async function startListeners() {
     pendingUnlistens.push(
       await onMessage(EventType.ptyData, ({ data }) => {
         const lines = data.data.split("\n");
-        for (const task of knownTaskCommands(taskCatalog.snapshot)) {
+        const { snapshot } = taskCatalog;
+        for (const task of knownTaskCommands(snapshot)) {
           const isInvocation = lines.some(line => isTaskInvocation({
             line,
             command: task.command
@@ -150,7 +154,8 @@ async function startListeners() {
 
           attachWhenRunning({
             sessionId: data.id,
-            task
+            task,
+            project: snapshot.project
           });
           return;
         }

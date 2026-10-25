@@ -76,7 +76,8 @@ export async function saveTempWorkspace({ name, root, host }: {
       label: INSTALL_RUNNER_LABEL,
       kind: TaskGroup.shape.kind.enum.npm,
       command: migration.install,
-      cwd: migration.path
+      cwd: migration.path,
+      project: migration.path
     });
   }
 }

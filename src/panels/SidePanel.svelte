@@ -38,7 +38,11 @@
           <!-- Run a project task as a streaming runner in the dock (not a
                throwaway terminal tab), so its output stays visible and can be
                piped into an agent. -->
-          <TasksPanel onrun={startRunner} {project} />
+          <TasksPanel
+            onrun={async task => await startRunner({
+              ...task,
+              project
+            })} {project} />
         {/snippet}
       </LazyPanel>
     {:else}

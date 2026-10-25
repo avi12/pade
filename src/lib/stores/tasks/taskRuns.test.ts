@@ -1,5 +1,5 @@
 import { Command, EventType } from "@/lib/ipc/messaging";
-import { runnerRows, stopRunner } from "@/lib/stores/tasks/runners.svelte";
+import { projectRunnerRows, runnerRows, stopRunner } from "@/lib/stores/tasks/runners.svelte";
 import { initTaskRunDetection, isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
 import {
   beforeEach,
@@ -154,5 +154,18 @@ describe("task run detection", () => {
     }
 
     expect(isTaskRunning(key)).toBe(false);
+  });
+
+  it("files a detected task under the project whose catalog listed it", async () => {
+    await initTaskRunDetection(() => "demo");
+
+    mocks.onData?.({
+      id: "session-3",
+      data: "Bash(cargo check)\n"
+    });
+    await vi.waitFor(() => expect(projectRunnerRows("demo")).toHaveLength(1));
+
+    // Another project in front sees none of it, and its dock stays hidden.
+    expect(projectRunnerRows("other")).toHaveLength(0);
   });
 });

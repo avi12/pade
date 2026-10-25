@@ -36,6 +36,9 @@ export interface RunnerRow {
   kind: RunnerKind;
   command: string;
   cwd: string;
+  /** The project the task belongs to. The dock shows only the runners of the
+   *  project in front; the others keep running and come back with it. */
+  project: string;
   /** Captured stdout/stderr lines, in arrival order. */
   lines: RunnerLine[];
   /** True once the process has exited. */
@@ -51,6 +54,9 @@ export interface RunnerRow {
   };
 }
 
+/** A task as the dock runs it: what it is and where, under its project. */
+export type RunnerTask = Pick<RunnerRow, "label" | "kind" | "command" | "cwd" | "project">;
+
 /** Id prefixes: a process PADE spawned, and a task the agent started. */
 const SPAWNED_ID_PREFIX = "run";
 const ATTACHED_ID_PREFIX = "attached";
@@ -62,6 +68,11 @@ let isListening = false;
 /** The live runners (reactive). */
 export function runnerRows() {
   return rows;
+}
+
+/** The live runners of one project (reactive) - what its dock shows. */
+export function projectRunnerRows(project: string) {
+  return rows.filter(row => row.project === project);
 }
 
 function newRunnerId(prefix: string) {
@@ -81,7 +92,7 @@ function removeRow(id: string) {
 }
 
 /** Add a fresh, still-running row for a task; its backend id starts as its id. */
-function addRow(row: Pick<RunnerRow, "id" | "label" | "kind" | "command" | "cwd" | "attached">) {
+function addRow(row: RunnerTask & Pick<RunnerRow, "id" | "attached">) {
   rows.push({
     ...row,
     backendId: row.id,
@@ -125,19 +136,15 @@ export async function ensureRunnerListeners() {
 }
 
 /** Launch a task as a tracked runner streaming into the dock. */
-export async function startRunner({ label, kind, command, cwd }: {
-  label: string;
-  kind: RunnerKind;
-  command: string;
-  cwd: string;
-}) {
+export async function startRunner({ label, kind, command, cwd, project }: RunnerTask) {
   const id = newRunnerId(SPAWNED_ID_PREFIX);
   addRow({
     id,
     label,
     kind,
     command,
-    cwd
+    cwd,
+    project
   });
   try {
     await sendMessage(Command.runnerStart, {
@@ -172,12 +179,8 @@ export function attachedRunner({ sessionId, command }: {
  *  that kills the agent's process, but no captured output (PADE never owned it).
  *  Idempotent per (session, command) so repeated detections never stack rows.
  *  Returns the row id. */
-export function attachRunner({ sessionId, label, kind, command, cwd }: {
+export function attachRunner({ sessionId, label, kind, command, cwd, project }: RunnerTask & {
   sessionId: string;
-  label: string;
-  kind: RunnerKind;
-  command: string;
-  cwd: string;
 }) {
   const existing = attachedRunner({
     sessionId,
@@ -194,6 +197,7 @@ export function attachRunner({ sessionId, label, kind, command, cwd }: {
     kind,
     command,
     cwd,
+    project,
     attached: {
       sessionId
     }

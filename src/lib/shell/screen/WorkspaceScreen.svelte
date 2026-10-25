@@ -267,7 +267,7 @@
       {/if}
     </main>
 
-    <RunnerDock activeSessionId={windowSessions.activeId} />
+    <RunnerDock activeSessionId={windowSessions.activeId} {project} />
 
     <RecoveryNotes note={automation.note} pacing={automation.usagePacing} />
     <ShellToast />
