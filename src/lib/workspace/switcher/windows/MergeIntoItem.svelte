@@ -2,6 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { MERGE_INTO_TOOLTIP, mergeMenuItemLabel, mergeTargets } from "@/lib/shell/handoff/window-handoff";
   import type { WindowInfo } from "@/lib/types";
+  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
 
   // The one menu item below the open-window list that merges this window into
   // the only other one. With several other windows each of their rows carries
@@ -24,8 +25,8 @@
 {#if itemLabel !== null && target !== undefined}
   <button
     class="menu-item merge-item"
+    {@attach tooltip(MERGE_INTO_TOOLTIP)}
     data-arrow-stop
-    data-tooltip={MERGE_INTO_TOOLTIP}
     onclick={() => onmerge(target.label)}
     role="menuitem"
     type="button"
