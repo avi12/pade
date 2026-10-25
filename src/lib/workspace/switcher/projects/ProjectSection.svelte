@@ -37,5 +37,18 @@
     font-size: 0.5625rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+
+    /* Cyberpunk: a section label is a titled section, so it takes the same
+       look as a menu's `.menu-separator` - the console's 44px accent stub
+       riding a rule under the title, set in the skin's mono face. It keeps its
+       own spacing against the list that scrolls under it. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      border-block-end: 2px solid var(--outline);
+      background-image: var(--header-stub);
+      background-position: bottom left;
+      background-size: 100% 4px;
+      background-repeat: no-repeat;
+      font-family: var(--font-monospace);
+    }
   }
 </style>

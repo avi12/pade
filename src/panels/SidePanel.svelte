@@ -61,6 +61,13 @@
     border-inline-start: 1px solid var(--outline);
     background: var(--surface);
     animation: panel-in 340ms var(--ease);
+
+    /* Cyberpunk: the seam the panel hangs off is one of the HUD's brightest
+       lines, with the top bar and the panel header, and blooms like them. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      border-inline-start: 2px solid var(--hairline);
+      box-shadow: var(--hairline-glow);
+    }
   }
 
   .panel-body {

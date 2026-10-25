@@ -44,6 +44,19 @@
     align-items: center;
     padding-block: 12px 10px;
     padding-inline: 16px;
+
+    /* Cyberpunk: one of the HUD's brightest lines (with the top bar and the
+       side panel's seam), led by the console's signature 44px accent stub -
+       the mark that says "this is a titled section" without spending a colour
+       on the title itself. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      border-block-end: 2px solid var(--hairline);
+      background-image: var(--header-stub);
+      background-position: bottom left;
+      background-size: 100% var(--header-stub-weight);
+      background-repeat: no-repeat;
+      box-shadow: var(--hairline-glow-below);
+    }
   }
 
   .panel-title {

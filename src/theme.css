@@ -467,8 +467,8 @@
 
   /* Ordinary rules are a dim slate and only emphasis is cyan - the dashboard's
      `--border` / `--border-strong` split. PADE already draws that distinction:
-     `--outline` is every divider, `--hairline` is the two edges the HUD lights
-     up (see the chrome rule below). */
+     `--outline` is every divider, `--hairline` is the edges the HUD lights up
+     (the top bar, the panel header and the side panel's seam draw it). */
   --outline: #22394c;
   --control-edge: rgb(0 229 255 / 35%);
   --hairline: #00e5ff;
@@ -1616,10 +1616,12 @@ textarea {
 
   /* The accent stub riding the rule under a titled header - fixed length, so it
      reads as a mark rather than a progress bar however wide the header is. One
-     home for it: the panel header and the cards inside it draw the same stub,
-     and only the rule's weight separates the two levels. */
+     home for it: the panel header, the cards inside it, the switcher's list
+     heads and the menus' section labels draw the same stub, and only the
+     rule's weight separates the levels. */
   --header-stub-length: 44px;
   --header-stub-weight: 4px;
+  --header-stub: linear-gradient(90deg, var(--stripe) 0 var(--header-stub-length), transparent var(--header-stub-length));
 
   /* Cyberpunk's controls are framed plates, not tinted pills - which is what the
      colours and the chamfer alone still left underneath. An `outline` drawn one
@@ -1795,47 +1797,35 @@ textarea {
      recognisable thing on that screen and it still did not belong: the game's
      frame surrounds one panel you open and close, while this one surrounded the
      whole editor permanently, which is a very loud thing to sit inside all day.
-     The palette keeps the HUD's structure and spends nothing on its furniture. */
+     The palette keeps the HUD's structure and spends nothing on its furniture.
 
-  /* The chrome's own edges are the HUD's brightest lines: the bar the tabs sit
-     in, and the seam the side panel hangs off. These are the strokes the skin
-     draws at full intensity, and the only ones that get the bloom. Two pixels,
-     like every structural rule in the console - at one they read as a hairline
-     the eye skips, which is exactly what a chassis must not do. */
-  :is(.topbar, .panel-head) {
-    border-block-end: 2px solid var(--hairline);
-    box-shadow: var(--hairline-glow-below);
-  }
-
-  .side-pane {
-    border-inline-start: 2px solid var(--hairline);
-    box-shadow: var(--hairline-glow);
-  }
+     The chrome's own edges - the top bar, the panel header and the side panel's
+     seam - are the HUD's brightest lines, and each component draws its own. */
 
   /* The console's signature: a short accent stub riding the rule under every
-     panel header, always 44px whatever the header is wide. It is the one mark
-     that says "this is a titled section" without spending a colour on the title
-     itself, which on this skin is ink. Drawn as a background layer on the
-     existing rule rather than a pseudo-element, so it cannot collide with the
-     header's own content. */
-  :is(.panel-head, .card-label) {
-    background-image: linear-gradient(90deg, var(--stripe) 0 var(--header-stub-length), transparent var(--header-stub-length));
-    background-position: bottom left;
-    background-size: 100% var(--header-stub-weight);
-    background-repeat: no-repeat;
-  }
+     panel header (SidePanelHeader draws the panel's), always 44px whatever the
+     header is wide. It is the one mark that says "this is a titled section"
+     without spending a colour on the title itself, which on this skin is ink.
+     Drawn as a background layer on the existing rule rather than a
+     pseudo-element, so it cannot collide with the header's own content.
 
-  /* The same mark one level down, on the label of every card inside a panel. The
-     console groups controls by drawing the group, not by spacing it: a titled
-     block with a rule under its name reads as one unit of settings, where four
-     unlabelled stacks of rows read as a list of twelve controls. The panel header
-     above keeps its 4px rule; a card's is 2px, so the hierarchy is in the weight
-     of the rule rather than in a second colour. */
+     This is the same mark one level down, on the label of every card inside a
+     panel - a shared hook, worn by the Config cards' SectionLabel and the
+     dashboard's ProjectCard title alike. The console groups controls by drawing
+     the group, not by spacing it: a titled block with a rule under its name
+     reads as one unit of settings, where four unlabelled stacks of rows read as
+     a list of twelve controls. The panel header keeps its 4px rule; a card's is
+     2px, so the hierarchy is in the weight of the rule rather than in a second
+     colour. */
   .card-label {
     --header-stub-weight: 2px;
 
     padding-block-end: 7px;
     border-block-end: 2px solid var(--hairline);
+    background-image: var(--header-stub);
+    background-position: bottom left;
+    background-size: 100% var(--header-stub-weight);
+    background-repeat: no-repeat;
   }
 
   /* The day face fills the selected tab with the console's bright cyan, and that
@@ -1982,21 +1972,19 @@ textarea {
      label is one statement said twice, and the label is the half that says which
      group starts here. The divider stays wherever it separates without naming -
      the actions under a list - and there it goes full-bleed to the frame, led by
-     the same stub, so every rule inside a menu starts on the accent. */
-  :is(.menu-separator, .list-head) {
+     the same stub, so every rule inside a menu starts on the accent. The
+     switcher's sticky list heads (ProjectSection) wear the same label look.
+
+     Room for the rule the label now carries comes with it. */
+  .menu-separator {
+    margin-block: 8px 4px;
+    padding-block: 2px 6px;
     border-block-end: 2px solid var(--outline);
-    background-image: linear-gradient(90deg, var(--stripe) 0 var(--header-stub-length), transparent var(--header-stub-length));
+    background-image: var(--header-stub);
     background-position: bottom left;
     background-size: 100% 4px;
     background-repeat: no-repeat;
     font-family: var(--font-monospace);
-  }
-
-  /* Room for the rule the label now carries. The app menu's sticky heads set
-     their own spacing against the list that scrolls under them. */
-  .menu-separator {
-    margin-block: 8px 4px;
-    padding-block: 2px 6px;
   }
 
   .menu-divider {
