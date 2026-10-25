@@ -126,8 +126,11 @@ function slideRow({ node, duration }: {
   return {
     duration: motionDuration(duration),
     easing: cubicOut,
+    // `clip`, not `hidden`: a hidden overflow makes the row a scroll
+    // container, so a sticky header inside it would stick to the row instead
+    // of the list, sitting low until the transition ends and then jumping.
     css: (progress: number, remaining: number) => `
-      overflow: hidden;
+      overflow: clip;
       block-size: ${progress * height}px;
       margin-block-start: ${progress * marginBlockStart}px;
       margin-block-end: ${-gap * remaining}px;
