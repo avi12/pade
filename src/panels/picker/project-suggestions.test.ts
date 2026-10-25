@@ -71,6 +71,19 @@ describe("matchingProjects", () => {
     ).toEqual([NOTES, PADE]);
   });
 
+  it("puts names that start with the text before names that only hold it", () => {
+    const fancyPants = {
+      path: "C:\\repositories\\avi\\fancy-pants",
+      name: "fancy-pants"
+    };
+    expect(
+      matchingProjects({
+        options: [fancyPants, PADE],
+        typed: "pa"
+      })
+    ).toEqual([PADE, fancyPants]);
+  });
+
   it("never matches on the root above the folder", () => {
     expect(
       matchingProjects({

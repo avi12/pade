@@ -11,10 +11,11 @@ export interface ProjectOption {
   name: string;
 }
 
-/** The existing projects a typed new-project name matches, in the order given
- *  (the project menu's recents first, then the scanned rest): a project whose
- *  display name or folder name holds the text, ignoring case. Nothing for a
- *  blank name, and never more than `MAX_PROJECT_SUGGESTIONS`. */
+/** The existing projects a typed new-project name matches: a project whose
+ *  display name or folder name holds the text, ignoring case - those that
+ *  start with it first, each group in the order given (the project menu's
+ *  recents first, then the scanned rest). Nothing for a blank name, and never
+ *  more than `MAX_PROJECT_SUGGESTIONS`. */
 export function matchingProjects({ options, typed }: {
   options: readonly ProjectOption[];
   typed: string;
@@ -24,21 +25,23 @@ export function matchingProjects({ options, typed }: {
     return [];
   }
 
-  const matches: ProjectOption[] = [];
+  // A name that starts with the text is what the person is most likely
+  // reaching for ("pa" means pade before fancy-pants), so those lead.
+  const leading: ProjectOption[] = [];
+  const containing: ProjectOption[] = [];
   for (const option of options) {
-    const isMatch = option.name.toLowerCase().includes(query) || baseName(option.path).toLowerCase().includes(query);
-    if (!isMatch) {
+    const names = [option.name.toLowerCase(), baseName(option.path).toLowerCase()];
+    if (names.some(name => name.startsWith(query))) {
+      leading.push(option);
       continue;
     }
 
-    matches.push(option);
-
-    if (matches.length === MAX_PROJECT_SUGGESTIONS) {
-      break;
+    if (names.some(name => name.includes(query))) {
+      containing.push(option);
     }
   }
 
-  return matches;
+  return [...leading, ...containing].slice(0, MAX_PROJECT_SUGGESTIONS);
 }
 
 /** What a key in the name field does to its suggestions: move the highlight
