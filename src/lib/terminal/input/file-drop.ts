@@ -3,8 +3,11 @@
 // reads any other path as a file reference. Tauri's native drag events carry
 // the absolute paths the web drag API withholds, and every pane hears every
 // drop in the window, so each one claims only a drop on its own element.
+// A background session's pane keeps its full-size box under `visibility:
+// hidden`, so the box alone would let every session in the window claim it.
 
 import { EventType, onMessage } from "@/lib/ipc/messaging";
+import type { DragPosition } from "@/lib/types";
 import { isDragOverElement } from "@/lib/ui/drag/drag-position";
 
 export function listenForFileDrops({ element, onHoverChange, onDrop }: {
@@ -14,24 +17,26 @@ export function listenForFileDrops({ element, onHoverChange, onDrop }: {
   /** Files were dropped onto the element. */
   onDrop: (paths: string[]) => void;
 }) {
+  function isOverShownElement(position: DragPosition) {
+    const elTarget = element();
+    return elTarget.checkVisibility({
+      visibilityProperty: true
+    }) && isDragOverElement({
+      element: elTarget,
+      position
+    });
+  }
+
   return Promise.all([
     onMessage(EventType.dragOver, ({ data: { position } }) => {
-      onHoverChange(
-        isDragOverElement({
-          element: element(),
-          position
-        })
-      );
+      onHoverChange(isOverShownElement(position));
     }),
     onMessage(EventType.dragLeave, () => {
       onHoverChange(false);
     }),
     onMessage(EventType.dragDrop, ({ data: { paths, position } }) => {
       onHoverChange(false);
-      const isLandingHere = paths.length > 0 && isDragOverElement({
-        element: element(),
-        position
-      });
+      const isLandingHere = paths.length > 0 && isOverShownElement(position);
       if (!isLandingHere) {
         return;
       }
