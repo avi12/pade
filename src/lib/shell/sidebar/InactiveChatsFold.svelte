@@ -14,11 +14,24 @@
   // A project's inactive conversations (stopped chats and recorded ones) under
   // a fold that opens and closes with a glide. Open until the user folds it,
   // and hidden while there are none.
-  const { project, count, children }: {
+  const { project, count, hasLiveChats, children }: {
     project: string;
     count: number;
+    /** The project runs live chats above the fold - its sessions are then
+     *  the "other" ones, else simply the inactive ones. */
+    hasLiveChats: boolean;
     children: Snippet;
   } = $props();
+
+  const OTHER_SESSIONS = "Other sessions";
+  const INACTIVE_SESSIONS = "Inactive sessions";
+  const heading = $derived.by(() => {
+    if (hasLiveChats) {
+      return OTHER_SESSIONS;
+    }
+
+    return INACTIVE_SESSIONS;
+  });
 </script>
 
 <!-- The summary is a keyboard line of its own, so the arrows open and close
@@ -38,7 +51,7 @@
 >
   <summary data-sidebar-item data-sidebar-line tabindex="-1">
     <span class="caret">▾</span>
-    Other sessions
+    {heading}
     <span class="count">{formatCount(count)}</span>
   </summary>
   {@render children()}

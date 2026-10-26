@@ -155,7 +155,7 @@
     {/each}
   </ul>
 
-  <InactiveChatsFold count={inactiveChats.length} project={group.project}>
+  <InactiveChatsFold count={inactiveChats.length} hasLiveChats={liveChats.length > 0} project={group.project}>
     <ul class="chats">
       {#each inactiveChats as chat (chat.id)}
         {@render chatRow(chat)}
