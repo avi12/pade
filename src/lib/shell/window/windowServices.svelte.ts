@@ -92,6 +92,23 @@ export function startWindowServices({ project, windowSessions, repository, isWin
     return () => unlistenSettings?.();
   });
 
+  // Whatever brings a project to the front - opening it, or picking one of its
+  // sessions already running here - records it as the most recent, so the
+  // rail's order is the order projects were last in front. Best-effort: a
+  // project that vanished meanwhile leaves the recents as they were.
+  async function recordFrontProject(path: string) {
+    await Promise.allSettled([sendMessage(Command.workspaceOpen, { path })]);
+    await rereadSettings();
+  }
+  $effect(() => {
+    const path = project();
+    if (!path) {
+      return;
+    }
+
+    recordFrontProject(path);
+  });
+
   // Watch the open project's files app-wide - not only while the Change Feed is
   // open - so the Tasks panel auto-updates on a manifest/script edit, and the
   // task-run and auto-name subscribers see changes from the moment a project
