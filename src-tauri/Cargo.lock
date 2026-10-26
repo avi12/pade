@@ -2810,7 +2810,7 @@ dependencies = [
 
 [[package]]
 name = "pade"
-version = "0.3.12"
+version = "0.3.13"
 dependencies = [
  "notify",
  "png 0.18.1",
