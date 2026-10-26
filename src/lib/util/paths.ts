@@ -102,13 +102,15 @@ export function relativeToRoot({ path, root }: {
   path: string;
   root: string;
 }) {
-  const normalizedPath = normalizePath(path);
   const normalizedRoot = normalizePath(root);
-  if (normalizedPath === normalizedRoot) {
+  if (normalizePath(path) === normalizedRoot) {
     return "/";
   }
 
-  if (!normalizedPath.startsWith(`${normalizedRoot}/`)) {
+  if (!isPathInside({
+    path,
+    root
+  })) {
     return path;
   }
 
@@ -118,6 +120,15 @@ export function relativeToRoot({ path, root }: {
     .replaceAll("\\", "/")
     .slice(normalizedRoot.length + 1);
   return `/${tail}`;
+}
+
+/** Whether `path` lies under `root` (not the root itself), compared the way
+ *  `normalizePath` spells both. */
+export function isPathInside({ path, root }: {
+  path: string;
+  root: string;
+}) {
+  return normalizePath(path).startsWith(`${normalizePath(root)}/`);
 }
 
 /** A folder's name and the separator after it ("avi\" on Windows, "home/"

@@ -8,7 +8,8 @@
 import { eventsForLiveWatch, readFeedSnapshot, saveFeedSnapshot } from "@/lib/feed/watch/feed-snapshot";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import type { ChangeEvent, WatchStatus } from "@/lib/types";
-import { baseName } from "@/lib/util/paths";
+import { baseName, isPathInside } from "@/lib/util/paths";
+import { SvelteMap } from "svelte/reactivity";
 
 // Newest first. Capped so a busy agent session can't grow this unbounded.
 const MAXIMUM_FEED_EVENTS = 300;
@@ -23,8 +24,13 @@ const TEMP_FILE_RE = /^_tmp_|\.tmp\.|\.sw[a-z]$|~$|\.\d{7,}$/i;
  *  events land whether or not it is currently mounted. */
 export const feedStore = $state<{ events: ChangeEvent[] }>({ events: [] });
 
-// The project the accumulated events belong to; a switch resets the feed.
+// The project the shown events belong to - the current session's.
 let currentProject: string | null = null;
+
+// Every other project's feed, put aside while another session's project is in
+// front and shown again when one of its sessions is. The backend watches only
+// the front project, so a project behind gathers nothing meanwhile.
+const feedsBehind = new SvelteMap<string, ChangeEvent[]>();
 
 // The stream is subscribed exactly once for the process lifetime.
 let isSubscribed = false;
@@ -64,6 +70,17 @@ function saveFeedOnUnload() {
   });
 }
 
+// A real change in the project shown - not editor scratch, and not a late
+// change from the watch being re-rooted away, which is the project behind's.
+function isShownFeedChange(event: ChangeEvent) {
+  const isScratchFile = TEMP_FILE_RE.test(baseName(event.path));
+  const isInShownProject = currentProject !== null && isPathInside({
+    path: event.path,
+    root: currentProject
+  });
+  return !isScratchFile && isInShownProject;
+}
+
 /** Subscribe once to the backend feed stream. Idempotent - a second call is a
  *  no-op - and never unsubscribed, so events accumulate across panel remounts. */
 async function startFeedSubscription() {
@@ -75,8 +92,7 @@ async function startFeedSubscription() {
   addEventListener("pagehide", saveFeedOnUnload);
   try {
     await onMessage(EventType.feedChange, ({ data: event }) => {
-      const isScratchFile = TEMP_FILE_RE.test(baseName(event.path));
-      if (isScratchFile) {
+      if (!isShownFeedChange(event)) {
         return;
       }
 
@@ -135,10 +151,10 @@ async function adoptLiveWatch(project: string) {
   feedStore.events = [...feedStore.events, ...earlier].slice(0, MAXIMUM_FEED_EVENTS);
 }
 
-/** Point the feed at `project`, clearing accumulated events when it differs from
- *  the last (a workspace switch must not surface the previous project's changes).
- *  Also lazily arms the singleton subscription on first use. ChangeFeed calls this
- *  from a `project`-keyed effect. */
+/** Point the feed at `project`: the previous project's events are put aside and
+ *  `project`'s own come back, so switching sessions shows each one's changes.
+ *  Also lazily arms the singleton subscription on first use. The window's
+ *  services call this whenever the front project changes, panel open or not. */
 export function retargetFeed(project: string) {
   // Arming the singleton subscription is a self-contained side effect with no
   // follow-up here - the store reacts as events land, and startFeedSubscription
@@ -149,7 +165,12 @@ export function retargetFeed(project: string) {
     return;
   }
 
+  if (currentProject !== null) {
+    feedsBehind.set(currentProject, feedStore.events);
+  }
+
   currentProject = project;
-  feedStore.events = [];
+  feedStore.events = feedsBehind.get(project) ?? [];
+  feedsBehind.delete(project);
   adoptLiveWatch(project);
 }

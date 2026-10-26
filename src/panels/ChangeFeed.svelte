@@ -8,7 +8,7 @@
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import { ensureEditors } from "@/lib/stores/workspace/editors.svelte";
-  import { feedStore, retargetFeed } from "@/lib/stores/workspace/feed.svelte";
+  import { feedStore } from "@/lib/stores/workspace/feed.svelte";
   import { workspaceMembers as storedMembers } from "@/lib/stores/workspace/workspaceMembers.svelte";
   import type { ChangeEvent, WatchStatus } from "@/lib/types";
   import FeedCards from "@/panels/feed/FeedCards.svelte";
@@ -121,9 +121,8 @@
     ]);
   }
 
-  // Re-read the workspace branch on mount and whenever the window switches
-  // projects, and point the persistent feed at the current project so a workspace
-  // switch clears stale events even if the panel was closed during the switch.
+  // Re-read the workspace state on mount and whenever the window switches
+  // projects (the window's services point the feed itself at the project).
   // Reacts to `project` - the loads write state this effect doesn't read, and the
   // editors store's trigger functions are reactivity-transparent (its bookkeeping
   // maps are non-reactive on purpose), so this fires per workspace, never per tick.
@@ -133,7 +132,6 @@
       return;
     }
 
-    retargetFeed(workspace);
     loadWorkspaceState(workspace);
   });
 

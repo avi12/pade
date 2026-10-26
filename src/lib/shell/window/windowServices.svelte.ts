@@ -18,6 +18,7 @@ import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { adoptRunningTasks, initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
 import { watchAppUpdate } from "@/lib/stores/update/appUpdate.svelte";
 import { refreshEditors } from "@/lib/stores/workspace/editors.svelte";
+import { retargetFeed } from "@/lib/stores/workspace/feed.svelte";
 import { projectKind, requestProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
 import { followOwnProject } from "@/lib/stores/workspace/projectLanguages.svelte";
 import {
@@ -110,7 +111,8 @@ export function startWindowServices({ project, windowSessions, repository, isWin
   });
 
   // Watch the open project's files app-wide - not only while the Change Feed is
-  // open - so the Tasks panel auto-updates on a manifest/script edit, and the
+  // open - and show that project's feed, so the Tasks panel auto-updates on a
+  // manifest/script edit, the feed follows the current session, and the
   // task-run and auto-name subscribers see changes from the moment a project
   // opens. Keyed on the project so it re-roots on an in-window switch; the
   // backend is idempotent, so a repeat call for the same root is a no-op.
@@ -121,6 +123,7 @@ export function startWindowServices({ project, windowSessions, repository, isWin
     }
 
     sendMessage(Command.watchStart, { root });
+    retargetFeed(root);
     refreshTaskRunDetection();
   });
 
