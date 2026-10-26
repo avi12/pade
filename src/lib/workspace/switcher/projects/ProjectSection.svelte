@@ -1,7 +1,8 @@
 <script generics="Item" lang="ts">
-  import { emphasized, flipDuration, toggleRow } from "@/lib/ui/motion";
+  import { flipDuration, toggleRow } from "@/lib/ui/motion";
+  import { createReorderGlide } from "@/lib/ui/reorder-glide";
   import type { Snippet } from "svelte";
-  import { flip } from "svelte/animate";
+  import { untrack } from "svelte";
 
   // One titled section of the rail's project list (Pinned or Recent): a sticky
   // head, then one row per item. Nothing renders for an empty section.
@@ -21,15 +22,23 @@
     isReorderAnimated?: boolean;
   } = $props();
 
-  const reorderMotion = $derived.by(() => {
-    if (!isReorderAnimated) {
-      return { duration: 0 };
+  const glide = createReorderGlide({ duration: flipDuration });
+
+  // Before the DOM takes a new order, note where the rows are painted. Only a
+  // real change of order counts: the list is re-derived on every status tick,
+  // and a row merely nudged by its neighbour's growing height must keep
+  // following that growth, not glide against it.
+  let paintedOrder = "";
+  $effect.pre(() => {
+    const order = items.map(key).join("\n");
+    const isReordered = isReorderAnimated && paintedOrder !== "" && order !== paintedOrder;
+    paintedOrder = order;
+
+    if (!isReordered) {
+      return;
     }
 
-    return {
-      duration: flipDuration(),
-      easing: emphasized
-    };
+    untrack(glide.beforeReorder);
   });
 </script>
 
@@ -44,8 +53,8 @@
     <div
       class="item"
       {...itemAttributes?.(item)}
+      {@attach glide.row}
       transition:toggleRow
-      animate:flip={reorderMotion}
     >
       {@render row(item)}
     </div>

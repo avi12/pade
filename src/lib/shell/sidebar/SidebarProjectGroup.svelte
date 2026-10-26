@@ -89,6 +89,7 @@
   // conversations) sit in a fold under them.
   const liveChats = $derived(group.chats.filter(chat => chat.isLive));
   const inactiveChats = $derived(group.chats.filter(chat => !chat.isLive));
+  const hasNoChats = $derived(group.chats.length === 0);
 </script>
 
 {#snippet chatRow(chat: SidebarChat)}
@@ -148,11 +149,12 @@
   <ul class="chats">
     {#each liveChats as chat (chat.id)}
       {@render chatRow(chat)}
-    {:else}
-      {#if inactiveChats.length === 0}
-        <li class="no-chats">No chats yet</li>
-      {/if}
     {/each}
+    <!-- Closes as the first chat opens, so the group grows by the difference
+         instead of shrinking and then growing back. -->
+    {#if hasNoChats}
+      <li class="no-chats" in:expandRow out:collapseRow>No chats yet</li>
+    {/if}
   </ul>
 
   <InactiveChatsFold count={inactiveChats.length} hasLiveChats={liveChats.length > 0} project={group.project}>
