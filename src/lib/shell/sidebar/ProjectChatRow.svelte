@@ -88,7 +88,7 @@
     {:else}
       <span class="agent-icon"><Icon name={agentIconName(chat.agentId)} size={14} /></span>
     {/if}
-    <span class="chat-label">{chat.label}</span>
+    <span class="chat-label" dir="auto">{chat.label}</span>
     <span class="elsewhere" hidden={!isElsewhere}>
       <Icon name="external" size={12} />
       <span class="elsewhere-note">{ELSEWHERE_NOTE}</span>
