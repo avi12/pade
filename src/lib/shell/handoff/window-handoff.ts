@@ -17,8 +17,7 @@ export const HandoffKind = z.enum(["sessions", "conversation", "chat"]);
 
 /** One live session on its way to another window, with its tab's name. */
 const HandedSession = SnapshotSession.extend({
-  project: z.string().min(1),
-  label: z.string().optional()
+  project: z.string().min(1)
 });
 
 const SessionsHandoff = z.object({

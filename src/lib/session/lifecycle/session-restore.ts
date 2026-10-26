@@ -19,6 +19,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
+import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { Agent, ModelChoice } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
@@ -33,7 +34,7 @@ function snapshotStorageKey() {
 
 /** One persisted session - `AgentSession` minus `initialPrompt`, which was
  *  already submitted into the live conversation (restoring it would make the
- *  re-attached terminal send it again). */
+ *  re-attached terminal send it again), plus the tab's name. */
 export const SnapshotSession = z.object({
   id: z.string(),
   agent: Agent,
@@ -48,8 +49,11 @@ export const SnapshotSession = z.object({
   conversationId: z.string().optional(),
   // A model picked for this session alone survives a reload, so its next
   // relaunch keeps running it.
-  modelChoice: ModelChoice.optional()
+  modelChoice: ModelChoice.optional(),
+  // The tab's name, given by hand or by auto-naming, so it keeps it too.
+  label: z.string().optional()
 });
+type SnapshotSession = z.infer<typeof SnapshotSession>;
 
 /** The persisted shape of one session, as a snapshot or a hand-off carries it. */
 export function snapshotSessionOf({
@@ -70,19 +74,28 @@ export function snapshotSessionOf({
     branch,
     args,
     conversationId,
-    modelChoice
-  } satisfies z.infer<typeof SnapshotSession>;
+    modelChoice,
+    label: sessionLabel(id)
+  } satisfies SnapshotSession;
 }
 
 /** A persisted session back as a live one, in `fallbackProject` when it was
- *  saved without its own. */
+ *  saved without its own. Its name goes back to the labels store, which owns it. */
 export function liveSessionOf({ saved, fallbackProject }: {
-  saved: z.infer<typeof SnapshotSession>;
+  saved: SnapshotSession;
   fallbackProject: string;
 }): AgentSession {
+  const { label, ...session } = saved;
+  if (label !== undefined) {
+    setSessionLabel({
+      id: session.id,
+      label
+    });
+  }
+
   return {
-    ...saved,
-    project: saved.project ?? fallbackProject
+    ...session,
+    project: session.project ?? fallbackProject
   };
 }
 

@@ -18,7 +18,6 @@ import {
 } from "@/lib/shell/handoff/window-handoff";
 import type { SessionsHandoff, WindowHandoff } from "@/lib/shell/handoff/window-handoff";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
-import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { WindowMode } from "@/lib/types";
 import type { AgentSession, OpenTarget } from "@/lib/types";
@@ -45,10 +44,7 @@ export function createWindowHandoffs(host: WindowHandoffsHost) {
   function sessionsHandoff(sessions: readonly AgentSession[]): WindowHandoff {
     return {
       kind: HandoffKind.enum.sessions,
-      sessions: sessions.map(session => ({
-        ...snapshotSessionOf(session),
-        label: sessionLabel(session.id)
-      })),
+      sessions: sessions.map(snapshotSessionOf),
       activeId: windowSessions.activeId
     };
   }
@@ -138,15 +134,6 @@ export function createWindowHandoffs(host: WindowHandoffsHost) {
 
   /** Take in live sessions, their PTYs already moved here, titled as they were. */
   function adoptSessions(handoff: SessionsHandoff) {
-    for (const handed of handoff.sessions) {
-      if (handed.label !== undefined) {
-        setSessionLabel({
-          id: handed.id,
-          label: handed.label
-        });
-      }
-    }
-
     windowSessions.adopt({
       adopted: handoff.sessions.map(saved => liveSessionOf({
         saved,

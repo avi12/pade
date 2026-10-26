@@ -5,6 +5,7 @@ import {
   saveSessionSnapshot,
   type SessionSnapshot
 } from "@/lib/session/lifecycle/session-restore";
+import { dropSessionLabel, sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import type { AgentSession } from "@/lib/types";
 import {
   afterEach,
@@ -86,6 +87,28 @@ describe("save / read round trip", () => {
 
     const stored = backing.get(KEY) ?? "";
     expect(stored).not.toContain("build me a thing");
+  });
+
+  it("keeps each session's name, and gives it back when the session is restored", () => {
+    setSessionLabel({
+      id: "a",
+      label: "dark-mode-icon-inversion"
+    });
+    saveSessionSnapshot({
+      project: "C:\\repos\\pade",
+      sessions: [session("a")],
+      paneIds: ["a"],
+      activeId: "a"
+    });
+    dropSessionLabel("a");
+
+    const snapshot = readSessionSnapshot();
+    const restored = snapshot && pruneToLive({
+      snapshot,
+      liveIds: new Set(["a"])
+    });
+    expect(restored?.sessions[0]).not.toHaveProperty("label");
+    expect(sessionLabel("a")).toBe("dark-mode-icon-inversion");
   });
 
   it("keys the snapshot by window label, so a crash-rebuilt window finds its own", () => {
