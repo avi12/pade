@@ -1,0 +1,36 @@
+diff --git a/src/internal/client/dom/blocks/each.js b/src/internal/client/dom/blocks/each.js
+index 58d59a6825000d48bc6234b030d006e16014a6d4..3f5b89b436e31802dd3a2d5b1be85a58d0b2cae5 100644
+--- a/src/internal/client/dom/blocks/each.js
++++ b/src/internal/client/dom/blocks/each.js
+@@ -72,6 +72,12 @@ function pause_effects(state, to_destroy, controlled_anchor) {
+ 	var group;
+ 	var remaining = to_destroy.length;
+ 
++	// Effects whose outro finished synchronously (no transition, or a zero
++	// duration one) before the group below existed - they must not stay
++	// pending in it, or a sibling's real outro never completes the group
++	/** @type {Set<Effect>} */
++	var finished_synchronously = new Set();
++
+ 	for (var i = 0; i < length; i++) {
+ 		let effect = to_destroy[i];
+ 
+@@ -94,6 +100,7 @@ function pause_effects(state, to_destroy, controlled_anchor) {
+ 					}
+ 				} else {
+ 					remaining -= 1;
++					finished_synchronously.add(effect);
+ 				}
+ 			},
+ 			false
+@@ -123,8 +130,8 @@ function pause_effects(state, to_destroy, controlled_anchor) {
+ 		destroy_effects(state, to_destroy, !fast_path);
+ 	} else {
+ 		group = {
+-			pending: new Set(to_destroy),
+-			done: new Set()
++			pending: new Set(to_destroy.filter((effect) => !finished_synchronously.has(effect))),
++			done: finished_synchronously
+ 		};
+ 
+ 		(state.outrogroups ??= new Set()).add(group);
