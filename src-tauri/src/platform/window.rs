@@ -234,9 +234,7 @@ pub fn on_destroyed(window: &Window) {
         mark_left_in_background(previous);
     }
     if !crate::platform::recovery::is_recreate_pending() {
-        if let Some(pty_state) = window.try_state::<crate::terminal::pty::PtyState>() {
-            crate::terminal::pty::kill_owned(pty_state.inner(), window.label());
-        }
+        crate::terminal::pty::kill_owned(window.app_handle(), window.label());
         crate::platform::window_handoff::forget(window.app_handle(), window.label());
     }
     broadcast_windows_changed(window.app_handle());
@@ -568,7 +566,8 @@ pub async fn window_create(
             &label,
             &handed_sessions,
             payload.unwrap_or_default(),
-        )?;
+        )
+        .await?;
     }
     let query = launch.query();
     let url = WebviewUrl::App(format!("index.html?{query}").into());
@@ -592,16 +591,100 @@ pub async fn window_create(
                 window.label(),
                 &label,
                 &handed_sessions,
-            );
+            )
+            .await;
         }
         return Err(error.to_string());
     }
     Ok(())
 }
 
+/// The page a recreated window loads: the app with no `w=` query, whose boot
+/// re-attaches the sessions its label's snapshot names (`reattachAfterReload`).
+const PLAIN_ROUTE: &str = "index.html";
+
+/// Rebuild the windows whose sessions outlived the app. Agents run in the PTY
+/// host, so a restarted app (a dev rebuild, a crash) finds them still running,
+/// owned by window labels it no longer has; `main` comes back by itself, every
+/// other window is built again under its old label, so its persisted snapshot
+/// re-attaches it - no agent is left running where no window can reach it.
+pub(crate) fn recreate_session_windows<'owner>(
+    app: &AppHandle,
+    owners: impl Iterator<Item = &'owner str>,
+) {
+    let live: Vec<String> = app.webview_windows().into_keys().collect();
+    let missing = labels_to_recreate(owners, &live);
+    if missing.is_empty() {
+        return;
+    }
+    reserve_sequences_past(&missing);
+    let main_look = app
+        .get_webview_window(MAIN_WINDOW_LABEL)
+        .map(|main| WindowLook::of(&main));
+    for label in missing {
+        let url = WebviewUrl::App(PLAIN_ROUTE.into());
+        if let Err(error) = app_window_builder(app, &label, url, main_look.as_ref()).build() {
+            eprintln!("[pade] could not recreate window {label} for its running sessions: {error}");
+        }
+    }
+}
+
+/// The owner labels that need a window built: every one not live already,
+/// except `main` (the app always creates it), once each, in creation order.
+fn labels_to_recreate<'owner>(
+    owners: impl Iterator<Item = &'owner str>,
+    live: &[String],
+) -> Vec<String> {
+    let mut labels: Vec<String> = owners
+        .filter(|owner| !owner.is_empty() && *owner != MAIN_WINDOW_LABEL)
+        .filter(|owner| !live.iter().any(|label| label == owner))
+        .map(ToString::to_string)
+        .collect();
+    labels.sort_by_cached_key(|label| (order_key(label), label.clone()));
+    labels.dedup();
+    labels
+}
+
+/// Make sure the next spawned window's `w-{n}` is past every recreated one, so
+/// a new window never collides with a label a running session still owns.
+fn reserve_sequences_past(labels: &[String]) {
+    let highest = labels
+        .iter()
+        .filter_map(|label| {
+            label
+                .strip_prefix(SPAWNED_LABEL_PREFIX)?
+                .parse::<u32>()
+                .ok()
+        })
+        .max();
+    if let Some(highest) = highest {
+        NEXT_WINDOW_SEQUENCE.fetch_max(highest.saturating_add(1), Ordering::Relaxed);
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{cycled_index, order_key, window_sort_key, CycleDirection, LaunchMode};
+    use super::{
+        cycled_index, labels_to_recreate, order_key, reserve_sequences_past, window_sort_key,
+        CycleDirection, LaunchMode, NEXT_WINDOW_SEQUENCE,
+    };
+
+    #[test]
+    fn only_missing_windows_other_than_main_are_recreated_once_each_in_order() {
+        let owners = ["w-10", "main", "w-2", "w-2", "w-3", "dashboard"];
+        let live = vec!["main".to_string(), "w-3".to_string()];
+        assert_eq!(
+            labels_to_recreate(owners.into_iter(), &live),
+            ["w-2", "w-10", "dashboard"]
+        );
+        crate::test_support::assert_empty(&labels_to_recreate(["main"].into_iter(), &[]));
+    }
+
+    #[test]
+    fn new_windows_number_past_every_recreated_one() {
+        reserve_sequences_past(&["w-40".to_string(), "dashboard".to_string()]);
+        assert!(NEXT_WINDOW_SEQUENCE.load(std::sync::atomic::Ordering::Relaxed) > 40);
+    }
 
     /// Sort the live window labels the way `window_list`/`window_focus_relative` do,
     /// given the user's explicit order - the behaviour both commands share.

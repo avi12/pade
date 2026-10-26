@@ -37,8 +37,20 @@ writes.
   rewritten to the project actually on screen so a reload never routes off a
   stale spawn intent. The key survives the *rebuilt* webview a crash recovery
   hands the window, which sessionStorage did not - that gap orphaned live PTYs
-  behind a freshly spawned agent. Still never across an app restart: the backend
-  kills all PTYs on exit, so the intersection is empty and the snapshot cleared.
+  behind a freshly spawned agent. Never across a *deliberate* app exit: the app
+  ends every PTY as it exits, so the intersection is empty and the snapshot
+  cleared.
+- R1.1.7a ✅ **Agents survive an app that is killed** - a dev rebuild
+  (`tauri dev` restarting `pade.exe`) or a crash. The PTYs live in a separate
+  PTY host process (the same executable in `--pty-host` mode, run from a
+  build-named copy, started outside cargo's job and the app's process tree),
+  one per app instance; the restarted app reconnects, rebuilds every window
+  other than `main` that still owns sessions under its old label, and each
+  window re-attaches through R1.1.7. The host ends itself after 60 s with no
+  sessions and no app, and a crashed host takes its agents with it (a
+  kill-on-close job), so no agent is ever left running unreachable. A host from
+  an older build keeps serving its sessions; an idle one, or one speaking
+  another protocol version, is replaced.
 - R1.1.8 ✅ **Intent-based leave** - a deliberate leave (back to the picker,
   closing the window) kills the window's agents - of every project it holds -
   *gracefully*: it

@@ -80,8 +80,16 @@ pub fn run() {
         if let Err(error) = process_priority::lower_current_process() {
             eprintln!("could not lower PADE process priority: {error}");
         }
-        configure_webview2_environment();
     }
+    // Started as the PTY host (a build-named copy of this executable, run by
+    // the app): serve the agents' terminals and exit, with no window at all.
+    // After the priority drop above, so the host and every agent it starts
+    // inherit it.
+    if terminal::pty_host::run_if_requested() {
+        return;
+    }
+    #[cfg(windows)]
+    configure_webview2_environment();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -254,7 +262,9 @@ pub fn run() {
         .run(|handle, event| {
             // As the app exits, terminate every agent PTY so no child lingers
             // and the workspace cwd-lock is released - letting the user reopen
-            // and pick up cleanly. The frontend has already closed its sessions
+            // and pick up cleanly. Only a deliberate exit gets here: a killed
+            // app (a dev rebuild, a crash) leaves its agents running in the
+            // PTY host, and the next start re-attaches them. The frontend has already closed its sessions
             // gracefully by now (App intercepts the window close and waits for
             // each agent's idle prompt before killing); this is the backstop
             // for whatever a force-close or a crashed WebView leaves behind.
@@ -278,8 +288,8 @@ pub fn run() {
                 api.prevent_exit();
                 return;
             }
-            if let Some(state) = handle.try_state::<terminal::pty::PtyState>() {
-                terminal::pty::kill_all(state.inner());
+            if let Some(host) = handle.try_state::<terminal::pty_host::client::HostClient>() {
+                terminal::pty::kill_all(host.inner());
             }
         });
 }

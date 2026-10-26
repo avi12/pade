@@ -1,0 +1,37 @@
+# PADE kill-on-close job object shim.
+#
+# The PTY host puts itself - and so every agent it spawns - into a Windows job
+# object, so a host that crashes or is killed takes its agents with it instead
+# of leaving them running where nothing can reach them. Job objects are only
+# reachable through unsafe system calls, and the main `pade` crate forbids
+# unsafe code, so this workspace member owns that FFI boundary (the same split
+# as `process-priority`). It pins the `windows` crate to the version already in
+# the tree through wry, so it adds no new supply-chain surface.
+[package]
+name = "process-job"
+version = "0.0.1"
+description = "Safe wrapper for the PTY host's Windows kill-on-close job object"
+authors = ["Avi"]
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[target."cfg(windows)".dependencies]
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+] }
+
+[lints.rust]
+unused_qualifications = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+unwrap_used = "deny"
+expect_used = "allow"

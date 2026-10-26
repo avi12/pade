@@ -4,7 +4,7 @@
 //! window.
 //!
 //! A hand-off is two things that must travel together: the live PTYs change
-//! owner (`pty::transfer_sessions`, the processes keep running untouched), and
+//! owner (`pty::transfer_sessions` - in the PTY host, the processes keep running untouched), and
 //! the receiving window learns what it now holds - an opaque payload the
 //! frontend wrote and validates on arrival (zod), parked here per receiving
 //! window until it takes it. A window that already runs is told by the
@@ -16,7 +16,8 @@ use std::sync::Mutex;
 
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
-use crate::terminal::pty::{transfer_sessions, PtyState};
+use crate::terminal::pty::transfer_sessions;
+use crate::terminal::pty_host::client::HostClient;
 
 /// The event a receiving window takes its parked hand-offs on.
 const HANDOFF_EVENT: &str = "window://handoff";
@@ -33,7 +34,7 @@ pub struct WindowHandoffs(Mutex<HashMap<String, Vec<String>>>);
 /// Move `sessions` from window `from` to window `to` and park `payload` for
 /// `to`. The PTYs move first: when they cannot (one is gone, or `to` is full),
 /// nothing is parked and the sending window keeps everything.
-pub fn hand_off(
+pub async fn hand_off(
     app: &AppHandle,
     from: &str,
     to: &str,
@@ -43,34 +44,43 @@ pub fn hand_off(
     if payload.len() > MAXIMUM_HANDOFF_BYTES {
         return Err("hand-off exceeds its size limit".into());
     }
-    let pty_state = app.state::<PtyState>();
-    transfer_sessions(pty_state.inner(), from, to, sessions)?;
+    let host = app.state::<HostClient>();
+    transfer_sessions(&host, from, to, sessions).await?;
+    let is_parked = park(app, to, payload)?;
+    if !is_parked {
+        transfer_sessions(&host, to, from, sessions).await?;
+        return Err("the receiving window has too many hand-offs waiting".into());
+    }
+    Ok(())
+}
+
+/// Park `payload` for window `to`, unless too many already wait there.
+fn park(app: &AppHandle, to: &str, payload: String) -> Result<bool, String> {
     let handoffs = app.state::<WindowHandoffs>();
     let mut parked = handoffs.0.lock().map_err(|error| error.to_string())?;
     let waiting = parked.entry(to.to_string()).or_default();
     if waiting.len() >= MAXIMUM_PARKED_HANDOFFS {
-        drop(parked);
-        transfer_sessions(pty_state.inner(), to, from, sessions)?;
-        return Err("the receiving window has too many hand-offs waiting".into());
+        return Ok(false);
     }
     waiting.push(payload);
-    Ok(())
+    Ok(true)
 }
 
 /// Give back sessions a hand-off moved to a window that never came to be, so
 /// the sending window still owns them.
-pub fn undo_hand_off(app: &AppHandle, from: &str, to: &str, sessions: &[String]) {
-    let pty_state = app.state::<PtyState>();
-    if let Err(error) = transfer_sessions(pty_state.inner(), to, from, sessions) {
+pub async fn undo_hand_off(app: &AppHandle, from: &str, to: &str, sessions: &[String]) {
+    let host = app.state::<HostClient>();
+    if let Err(error) = transfer_sessions(&host, to, from, sessions).await {
         eprintln!("[pade] could not return sessions after a failed hand-off: {error}");
     }
     forget(app, to);
 }
 
 /// Hand the calling window's `sessions` to the open window `to`, focus it, and
-/// tell it to take them. False when `to` is not an open window.
+/// tell it to take them. False when `to` is not an open window. Async: moving
+/// the sessions is a round trip to the PTY host.
 #[tauri::command]
-pub fn window_hand_off(
+pub async fn window_hand_off(
     app: AppHandle,
     window: WebviewWindow,
     to: String,
@@ -81,7 +91,7 @@ pub fn window_hand_off(
     if !is_other_open_window {
         return Ok(false);
     }
-    hand_off(&app, window.label(), &to, &sessions, payload)?;
+    hand_off(&app, window.label(), &to, &sessions, payload).await?;
     let _ = app.emit_to(to.as_str(), HANDOFF_EVENT, ());
     if let Some(target) = app.get_webview_window(&to) {
         let _ = target.unminimize();

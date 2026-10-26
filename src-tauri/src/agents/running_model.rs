@@ -121,7 +121,7 @@ impl EffortOption {
 }
 
 /// A model and effort picked from the tab, for one session alone.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelChoice {
     model: Option<String>,
@@ -221,9 +221,17 @@ pub async fn agent_apply_model(
 
     let owner = window.label().to_string();
     tauri::async_runtime::spawn_blocking(move || {
-        let pty_state = app.state::<crate::terminal::pty::PtyState>();
-        let type_keys =
-            |keys: &str| crate::terminal::pty::write_input(&pty_state, &owner, &session_id, keys);
+        let host = app.state::<crate::terminal::pty_host::client::HostClient>();
+        // On the blocking pool, so waiting here for each keystroke's round trip
+        // to the PTY host holds no async worker.
+        let type_keys = |keys: &str| {
+            tauri::async_runtime::block_on(crate::terminal::pty::write_input(
+                &host,
+                &owner,
+                &session_id,
+                keys,
+            ))
+        };
         claude::apply_live(&conversation_id, &choice, &type_keys).map(|()| SwitchOutcome::Applied)
     })
     .await

@@ -395,6 +395,15 @@ pub(crate) fn launch_directory() -> LaunchDirectory {
     }
 }
 
+/// The launch directory, canonicalized when it can be - the identity of this
+/// app instance. Two instances launched into different projects are different
+/// instances (their own `WebView2` folder, their own PTY host); a relaunch into
+/// the same one is the same instance again.
+pub(crate) fn canonical_launch_directory() -> PathBuf {
+    let launch = launch_directory().path;
+    std::fs::canonicalize(&launch).unwrap_or(launch)
+}
+
 /// This instance's `WebView2` user-data folder, keyed by the launch project so two
 /// projects open in parallel each run in their own browser + GPU process tree
 /// instead of sharing one - the shared default lets one instance's GPU load (and
@@ -412,8 +421,7 @@ pub(crate) fn webview_data_directory() -> Option<PathBuf> {
     const UNNAMED_PROJECT: &str = "project";
 
     let base = crate::util::pade_data_directory()?;
-    let launch = launch_directory().path;
-    let canonical = std::fs::canonicalize(&launch).unwrap_or(launch);
+    let canonical = canonical_launch_directory();
     let key = canonical.to_string_lossy().to_lowercase();
 
     let mut hasher = std::collections::hash_map::DefaultHasher::new();

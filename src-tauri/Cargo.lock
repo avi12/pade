@@ -2815,6 +2815,7 @@ dependencies = [
  "notify",
  "png 0.18.1",
  "portable-pty",
+ "process-job",
  "process-priority",
  "rusqlite",
  "serde",
@@ -2826,6 +2827,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-global-shortcut",
  "tauri-plugin-opener",
+ "tokio",
  "toml 1.1.8+spec-1.1.0",
  "tungstenite",
  "ureq",
@@ -3156,6 +3158,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "process-job"
+version = "0.0.1"
+dependencies = [
+ "windows",
 ]
 
 [[package]]

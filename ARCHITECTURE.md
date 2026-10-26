@@ -75,19 +75,71 @@ flowchart TB
     Panels["panels &amp; menus<br/>Terminal · ChangeFeed · Vcs · Tasks · Config"]
     Bridge["lib/ipc/messaging.ts<br/>the one IPC door · sendMessage · onMessage · zod-validated"]
   end
-  subgraph BE["Rust core · Tauri (native)"]
+  subgraph BE["Rust core · Tauri (native) · pade.exe"]
     Cmds["#tauri::command handlers"]
-    Pty["terminal/pty.rs<br/>pseudo-terminals"]
+    Pty["terminal/pty.rs<br/>terminal commands · pty_host/client"]
     Rest["agents/ · workspace/ · platform/ · usage/ · vcs/"]
+  end
+  subgraph Host["PTY host · same exe, --pty-host · outlives the app"]
+    Server["terminal/pty_host/server.rs"]
+    Engine["terminal/session/<br/>pseudo-terminals"]
   end
   OS["OS · git · agent CLIs · editors"]
   App --> Panels --> Bridge
   Bridge -->|"invoke() + events"| Cmds
   Cmds --> Pty
   Cmds --> Rest
-  Pty --> OS
+  Pty <-->|"named pipe · NDJSON"| Server
+  Server --> Engine
+  Engine --> OS
   Rest --> OS
 ```
+
+**Agents live in a separate process.** The pseudo-terminals are owned by the
+**PTY host** - the same executable started with `--pty-host`, from a
+build-named copy under `%LOCALAPPDATA%\pade\pty-host\bin` (a running exe is
+locked on Windows, so running the host from `pade.exe` itself would break every
+rebuild and every update). One host serves one app instance (one launch
+project). Because it is a different process, killing or rebuilding `pade.exe`
+(`tauri dev` on a Rust change, a crash) leaves every agent running; the next
+app start reconnects, rebuilds any window other than `main` that still owns
+sessions (same label, plain route), and each window re-attaches exactly as it
+does after a reload. A **deliberate** exit is unchanged: `kill_all` ends every
+session before the app goes. The frontend cannot tell: the commands and
+`pty://` events are the same.
+
+```mermaid
+sequenceDiagram
+  participant A as pade.exe (pty_host/client)
+  participant F as pty-host/&lt;instance&gt;/host.json
+  participant W as WMI (Win32_Process.Create)
+  participant H as PTY host (pty_host/server)
+  A->>F: read endpoint + token
+  alt no host, or it is gone
+    A->>W: create the copy with --pty-host (outside cargo's job, no parent in the app's tree)
+    W->>H: start
+    H->>H: join a kill-on-close job · listen on a random pipe
+    H->>F: write state (temp + rename)
+  end
+  A->>H: Hello { protocolVersion, token }
+  H-->>A: Welcome { fingerprint, sessionCount }
+  A->>H: List (every owner) → recreate missing windows
+  loop the app's life
+    A->>H: Spawn / Write / Resize / Kill / History / … (request id)
+    H-->>A: Reply · Output → pty://data · Exited → pty://exit
+  end
+  Note over A,H: app killed → pipe closes → host keeps the agents<br/>host gone → app emits pty://exit for every session it knew
+```
+
+Lifecycle rules: a host exits on its own after 60 s with no sessions and no app
+attached; a host that speaks another protocol version is **retired** (its
+sessions end) by the newer app, and so is an *idle* host of an older build, so
+new sessions run current launch code - a busy host of an older build keeps
+serving (its sessions are what a rebuild must not kill). Only one app attaches
+at a time; a second live app of the same instance gets a private host. The host
+joins a `KILL_ON_JOB_CLOSE` job (`process-job` crate), so a crashed host takes
+its agents with it rather than stranding them; a deliberate host exit clears
+that limit first.
 
 ### Screens are phases
 
@@ -175,10 +227,10 @@ sequenceDiagram
   participant You
   participant T as Terminal.svelte · terminalSession
   participant B as ipc/messaging
-  participant R as terminal/pty.rs (portable-pty)
+  participant R as terminal/pty.rs → PTY host (session/, portable-pty)
   You->>T: open a session
   T->>B: sendMessage(Command.ptySpawn, { id, command, args, cwd })
-  B->>R: invoke pty_spawn
+  B->>R: invoke pty_spawn (forwarded to the host with the app's environment)
   Note over R: applies agents::spawn_environment(command)<br/>- e.g. Claude Code's classic renderer
   T->>R: pty_history(id)
   R-->>T: everything the session has said so far
@@ -191,7 +243,7 @@ A spawn for a session that is already running is a no-op, so a terminal may be
 mounting onto a conversation **in flight** - a hot-reloaded component, a reloaded
 window. A PTY keeps no scrollback of its own, so without a replay that terminal has
 nothing to paint and sits blank while the agent, quite happily, waits for input (it
-reads as "the agent isn't starting"). `pty.rs` therefore keeps each session's raw
+reads as "the agent isn't starting"). The session engine (`terminal/session`, in the PTY host) therefore keeps each session's raw
 stream and hands it back through `pty_history`. Every chunk carries its position in
 the stream, so a frontend already listening to the live feed while it asks for the
 history can tell which chunks that history already contains from which are new.
@@ -209,10 +261,14 @@ dealt with) first waits for each session to go idle (`whenSessionIdle` - the
 `ready` output-quiet signal, so nothing mid-flight is severed; the agent's own
 auto-save plus `/resume` cover continuity) and then kills its PTYs, which is
 exactly why nothing survives the next boot's intersection. The intersection is
-the whole safety story, so the snapshot is free to outlive the webview: an app
-restart kills every PTY, so a snapshot left behind by an earlier run matches
-nothing live and is cleared instead of resurrecting agents the user meant to
-end. It must outlive it, because a crashed window is rebuilt with a *fresh*
+the whole safety story, so the snapshot is free to outlive the webview: a
+deliberate app exit kills every PTY, so a snapshot left behind by an earlier run
+matches nothing live and is cleared instead of resurrecting agents the user
+meant to end. An app that was *killed* (a dev rebuild, a crash) ended nothing:
+its agents are still in the PTY host, so the same intersection re-attaches them
+in the restarted app - in `main`, and in every other window, which the app
+rebuilds under its old label for exactly this. The snapshot must outlive the
+webview, because a crashed window is rebuilt with a *fresh*
 webview - sessionStorage went with the old one, and the record of which sessions
 the window owned went with it.
 
@@ -226,7 +282,7 @@ same label and that URL; the fresh frontend re-adopts the label's
 still-running sessions exactly as a manual reload would, and re-arms itself.
 
 A **fullscreen** program's history is not a document, though - it is a stream of edits
-to a framebuffer, and a trimmed one replays as a torn frame. So `pty.rs` also tracks
+to a framebuffer, and a trimmed one replays as a torn frame. So `session/output.rs` also tracks
 which screen the program is on, and for the alternate one the terminal replays what it
 has and then asks the program to repaint (a one-row resize and back): the program's own
 model of the screen is the only complete copy.
@@ -295,7 +351,7 @@ twice (unless this window already runs it), so two windows may each run sessions
 of one project only when one of them has it in the background.
 
 **Moving live sessions between windows.** A PTY belongs to the window that owns
-it, and its output pump reads that owner per chunk (`pty::SessionOwner`), so
+it, and its output pump reads that owner per chunk (`session::registry::SessionOwner`), so
 handing a session to another window is an owner change - the process keeps
 running untouched - followed by the receiving window re-attaching its terminal
 the usual way (spawn is a no-op for a live session, `pty_history` replays it).
@@ -1082,8 +1138,9 @@ flowchart TB
   Agents & Terminal & Workspace & Platform & Usage & Vcs --> Util
 ```
 
-The folders talk across a few seams only: `terminal::pty` spawns what the
-`agents` registry resolves and themes it through `terminal::theming`;
+The folders talk across a few seams only: `terminal::session` (in the PTY
+host process) spawns what the `agents` registry resolves and themes it through
+`terminal::theming`;
 `agents::running_model` types into a session through `terminal::pty`;
 `workspace::watcher` hands videos to `platform::media`; `workspace` borrows
 `agents::naming::sanitize` and `platform::window`'s open-project list; and
@@ -1097,6 +1154,7 @@ The folders talk across a few seams only: `terminal::pty` spawns what the
 | `util.rs` | Cross-cutting helpers, one home each. Executable resolution (`search_directories`, `find_in`, `resolve`, `is_on_path`); `command` (windowless child processes) and `shell_command` (a command line through the platform shell - `COMMAND_SHELL` / `COMMAND_SHELL_RUN_FLAG`, `cmd /C` on Windows so `.cmd` shims resolve, `sh -c` elsewhere - read by the task runner, the package-manager reinstall after a move, the IDE launcher and the junction maker); `spawn_detached` (a fully detached GUI-app launch - Windows job/console breakaway with a no-breakaway fallback - so a spawned editor outlives PADE); `succeeds_within` / `exits_successfully_within` (a child waited on under a hard deadline, killed and reaped on overrun) and `capture_within` (the same deadline with stdin closed and stdout/stderr drained on their own threads - an agent's one-shot reply, a CLI's usage printout). The clock: `now_milliseconds`, `milliseconds_since_unix_epoch` and `since_unix_epoch` are what every timestamp, nonce, stamped file name and modified-time comparison reads. Path equality: `comparable_path` / `same_path` (separator- and trailing-slash-blind, case-blind on Windows), read by the window registry, the workspace pins and open-project checks, the Codex resume lookup and the search-path de-dupe. `json_string_field` (one flat string field off a JSON line without a full parse, for the Codex rollout meta line and Claude's transcript). The IPC bounds `MAXIMUM_SESSION_ID_BYTES` / `MAXIMUM_PATH_BYTES`, shared by `terminal::pty` and `terminal::runner` so an id one accepts the other never rejects. Also `home_directory`, `pade_data_directory`, `read_json` / `read_jsonc`, `newest_in_tail`, `write_if_stale`, `encode_project`, `percent_encode`, `owner_access`, and `SKIPPED_DIRECTORIES` / `is_noise_directory` - the one list of build-output and dependency directories both project walks prune (`agents::naming`'s file census, `terminal::tasks`'s manifest scan) |
 | `test_support.rs` | Test-only (`#[cfg(test)]`): shared assertions, `assert_empty` / `assert_not_empty`, which print what a collection held on failure (Rust 1.99's `assert_is_empty` lint rejects a bare `assert!(x.is_empty())`) |
 | `process-priority/` | Tiny Windows FFI workspace crate behind a safe `lower_current_process` API. `lib.rs` calls it before WebView2 or PTY creation, so PADE, agents, and agent-launched tools inherit below-normal scheduling and yield CPU to other applications |
+| `process-job/` | Tiny Windows FFI workspace crate behind a safe `KillOnCloseJob`: the PTY host joins a `KILL_ON_JOB_CLOSE` job at start, so a crashed or killed host takes every agent with it instead of stranding them; `release` drops the limit on a deliberate host exit so whatever an agent launched to outlive it survives |
 
 ### Agents (`agents.rs` + `agents/`)
 
@@ -1110,14 +1168,17 @@ The folders talk across a few seams only: `terminal::pty` spawns what the
 | `agents/conversation_watch.rs` | Keeps the left rail's recorded conversations live: one app-wide notify watch on Claude's `~/.claude/projects` (`agents::claude_projects_directory`), Codex's `sessions` tree and `session_index.jsonl` under `codex_home`, and Copilot's session-state folders and `workspace.yaml`, emitting `agent-conversations://changed` with `{ project }`. A Claude change names its project by matching the encoded folder against the projects `agent_conversations` was asked about (subagent transcripts are ignored); Codex and Copilot paths name none, so they emit `project: null` for every listed project. A transcript grows on every token batch, so a dedicated thread throttles per project: the first change goes out at once, further ones within `EMISSION_INTERVAL` (1 s) fold into one trailing emit at its end |
 | `agents/resume.rs` | Resume arguments for agents whose CLI can reopen a recorded conversation but gives ADE no way to pick the id at spawn: `agent_resume_args` resolves Codex's newest *interactive* rollout (`sessions/**/rollout-*.jsonl` under `codex_home`, first-line `session_meta`; oneshot `exec` rollouts skipped) whose recorded `cwd` is the session's (`util::same_path`), yielding `["resume", "<uuid>"]`, and opencode's newest recorded session for the directory (queried through `opencode db` - stdin nulled, wait capped, child killed on overrun - so a wedged lookup can never hang a spawn), yielding `["--session", "<ses_…>"]` or no flag when nothing is recorded (a blind `--continue` walks opencode's legacy history and throws its #28486 server error) - how a scheme-flip restart (`stores/agent/agentRetheme`) respawns either agent on the new theme without losing its conversation. Claude needs none of this: its conversation is pinned at spawn via `--session-id` |
 | `agents/session_context.rs` | How full a session's context window is, read off disk instead of scraped off the terminal - the terminal is not a reliable source, since Claude Code renders no percentage until the last ~3% of the window. `agent_session_context` answers both halves from Claude's own per-conversation log - the transcript its hooks last named (`running_model::reported_transcript`; a resumed session logs under Claude's new id), else `~/.claude/projects/*/<conversationId>.jsonl`: USED from the newest turn's `usage` block (input + cache read + cache write + output, i.e. everything the next request re-sends), found by a backwards tail scan that widens 64 KB → 1 MB → 8 MB rather than parsing a growing multi-megabyte transcript; and the WINDOW from the `"model"` the same log records, sized by the live **models.dev** catalog (`api.json`, public, flattened to model→largest `limit.context`, fetched once per run behind a 6h TTL). Nothing about model→window is hardcoded. Only Claude is resolved on purpose: Codex writes no per-turn accounting and its only on-screen counts are tool output, so a window would re-arm the false handoff `context.svelte.ts` guards against. The pane's `session-readings` re-reads it at every idle → `observeSessionLog` (the window never overriding a live banner reading). `logged_claude_turn` exposes the newest real logged turn's model and effort (skipping Claude's `<synthetic>` placeholder) as `running_model`'s fallback for a session launched before the hooks. Tail scans go through `util::newest_in_tail`, field reads through `util::json_string_field` `session_links` collects the web addresses a conversation worked with from the same logs: only the conversation's own entries (messages, tool output, Claude's `pr-link` records - not tool schemas or system text), its own log first and then the project's earlier logs on the same branch (a resumed session continues in a fresh log), each log read once per change |
-| `agents/running_model.rs` (+ `agents/running_model/{claude,codex,copilot,opencode}.rs`) | The model and effort each agent session runs, learned from the agent itself - never its terminal. `attach` (called by `terminal::pty::build_command`) gives every launch `PADE_CONVERSATION_ID` plus its adapter's arguments/environment; `agent_running_model` reads through the adapter. **Claude**: `SessionStart` / `PostModelSwitch` / `Stop` hooks merged into the ONE `--settings` JSON PADE passes for the live theme (Claude honours only the last `--settings`); effort is the newer of the last `Stop` report and the last `/effort` the session's own transcript logs ("Set effort level to …"); the shared `~/.claude/settings.json` `modelSettings.<model>.effortLevel` only stands in before either and from a model switch on, never dated by the file's last write (every session, and PADE's own default-restore, rewrites it). A settings write is announced again a second later, once the transcript has caught up. **Codex**: the same three hooks passed with `-c`, trusted by Codex's own fingerprint (sha256 of the sorted-key hook JSON) in a second `-c hooks.state=…` - never the bypass flag; it runs hooks in PowerShell, hence `HookShell`. Its settings folder is `agents::codex_home`. Effort comes from the rollout's newest `turn_context`; `/model` writes `config.toml` at once, which also covers the time before the first prompt (Codex opens its session lazily). **Copilot**: pinned with `--resume=<id>` (`agents::SessionIdFlag::Joined`); reads `~/.copilot/session-state/<id>/events.jsonl` `session.model_change`. **OpenCode**: `OPENCODE_CONFIG_CONTENT` adds a PADE plugin for that launch alone, writing to `PADE_MODEL_STATE_FILE` on each prompt; the configured model stands in before. Hooks run `pade.exe --agent-hook-sink`, which `lib::run` short-circuits into: fold the report into `%LOCALAPPDATA%\pade\agent-model\<conversationId>.json` (stamped with `util::now_milliseconds`) and exit. A notify watch on that folder, the shared settings files and Copilot's session folders emits `agent-model://changed` (`sessionId`, or null for a shared settings change); state files older than 14 days are pruned at start. `agent_model_options` reads each agent's own model catalog: Claude's cached `/model` picker catalog (`~/.claude/cache/model-catalog/*-cc.json` - names, labelled effort options, the Recommended badge), Codex's `models_cache.json` (listed models, supported reasoning levels, default), OpenCode's picker favourites/recents described by its cached models.dev catalog, and the models Copilot's recent sessions ran (its `--effort` choices are fixed). **Switching** (`agent_apply_model`, driven by `stores/modelSwitch` from the tab's `ModelTag` → `ModelMenu` = `ModelPicker` + `EffortPicker`): Claude switches in place, even mid-turn - Ctrl+S stashes the draft, `/model` then `/effort` are typed via `terminal::pty::write_input`, each confirmed by Claude saving it to `settings.json` (never by the screen; a one-shot `.switch-permission` file lets the sync `PreModelSwitch` hook skip the confirmation for PADE's own switch), then the saved default is restored so only that session changes. Every other agent answers `NeedsRestart`: the choice is remembered on `AgentSession.modelChoice`, and once the session is idle with no background work it relaunches on its own conversation (`resume_arguments` - the agent session id its hooks/plugin reported) with `attach`'s per-agent launch flags (`--model/--effort`, `-c model=…`, `-m`), which never persist. The handoff scan holds back while a switch applies; a pick made during a handoff goes to the successor (`choiceForSuccessor`). **Ultracode**: `agent_running_model` returns a `SessionModel` (the running model + `ultracode`); for Claude it is on when the newest `ultra_effort_enter` / `ultra_effort_exit` attachment in the session transcript is an enter (Claude writes them only as a prompt is sent, so a `UserPromptSubmit` hook makes the tab re-read right then). `ModelTag` marks it with a bolt beside the tinted name. Grok, Antigravity, Cursor and aider expose no per-session source without editing the user's global config, so they report nothing |
+| `agents/running_model.rs` (+ `agents/running_model/{claude,codex,copilot,opencode}.rs`) | The model and effort each agent session runs, learned from the agent itself - never its terminal. `attach` (called by `terminal::session::launch::build_command`, inside the PTY host) gives every launch `PADE_CONVERSATION_ID` plus its adapter's arguments/environment; `agent_running_model` reads through the adapter. **Claude**: `SessionStart` / `PostModelSwitch` / `Stop` hooks merged into the ONE `--settings` JSON PADE passes for the live theme (Claude honours only the last `--settings`); effort is the newer of the last `Stop` report and the last `/effort` the session's own transcript logs ("Set effort level to …"); the shared `~/.claude/settings.json` `modelSettings.<model>.effortLevel` only stands in before either and from a model switch on, never dated by the file's last write (every session, and PADE's own default-restore, rewrites it). A settings write is announced again a second later, once the transcript has caught up. **Codex**: the same three hooks passed with `-c`, trusted by Codex's own fingerprint (sha256 of the sorted-key hook JSON) in a second `-c hooks.state=…` - never the bypass flag; it runs hooks in PowerShell, hence `HookShell`. Its settings folder is `agents::codex_home`. Effort comes from the rollout's newest `turn_context`; `/model` writes `config.toml` at once, which also covers the time before the first prompt (Codex opens its session lazily). **Copilot**: pinned with `--resume=<id>` (`agents::SessionIdFlag::Joined`); reads `~/.copilot/session-state/<id>/events.jsonl` `session.model_change`. **OpenCode**: `OPENCODE_CONFIG_CONTENT` adds a PADE plugin for that launch alone, writing to `PADE_MODEL_STATE_FILE` on each prompt; the configured model stands in before. Hooks run `pade.exe --agent-hook-sink`, which `lib::run` short-circuits into: fold the report into `%LOCALAPPDATA%\pade\agent-model\<conversationId>.json` (stamped with `util::now_milliseconds`) and exit. A notify watch on that folder, the shared settings files and Copilot's session folders emits `agent-model://changed` (`sessionId`, or null for a shared settings change); state files older than 14 days are pruned at start. `agent_model_options` reads each agent's own model catalog: Claude's cached `/model` picker catalog (`~/.claude/cache/model-catalog/*-cc.json` - names, labelled effort options, the Recommended badge), Codex's `models_cache.json` (listed models, supported reasoning levels, default), OpenCode's picker favourites/recents described by its cached models.dev catalog, and the models Copilot's recent sessions ran (its `--effort` choices are fixed). **Switching** (`agent_apply_model`, driven by `stores/modelSwitch` from the tab's `ModelTag` → `ModelMenu` = `ModelPicker` + `EffortPicker`): Claude switches in place, even mid-turn - Ctrl+S stashes the draft, `/model` then `/effort` are typed via `terminal::pty::write_input`, each confirmed by Claude saving it to `settings.json` (never by the screen; a one-shot `.switch-permission` file lets the sync `PreModelSwitch` hook skip the confirmation for PADE's own switch), then the saved default is restored so only that session changes. Every other agent answers `NeedsRestart`: the choice is remembered on `AgentSession.modelChoice`, and once the session is idle with no background work it relaunches on its own conversation (`resume_arguments` - the agent session id its hooks/plugin reported) with `attach`'s per-agent launch flags (`--model/--effort`, `-c model=…`, `-m`), which never persist. The handoff scan holds back while a switch applies; a pick made during a handoff goes to the successor (`choiceForSuccessor`). **Ultracode**: `agent_running_model` returns a `SessionModel` (the running model + `ultracode`); for Claude it is on when the newest `ultra_effort_enter` / `ultra_effort_exit` attachment in the session transcript is an enter (Claude writes them only as a prompt is sent, so a `UserPromptSubmit` hook makes the tab re-read right then). `ModelTag` marks it with a bolt beside the tinted name. Grok, Antigravity, Cursor and aider expose no per-session source without editing the user's global config, so they report nothing |
 
 ### Terminal (`terminal.rs` + `terminal/`)
 
 | Module | Responsibility |
 | --- | --- |
 | `terminal.rs` | Parent only: declares the submodules below, everything that runs inside or paints a terminal pane |
-| `terminal/pty.rs` | PTY host - runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty), applying the registry's per-agent spawn environment (plus `theming`'s per-scheme theme environment for the caller's scheme), and - on **Windows + a light scheme**, for an agent whose composer box follows the *detected* terminal background (`agents::needs_light_console_fix`, i.e. Codex) - prefixing the launch with `cmd /c color F0 & …` so the ConPTY console buffer reads light before the agent probes it (the only lever: ConPTY hard-codes a BLACK buffer that no environment/argument/config/OSC channel can change; each token stays a separate argv entry so portable-pty quotes the path cmd-compatibly); and, for an agent that supports it, binding the session to a caller-chosen **conversation id** (`agents::session_id_flag` → `claude --session-id <uuid>`, so a restart resumes that exact conversation). Every session records its owner window: lists expose only that owner's sessions, commands reject foreign callers, and events use `emit_to`; a matching label still permits same-window reload re-adoption. The owner is shared with the session's output pump (`SessionOwner`), so `transfer_sessions` moves live sessions to another window - all or nothing, the processes untouched - and their very next chunk streams there; `kill_owned` ends every session of a window that closed for good. Per-window session, dimension, argument, and input caps bound resource use (the id and path bounds come from `util`). The host keeps each session's replayable history so a terminal can attach to a conversation in flight; dropping a session kills **and reaps** its child, and `kill_all` leaves nothing behind on app exit; `session_task_stop` / `session_task_running` reach a task the agent started **itself** (which PADE never spawned) by walking that session's OS process tree and matching the task command - agent-agnostic, no per-agent output parsing - so the Tasks dock can stop it and reflect its liveness. The tree-walk + command match are pure (`task_processes`, `command_matches`, unit-tested); the snapshot is one CIM query (no `wmic`) |
+| `terminal/pty.rs` | The app's face on the terminal sessions: the `pty_*` / `session_task_*` Tauri commands with their IPC input validation (per-window dimension, argument and input caps; the id and path bounds come from `util`), the calling window's label as the owner the host checks, and the `pty://data` / `pty://exit` events (`emit_output`, `emit_exit`, `emit_to` the owner). Every spawn carries the app's environment and working directory to the host, so an agent starts as if the app had spawned it. `kill_owned` (a window closed for good) and `kill_all` (a deliberate exit, waited for) end sessions; `init` connects at startup and rebuilds any window whose sessions outlived the previous app run (`platform::window::recreate_session_windows`). `session_task_stop` / `session_task_running` ask the host for the session's root process id and do the process-tree work here (`process_tree`) |
+| `terminal/process_tree.rs` | An agent session's OS process tree: `kill_process_tree` (`taskkill /T /F` - a session's teardown, in the host) and the Tasks dock's reach into a task the agent started **itself** (which PADE never spawned): walk the session's tree and match the task command - agent-agnostic, no per-agent output parsing. The tree-walk + command match are pure (`task_processes`, `command_matches`, unit-tested); the snapshot is one CIM query (no `wmic`) |
+| `terminal/session.rs` + `session/` | The session engine, run inside the PTY host and testable with no transport. `launch.rs`: `SessionLaunch` (the spawn request, a wire type) and `build_command` - the registry's per-agent spawn environment, `theming`'s per-scheme theme environment, the model report (`running_model::attach`), the conversation id (`claude --session-id <uuid>`, so a restart resumes that exact conversation), and on **Windows + a light scheme**, for an agent whose composer box follows the *detected* terminal background (`agents::needs_light_console_fix`, i.e. Codex), the `cmd /c color F0 & …` prefix (ConPTY hard-codes a BLACK buffer no other channel can change; each token stays a separate argv entry so portable-pty quotes the path cmd-compatibly). `output.rs`: UTF-8 reassembly, the bounded ANSI-stripped transcript (the namer's input), the bounded replay `History` with its `seq` and alternate-screen flag, and the pump thread that hands each chunk to a `SessionEvents` sink. `registry.rs`: `SessionRegistry` - sessions by id with their owner window (`SessionOwner`, shared with the pump so `transfer` re-routes output from the next chunk), the one owner check (`session_access`), the per-window session cap, the exit monitor that reaps a self-exited agent; dropping a session kills **and reaps** its tree, `kill_all` waits for in-flight teardowns; typed `SessionError` |
+| `terminal/pty_host.rs` + `pty_host/` | The PTY host process that owns the engine, so agents survive an app restart, and the app's client for it. `run_if_requested` (called from `lib.rs` before Tauri starts) runs `--pty-host <instance folder>`. `server.rs`: joins a kill-on-close job (`process-job`), listens, writes `host.json`, authenticates (`Opening` + token), serves one attached app (an in-order worker for ordinary requests, spawn/kill concurrently), forwards session output, retires on request, exits after 60 s idle. `client.rs`: `HostClient` (managed state) - find / start / retire the instance's host, request-reply correlation with timeouts, output → `pty://` events, and `pty://exit` for every known session if the host vanishes. `protocol.rs`: NDJSON frames (a frozen handshake + the versioned `Request` / `HostMessage`, bounded line length). `transport.rs`: named pipe (random name, remote clients rejected) / Unix socket. `discovery.rs`: per-instance folder and state file (atomic write), build fingerprint, build-named executable copies and their pruning. `launcher.rs`: starts the host through WMI `Win32_Process.Create` (outside cargo's job and the app's process tree), falling back to a detached spawn |
 | `terminal/runner.rs` | Window-owned task-runner execution: each command runs through `util::shell_command` with owner-targeted streamed output and per-window process/command caps (the id and path bounds shared with `pty` via `util`) |
 | `terminal/tasks.rs` | Discover runnable tasks from project manifests. One registry (`MANIFESTS`) is the sole authority: each entry says how its file is recognised - an exact name (`package.json`, `Cargo.toml`, `Makefile`, `pyproject.toml`, `CMakeLists.txt`, `CMakePresets.json`, `meson.build`, `build.ninja`, `MODULE.bazel`/`WORKSPACE`, `xmake.lua`, `premake5.lua`, `SConstruct`, `go.mod`, `build.gradle[.kts]`, `pom.xml`) or an extension, since C++ and C# name the manifest after the project (`.sln`/`.slnx`/`.csproj`/`.fsproj`/`.vbproj` → `dotnet`, `.vcxproj` → `msbuild`, `.pro` → `qmake`) - plus its family and how to read its tasks. A solution is claimed by whichever family its projects belong to (it is read for a `.vcxproj` reference); a `CMakeLists.txt` or `meson.build` only counts where it declares its own `project()` (an `add_subdirectory`/`subdir()` child builds with its parent) and a `.pro` only where it assigns a qmake variable, since the extension is common outside Qt; `CMakePresets.json` contributes the project's own named configurations (hidden presets are inherited building blocks, not choices); Gradle and Maven run the repo's committed wrapper when there is one; and where a toolchain has two configurations worth a button, both are offered - CMake gets Release twice because a single-config generator takes the build type at configure time and a multi-config one at build time. Commands are written to run unattended: `xmake -y`, `dotnet watch --non-interactive`, `msbuild -restore`, and `ctest -C Debug` on Windows, where a Visual Studio tree finds no tests without a named configuration. A .NET project's **own entry-point targets** are listed after the standard verbs (`dotnet build <project> -t:<name>`), scanned tag-wise out of the project file only - never out of an `<Import>`, since the registry decides what the frontend watches and an imported `.targets` file is not watched, so its targets would never refresh; internal (`_…`), hooked (`BeforeTargets`/`AfterTargets`) and standard-verb names are skipped. `tasks_descriptors` derives the frontend's watched tokens and empty-state list from that same registry, tagged `name` or `extension` so the catalog matches a changed path the way the backend matches a directory entry. On the wire a group's directory stays `dir` |
 | `terminal/theming.rs` | Forces each installed agent's own UI theme to ADE's resolved scheme, because Windows ConPTY consumes the agent's OSC 11 background query in both directions. Every mechanism is registry data (`ThemeConfig::SpawnEnvironment`, `SpawnArguments`, `SpawnTuiConfig`, `SpawnSelectedLiveTheme`). **Claude is re-themed live**: it launches on a PADE-owned theme definition (`--settings '{"theme":"custom:pade"}'`, never a settings file of the user's) and `publish_live_themes` rewrites `~/.claude/themes/pade.json` on every flip - Claude watches that directory and repaints, so a conversation in flight follows the app's appearance without being restarted (`agent_theme_publish` is the frontend's call; `pty` publishes before each spawn so the first frame is already right). The scheme lives in the file's contents, not the argv, which is precisely why it can reach a running process. Everyone else is spawn-themed and read once at launch: Codex uses `-c tui.theme=…`; OpenCode uses `OPENCODE_TUI_CONFIG` to select a per-scheme PADE theme (`pade-light` / `pade-dark`, plain-string so its ConPTY-answered probe can't spoil the render); Cursor/aider use environment variables. Because those are read at spawn, the scheme the frontend hands `pty_spawn` must already be the real one: `prefs.svelte` seeds it from the native `window_theme` before mount rather than from WebView2's media query. The scheme it hands over is the **terminal's**, not the app chrome's (`appearance.terminalScheme`) - with a Windows Terminal scheme chosen the two genuinely differ (a Solarized Light terminal inside a dark app), and the agent paints into the terminal. Copilot follows the OS itself, Grok inherits the terminal palette, and Antigravity has no verified safe override, so PADE does not guess settings. For the spawn-themed pair a flip is followed the only way it can be: `stores/agent/agentRetheme` respawns the **idle** ones, each resuming its own conversation; a session that is *busy* keeps its spawn scheme until it next restarts. Claude must never join that set - its `--session-id` respawn wedged live sessions twice - and no longer needs to |
@@ -1178,12 +1239,12 @@ the Rust commands. They are contracts - a refactor that changes one silently
 breaks a consumer with no type error:
 
 - **The alternate-screen wire constant is duplicated across the boundary.**
-  `terminal/pty.rs` detects `\x1b[?1049h/l` to set `History.alternate`;
+  `terminal/session/output.rs` detects `\x1b[?1049h/l` to set `History.alternate`;
   `lib/terminal/session/terminalSession` writes the same sequence
   (`terminal-sequences` `ENTER_ALTERNATE_SCREEN`) before replaying an
   alternate history. The two spellings must change together (each side carries a comment
   pointing at the other).
-- **`seq` invariants** (`terminal/pty.rs` `History`; `sequence` in Rust,
+- **`seq` invariants** (`terminal/session/output.rs` `History`; `sequence` in Rust,
   serialized as `seq`): 1-based, +1 per *emitted* chunk
   (empty decodes don't count), `0` means "empty or unknown session", and
   `history.data` is the byte-trimmed but seq-complete concatenation of chunks

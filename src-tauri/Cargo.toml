@@ -14,7 +14,7 @@ license = "Apache-2.0"
 # expects both). Each crate keeps its own `[lints]` (this one forbids unsafe; the
 # handler must allow it).
 [workspace]
-members = ["contextmenu-handler", "process-priority", "webview-recovery"]
+members = ["contextmenu-handler", "process-job", "process-priority", "webview-recovery"]
 resolver = "2"
 
 [lib]
@@ -48,11 +48,20 @@ ureq = { version = "3", default-features = false, features = ["rustls"] }
 tungstenite = { version = "0.30", default-features = false, features = ["handshake", "rustls-tls-native-roots"] }
 sha2 = "0.11"
 uuid = { version = "1", features = ["v4"] }
+# The PTY host's transport: a named pipe (Windows) / Unix socket between the app
+# and the long-lived host process, plus the timers that bound every wait on it.
+# Already in the tree through tauri (its async runtime); listed directly only to
+# enable `net` and `time`, whose own dependencies (mio, socket2) are in the
+# lockfile already - no new supply-chain surface.
+tokio = { version = "1", features = ["io-util", "net", "rt-multi-thread", "sync", "time"] }
 
 [target."cfg(windows)".dependencies]
 # Windows process-priority FFI lives behind this safe helper because the main
 # crate forbids unsafe code. Set before WebView2 and PTY children are spawned.
 process-priority = { path = "process-priority" }
+# The PTY host's kill-on-close job object (see src/terminal/pty_host/server.rs):
+# unsafe FFI, so it lives in its own workspace member like process-priority.
+process-job = { path = "process-job" }
 # WebView2 `ProcessFailed` auto-recovery (see src/platform/recovery.rs). A separate
 # workspace member because COM event registration is unsafe and this crate
 # forbids unsafe code; it pins webview2-com/windows-core to the versions
