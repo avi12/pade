@@ -69,13 +69,16 @@
 </script>
 
 <!-- One keyboard line, out of the tab order: the arrows reach it from its
-     project's header (sidebar-keyboard). -->
+     project's header (sidebar-keyboard). The chat button takes its direction
+     from the title (the icon holds no text), so a Hebrew title sits beside
+     its icon on the right. -->
 <div class="row" class:active={isActive} data-sidebar-line>
   <button
     class="chat"
     {@attach labelTruncationTooltip}
     aria-current={isActive}
     data-sidebar-item
+    dir="auto"
     onclick={open}
     oncontextmenu={openMenu}
     tabindex="-1"
@@ -88,7 +91,7 @@
     {:else}
       <span class="agent-icon"><Icon name={agentIconName(chat.agentId)} size={14} /></span>
     {/if}
-    <span class="chat-label" dir="auto">{chat.label}</span>
+    <span class="chat-label">{chat.label}</span>
     <span class="elsewhere" hidden={!isElsewhere}>
       <Icon name="external" size={12} />
       <span class="elsewhere-note">{ELSEWHERE_NOTE}</span>
