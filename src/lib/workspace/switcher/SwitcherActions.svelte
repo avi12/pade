@@ -1,15 +1,19 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { WindowMode } from "@/lib/types";
+  import { isNewWindowClick } from "@/lib/workspace/open-windows";
 
-  // The left rail's window-level actions: open the full picker, and spawn a new
-  // empty or throwaway window or the agents dashboard. Per-project actions
-  // (rename, browse, pin, delete) live on each project row's own menu. A window
-  // with no project open (the picker itself) offers only the spawns.
-  const { onswitch, onspawn }: {
+  // The left rail's window-level actions: open the full picker, start a
+  // throwaway workspace here (or, Shift-clicked, in a new window), and spawn a
+  // new empty window or the agents dashboard. Per-project actions (rename,
+  // browse, pin, delete) live on each project row's own menu. A window with no
+  // project open (the picker itself) offers no picker.
+  const { onswitch, onthrowaway, onspawn }: {
     /** Open the full picker (browse every root, clone, open a folder) - absent
      *  where the picker is already on screen. */
     onswitch?: () => void;
+    /** Start a throwaway workspace - in this window, or a new one. */
+    onthrowaway: (opensNewWindow: boolean) => void;
     /** Spawn a fresh window in this mode. */
     onspawn: (mode: WindowMode) => void;
   } = $props();
@@ -21,8 +25,18 @@
     <span class="grow">Open a project…</span>
     <span class="subtitle">All projects &amp; clone</span>
   </button>
-  <div class="menu-divider"></div>
 {/if}
+<button
+  class="menu-item action"
+  onclick={e => onthrowaway(isNewWindowClick(e))}
+  role="menuitem"
+  type="button"
+>
+  <span class="lead tertiary"><Icon name="plus" /></span>
+  <span class="grow">Throwaway workspace</span>
+  <span class="subtitle">⇧ new window</span>
+</button>
+<div class="menu-divider"></div>
 
 <div class="menu-separator">New window</div>
 <button
@@ -34,15 +48,6 @@
   <span class="lead accent"><Icon name="windowPlus" /></span>
   <span class="grow">Empty window</span>
   <span class="kbd">Ctrl ⇧ N</span>
-</button>
-<button
-  class="menu-item action"
-  onclick={() => onspawn(WindowMode.enum.temp)}
-  role="menuitem"
-  type="button"
->
-  <span class="lead tertiary"><Icon name="plus" /></span>
-  <span class="grow">Throwaway workspace</span>
 </button>
 <button
   class="menu-item action"

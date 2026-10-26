@@ -39,6 +39,7 @@
     elsewhereSessions,
     activeId,
     onopenproject,
+    onopenthrowaway,
     onswitch,
     ondeleteproject,
     onrenamefolder,
@@ -59,6 +60,8 @@
     activeId: string | null;
     /** Start a new session in `project`, beside the ones already open. */
     onopenproject: (project: string) => void;
+    /** Start a throwaway workspace in this window, beside what runs here. */
+    onopenthrowaway: () => void;
     /** Open the full picker - absent where the picker is already on screen. */
     onswitch?: () => void;
     /** Delete a project's directory from disk - resolves once removed (or
@@ -215,7 +218,7 @@
 />
 
 <nav class="sidebar" aria-label="Projects and chats">
-  <SidebarHeader {onswitch} />
+  <SidebarHeader {onopenthrowaway} {onswitch} />
 
   <search class="search">
     <!-- Ctrl P focuses it from anywhere (a window shortcut) -->

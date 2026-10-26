@@ -53,6 +53,7 @@
     ondelete,
     onmerge,
     onopen,
+    onopenthrowaway,
     onrenamefolder,
     onreroot,
     onswitch,
@@ -87,6 +88,7 @@
     /** Merge this window into another open one (top bar's window menu). */
     onmerge: ChromeProps["onmerge"];
     onopen: SidebarProps["onopenproject"];
+    onopenthrowaway: SidebarProps["onopenthrowaway"];
     onrenamefolder: SidebarProps["onrenamefolder"];
     /** The saved temp workspace now lives at `path` - the window follows it. */
     onreroot: (path: string) => void;
@@ -125,6 +127,7 @@
     ondeleteproject={ondelete}
     {onnewchat}
     onopenproject={onopen}
+    {onopenthrowaway}
     {onrenamefolder}
     {onresumeconversation}
     {onselectchat}

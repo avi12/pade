@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
+  import { WindowMode } from "@/lib/types";
   import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
   import SwitcherActions from "@/lib/workspace/switcher/SwitcherActions.svelte";
   import type { ComponentProps } from "svelte";
@@ -8,10 +9,12 @@
   type ActionsProps = ComponentProps<typeof SwitcherActions>;
 
   // The rail's head: its title and the window actions menu - open the full
-  // picker, or spawn an empty window, a throwaway workspace or the agents
+  // picker, start a throwaway workspace, or spawn an empty window or the agents
   // dashboard.
-  const { onswitch }: {
+  const { onswitch, onopenthrowaway }: {
     onswitch?: ActionsProps["onswitch"];
+    /** Start a throwaway workspace in this window. */
+    onopenthrowaway: () => void;
   } = $props();
 
   const MENU_ID = "sidebar-project-actions";
@@ -44,6 +47,16 @@
           hideMenu();
           onswitch();
         }}
+      onthrowaway={async opensNewWindow => {
+        hideMenu();
+
+        if (opensNewWindow) {
+          await sendMessage(Command.windowCreate, { mode: WindowMode.enum.temp });
+          return;
+        }
+
+        onopenthrowaway();
+      }}
     />
   </div>
 </div>

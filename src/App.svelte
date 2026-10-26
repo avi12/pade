@@ -390,8 +390,11 @@
     }
   }
 
+  // A throwaway workspace, made fresh and opened in this window - beside
+  // whatever already runs here (the rail's action), or as its first project
+  // (a launch that starts in one).
   async function startInTempWorkspace() {
-    await startAgentFlow({
+    await openProject({
       path: await sendMessage(Command.workspaceTemp),
       created: true
     });
@@ -808,6 +811,7 @@
         }}
         onnewchat={newChat}
         onopenproject={newChat}
+        onopenthrowaway={startInTempWorkspace}
         onrenamefolder={relocator.renameFolder}
         onresumeconversation={resumeConversation}
         onselectchat={selectChat}
@@ -858,6 +862,7 @@
       onmerge={handoffs.mergeInto}
       onnewchat={newChat}
       onopen={newChat}
+      onopenthrowaway={startInTempWorkspace}
       onrenamefolder={relocator.renameFolder}
       onreroot={path => windowSessions.enter(path)}
       onresumeconversation={resumeConversation}
