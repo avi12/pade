@@ -5,8 +5,7 @@
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { appearance } from "@/lib/settings/prefs.svelte";
-import { dropContext, observeContextScreen } from "@/lib/stores/agent/context.svelte";
-import { dropMcpReload } from "@/lib/stores/agent/mcpReload.svelte";
+import { observeContextScreen } from "@/lib/stores/agent/context.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { observeUsageLimitScreen } from "@/lib/stores/usage/usageResume.svelte";
 import { createSessionActivity } from "@/lib/terminal/activity/sessionActivity.svelte";
@@ -451,8 +450,6 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
       fit.dispose();
       output.dispose();
       screenSampler.dispose();
-      dropContext(session().id);
-      dropMcpReload(session().id);
       terminal?.dispose();
     }
   };

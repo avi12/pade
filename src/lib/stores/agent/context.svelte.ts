@@ -18,6 +18,7 @@
 //      tab gauge (`contextPercentage`), never auto-handoff / resume / retry.
 
 import { modelName } from "@/lib/model/model-label";
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { SvelteMap } from "svelte/reactivity";
 
 /** Rough characters-per-token ratio for the PTY-estimate fallback. */
@@ -478,7 +479,8 @@ export function sessionModel(id: string) {
   };
 }
 
-/** Forget a session's context when it ends. */
-export function dropContext(id: string) {
-  signals.delete(id);
-}
+registerSessionState(SessionStateKey.enum.context, {
+  forget(id) {
+    signals.delete(id);
+  }
+});

@@ -26,7 +26,9 @@ const SESSIONS_HANDOFF: WindowHandoff = {
       id: "a",
       agent: AGENT,
       project: PADE,
-      label: "Fix the rail"
+      state: {
+        label: "Fix the rail"
+      }
     },
     {
       id: "b",

@@ -11,6 +11,7 @@
 import { windowLabel } from "@/lib/ipc/platform";
 import { cheaperModelChoice, lowerEffortChoice } from "@/lib/model/model-cost";
 import { bareModel, modelLabel, modelName } from "@/lib/model/model-label";
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { sessionModel } from "@/lib/stores/agent/context.svelte";
 import { ensureModelOptions, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
 import { ModelChoice, PacingStep } from "@/lib/types";
@@ -65,12 +66,13 @@ function setAdapted({ id, choice }: {
   remember();
 }
 
-/** Forget a session's steps when it ends. */
-export function dropUsageAdapt(id: string) {
-  if (adapted.delete(id)) {
-    remember();
+registerSessionState(SessionStateKey.enum.usageAdapt, {
+  forget(id) {
+    if (adapted.delete(id)) {
+      remember();
+    }
   }
-}
+});
 
 /** The steps pacing has taken on a session, oldest first (reactive). */
 export function adaptedSteps(id: string) {

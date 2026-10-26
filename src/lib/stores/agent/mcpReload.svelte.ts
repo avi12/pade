@@ -3,6 +3,7 @@
 // normal reload path. Only if that pending session then reports an MCP reload
 // failure do we ask App to intervene with the safe document handoff.
 
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { stripAnsi } from "@/lib/terminal/output/ansi";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -62,3 +63,5 @@ export function dropMcpReload(id: string) {
   pending.delete(id);
   failed.delete(id);
 }
+
+registerSessionState(SessionStateKey.enum.mcpReload, { forget: dropMcpReload });

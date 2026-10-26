@@ -21,9 +21,9 @@
 import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActivity.svelte";
-import { compactionHeadroom, dropContext, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
+import { compactionHeadroom, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
-import { dropSessionStatus, sessionStatus } from "@/lib/stores/session/sessions.svelte";
+import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { submittedPrompt } from "@/lib/terminal/input/terminal-input";
 import { CreditsState, SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
@@ -707,16 +707,16 @@ export function createAutoHandoff(host: HandoffHost) {
 
     const { cwd } = session;
     await host.endSession(session.id);
-    host.removeSession(session.id);
-    dropSessionStatus(session.id);
-    dropContext(session.id);
-    unmarkHandingOff(session.id);
+    // Launched before the predecessor is removed, which forgets everything kept
+    // for it - the successor takes over its project, model and ✦ naming first.
     const successorId = host.launchSuccessor({
       agent: successorAgent,
       cwd,
       initialPrompt: successorPrompt(doc),
       predecessorId: session.id
     });
+    host.removeSession(session.id);
+    unmarkHandingOff(session.id);
     note = "";
 
     // 4. The doc's job ends once the successor has really used it, so consumed

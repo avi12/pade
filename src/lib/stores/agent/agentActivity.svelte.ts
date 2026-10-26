@@ -14,6 +14,7 @@
 // dependency as the context-percent and usage-limit parsers. An agent that
 // announces no such glyph reports nothing, and every gate built on it stays open.
 
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { createSettleWaiters } from "@/lib/stores/session/settle-waiters";
 import { SvelteMap } from "svelte/reactivity";
 
@@ -134,9 +135,11 @@ export function whenAgentSettled(id: string) {
   });
 }
 
-/** Forget a session's reported activity when it ends; anything waiting on it settles. */
-export function dropAgentActivity(id: string) {
-  activities.delete(id);
-  carriedSequences.delete(id);
-  settleWaiters.settleAll(id);
-}
+// A session that ends forgets its reported activity; anything waiting on it settles.
+registerSessionState(SessionStateKey.enum.activity, {
+  forget(id) {
+    activities.delete(id);
+    carriedSequences.delete(id);
+    settleWaiters.settleAll(id);
+  }
+});

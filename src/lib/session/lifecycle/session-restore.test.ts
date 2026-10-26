@@ -5,7 +5,8 @@ import {
   saveSessionSnapshot,
   type SessionSnapshot
 } from "@/lib/session/lifecycle/session-restore";
-import { dropSessionLabel, sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
+import { forgetSession } from "@/lib/session/lifecycle/session-scope";
+import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import type { AgentSession } from "@/lib/types";
 import {
   afterEach,
@@ -100,7 +101,7 @@ describe("save / read round trip", () => {
       paneIds: ["a"],
       activeId: "a"
     });
-    dropSessionLabel("a");
+    forgetSession("a");
 
     const snapshot = readSessionSnapshot();
     const restored = snapshot && pruneToLive({

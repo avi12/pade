@@ -13,6 +13,7 @@
 // from a component `$effect`.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { createRecoveryLoop } from "@/lib/stores/agent/recoveryLoop.svelte";
 import type { RecoveryHit, RecoveryHost } from "@/lib/stores/agent/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
@@ -310,12 +311,13 @@ export function hasUsageLimit(id: string) {
   return hits.has(id);
 }
 
-/** Forget a session's limit state when it ends. */
-export function dropUsageLimit(id: string) {
-  hits.delete(id);
-  quietUntil.delete(id);
-  turnRunningOnScreen.delete(id);
-}
+registerSessionState(SessionStateKey.enum.usageLimit, {
+  forget(id) {
+    hits.delete(id);
+    quietUntil.delete(id);
+    turnRunningOnScreen.delete(id);
+  }
+});
 
 /** Status line shown while a session waits out its limit. */
 function waitingNote({ session, resetAt }: {

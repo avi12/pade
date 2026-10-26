@@ -13,6 +13,7 @@
 // typed into a session that is about to end (`choiceForSuccessor`).
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActivity.svelte";
 import { whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
 import { SwitchOutcome } from "@/lib/types";
@@ -34,6 +35,13 @@ interface PendingModelSwitch {
 
 const pendingBySession = new SvelteMap<string, PendingModelSwitch>();
 const applyingSessions = new SvelteSet<string>();
+
+registerSessionState(SessionStateKey.enum.modelSwitch, {
+  forget(id) {
+    pendingBySession.delete(id);
+    applyingSessions.delete(id);
+  }
+});
 
 export function pendingModelSwitch(id: string) {
   return pendingBySession.get(id) ?? null;

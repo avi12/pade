@@ -23,6 +23,7 @@
 
 import { AgentId } from "@/lib/agent/agent-icon";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { appearance } from "@/lib/settings/prefs.svelte";
 import { isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
@@ -58,6 +59,12 @@ export function createAgentRetheme(host: AgentRethemeHost) {
   // a busy agent kept painting its old scheme (dark diffs on a light terminal)
   // until the user happened to restart it by hand.
   const awaitingRetheme = new SvelteSet<string>();
+
+  registerSessionState(SessionStateKey.enum.retheme, {
+    forget(id) {
+      spawnSchemeBySession.delete(id);
+    }
+  });
 
   let lastFollowedScheme = appearance.terminalScheme;
 
@@ -143,10 +150,6 @@ export function createAgentRetheme(host: AgentRethemeHost) {
 
       lastFollowedScheme = scheme;
       followScheme(scheme);
-    },
-    /** Forget a session that ended or was re-keyed. */
-    forget(id: string) {
-      spawnSchemeBySession.delete(id);
     }
   };
 }

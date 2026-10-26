@@ -1,9 +1,12 @@
 // Per-session display-label overrides (SoC: cross-component state lives in
 // lib/stores). A session tab shows its agent's default label until an AI or
-// manual rename sets a custom one here; the map keeps reads reactive. Ephemeral
-// - dropped when the tab closes.
+// manual rename sets a custom one here; the map keeps reads reactive. The label
+// follows the session through a restart, a reload and a hand-off, and is
+// forgotten when the session ends (session-scope).
 
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { SvelteMap } from "svelte/reactivity";
+import { z } from "zod";
 
 const labels = new SvelteMap<string, string>();
 
@@ -20,7 +23,21 @@ export function sessionLabel(id: string) {
   return labels.get(id);
 }
 
-/** Forget a session's label when its tab closes. */
-export function dropSessionLabel(id: string) {
-  labels.delete(id);
-}
+registerSessionState(SessionStateKey.enum.label, {
+  forget(id) {
+    labels.delete(id);
+  },
+  carry({ fromId, toId }) {
+    const label = labels.get(fromId);
+    if (label !== undefined) {
+      labels.set(toId, label);
+    }
+  },
+  save: id => labels.get(id),
+  restore({ id, saved }) {
+    const parsed = z.string().safeParse(saved);
+    if (parsed.success) {
+      labels.set(id, parsed.data);
+    }
+  }
+});

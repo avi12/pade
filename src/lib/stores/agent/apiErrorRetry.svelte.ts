@@ -15,6 +15,7 @@
 // the scan from a component `$effect`.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { createRecoveryLoop } from "@/lib/stores/agent/recoveryLoop.svelte";
 import type { RecoveryHit, RecoveryHost } from "@/lib/stores/agent/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
@@ -79,11 +80,6 @@ export function observeApiError({ id, chunk }: {
   }
 }
 
-/** Forget a session's API-error state when it ends. */
-export function dropApiError(id: string) {
-  hits.delete(id);
-}
-
 /** The auto-retry machinery, scoped to one app shell. The shell calls `check()`
  *  from a `$effect` and `dispose()` on destroy; `note` is the status line to show
  *  while a retry is pending ("" when idle). */
@@ -95,6 +91,7 @@ export function createApiErrorRetry(host: RecoveryHost) {
     tick: retry,
     pendingNote: session => `${session.agent.label} stopped on an API error - retrying…`
   });
+  registerSessionState(SessionStateKey.enum.apiError, { forget: loop.forget });
 
   // One retry tick, RETRY_MS after the last. A session halted by an API error
   // sits idle at its prompt (`ready`), so the moment it reports `working` again

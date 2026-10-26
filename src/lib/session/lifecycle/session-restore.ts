@@ -19,7 +19,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
-import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
+import { restoreSessionState, SavedSessionState, savedSessionState } from "@/lib/session/lifecycle/session-scope";
 import { Agent, ModelChoice } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
@@ -34,7 +34,7 @@ function snapshotStorageKey() {
 
 /** One persisted session - `AgentSession` minus `initialPrompt`, which was
  *  already submitted into the live conversation (restoring it would make the
- *  re-attached terminal send it again), plus the tab's name. */
+ *  re-attached terminal send it again), plus its stores' saved state. */
 export const SnapshotSession = z.object({
   id: z.string(),
   agent: Agent,
@@ -50,8 +50,9 @@ export const SnapshotSession = z.object({
   // A model picked for this session alone survives a reload, so its next
   // relaunch keeps running it.
   modelChoice: ModelChoice.optional(),
-  // The tab's name, given by hand or by auto-naming, so it keeps it too.
-  label: z.string().optional()
+  // What the per-session stores keep across a reload or a hand-off - the
+  // tab's name among them (session-scope).
+  state: SavedSessionState.optional()
 });
 type SnapshotSession = z.infer<typeof SnapshotSession>;
 
@@ -75,23 +76,21 @@ export function snapshotSessionOf({
     args,
     conversationId,
     modelChoice,
-    label: sessionLabel(id)
+    state: savedSessionState(id)
   } satisfies SnapshotSession;
 }
 
 /** A persisted session back as a live one, in `fallbackProject` when it was
- *  saved without its own. Its name goes back to the labels store, which owns it. */
+ *  saved without its own. Its saved state goes back to the stores that own it. */
 export function liveSessionOf({ saved, fallbackProject }: {
   saved: SnapshotSession;
   fallbackProject: string;
 }): AgentSession {
-  const { label, ...session } = saved;
-  if (label !== undefined) {
-    setSessionLabel({
-      id: session.id,
-      label
-    });
-  }
+  const { state, ...session } = saved;
+  restoreSessionState({
+    id: session.id,
+    saved: state ?? {}
+  });
 
   return {
     ...session,

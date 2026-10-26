@@ -1,7 +1,7 @@
+import { forgetSession } from "@/lib/session/lifecycle/session-scope";
 import {
   compactionHeadroom,
   contextPercentage,
-  dropContext,
   measuredContextPercentage,
   observeContext,
   observeContextScreen,
@@ -596,13 +596,13 @@ describe("sessionModel", () => {
   });
 });
 
-describe("dropContext", () => {
-  it("forgets the session entirely", () => {
+describe("forgetting a session", () => {
+  it("forgets its context entirely", () => {
     observeContext({
       id: "dropped-session",
       chunk: "42% context"
     });
-    dropContext("dropped-session");
+    forgetSession("dropped-session");
 
     expect(contextPercentage("dropped-session")).toBeNull();
   });

@@ -10,20 +10,14 @@ import { startingModelChoice } from "@/lib/model/agent-model-scope";
 import { frontProject, sessionsOfProject } from "@/lib/session/chats/session-projects";
 import { didFailToStart } from "@/lib/session/lifecycle/session-exit";
 import { rekeyLayout } from "@/lib/session/lifecycle/session-restart";
+import { forgetSession, rekeySession } from "@/lib/session/lifecycle/session-scope";
 import { layoutWithoutSession, layoutWithoutSessions, wrappedIndex } from "@/lib/session/panes/pane-layout";
 import type { PaneLayout } from "@/lib/session/panes/pane-layout";
 import { settings } from "@/lib/settings/settings.svelte";
-import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
 import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
-import { dropApiError } from "@/lib/stores/agent/apiErrorRetry.svelte";
-import { dropChoiceAttention } from "@/lib/stores/session/sessionAttention.svelte";
-import { dropSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-import { applyNamingToAll, dropNaming, setNaming, transferNaming } from "@/lib/stores/session/sessionNaming.svelte";
-import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
+import { applyNamingToAll, isNaming, setNaming } from "@/lib/stores/session/sessionNaming.svelte";
+import { isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
-import { dropUsageAdapt } from "@/lib/stores/usage/usageAdapt.svelte";
-import { dropUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
-import { dropUsageLimit } from "@/lib/stores/usage/usageResume.svelte";
 import { activeMemberIn } from "@/lib/stores/workspace/workspaceMembers.svelte";
 import type { Agent, AgentSession, ModelChoice } from "@/lib/types";
 import { untrack } from "svelte";
@@ -158,6 +152,20 @@ export function createWindowSessions(host: WindowSessionsHost) {
     });
   }
 
+  // Name a session taken in from another window as its project says - unless
+  // a ✦ toggled on by hand came along with it.
+  function seedNaming(session: AgentSession) {
+    if (isNaming(session.id)) {
+      return;
+    }
+
+    setNaming({
+      id: session.id,
+      agent: session.agent.command,
+      isOn: namesWithAi(session.project)
+    });
+  }
+
   // The naming settings as one comparable key, so the effect below re-runs only
   // when one of them really changes.
   const namingSettingsKey = $derived(
@@ -250,17 +258,15 @@ export function createWindowSessions(host: WindowSessionsHost) {
       },
       id
     }));
+    forget(id);
+  }
+
+  // A session left this window - ended, re-keyed or moved away: everything
+  // kept for it goes, here and in every per-session store (session-scope).
+  function forget(id: string) {
     sessionLaunchedAt.delete(id);
-    agentRetheme.forget(id);
-    dropSessionStatus(id);
-    dropAgentActivity(id);
-    dropSessionLabel(id);
-    dropNaming(id);
-    dropUsageLimit(id);
-    dropUsagePacing(id);
-    dropUsageAdapt(id);
-    dropApiError(id);
-    dropChoiceAttention(id);
+    closingByHand.delete(id);
+    forgetSession(id);
   }
 
   // Kill these sessions' PTYs and detach them, claiming each exit event as a
@@ -274,7 +280,6 @@ export function createWindowSessions(host: WindowSessionsHost) {
 
     for (const id of ids) {
       detach(id);
-      closingByHand.delete(id);
     }
   }
 
@@ -318,7 +323,6 @@ export function createWindowSessions(host: WindowSessionsHost) {
     }
 
     detach(session.id);
-    closingByHand.delete(session.id);
     host.onRetired(session);
 
     // A hand-close is never a failed start: a real project replaces the
@@ -381,17 +385,15 @@ export function createWindowSessions(host: WindowSessionsHost) {
     for (const target of targets) {
       const restartedId = crypto.randomUUID();
       rekeyed[target.id] = restartedId;
-      // Carry the ✦ auto-naming toggle across the re-key so a reset session keeps
-      // it on (same agent, so its command is unchanged).
-      transferNaming({
+      // What outlives a restart - the tab's name, its ✦ auto-naming - moves to
+      // the new id; everything else kept for the old one goes.
+      rekeySession({
         fromId: target.id,
-        toId: restartedId,
-        agent: target.agent.command
+        toId: restartedId
       });
-      sessionLaunchedAt.set(restartedId, Date.now());
       sessionLaunchedAt.delete(target.id);
-      agentRetheme.forget(target.id);
       closingByHand.delete(target.id);
+      sessionLaunchedAt.set(restartedId, Date.now());
       host.onRetired(target);
     }
 
@@ -505,7 +507,7 @@ export function createWindowSessions(host: WindowSessionsHost) {
       }));
 
       for (const id of ids) {
-        closingByHand.delete(id);
+        forget(id);
       }
     },
     /** Let go of sessions another window now owns (moved there with their PTYs
@@ -527,11 +529,7 @@ export function createWindowSessions(host: WindowSessionsHost) {
       sessions.push(...newcomers);
       for (const session of newcomers) {
         sessionLaunchedAt.set(session.id, Date.now());
-        setNaming({
-          id: session.id,
-          agent: session.agent.command,
-          isOn: namesWithAi(session.project)
-        });
+        seedNaming(session);
       }
 
       const front = newcomers.find(session => session.id === adoptedActiveId) ?? newcomers.at(-1);
@@ -549,7 +547,7 @@ export function createWindowSessions(host: WindowSessionsHost) {
 
       sessions = sessions.filter(session => session.id !== id);
       paneIds = paneIds.filter(paneId => paneId !== id);
-      closingByHand.delete(id);
+      forget(id);
     }
   };
 }

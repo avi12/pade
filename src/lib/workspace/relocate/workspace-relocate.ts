@@ -12,8 +12,7 @@
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { CommandProtocolMap } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
-import { dropContext } from "@/lib/stores/agent/context.svelte";
-import { dropSessionStatus, sessionStatus } from "@/lib/stores/session/sessions.svelte";
+import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession, ModelChoice, Settings } from "@/lib/types";
 import { normalizePath } from "@/lib/util/paths";
@@ -113,8 +112,6 @@ export function createRelocator(host: RelocateHost) {
 
     for (const session of locking) {
       await sendMessage(Command.ptyKill, { id: session.id });
-      dropSessionStatus(session.id);
-      dropContext(session.id);
     }
 
     host.removeSessions(lockingIds);

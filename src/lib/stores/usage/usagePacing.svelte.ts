@@ -28,6 +28,7 @@
 import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { agentReportsBusy } from "@/lib/stores/agent/agentActivity.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
@@ -222,15 +223,16 @@ function record({ id, text }: {
   histories.set(id, history.slice(-HISTORY_LENGTH));
 }
 
-/** Forget a session's pacing when it ends. */
-export function dropUsagePacing(id: string) {
-  forgetPace(id);
-  verdicts.delete(id);
-  histories.delete(id);
-  skippedUntil.delete(id);
-  workingSince.delete(id);
-  accountKeys.delete(id);
-}
+registerSessionState(SessionStateKey.enum.usagePacing, {
+  forget(id) {
+    forgetPace(id);
+    verdicts.delete(id);
+    histories.delete(id);
+    skippedUntil.delete(id);
+    workingSince.delete(id);
+    accountKeys.delete(id);
+  }
+});
 
 function sampleKey({ accountKey, window }: {
   accountKey: string;

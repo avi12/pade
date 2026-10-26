@@ -14,10 +14,12 @@
 // session's rolling transcript.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
 import { SvelteMap } from "svelte/reactivity";
+import { z } from "zod";
 
 const REFRESH_MS = 30_000;
 /** A session's `lastGeneratedAt` before its first name, so that one always runs. */
@@ -170,13 +172,13 @@ export function applyNamingToAll({ sessions, isOnFor }: {
   }
 }
 
-/** Carry a session's auto-naming toggle to a new id when the session is reset in
- *  place under a fresh id - a restart re-key or a handoff to a successor - so the
- *  ✦ toggle the user turned on survives the reset instead of silently reverting to
- *  off. The successor's OWN agent command is stored (it can differ from the
- *  predecessor on a handoff crossover, e.g. Claude→Codex), and the old id's
- *  controller + refresh timer are released; the reconcile effect re-arms the timer
- *  for the new id on its next status tick. No-op when the old id wasn't naming. */
+/** Carry a session's auto-naming toggle to the successor a handoff starts, so the
+ *  ✦ toggle the user turned on survives instead of silently reverting to off. The
+ *  successor's OWN agent command is stored (it can differ from the predecessor on
+ *  a handoff crossover, e.g. Claude→Codex), and the old id's controller + refresh
+ *  timer are released; the reconcile effect re-arms the timer for the new id on
+ *  its next status tick. No-op when the old id wasn't naming. A restart re-key
+ *  keeps the same agent, so the registration below carries it instead. */
 export function transferNaming({ fromId, toId, agent }: {
   fromId: string;
   toId: string;
@@ -193,8 +195,8 @@ export function transferNaming({ fromId, toId, agent }: {
   });
 }
 
-/** Stop auto-naming for a session and release its timer (call on tab close). */
-export function dropNaming(id: string) {
+/** Stop auto-naming for a session and release its timer. */
+function dropNaming(id: string) {
   const controller = controllers.get(id);
   if (controller !== undefined) {
     stopRefresh(controller);
@@ -249,6 +251,32 @@ function reconcileNaming({ id, status }: {
 
   controller.lastStatus = status;
 }
+
+// The ✦ toggle outlives a restart, a reload and a hand-off: what is kept is the
+// agent command that names the session, saved only while naming is on.
+registerSessionState(SessionStateKey.enum.naming, {
+  forget: dropNaming,
+  carry({ fromId, toId }) {
+    const agent = naming.get(fromId);
+    if (agent !== undefined) {
+      startNaming({
+        id: toId,
+        agent
+      });
+    }
+  },
+  save: id => naming.get(id),
+  restore({ id, saved }) {
+    const parsed = z.string().safeParse(saved);
+    if (parsed.success) {
+      setNaming({
+        id,
+        agent: parsed.data,
+        isOn: true
+      });
+    }
+  }
+});
 
 // Reconcile every named session against its live status. Re-runs whenever a
 // named session's status changes - the status is read here, before anything can

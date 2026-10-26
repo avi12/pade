@@ -4,6 +4,7 @@
 // and a deliberate leave awaits `whenSessionIdle` so nothing mid-flight is
 // severed. A SvelteMap keeps reads reactive across components.
 
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { createSettleWaiters } from "@/lib/stores/session/settle-waiters";
 import { SessionStatus } from "@/lib/types";
 import { SvelteMap } from "svelte/reactivity";
@@ -37,6 +38,10 @@ export function dropSessionStatus(id: string) {
   statuses.delete(id);
   idleWaiters.settleAll(id);
 }
+
+registerSessionState(SessionStateKey.enum.status, {
+  forget: dropSessionStatus
+});
 
 function isIdleStatus(status: SessionStatus) {
   return status === SessionStatus.enum.ready || status === SessionStatus.enum.exited;

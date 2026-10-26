@@ -1,8 +1,8 @@
+import { forgetSession } from "@/lib/session/lifecycle/session-scope";
 import {
   activityFromTitle,
   AgentActivity,
   agentReportsBusy,
-  dropAgentActivity,
   observeAgentActivity,
   readTitles,
   whenAgentSettled
@@ -19,7 +19,7 @@ function titleSequence(title: string) {
 
 const SESSION = "session-under-test";
 
-afterEach(() => dropAgentActivity(SESSION));
+afterEach(() => forgetSession(SESSION));
 
 describe("activityFromTitle", () => {
   it.each(["◐ Continue AVI learn math 5 units", "◑ Continue AVI learn math 5 units"])(
@@ -163,7 +163,7 @@ describe("whenAgentSettled", () => {
       chunk: titleSequence("◐ Work")
     });
     const waiting = whenAgentSettled(SESSION);
-    dropAgentActivity(SESSION);
+    forgetSession(SESSION);
     await expect(waiting).resolves.toBeUndefined();
   });
 });

@@ -9,6 +9,7 @@
 
 import { detectChoicePrompt } from "@/lib/agent/choice-prompt";
 import { EventType, onMessage } from "@/lib/ipc/messaging";
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
@@ -106,7 +107,6 @@ function isPromptOver({ id, status }: {
   return isAnswered || status === SessionStatus.enum.exited;
 }
 
-/** Forget a session's attention state when its tab closes. */
-export function dropChoiceAttention(id: string) {
-  clear(id);
-}
+registerSessionState(SessionStateKey.enum.attention, {
+  forget: clear
+});

@@ -1,5 +1,6 @@
 import { Command } from "@/lib/ipc/messaging";
-import { dropAgentActivity, observeAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
+import { forgetSession } from "@/lib/session/lifecycle/session-scope";
+import { observeAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
 import { compactionHeadroom, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import {
   createAutoHandoff,
@@ -54,12 +55,10 @@ async function answerMessage(command: Command) {
 
 vi.mock("@/lib/stores/agent/context.svelte", () => ({
   compactionHeadroom: vi.fn().mockReturnValue(null),
-  dropContext: vi.fn(),
   measuredContextPercentage: vi.fn().mockReturnValue(100)
 }));
 
 vi.mock("@/lib/stores/session/sessions.svelte", () => ({
-  dropSessionStatus: vi.fn(),
   sessionStatus: vi.fn().mockReturnValue("ready")
 }));
 
@@ -303,7 +302,7 @@ describe("pickHandoffSuccessor", () => {
 });
 
 describe("createAutoHandoff", () => {
-  it("terminates and removes the predecessor before launching its successor", async () => {
+  it("terminates the predecessor before launching its successor, and removes it right after", async () => {
     const predecessor: AgentSession = {
       id: "old-session",
       agent: {
@@ -345,7 +344,8 @@ describe("createAutoHandoff", () => {
       },
       launchSuccessor() {
         lifecycle.push("successor-launched");
-        expect(sessions).not.toContainEqual(predecessor);
+        // Still there, so the successor can take over what was kept for it.
+        expect(sessions).toContainEqual(predecessor);
         return "new-session";
       }
     });
@@ -360,8 +360,8 @@ describe("createAutoHandoff", () => {
     expect(lifecycle).toEqual([
       "kill-started",
       "kill-finished",
-      "predecessor-removed",
-      "successor-launched"
+      "successor-launched",
+      "predecessor-removed"
     ]);
     handoff.dispose();
   });
@@ -476,7 +476,7 @@ describe("createAutoHandoff", () => {
     expect(mocks.kill).toHaveBeenCalledWith(predecessor.id);
 
     handoff.dispose();
-    dropAgentActivity(predecessor.id);
+    forgetSession(predecessor.id);
   });
 
   // The handoff doc is the whole session's work. Retiring it on anything short of
@@ -547,7 +547,7 @@ describe("createAutoHandoff", () => {
       );
 
       handoff.dispose();
-      dropAgentActivity("reading-successor");
+      forgetSession("reading-successor");
     });
 
     it("keeps the doc when the successor never reports a turn", async () => {
@@ -614,7 +614,7 @@ describe("createAutoHandoff", () => {
     expect(mocks.kill).toHaveBeenCalledWith(session.id);
 
     handoff.dispose();
-    dropAgentActivity(session.id);
+    forgetSession(session.id);
   });
 
   it("says it is waiting while a near-limit session's turn runs", () => {
@@ -644,7 +644,7 @@ describe("createAutoHandoff", () => {
 
     await vi.waitFor(() => expect(mocks.kill).toHaveBeenCalledWith(scannedSession.id));
     handoff.dispose();
-    dropAgentActivity(scannedSession.id);
+    forgetSession(scannedSession.id);
     vi.mocked(measuredContextPercentage).mockReturnValue(100);
     vi.mocked(compactionHeadroom).mockReturnValue(null);
   });
