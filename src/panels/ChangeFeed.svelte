@@ -72,16 +72,20 @@
   // init in the workspace re-reads the branch subtitle without a remount.
   let unlistenGitState: UnlistenFn | undefined;
 
+  // Only repaint when a label can actually change: per second while the
+  // newest card still shows a seconds age ("41s ago"), else once a minute
+  // (older labels have minute granularity). An idle feed repainting every
+  // second is exactly the kind of background frame churn to avoid.
+  function isAgeLabelStale() {
+    const newest = feedStore.events[0]?.ts;
+    const showsSecondsAge = newest !== undefined && Date.now() - newest < 60_000;
+    const minuteRolledOver = Math.floor(Date.now() / 60_000) !== Math.floor(now / 60_000);
+    return showsSecondsAge || minuteRolledOver;
+  }
+
   onMount(async () => {
     clock = setInterval(() => {
-      // Only repaint when a label can actually change: per second while the
-      // newest card still shows a seconds age ("41s ago"), else once a minute
-      // (older labels have minute granularity). An idle feed repainting every
-      // second is exactly the kind of background frame churn to avoid.
-      const newest = feedStore.events[0]?.ts;
-      const showsSecondsAge = newest !== undefined && Date.now() - newest < 60_000;
-      const minuteRolledOver = Math.floor(Date.now() / 60_000) !== Math.floor(now / 60_000);
-      if (showsSecondsAge || minuteRolledOver) {
+      if (isAgeLabelStale()) {
         now = Date.now();
       }
     }, 1000);
