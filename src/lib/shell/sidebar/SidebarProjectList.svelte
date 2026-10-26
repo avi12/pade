@@ -73,6 +73,11 @@
   // the drag engine commits the visible rows, so a filtered subset would drop
   // the hidden pins from the saved order.
   const isPinListReorderable = $derived(!isFiltered && sections.pinned.length > 1);
+  // The project last picked from this list. Opening it reorders the list in
+  // more than one step (it turns recent, then current), so the scroll follows
+  // it from the first step on rather than waiting for it to be current.
+  let pickedProject = $state<string>();
+  const followedProject = $derived(pickedProject ?? sections.recent.find(entry => entry.isCurrent)?.project);
   const isEmpty = $derived(sections.pinned.length === 0 && sections.recent.length === 0);
   const emptyMessage = $derived.by(() => {
     if (!isEmpty) {
@@ -115,20 +120,32 @@
       project: entry.project,
       chatId
     })}
-    onnewchat={() => onnewchat(entry.project)}
-    onpick={e => onpick({
-      project: entry.project,
-      event: e
-    })}
+    onnewchat={() => {
+      pickedProject = entry.project;
+      onnewchat(entry.project);
+    }}
+    onpick={e => {
+      pickedProject = entry.project;
+      onpick({
+        project: entry.project,
+        event: e
+      });
+    }}
     {onreorderpins}
-    onresumeconversation={picked => onresumeconversation({
-      project: entry.project,
-      ...picked
-    })}
-    onselectchat={picked => onselectchat({
-      project: entry.project,
-      ...picked
-    })}
+    onresumeconversation={picked => {
+      pickedProject = entry.project;
+      onresumeconversation({
+        project: entry.project,
+        ...picked
+      });
+    }}
+    onselectchat={picked => {
+      pickedProject = entry.project;
+      onselectchat({
+        project: entry.project,
+        ...picked
+      });
+    }}
     onstopchat={chatId => onstopchat({
       project: entry.project,
       chatId
@@ -156,6 +173,7 @@
     row={pinnedGroup}
   />
   <ProjectSection
+    followedKey={followedProject}
     heading="Recent"
     isReorderAnimated
     items={sections.recent}

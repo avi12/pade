@@ -1,12 +1,12 @@
 <script generics="Item" lang="ts">
   import { flipDuration, toggleRow } from "@/lib/ui/motion";
-  import { createReorderGlide } from "@/lib/ui/reorder-glide";
+  import { createReorderGlide, risenKey } from "@/lib/ui/reorder-glide";
   import type { Snippet } from "svelte";
   import { untrack } from "svelte";
 
   // One titled section of the rail's project list (Pinned or Recent): a sticky
   // head, then one row per item. Nothing renders for an empty section.
-  const { heading, items, key, itemAttributes, row, isReorderAnimated = false }: {
+  const { heading, items, key, itemAttributes, row, isReorderAnimated = false, followedKey }: {
     heading: string;
     items: readonly Item[];
     /** Each item's stable identity, keying its row. */
@@ -20,6 +20,9 @@
      *  whose last session stopped sinking below the running ones) - off where a
      *  drag already moves them. */
     isReorderAnimated?: boolean;
+    /** The item the scroll follows when it rises (the project just brought
+     *  to the front), so it never glides out of sight above the fold. */
+    followedKey?: string;
   } = $props();
 
   const glide = createReorderGlide({ duration: flipDuration });
@@ -28,17 +31,22 @@
   // real change of order counts: the list is re-derived on every status tick,
   // and a row merely nudged by its neighbour's growing height must keep
   // following that growth, not glide against it.
-  let paintedOrder = "";
+  let paintedKeys: string[] = [];
   $effect.pre(() => {
-    const order = items.map(key).join("\n");
-    const isReordered = isReorderAnimated && paintedOrder !== "" && order !== paintedOrder;
-    paintedOrder = order;
+    const keys = items.map(key);
+    const isReordered = isReorderAnimated && paintedKeys.length > 0 && keys.join("\n") !== paintedKeys.join("\n");
+    const follow = risenKey({
+      key: followedKey,
+      from: paintedKeys,
+      to: keys
+    });
+    paintedKeys = keys;
 
     if (!isReordered) {
       return;
     }
 
-    untrack(glide.beforeReorder);
+    untrack(() => glide.beforeReorder({ follow }));
   });
 </script>
 
@@ -53,7 +61,7 @@
     <div
       class="item"
       {...itemAttributes?.(item)}
-      {@attach glide.row}
+      {@attach glide.row(key(item))}
       transition:toggleRow
     >
       {@render row(item)}
@@ -98,7 +106,10 @@
     }
   }
 
+  /* Scrolled into view, an item stops below the sticky section label rather
+     than under it. */
   .item {
     flex: none;
+    scroll-margin-block-start: var(--section-head-block-size, 0);
   }
 </style>
