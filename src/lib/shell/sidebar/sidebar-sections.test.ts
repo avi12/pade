@@ -83,6 +83,31 @@ describe("sidebarSections", () => {
     expect(byPath.recent.map(entry => entry.project)).toEqual([TEMP]);
   });
 
+  it("lists the unpinned projects with a running session first, each part in recent order", () => {
+    const live = {
+      id: "a",
+      project: TEMP,
+      label: "Claude Code",
+      agentId: "claude",
+      isLive: true
+    };
+    const sections = sidebarSections({
+      groups: [
+        group(POLL),
+        group(PADE),
+        {
+          ...group(TEMP),
+          chats: [live]
+        }
+      ],
+      pinned: [],
+      query: "",
+      labels: {}
+    });
+
+    expect(sections.recent.map(entry => entry.project)).toEqual([TEMP, POLL, PADE]);
+  });
+
   it("matches a temp workspace by its label", () => {
     const sections = sidebarSections({
       groups,

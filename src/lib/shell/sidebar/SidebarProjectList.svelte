@@ -155,7 +155,13 @@
     key={entry => entry.project}
     row={pinnedGroup}
   />
-  <ProjectSection heading="Recent" items={sections.recent} key={entry => entry.project} row={recentGroup} />
+  <ProjectSection
+    heading="Recent"
+    isReorderAnimated
+    items={sections.recent}
+    key={entry => entry.project}
+    row={recentGroup}
+  />
 
   {#if emptyMessage}
     <p class="empty">{emptyMessage}</p>

@@ -1,10 +1,11 @@
 <script generics="Item" lang="ts">
-  import { toggleRow } from "@/lib/ui/motion";
+  import { emphasized, flipDuration, toggleRow } from "@/lib/ui/motion";
   import type { Snippet } from "svelte";
+  import { flip } from "svelte/animate";
 
   // One titled section of the rail's project list (Pinned or Recent): a sticky
   // head, then one row per item. Nothing renders for an empty section.
-  const { heading, items, key, itemAttributes, row }: {
+  const { heading, items, key, itemAttributes, row, isReorderAnimated = false }: {
     heading: string;
     items: readonly Item[];
     /** Each item's stable identity, keying its row. */
@@ -14,7 +15,22 @@
     itemAttributes?: (item: Item) => Record<string, string | undefined>;
     /** One item's row. */
     row: Snippet<[Item]>;
+    /** Rows glide to a new place when the order changes on its own (a project
+     *  whose last session stopped sinking below the running ones) - off where a
+     *  drag already moves them. */
+    isReorderAnimated?: boolean;
   } = $props();
+
+  const reorderMotion = $derived.by(() => {
+    if (!isReorderAnimated) {
+      return { duration: 0 };
+    }
+
+    return {
+      duration: flipDuration(),
+      easing: emphasized
+    };
+  });
 </script>
 
 {#if items.length > 0}
@@ -25,7 +41,12 @@
          and one that comes back mid-flight reverses from where it is. On this
          wrapper, the each's own element, so the transition is local: it plays
          for an item coming or going, never for the whole rail. -->
-    <div class="item" {...itemAttributes?.(item)} transition:toggleRow>
+    <div
+      class="item"
+      {...itemAttributes?.(item)}
+      transition:toggleRow
+      animate:flip={reorderMotion}
+    >
       {@render row(item)}
     </div>
   {/each}

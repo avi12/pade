@@ -19,9 +19,17 @@ export function sidebarProjectOrder({ current, pinned, recent }: {
   return [...pinned, current, ...recent];
 }
 
+// A project with a session running - here or in another window - or the one in
+// front, which may still be launching its first.
+function isActiveProject(group: SidebarProject) {
+  return group.isCurrent || group.chats.some(chat => chat.isLive);
+}
+
 /** The rail's two sections after the search: pinned projects, then every other
- *  one. A project matches on its shown name or its path; an empty search keeps
- *  them all. */
+ *  one - the active ones first, each part keeping its recent order, so a
+ *  project whose last session stops sinks below the ones still running. A
+ *  project matches on its shown name or its path; an empty search keeps them
+ *  all. */
 export function sidebarSections({ groups, pinned, query, labels }: {
   groups: readonly SidebarProject[];
   pinned: readonly string[];
@@ -34,9 +42,10 @@ export function sidebarSections({ groups, pinned, query, labels }: {
     query: query.trim(),
     labels
   }));
+  const unpinned = matching.filter(group => !pinnedSet.has(normalizePath(group.project)));
   return {
     pinned: matching.filter(group => pinnedSet.has(normalizePath(group.project))),
-    recent: matching.filter(group => !pinnedSet.has(normalizePath(group.project)))
+    recent: [...unpinned.filter(isActiveProject), ...unpinned.filter(group => !isActiveProject(group))]
   };
 }
 
