@@ -1,21 +1,22 @@
 // Pure bookkeeping for the left rail: which projects it lists and in what
 // order, and how a search splits them into the Pinned and Recent sections.
 
-import type { SidebarProject, StoredChatRegistry } from "@/lib/session/chats/chat-registry";
+import type { SidebarProject } from "@/lib/session/chats/chat-registry";
 import { normalizePath } from "@/lib/util/paths";
 import { matchesProjectFilter } from "@/lib/workspace/switcher/switcher-rows";
 
 /** Every project the rail lists, pins first (in their saved order), then this
- *  window's project, the recents and any other project that still holds chats.
- *  Duplicates stay in; the grouping drops them, keeping each first place. */
-export function sidebarProjectOrder({ current, pinned, recent, registry }: {
+ *  window's project and the recents. Saved chats never list a project on their
+ *  own: one that was deleted, removed from the list or cleaned up would stay
+ *  in the rail with no folder behind it, where it could be neither removed nor
+ *  deleted. Duplicates stay in; the grouping drops them, keeping each first
+ *  place. */
+export function sidebarProjectOrder({ current, pinned, recent }: {
   current: string;
   pinned: readonly string[];
   recent: readonly string[];
-  registry: StoredChatRegistry;
 }) {
-  const projectsWithChats = registry.chats.map(chat => chat.project);
-  return [...pinned, current, ...recent, ...projectsWithChats];
+  return [...pinned, current, ...recent];
 }
 
 /** The rail's two sections after the search: pinned projects, then every other

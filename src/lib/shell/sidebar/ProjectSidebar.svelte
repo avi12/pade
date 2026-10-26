@@ -98,8 +98,7 @@
     sidebarProjectOrder({
       current: project,
       pinned: settings.pinnedProjects,
-      recent: settings.recentProjects,
-      registry
+      recent: settings.recentProjects
     })
   );
 

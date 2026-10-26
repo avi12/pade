@@ -1,4 +1,4 @@
-import type { SidebarProject, StoredChatRegistry } from "@/lib/session/chats/chat-registry";
+import type { SidebarProject } from "@/lib/session/chats/chat-registry";
 import { firstListedProject, sidebarProjectOrder, sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
 import { describe, expect, it } from "vitest";
 
@@ -14,39 +14,15 @@ function group(project: string): SidebarProject {
   };
 }
 
-const EMPTY_REGISTRY: StoredChatRegistry = {
-  chats: [],
-  activeChatByProject: {},
-  lastProject: ""
-};
-
 describe("sidebarProjectOrder", () => {
-  it("leads with the pins, then this window's project, recents and chat holders", () => {
-    const registry: StoredChatRegistry = {
-      ...EMPTY_REGISTRY,
-      chats: [
-        {
-          id: "a",
-          project: TEMP,
-          agent: {
-            id: "claude",
-            label: "Claude Code",
-            command: "claude",
-            reordersBidi: false
-          },
-          updatedAt: 1
-        }
-      ]
-    };
-
+  it("leads with the pins, then this window's project and the recents", () => {
     expect(
       sidebarProjectOrder({
         current: PADE,
         pinned: [POLL],
-        recent: [PADE, POLL],
-        registry
+        recent: [PADE, POLL]
       })
-    ).toEqual([POLL, PADE, PADE, POLL, TEMP]);
+    ).toEqual([POLL, PADE, PADE, POLL]);
   });
 });
 
