@@ -9,7 +9,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -27,45 +27,39 @@ static CHANGE_EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 /// burst of events per save.
 const SAVE_BURST_DEBOUNCE: Duration = Duration::from_millis(150);
 
-/// The Change Feed's live watcher plus the root it is armed on. The root is what
-/// lets `watch_start` detect a project switch and re-arm; the watcher handle is
-/// held only so dropping it stops the watch.
-struct ProjectWatcher {
+/// One held project's Change Feed watch and its per-file bookkeeping. A window
+/// holds sessions of several projects, and an agent edits whichever project its
+/// session lives in - front or not - so a window watches every project it holds
+/// (see [`watch_projects`]), one `ProjectWatch` each. The roots are fixed for
+/// the watch's lifetime: a project the window lets go of drops its whole
+/// `ProjectWatch` (watchers, baselines, counters), and one it picks up again
+/// starts fresh.
+struct ProjectWatch {
+    /// The owning window's label: every event this watch detects is routed back
+    /// to that window alone (`emit_to`), never broadcast to its siblings.
+    label: String,
+    /// The root exactly as the frontend spelled it in `watch_projects` - what
+    /// every per-project event carries, so the frontend keys by its own spelling.
+    requested_root: String,
+    /// The normalized root the watch is armed on (see [`resolve_watch_root`]).
     root: PathBuf,
+    /// The canonical filesystem target of `root`, which preview reads are
+    /// confined to and a folder release matches against.
     canonical_root: PathBuf,
     /// When this watch was armed (epoch ms) - the "watching since" the feed
     /// states in its empty panel, since the feed only ever holds changes made
     /// after that moment (nothing replays what happened before it).
     armed_at: u64,
-    _watcher: RecommendedWatcher,
-}
-
-/// The live-git-state watcher plus the root it is armed on. The root lets a
-/// coalescer thread confirm it still speaks for the current workspace (a
-/// re-root leaves the old thread with buffered messages it must not act on);
-/// dropping the watcher stops the watch, and dropping its channel sender with
-/// it retires the paired coalescer thread once that thread drains.
-struct GitStateWatcher {
-    root: PathBuf,
-    _watcher: RecommendedWatcher,
-}
-
-/// One window's Change Feed watch and its per-file bookkeeping. Every PADE window
-/// opens its own workspace, but all windows share one backend process, so this
-/// state is held per window (keyed by window label in [`WatcherState`]). A single
-/// global slot could arm only one watcher at a time - a second window's
-/// `watch_start` tore down the first window's watch (so its edits never surfaced)
-/// and the one live watcher's changes broadcast into every window's feed. Keyed
-/// per window, each window watches its own root and its events are emitted back
-/// only to it (`emit_to` the owning label).
-#[derive(Default)]
-struct WindowWatch {
-    watcher: Mutex<Option<ProjectWatcher>>,
-    /// The workspace's live-git-state watcher - see `arm_git_state`. Separate
+    /// The recursive notify watcher, installed once right after the watch is
+    /// built (its callback holds a `Weak` back to this watch). Held only so
+    /// dropping it stops the watch.
+    watcher: Mutex<Option<RecommendedWatcher>>,
+    /// The project's live-git-state watcher - see `arm_git_state`. Separate
     /// from the Change Feed's recursive watcher on purpose: it watches only the
     /// dir(s) holding `.git/HEAD` + `.git/config`, non-recursively, so git's
-    /// object churn never reaches it.
-    git_state: Mutex<Option<GitStateWatcher>>,
+    /// object churn never reaches it. Dropping it drops its channel sender,
+    /// which retires the paired coalescer thread once that thread drains.
+    git_state: Mutex<Option<RecommendedWatcher>>,
     line_counts: Mutex<HashMap<PathBuf, usize>>,
     last_seen: Mutex<HashMap<PathBuf, Instant>>,
     /// First-touch baseline snapshots for the git-free preview, keyed by absolute
@@ -73,11 +67,10 @@ struct WindowWatch {
     /// this watch session (empty for a file created this session, so its diff is a
     /// full addition); `None` records a path seen but not snapshottable (binary,
     /// over the size cap, or already gone), so it is never re-read and the preview
-    /// falls back to "none". Cleared and re-scoped to the new root on a project
-    /// switch (see `watch_start`).
+    /// falls back to "none".
     baselines: Mutex<HashMap<PathBuf, Option<String>>>,
-    /// How the current watch root decides a path is ignored, computed once per
-    /// `watch_start` and recomputed on a project switch (see [`IgnoreRules`]).
+    /// How this root decides a path is ignored, computed when the watch is built
+    /// and recomputed whenever the rules change (see [`IgnoreRules`]).
     ignore_rules: IgnoreRules,
     /// The last parseable state of each registered MCP config. Existence and
     /// server membership drive automatic handoff; same-membership content edits
@@ -88,17 +81,26 @@ struct WindowWatch {
     /// project and a watch whose every event is being filtered look identical -
     /// so [`watch_status`] reports both and the panel says which it is. Atomics,
     /// not a lock: the notify callback bumps them on every event it handles.
-    /// Both reset when the watch re-arms.
     surfaced: AtomicU64,
     ignored: AtomicU64,
-    /// The ticket of the newest `watch_start` request. `watch_start` asks git
-    /// for the new root's policy before it takes the watcher lock, so two
-    /// requests can finish out of order; only the holder of the newest ticket
-    /// may arm, which keeps "the latest project wins" on a quick switch.
+}
+
+/// One window's Change Feed watches: one [`ProjectWatch`] per held project root,
+/// keyed by the root as the frontend spelled it. Every PADE window opens its own
+/// workspace, but all windows share one backend process, so this state is held
+/// per window (keyed by window label in [`WatcherState`]); each window's events
+/// are emitted back only to it.
+#[derive(Default)]
+struct WindowWatches {
+    projects: Mutex<HashMap<String, Arc<ProjectWatch>>>,
+    /// The ticket of the newest `watch_projects` request. `watch_projects` asks
+    /// git about new roots before it takes the projects lock, so two requests
+    /// can finish out of order; only the holder of the newest ticket may apply
+    /// its set, which keeps "the latest set wins" on a quick switch.
     latest_arm_request: AtomicU64,
 }
 
-impl WindowWatch {
+impl WindowWatches {
     /// Take a ticket for a new arming request, superseding every earlier one.
     fn begin_arm_request(&self) -> u64 {
         self.latest_arm_request.fetch_add(1, Ordering::SeqCst) + 1
@@ -109,20 +111,109 @@ impl WindowWatch {
         self.latest_arm_request.load(Ordering::SeqCst) == ticket
     }
 
-    /// Whether the live watch is already armed on `root`.
-    fn is_watching(&self, root: &Path) -> bool {
-        self.watcher
+    /// A snapshot of this window's project watches, cloned out under a brief
+    /// lock so callers never hold it across I/O. Empty when the lock is poisoned.
+    fn snapshot(&self) -> Vec<Arc<ProjectWatch>> {
+        self.projects
             .lock()
-            .is_ok_and(|guard| guard.as_ref().is_some_and(|active| active.root == root))
+            .map(|projects| projects.values().cloned().collect())
+            .unwrap_or_default()
     }
+
+    /// The watch on `root`: the one keyed by that exact spelling, else the one
+    /// armed on the same normalized root.
+    fn find(&self, root: &str) -> Option<Arc<ProjectWatch>> {
+        let projects = self.projects.lock().ok()?;
+        if let Some(project) = projects.get(root) {
+            return Some(Arc::clone(project));
+        }
+        let normalized: PathBuf = Path::new(root).components().collect();
+        projects
+            .values()
+            .find(|project| project.root == normalized)
+            .cloned()
+    }
+
+    /// The watch whose root contains `path` - the deepest one when held roots
+    /// nest - which is the watch that owns that path's previews and ignore rules.
+    fn owner_of(&self, path: &Path) -> Option<Arc<ProjectWatch>> {
+        owning_project(&self.snapshot(), path).cloned()
+    }
+}
+
+/// The project among `projects` that owns `path`: the deepest whose root
+/// contains it.
+fn owning_project<'a>(
+    projects: &'a [Arc<ProjectWatch>],
+    path: &Path,
+) -> Option<&'a Arc<ProjectWatch>> {
+    deepest_containing(
+        projects
+            .iter()
+            .map(|project| (project.root.as_path(), project)),
+        path,
+    )
+}
+
+/// The value paired with the deepest root that contains `path`, or `None` when
+/// no root does. Nested held projects (a package inside a monorepo) both
+/// contain a file of the inner one; the inner, more specific project owns it.
+fn deepest_containing<'a, T>(
+    candidates: impl IntoIterator<Item = (&'a Path, T)>,
+    path: &Path,
+) -> Option<T> {
+    candidates
+        .into_iter()
+        .filter(|(root, _)| path.starts_with(root))
+        .max_by_key(|(root, _)| root.components().count())
+        .map(|(_, value)| value)
+}
+
+/// What a declarative `watch_projects` set asks of the current watches: the
+/// requested roots not yet watched (to arm, deduplicated, in request order) and
+/// the watched roots no longer requested (to drop). A root in both sets is left
+/// alone, so its baselines and counters survive.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct WatchSetChange {
+    to_arm: Vec<String>,
+    to_drop: Vec<String>,
+}
+
+fn watch_set_change<'a>(
+    current: impl IntoIterator<Item = &'a String>,
+    requested: &[String],
+) -> WatchSetChange {
+    let current: HashSet<&String> = current.into_iter().collect();
+    let wanted: HashSet<&String> = requested.iter().collect();
+    let mut to_arm: Vec<String> = Vec::new();
+    for root in requested {
+        if !current.contains(root) && !to_arm.contains(root) {
+            to_arm.push(root.clone());
+        }
+    }
+    let mut to_drop: Vec<String> = current
+        .into_iter()
+        .filter(|root| !wanted.contains(root))
+        .cloned()
+        .collect();
+    to_drop.sort();
+    WatchSetChange { to_arm, to_drop }
+}
+
+/// The payload of the per-project events (`feed://ignore-changed`,
+/// `git://state`): which held project the news is for, as the frontend spelled it.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ProjectRootPayload {
+    root: String,
 }
 
 #[derive(Default)]
 pub struct WatcherState {
-    /// One live Change Feed watch per window, keyed by window label. Shared behind
-    /// an `Arc` so a callback can lift its window's bookkeeping out under a brief
-    /// map lock, then work the fine-grained inner mutexes without holding it.
-    windows: Mutex<HashMap<String, Arc<WindowWatch>>>,
+    /// Each window's Change Feed watches, keyed by window label. Shared behind
+    /// an `Arc` so a command can lift its window's watches out under a brief map
+    /// lock, then work the fine-grained inner mutexes without holding it.
+    windows: Mutex<HashMap<String, Arc<WindowWatches>>>,
     /// The picker's folder watcher - see `watch_dirs`. Also per window: each
     /// window has its own picker, watching its own folders, and its
     /// appearance/disappearance events route back only to it.
@@ -142,14 +233,15 @@ struct LanguageWatch {
     /// watched, so a rename or delete can let go of it first.
     canonical_folders: HashMap<PathBuf, PathBuf>,
     /// The projects the window last asked to follow, as it spelled them - kept
-    /// so a Change Feed re-root can re-decide which of them it covers.
+    /// so a change to the window's held projects can re-decide which of them
+    /// the Change Feed covers.
     requested: Vec<String>,
 }
 
 /// This window's watch bookkeeping, created empty on first use. `None` only when
 /// the state lock is poisoned - a fault resolves to "no watch" so a caller bails
 /// rather than panicking on a background thread.
-fn window_watch(state: &WatcherState, label: &str) -> Option<Arc<WindowWatch>> {
+fn window_watches(state: &WatcherState, label: &str) -> Option<Arc<WindowWatches>> {
     let mut windows = state.windows.lock().ok()?;
     Some(Arc::clone(windows.entry(label.to_string()).or_default()))
 }
@@ -157,7 +249,7 @@ fn window_watch(state: &WatcherState, label: &str) -> Option<Arc<WindowWatch>> {
 /// Let go of every window's Change Feed and git-state watch on `folder` or
 /// inside it. On Windows a recursive watch holds the folder open, so it must go
 /// before the folder can be renamed; the feed re-arms on the new path the next
-/// time its window calls `watch_start`.
+/// time its window calls `watch_projects` with it.
 pub fn release_watches_under(app: &AppHandle, folder: &Path) {
     let Ok(folder) = std::fs::canonicalize(folder) else {
         return;
@@ -166,19 +258,26 @@ pub fn release_watches_under(app: &AppHandle, folder: &Path) {
     let Ok(windows) = state.windows.lock() else {
         return;
     };
-    let watches: Vec<Arc<WindowWatch>> = windows.values().cloned().collect();
+    let window_watch_sets: Vec<Arc<WindowWatches>> = windows.values().cloned().collect();
     drop(windows);
-    for watch in watches {
-        let is_inside = canonical_watch_root(&watch).is_some_and(|root| root.starts_with(&folder));
-        if !is_inside {
-            continue;
-        }
-        if let Ok(mut watcher) = watch.watcher.lock() {
-            *watcher = None;
-        }
-        if let Ok(mut git_state) = watch.git_state.lock() {
-            *git_state = None;
-        }
+    for watches in window_watch_sets {
+        let released: Vec<Arc<ProjectWatch>> = {
+            let Ok(mut projects) = watches.projects.lock() else {
+                continue;
+            };
+            let inside: Vec<String> = projects
+                .iter()
+                .filter(|(_, project)| project.canonical_root.starts_with(&folder))
+                .map(|(root, _)| root.clone())
+                .collect();
+            inside
+                .iter()
+                .filter_map(|root| projects.remove(root))
+                .collect()
+        };
+        // Dropped outside the projects lock: tearing a watcher down waits on
+        // its OS handle, which must never stall a status read.
+        drop(released);
     }
     // A language watch on a project inside the folder holds it open too; it
     // re-arms the next time its window's rows change.
@@ -193,19 +292,8 @@ pub fn release_watches_under(app: &AppHandle, folder: &Path) {
     });
 }
 
-/// The canonical filesystem target this window's active watcher was armed on.
-/// Cloned under the watcher lock so preview I/O never holds that lock.
-fn canonical_watch_root(watch: &WindowWatch) -> Option<PathBuf> {
-    watch
-        .watcher
-        .lock()
-        .ok()?
-        .as_ref()
-        .map(|active| active.canonical_root.clone())
-}
-
 /// Drop the watch bookkeeping of every window that has since closed. There is no
-/// per-window teardown hook (windows share one process), so `watch_start` and
+/// per-window teardown hook (windows share one process), so `watch_projects` and
 /// `watch_dirs` prune here on each call: dropping an entry drops its watchers,
 /// which stops the OS watch and retires the paired git-state coalescer thread.
 /// Keeps the maps bounded to live windows over a long multi-window session.
@@ -248,6 +336,9 @@ impl ChangeKind {
 #[serde(rename_all = "camelCase")]
 struct ChangeEvent {
     id: String,
+    /// The held project root the change belongs to, exactly as the frontend
+    /// spelled it in `watch_projects`.
+    root: String,
     path: String,
     kind: ChangeKind,
     added: usize,
@@ -292,8 +383,8 @@ fn is_under_static_ignore_directory(path: &Path, directories: &HashSet<String>) 
     path_component_matches(path, |name| directories.contains(name))
 }
 
-/// How a watch decides a path is "ignored", fixed once per watch root (by
-/// `watch_start` for the Change Feed) and held in its [`IgnoreRules`].
+/// How a watch decides a path is "ignored", fixed once per watch root (when
+/// `watch_projects` arms the Change Feed on it) and held in its [`IgnoreRules`].
 ///
 /// A git work tree defers to git itself via `git check-ignore`, which honors
 /// nested `.gitignore` files, `.git/info/exclude`, the global `core.excludesFile`,
@@ -399,8 +490,9 @@ impl IgnoreRules {
 const GITIGNORE_FILE_NAME: &str = ".gitignore";
 
 /// Announces that the ignore rules themselves changed (a `.gitignore` touched,
-/// a `git init` flipping the policy). Payload-free: the frontend re-asks
-/// `feed_ignored` about the events it holds, so the answer is never stale.
+/// a `git init` flipping the policy). Carries only the affected project's root
+/// ([`ProjectRootPayload`]): the frontend re-asks `feed_ignored` about the
+/// events it holds, so the answer is never stale.
 const FEED_IGNORE_EVENT: &str = "feed://ignore-changed";
 
 /// Announces a single Change Feed entry (a file created/modified/deleted in a
@@ -457,19 +549,14 @@ fn mcp_membership_changed(
 
 /// Seed the MCP server-name baseline for `root`: record the current set for each
 /// known MCP config file, so the first later change diffs against the truth on
-/// disk rather than an empty set (which would restart on project open). Replaces
-/// any previous root's baseline.
-fn snapshot_mcp_baseline(watch: &WindowWatch, root: &Path) {
-    let fresh: HashMap<PathBuf, crate::workspace::mcp::McpSnapshot> =
-        crate::workspace::config::mcp_configs()
-            .filter_map(|config| {
-                let file = root.join(config.relative_path);
-                crate::workspace::mcp::snapshot(&file, config.format).map(|state| (file, state))
-            })
-            .collect();
-    if let Ok(mut baseline) = watch.mcp_servers.lock() {
-        *baseline = fresh;
-    }
+/// disk rather than an empty set (which would restart on project open).
+fn mcp_baseline(root: &Path) -> HashMap<PathBuf, crate::workspace::mcp::McpSnapshot> {
+    crate::workspace::config::mcp_configs()
+        .filter_map(|config| {
+            let file = root.join(config.relative_path);
+            crate::workspace::mcp::snapshot(&file, config.format).map(|state| (file, state))
+        })
+        .collect()
 }
 
 /// Detect an MCP server add/remove for a changed `path` and, when the set truly
@@ -477,7 +564,8 @@ fn snapshot_mcp_baseline(watch: &WindowWatch, root: &Path) {
 /// names) and an unparseable half-written file both no-op, so a session restarts
 /// only on a real membership change. Runs before the ignore filter, so a
 /// `.gitignore`'d `.mcp.json` still triggers.
-fn detect_mcp_change(app: &AppHandle, watch: &WindowWatch, label: &str, root: &Path, path: &Path) {
+fn detect_mcp_change(app: &AppHandle, watch: &ProjectWatch, path: &Path) {
+    let root = &watch.root;
     let Some(config) = mcp_config_for_path(root, path) else {
         return;
     };
@@ -501,7 +589,7 @@ fn detect_mcp_change(app: &AppHandle, watch: &WindowWatch, label: &str, root: &P
     };
 
     let _ = app.emit_to(
-        label,
+        &watch.label,
         MCP_EVENT,
         McpChange {
             path: path.to_string_lossy().into_owned(),
@@ -580,7 +668,7 @@ fn manifest_ignore_directories(file_name: &str) -> &'static [&'static str] {
 /// The set of directory names to exclude in static mode: the [`ALWAYS_IGNORED_DIRECTORIES`] baseline
 /// (so static mode is never weaker than the always-on pre-filter) unioned with the
 /// ignore directories implied by every manifest file sitting directly in `root`.
-/// One cheap one-level directory scan, run once per `watch_start`.
+/// One cheap one-level directory scan, run once per armed root.
 fn static_ignore_directories(root: &Path) -> HashSet<String> {
     let mut directories: HashSet<String> = ALWAYS_IGNORED_DIRECTORIES
         .iter()
@@ -626,29 +714,29 @@ fn compute_ignore_policy(root: &Path) -> IgnorePolicy {
     }
 }
 
-/// Recompute the ignore policy for the active watch root and forget every
+/// Recompute the ignore policy for the project's watch root and forget every
 /// memoized git decision - run when the rules themselves may have changed (a
 /// `.gitignore` edited/created/deleted anywhere under the root, or a
 /// mid-session `git init` flipping the root from static to git mode). The
 /// frontend hears [`FEED_IGNORE_EVENT`] and re-filters the events it already
-/// shows against the fresh policy (`feed_ignored`).
-fn refresh_ignore_policy(app: &AppHandle, watch: &WindowWatch, label: &str) {
-    let Ok(watcher_guard) = watch.watcher.lock() else {
-        return;
-    };
-    let Some(root) = watcher_guard.as_ref().map(|active| active.root.clone()) else {
-        return;
-    };
-    // Release the watcher lock before the policy recompute shells out to git.
-    drop(watcher_guard);
-    watch.ignore_rules.install(compute_ignore_policy(&root));
-    let _ = app.emit_to(label, FEED_IGNORE_EVENT, ());
+/// shows for that project against the fresh policy (`feed_ignored`).
+fn refresh_ignore_policy(app: &AppHandle, watch: &ProjectWatch) {
+    watch
+        .ignore_rules
+        .install(compute_ignore_policy(&watch.root));
+    let _ = app.emit_to(
+        &watch.label,
+        FEED_IGNORE_EVENT,
+        ProjectRootPayload {
+            root: watch.requested_root.clone(),
+        },
+    );
 }
 
 /// Whether `root` sits inside a git work tree, via `git -C <root> rev-parse
 /// --is-inside-work-tree` (which prints `true` in a work tree). A missing git
 /// binary, a non-repo folder, or a bare repo all resolve to `false`, routing
-/// `watch_start` to the static tech-inference fallback instead. Runs git against
+/// the watch to the static tech-inference fallback instead. Runs git against
 /// `root` (not PADE's process cwd) so it reflects the watched project.
 fn is_git_work_tree(root: &Path) -> bool {
     let Ok(output) = git_in(root)
@@ -839,8 +927,8 @@ fn plural(count: usize) -> &'static str {
     }
 }
 
-/// Normalize the workspace path the frontend hands `watch_start` into the Change
-/// Feed's watch root: collapse separators and `.`/`..` to one spelling - but
+/// Normalize a project root the frontend hands `watch_projects` into a Change
+/// Feed watch root: collapse separators and `.`/`..` to one spelling - but
 /// without the Windows `\\?\` verbatim prefix `std::fs::canonicalize` would add,
 /// which would leak into every emitted change path - and confirm it is an
 /// existing directory, so a drifted or bad path fails loudly here rather than
@@ -856,111 +944,153 @@ fn resolve_watch_root(root: &str) -> Result<PathBuf, String> {
     Ok(normalized)
 }
 
-/// Start (or re-root) the Change Feed's watcher on `root` - the open workspace's
-/// path, passed explicitly by the frontend so the feed follows the project on
-/// screen rather than the process's current directory (the two normally match,
-/// but the cwd can drift from the displayed workspace). Idempotent per workspace:
-/// a repeat call for the same root keeps the live watcher, while a call after a
-/// project switch drops the old project's watcher and re-arms on the new root -
-/// the feed always follows the open workspace.
-#[tauri::command]
-pub async fn watch_start(
-    app: AppHandle,
-    window: WebviewWindow,
-    state: State<'_, WatcherState>,
-    root: String,
-) -> Result<(), String> {
-    let root = resolve_watch_root(&root)?;
+/// Build and arm a fresh watch on `requested_root` for the window `label`.
+/// Everything that shells out to git or touches the disk happens here, before
+/// the caller takes the projects lock: the synchronous `watch_status` reads
+/// that lock and must never wait on a git process.
+fn build_project_watch(
+    app: &AppHandle,
+    label: &str,
+    requested_root: &str,
+) -> Result<Arc<ProjectWatch>, String> {
+    let root = resolve_watch_root(requested_root)?;
     let canonical_root = std::fs::canonicalize(&root).map_err(|error| {
         format!(
             "Change Feed can't resolve watch root {}: {error}",
             root.display()
         )
     })?;
+
+    // Install the policy before arming the watcher, so the very first change
+    // is already filtered.
+    let ignore_rules = IgnoreRules::default();
+    ignore_rules.install(compute_ignore_policy(&root));
+    let git_state_plan = GitStatePlan::for_root(&root);
+
+    let watch = Arc::new(ProjectWatch {
+        label: label.to_string(),
+        requested_root: requested_root.to_string(),
+        // Seed the MCP server baseline from what's on disk now, so opening a
+        // project that already declares servers doesn't read as "all added"
+        // and restart.
+        mcp_servers: Mutex::new(mcp_baseline(&root)),
+        root,
+        canonical_root,
+        armed_at: now_milliseconds(),
+        watcher: Mutex::default(),
+        git_state: Mutex::default(),
+        line_counts: Mutex::default(),
+        last_seen: Mutex::default(),
+        baselines: Mutex::default(),
+        ignore_rules,
+        surfaced: AtomicU64::new(0),
+        ignored: AtomicU64::new(0),
+    });
+
+    // The live-git-state companion watch (`HEAD`/`config` → `git://state`)
+    // shares the project watch's lifetime, but has its own tiny non-recursive
+    // watcher.
+    arm_git_state(app, &watch, &git_state_plan);
+
+    // The notify callback runs on its own thread. It holds only a `Weak`: the
+    // watch owns the watcher, so a strong handle would keep both alive forever.
+    let app_handle = app.clone();
+    let callback_watch = Arc::downgrade(&watch);
+    let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
+        let Ok(event) = result else { return };
+        let Some(watch) = callback_watch.upgrade() else {
+            return;
+        };
+        handle_event(&app_handle, &watch, event);
+    })
+    .map_err(|error| error.to_string())?;
+    watcher
+        .watch(&watch.root, RecursiveMode::Recursive)
+        .map_err(|error| error.to_string())?;
+    *watch.watcher.lock().map_err(|error| error.to_string())? = Some(watcher);
+    Ok(watch)
+}
+
+/// Watch exactly the project roots a window holds sessions of - the Change
+/// Feed must hear an agent's edits in a background project too, not only in
+/// the front one. Declarative and idempotent: `roots` is the window's full set,
+/// passed explicitly by the frontend (never derived from the process's current
+/// directory). Roots not yet watched are armed, watched roots no longer listed
+/// are dropped with all their bookkeeping, and unchanged roots are left alone so
+/// their baselines survive. Calls can overlap; the newest call's set wins.
+///
+/// A root that can't be watched (gone, not a directory) fails on its own: every
+/// other root is still applied, and the error names each failure.
+#[tauri::command]
+pub async fn watch_projects(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, WatcherState>,
+    roots: Vec<String>,
+) -> Result<(), String> {
     let label = window.label().to_string();
 
     // Retire the bookkeeping of any window that has since closed before taking on
     // this one's - no per-window teardown hook fires otherwise (see
     // `prune_closed_windows`).
     prune_closed_windows(&app, &state);
-    let Some(watch) = window_watch(&state, &label) else {
+    let Some(watches) = window_watches(&state, &label) else {
         return Err("watcher state unavailable".to_string());
     };
 
-    let ticket = watch.begin_arm_request();
-    if watch.is_watching(&root) {
-        return Ok(());
+    let ticket = watches.begin_arm_request();
+    let current_roots: Vec<String> = watches
+        .projects
+        .lock()
+        .map_err(|error| error.to_string())?
+        .keys()
+        .cloned()
+        .collect();
+
+    let mut armed: Vec<Arc<ProjectWatch>> = Vec::new();
+    let mut failures: Vec<String> = Vec::new();
+    for requested_root in watch_set_change(&current_roots, &roots).to_arm {
+        match build_project_watch(&app, &label, &requested_root) {
+            Ok(watch) => armed.push(watch),
+            Err(error) => failures.push(error),
+        }
     }
 
-    // Ask git how this root's ignored files are recognized, and where its live
-    // state lives, before taking the watcher lock: the synchronous
-    // `watch_status` reads that lock and must never wait on a git process.
-    let policy = compute_ignore_policy(&root);
-    let git_state_plan = GitStatePlan::for_root(&root);
+    let released: Vec<Arc<ProjectWatch>> = {
+        let mut projects = watches.projects.lock().map_err(|error| error.to_string())?;
+        if !watches.is_latest_arm_request(ticket) {
+            // A newer `watch_projects` has begun; it owns the set. The watches
+            // built here drop after the lock is released.
+            drop(projects);
+            return Ok(());
+        }
+        // Re-planned under the lock: the set may have moved since the snapshot.
+        let change = watch_set_change(projects.keys(), &roots);
+        let mut released: Vec<Arc<ProjectWatch>> = change
+            .to_drop
+            .iter()
+            .filter_map(|root| projects.remove(root))
+            .collect();
+        for watch in armed {
+            // A root armed meanwhile keeps its live watch; the duplicate goes.
+            if projects.contains_key(&watch.requested_root) {
+                released.push(watch);
+            } else {
+                projects.insert(watch.requested_root.clone(), watch);
+            }
+        }
+        released
+    };
+    // Dropped outside the projects lock: tearing a watcher down waits on its
+    // OS handle, which must never stall a status read.
+    drop(released);
 
-    let mut guard = watch.watcher.lock().map_err(|error| error.to_string())?;
-    if !watch.is_latest_arm_request(ticket) {
-        // A newer `watch_start` has begun; it owns the arming.
-        return Ok(());
-    }
-    let already_watching_root = guard.as_ref().is_some_and(|active| active.root == root);
-    if already_watching_root {
-        return Ok(());
-    }
-
-    // Drop the previous project's watcher and its per-file bookkeeping before
-    // re-arming, so its handles and stale line counts go with it.
-    *guard = None;
-    if let Ok(mut counts) = watch.line_counts.lock() {
-        counts.clear();
-    }
-    if let Ok(mut seen) = watch.last_seen.lock() {
-        seen.clear();
-    }
-    if let Ok(mut baselines) = watch.baselines.lock() {
-        baselines.clear();
-    }
-    // The panel reports both counts against "watching since", so they belong to
-    // this arming alone.
-    watch.surfaced.store(0, Ordering::Relaxed);
-    watch.ignored.store(0, Ordering::Relaxed);
-
-    // Install the policy (dropping the old root's memoized answers) before
-    // arming the watcher, so the very first change is already filtered.
-    watch.ignore_rules.install(policy);
-
-    // Seed the MCP server baseline from what's on disk now, so opening a project
-    // that already declares servers doesn't read as "all added" and restart.
-    snapshot_mcp_baseline(&watch, &root);
-
-    // The live-git-state companion watch (`HEAD`/`config` → `git://state`)
-    // re-arms with the project: same lifetime and re-root cadence, but its own
-    // tiny non-recursive watcher.
-    arm_git_state(&app, &label, &watch, &root, &git_state_plan);
-
-    // The notify callback runs on its own thread; it carries this window's label
-    // so every change it detects is routed back to this window alone.
-    let app_handle = app.clone();
-    let callback_label = label.clone();
-    let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
-        let Ok(event) = result else { return };
-        handle_event(&app_handle, &callback_label, event);
-    })
-    .map_err(|error| error.to_string())?;
-
-    watcher
-        .watch(&root, RecursiveMode::Recursive)
-        .map_err(|error| error.to_string())?;
-
-    *guard = Some(ProjectWatcher {
-        root,
-        canonical_root,
-        armed_at: now_milliseconds(),
-        _watcher: watcher,
-    });
-    drop(guard);
     rearm_language_watch_after_feed(&app, &state, &label);
-    Ok(())
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(failures.join("; "))
+    }
 }
 
 // ── Live git state ──────────────────────────────────────────────────────────
@@ -970,9 +1100,10 @@ pub async fn watch_start(
 // the frontend the moment either changes - or the repo itself appears - so that
 // state stays live instead of refreshing only on mount / project switch.
 
-/// The event announcing a change to the workspace's live git state. Payload-free
-/// on purpose: listeners re-fetch whatever git state they display, so the event
-/// can never carry stale or partial data.
+/// The event announcing a change to a held project's live git state. Carries
+/// only which project ([`ProjectRootPayload`]) on purpose: listeners re-fetch
+/// whatever git state they display, so the event can never carry stale or
+/// partial data.
 const GIT_STATE_EVENT: &str = "git://state";
 
 /// How long a burst of git-state touches is coalesced before one event is
@@ -1091,22 +1222,16 @@ fn unique_directories<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<PathBuf> 
 /// children (never the workspace tree, which the recursive feed watcher already
 /// covers), and is what lets a `git init` run *after* the project opened gain
 /// the real watch without any polling. Best-effort: a failure to arm just means
-/// git state won't live-update until the next re-root.
-fn arm_git_state(
-    app: &AppHandle,
-    label: &str,
-    watch: &WindowWatch,
-    root: &Path,
-    plan: &GitStatePlan,
-) {
+/// git state won't live-update until the project is watched afresh.
+fn arm_git_state(app: &AppHandle, watch: &Arc<ProjectWatch>, plan: &GitStatePlan) {
     let Ok(mut guard) = watch.git_state.lock() else {
         return;
     };
-    rearm_git_state_locked(app, label, root, plan, &mut guard);
+    rearm_git_state_locked(app, watch, plan, &mut guard);
 }
 
 /// What arming a git-state watch needs to ask git, gathered up front so the
-/// arming itself never shells out - `watch_start` asks before it takes any
+/// arming itself never shells out - `watch_projects` asks before it takes any
 /// lock a synchronous command reads.
 struct GitStatePlan {
     /// The dirs holding `HEAD` and `config`; empty when there is no repo yet.
@@ -1131,19 +1256,19 @@ impl GitStatePlan {
 }
 
 /// The arming body, run under the `git_state` lock (shared by `arm_git_state`
-/// and the coalescer's post-`git init` re-arm, which already holds it). `label`
-/// is the owning window, so the coalescer routes `git://state` back to it alone.
+/// and the coalescer's post-`git init` re-arm, which already holds it). The
+/// coalescer routes `git://state` back to the watch's owning window alone.
 fn rearm_git_state_locked(
     app: &AppHandle,
-    label: &str,
-    root: &Path,
+    watch: &Arc<ProjectWatch>,
     plan: &GitStatePlan,
-    slot: &mut Option<GitStateWatcher>,
+    slot: &mut Option<RecommendedWatcher>,
 ) {
     // Drop the previous watch first, so a failed re-arm can't leave a stale
-    // watcher reporting another root's repo.
+    // watcher reporting a repo layout that no longer holds.
     *slot = None;
 
+    let root = &watch.root;
     let (sender, receiver) = channel::<GitStateMessage>();
     let armed = if plan.directories.is_empty() {
         watch_for_git_init(root, sender)
@@ -1153,11 +1278,8 @@ fn rearm_git_state_locked(
     let Ok(watcher) = armed else {
         return;
     };
-    spawn_git_state_coalescer(app.clone(), label.to_string(), root.to_path_buf(), receiver);
-    *slot = Some(GitStateWatcher {
-        root: root.to_path_buf(),
-        _watcher: watcher,
-    });
+    spawn_git_state_coalescer(app.clone(), Arc::downgrade(watch), receiver);
+    *slot = Some(watcher);
 }
 
 /// The no-repo-yet sentinel: report a `.git` entry appearing among the root's
@@ -1251,42 +1373,34 @@ fn repository_toplevel(root: &Path) -> Option<PathBuf> {
 /// swap the root sentinel for the real `HEAD`/`config` watch first. The
 /// re-arm happens on this thread, never inside the notify callback (a watcher
 /// must not be dropped from its own event callback). The thread retires itself:
-/// re-arming (or a re-root) drops the watcher holding the channel's sender, so
-/// `recv` errors and the loop ends. Because messages buffered before that drop
-/// still arrive, each burst first confirms this thread's root is still the
-/// armed one - a superseded thread must neither re-arm nor emit for a
-/// workspace the window has moved on from.
+/// re-arming (or dropping the project watch) drops the watcher holding the
+/// channel's sender, so `recv` errors and the loop ends. Because messages
+/// buffered before that drop still arrive, each burst first confirms the
+/// project watch is still alive and armed - a released or dropped project must
+/// neither re-arm nor emit.
 fn spawn_git_state_coalescer(
     app: AppHandle,
-    label: String,
-    root: PathBuf,
+    project: Weak<ProjectWatch>,
     receiver: Receiver<GitStateMessage>,
 ) {
     thread::spawn(move || {
         while let Ok(first) = receiver.recv() {
             let burst = drain_burst(&receiver, first, GIT_STATE_COALESCE);
-            // The window this watch speaks for may have closed and been pruned;
-            // then its `WindowWatch` is gone from the map and this thread retires.
-            let state: State<WatcherState> = app.state();
-            let Ok(windows) = state.windows.lock() else {
+            // The window may have let go of this project (or closed and been
+            // pruned); then its `ProjectWatch` is gone and this thread retires.
+            let Some(watch) = project.upgrade() else {
                 return;
             };
-            let Some(watch) = windows.get(&label).cloned() else {
-                return;
-            };
-            drop(windows);
             {
                 let Ok(mut guard) = watch.git_state.lock() else {
                     return;
                 };
-                let speaks_for_current_root =
-                    guard.as_ref().is_some_and(|active| active.root == root);
-                if !speaks_for_current_root {
+                if guard.is_none() {
                     return;
                 }
                 if burst.rearm {
-                    let plan = GitStatePlan::for_root(&root);
-                    rearm_git_state_locked(&app, &label, &root, &plan, &mut guard);
+                    let plan = GitStatePlan::for_root(&watch.root);
+                    rearm_git_state_locked(&app, &watch, &plan, &mut guard);
                 }
             }
             if burst.rearm || burst.ignore_touched {
@@ -1294,11 +1408,17 @@ fn spawn_git_state_coalescer(
                 // fallback to git's own rules; a touched ancestor `.gitignore`
                 // changes the rules in place. Both re-filter the events already
                 // shown. Outside the `git_state` lock - the refresh takes the
-                // watcher/policy locks instead.
-                refresh_ignore_policy(&app, &watch, &label);
+                // policy locks instead.
+                refresh_ignore_policy(&app, &watch);
             }
             if burst.rearm || burst.state_touched {
-                let _ = app.emit_to(&label, GIT_STATE_EVENT, ());
+                let _ = app.emit_to(
+                    &watch.label,
+                    GIT_STATE_EVENT,
+                    ProjectRootPayload {
+                        root: watch.requested_root.clone(),
+                    },
+                );
             }
         }
     });
@@ -1483,18 +1603,21 @@ fn language_news(watched: &Path, route: &LanguageRoute, path: &Path) -> Option<L
 }
 
 /// The folders to watch for one followed project and what each reports for.
-/// The window's Change Feed already watches its project recursively (with the
-/// same ignore rules) and reports its edits itself, so that project needs only
-/// its git folders; any other project gets one recursive watch on its root.
+/// The window's Change Feed already watches each project it holds recursively
+/// (with the same ignore rules) and reports its edits itself, so such a project
+/// needs only its git folders; any other project gets one recursive watch on
+/// its root. `feed_roots` holds the feed's roots as [`project_key`]s.
 /// `reusable` hands back a route already live for the same root, so its
 /// memoized ignore decisions survive a re-arm.
+///
+/// [`project_key`]: crate::workspace::ide::project_key
 fn planned_language_routes(
     path: &str,
-    feed_root: Option<&str>,
+    feed_roots: &HashSet<String>,
     reusable: impl Fn(&Path) -> Option<LanguageRoute>,
 ) -> Vec<(PathBuf, LanguageRoute)> {
     let root: PathBuf = Path::new(path).components().collect();
-    let is_covered_by_feed = feed_root == Some(crate::workspace::ide::project_key(&root).as_str());
+    let is_covered_by_feed = feed_roots.contains(&crate::workspace::ide::project_key(&root));
     if is_covered_by_feed {
         return git_directories_of(&root)
             .into_iter()
@@ -1574,16 +1697,12 @@ fn rearm_language_watch(
     label: &str,
     requested: Vec<String>,
 ) -> Result<(), String> {
-    let feed_root = window_watch(state, label)
-        .and_then(|watch| {
-            watch
-                .watcher
-                .lock()
-                .ok()?
-                .as_ref()
-                .map(|active| active.root.clone())
-        })
-        .map(|root| crate::workspace::ide::project_key(&root));
+    let feed_roots: HashSet<String> = window_watches(state, label)
+        .map(|watches| watches.snapshot())
+        .unwrap_or_default()
+        .iter()
+        .map(|project| crate::workspace::ide::project_key(&project.root))
+        .collect();
     let mut guard = state
         .language_watchers
         .lock()
@@ -1627,9 +1746,7 @@ fn rearm_language_watch(
     let planned: HashMap<PathBuf, LanguageRoute> = requested
         .iter()
         .flat_map(|path| {
-            planned_language_routes(path, feed_root.as_deref(), |root| {
-                previous.get(root).cloned()
-            })
+            planned_language_routes(path, &feed_roots, |root| previous.get(root).cloned())
         })
         .collect();
     for folder in previous
@@ -1670,8 +1787,8 @@ fn rearm_language_watch(
 /// Keep the language bars of the projects a window follows live - the rows on
 /// screen plus the projects it is working in - by reporting each project whose
 /// files changed: a stage, commit or checkout, or an edit, a new file or a
-/// deletion its census would count. The window's own project rides its Change
-/// Feed's recursive watch; every other project gets one recursive watch filtered
+/// deletion its census would count. Each project the window holds rides its
+/// Change Feed's recursive watch; every other project gets one recursive watch filtered
 /// by the same ignore rules. The census itself runs only when the frontend asks.
 /// Re-arming replaces the set; an empty list drops the watch.
 #[tauri::command]
@@ -1685,8 +1802,8 @@ pub async fn watch_languages(
     rearm_language_watch(&app, &state, window.label(), paths)
 }
 
-/// Re-decide which followed projects the window's Change Feed covers after it
-/// re-roots, so no project is left watched twice or not at all.
+/// Re-decide which followed projects the window's Change Feed covers after its
+/// set of held projects changes, so no project is left watched twice or not at all.
 fn rearm_language_watch_after_feed(app: &AppHandle, state: &WatcherState, label: &str) {
     let requested = state
         .language_watchers
@@ -1700,25 +1817,14 @@ fn rearm_language_watch_after_feed(app: &AppHandle, state: &WatcherState, label:
     }
 }
 
-fn handle_event(app: &AppHandle, label: &str, event: Event) {
+/// One project watch's notify callback. Every surfaced change is routed back to
+/// the owning window alone (`emit_to`), never broadcast to sibling windows, and
+/// tagged with the project root as the frontend spelled it.
+fn handle_event(app: &AppHandle, watch: &ProjectWatch, event: Event) {
     let Some(kind) = ChangeKind::from_event(event.kind) else {
         return;
     };
-
-    let state: State<WatcherState> = app.state();
-    // This callback belongs to one window's watch; resolve its bookkeeping and
-    // route every surfaced change back to that window alone (`emit_to`), never
-    // broadcast to sibling windows watching other projects.
-    let Some(watch) = window_watch(&state, label) else {
-        return;
-    };
-    // The active watch root, for the MCP-config and ancestor-relative checks
-    // below - the recursive watcher only ever reports paths under it.
-    let watch_roots = watch.watcher.lock().ok().and_then(|guard| {
-        guard
-            .as_ref()
-            .map(|active| (active.root.clone(), active.canonical_root.clone()))
-    });
+    let label = watch.label.as_str();
 
     for path in event.paths {
         if is_always_ignored(&path) {
@@ -1749,9 +1855,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         // A changed MCP config (`.mcp.json`) may have gained or lost a server;
         // if so, the affected agent's sessions restart to pick it up. Checked
         // before the ignore filter, since `.mcp.json` is often git-ignored.
-        if let Some((root, _)) = &watch_roots {
-            detect_mcp_change(app, &watch, label, root, &path);
-        }
+        detect_mcp_change(app, watch, &path);
 
         // A changed .gitignore - edited, appearing for the first time, or
         // deleted - changes what counts as ignored, so rebuild the whole policy
@@ -1759,7 +1863,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         // and tell the feed to re-filter what it already shows. The .gitignore
         // itself is not ignored, so it still surfaces as its own change.
         if is_gitignore_file(&path) {
-            refresh_ignore_policy(app, &watch, label);
+            refresh_ignore_policy(app, watch);
         }
 
         // Skip whatever the project itself would ignore: git's own ignore rules in
@@ -1775,14 +1879,12 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         // The language watch leaves this project's working tree to the feed
         // (see `planned_language_routes`), so a change the feed keeps is news
         // for its language bar too.
-        if let Some((root, _)) = &watch_roots {
-            report_language_news(
-                app,
-                label,
-                &root.to_string_lossy(),
-                LanguageNews::WorkingTree,
-            );
-        }
+        report_language_news(
+            app,
+            label,
+            &watch.root.to_string_lossy(),
+            LanguageNews::WorkingTree,
+        );
 
         // Debounce: editors emit bursts per save.
         {
@@ -1808,15 +1910,13 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         // the first sighting, so a large file is read at most once.
         record_first_touch_baseline(&watch.baselines, &path, || match kind {
             ChangeKind::Created => Some(String::new()),
-            ChangeKind::Modified => watch_roots.as_ref().and_then(|(_, canonical_root)| {
-                read_preview_text(canonical_root, &path).ok().flatten()
-            }),
-            ChangeKind::Deleted => watch_roots.as_ref().and_then(|(root, canonical_root)| {
-                read_preview_text(canonical_root, &path)
-                    .ok()
-                    .flatten()
-                    .or_else(|| crate::vcs::head_file_text(root, &path, MAXIMUM_PREVIEW_BYTES))
-            }),
+            ChangeKind::Modified => read_preview_text(&watch.canonical_root, &path)
+                .ok()
+                .flatten(),
+            ChangeKind::Deleted => read_preview_text(&watch.canonical_root, &path)
+                .ok()
+                .flatten()
+                .or_else(|| crate::vcs::head_file_text(&watch.root, &path, MAXIMUM_PREVIEW_BYTES)),
         });
 
         let new_count = line_count(&path);
@@ -1842,6 +1942,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         );
         let event = ChangeEvent {
             id,
+            root: watch.requested_root.clone(),
             summary: summarize(kind, added, removed),
             path: path_string,
             kind,
@@ -1875,13 +1976,13 @@ fn record_first_touch_baseline(
     }
 }
 
-/// What this window's Change Feed watch is doing right now - the panel states it
+/// What one held project's Change Feed watch is doing right now - the panel states it
 /// verbatim when the feed is empty, so "nothing has changed yet" is never
 /// mistaken for "nothing is being watched".
 #[derive(Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct WatchStatus {
-    /// The root the watch is armed on; `None` when this window has no live watch.
+    /// The root the watch is armed on; `None` when this window doesn't watch it.
     root: Option<String>,
     /// Epoch ms the watch was armed - the feed holds nothing from before it.
     armed_at: Option<u64>,
@@ -1892,24 +1993,31 @@ pub struct WatchStatus {
     ignored: u64,
 }
 
-/// This window's live watch state (see [`WatchStatus`]). A pure in-memory
-/// registry read, so it stays synchronous.
+/// The live watch state of `root` in this window (see [`WatchStatus`]); the
+/// default, empty status when the window doesn't watch that root. A pure
+/// in-memory registry read, so it stays synchronous.
 #[tauri::command]
-pub fn watch_status(window: WebviewWindow, state: State<'_, WatcherState>) -> WatchStatus {
-    let Some(watch) = window_watch(&state, window.label()) else {
+pub fn watch_status(
+    window: WebviewWindow,
+    state: State<'_, WatcherState>,
+    root: String,
+) -> WatchStatus {
+    let Some(watch) =
+        window_watches(&state, window.label()).and_then(|watches| watches.find(&root))
+    else {
         return WatchStatus::default();
     };
-    let armed = watch.watcher.lock().ok().and_then(|guard| {
-        guard
-            .as_ref()
-            .map(|active| (active.root.to_string_lossy().into_owned(), active.armed_at))
-    });
     WatchStatus {
-        root: armed.as_ref().map(|(root, _)| root.clone()),
-        armed_at: armed.map(|(_, armed_at)| armed_at),
+        root: Some(watch.root.to_string_lossy().into_owned()),
+        armed_at: Some(watch.armed_at),
         surfaced: watch.surfaced.load(Ordering::Relaxed),
         ignored: watch.ignored.load(Ordering::Relaxed),
     }
+}
+
+/// The window's project watch that owns `path` (see [`WindowWatches::owner_of`]).
+fn owning_watch(state: &WatcherState, label: &str, path: &Path) -> Option<Arc<ProjectWatch>> {
+    window_watches(state, label)?.owner_of(path)
 }
 
 /// The two texts a Change Feed card diffs: the session's first-touch baseline and
@@ -1935,23 +2043,19 @@ pub async fn feed_diff(
     state: State<'_, WatcherState>,
     path: String,
 ) -> Result<Option<FeedDiff>, String> {
-    let Some(watch) = window_watch(&state, window.label()) else {
+    let file = Path::new(&path);
+    let Some(watch) = owning_watch(&state, window.label(), file) else {
         return Ok(None);
     };
     let before = {
         let baselines = watch.baselines.lock().map_err(|error| error.to_string())?;
-        let Some(Some(text)) = baselines.get(Path::new(&path)) else {
+        let Some(Some(text)) = baselines.get(file) else {
             return Ok(None);
         };
         text.clone()
     };
 
-    let Some(canonical_root) = canonical_watch_root(&watch) else {
-        return Ok(None);
-    };
-
-    let file = Path::new(&path);
-    let after = match read_preview_text(&canonical_root, file) {
+    let after = match read_preview_text(&watch.canonical_root, file) {
         Ok(Some(text)) => text,
         Ok(None) => String::new(),
         Err(()) => return Ok(None),
@@ -1973,18 +2077,14 @@ pub async fn feed_text(
     state: State<'_, WatcherState>,
     path: String,
 ) -> Result<Option<String>, String> {
-    let Some(watch) = window_watch(&state, window.label()) else {
+    let file = Path::new(&path);
+    let Some(watch) = owning_watch(&state, window.label(), file) else {
         return Ok(None);
     };
-    if !was_surfaced(&watch, Path::new(&path))? {
+    if !was_surfaced(&watch, file)? {
         return Ok(None);
     }
-
-    let Some(canonical_root) = canonical_watch_root(&watch) else {
-        return Ok(None);
-    };
-
-    Ok(read_preview_text(&canonical_root, Path::new(&path))
+    Ok(read_preview_text(&watch.canonical_root, file)
         .ok()
         .flatten())
 }
@@ -2058,7 +2158,7 @@ fn data_url(mime: &str, bytes: &[u8]) -> String {
 /// Whether this window's watch surfaced `path` this session (it holds a
 /// baseline entry for it). The gate every preview command passes first, so none
 /// of them can be turned into a reader of an arbitrary file off disk.
-fn was_surfaced(watch: &WindowWatch, path: &Path) -> Result<bool, String> {
+fn was_surfaced(watch: &ProjectWatch, path: &Path) -> Result<bool, String> {
     let baselines = watch.baselines.lock().map_err(|error| error.to_string())?;
     Ok(baselines.contains_key(path))
 }
@@ -2087,21 +2187,19 @@ pub async fn feed_image(
     state: State<'_, WatcherState>,
     path: String,
 ) -> Result<Option<FeedImage>, String> {
-    let Some(watch) = window_watch(&state, window.label()) else {
+    let file = Path::new(&path);
+    let Some(watch) = owning_watch(&state, window.label(), file) else {
         return Ok(None);
     };
-    if !was_surfaced(&watch, Path::new(&path))? {
+    if !was_surfaced(&watch, file)? {
         return Ok(None);
     }
 
-    let file = Path::new(&path);
     let Some(mime) = image_mime_type(file) else {
         return Ok(None);
     };
-    let Some(canonical_root) = canonical_watch_root(&watch) else {
-        return Ok(None);
-    };
-    let Ok(Some(bytes)) = read_authorized_file(&canonical_root, file, MAXIMUM_IMAGE_BYTES) else {
+    let Ok(Some(bytes)) = read_authorized_file(&watch.canonical_root, file, MAXIMUM_IMAGE_BYTES)
+    else {
         return Ok(None);
     };
 
@@ -2136,17 +2234,14 @@ pub async fn feed_video(
     state: State<'_, WatcherState>,
     path: String,
 ) -> Result<Option<FeedVideo>, String> {
-    let Some(watch) = window_watch(&state, window.label()) else {
+    let file = Path::new(&path);
+    let Some(watch) = owning_watch(&state, window.label(), file) else {
         return Ok(None);
     };
-    let file = Path::new(&path);
     if !crate::platform::media::is_video(file) || !was_surfaced(&watch, file)? {
         return Ok(None);
     }
-    let Some(canonical_root) = canonical_watch_root(&watch) else {
-        return Ok(None);
-    };
-    let Ok(Some(source)) = authorize_path(&canonical_root, file) else {
+    let Ok(Some(source)) = authorize_path(&watch.canonical_root, file) else {
         return Ok(None);
     };
 
@@ -2166,22 +2261,24 @@ pub async fn feed_video(
 /// The subset of `paths` the current ignore policy excludes - how the frontend
 /// re-filters the Change Feed it already rendered after `feed://ignore-changed`
 /// (events for now-ignored paths are dropped; never-recorded ones can't be
-/// resurrected, they simply surface again on their next real change).
+/// resurrected, they simply surface again on their next real change). Each
+/// path is judged by the rules of the held project that owns it.
 #[tauri::command]
 pub async fn feed_ignored(
     window: WebviewWindow,
     state: State<'_, WatcherState>,
     paths: Vec<String>,
 ) -> Result<Vec<String>, String> {
-    let watch = window_watch(&state, window.label());
+    let projects = window_watches(&state, window.label())
+        .map(|watches| watches.snapshot())
+        .unwrap_or_default();
     Ok(paths
         .into_iter()
         .filter(|candidate| {
             let path = Path::new(candidate);
             is_always_ignored(path)
-                || watch
-                    .as_ref()
-                    .is_some_and(|watch| watch.ignore_rules.excludes(path))
+                || owning_project(&projects, path)
+                    .is_some_and(|project| project.ignore_rules.excludes(path))
         })
         .collect())
 }
@@ -2198,31 +2295,108 @@ mod tests {
         is_under_static_ignore_directory, line_count, line_delta, manifest_ignore_directories,
         mcp_config_for_path, mcp_membership_changed, read_authorized_file, read_preview_text,
         reclassify, record_first_touch_baseline, resolve_watch_root, static_ignore_directories,
-        summarize, surfaces, unique_directories, ChangeKind, GitStateMessage, WindowWatch,
+        summarize, surfaces, unique_directories, ChangeKind, GitStateMessage, WindowWatches,
         MAXIMUM_IMAGE_BYTES, MAXIMUM_PREVIEW_BYTES,
     };
     use super::{
-        language_news, planned_language_routes, IgnorePolicy, IgnoreRules, LanguageNews,
-        LanguageRoute,
+        deepest_containing, language_news, planned_language_routes, watch_set_change, IgnorePolicy,
+        IgnoreRules, LanguageNews, LanguageRoute, ProjectRootPayload, WatchSetChange,
     };
     use std::sync::Arc;
 
-    /// `watch_start` asks git before it locks, so a slow request can finish
-    /// after a newer one; only the newest may arm, or a quick project switch
-    /// could leave the feed watching the project the user just left.
+    /// `watch_projects` asks git before it locks, so a slow request can finish
+    /// after a newer one; only the newest may apply its set, or a quick switch
+    /// could leave the feed watching projects the window just let go of.
     #[test]
     fn only_the_newest_arm_request_may_arm() {
-        let watch = WindowWatch::default();
-        let older = watch.begin_arm_request();
-        let newer = watch.begin_arm_request();
-        assert!(!watch.is_latest_arm_request(older));
-        assert!(watch.is_latest_arm_request(newer));
+        let watches = WindowWatches::default();
+        let older = watches.begin_arm_request();
+        let newer = watches.begin_arm_request();
+        assert!(!watches.is_latest_arm_request(older));
+        assert!(watches.is_latest_arm_request(newer));
     }
 
     #[test]
-    fn a_fresh_window_watch_is_watching_nothing() {
-        let watch = WindowWatch::default();
-        assert!(!watch.is_watching(Path::new("C:/anything")));
+    fn a_fresh_window_is_watching_nothing() {
+        let watches = WindowWatches::default();
+        assert!(watches.find("C:/anything").is_none());
+        assert!(watches.owner_of(Path::new("C:/anything/file.rs")).is_none());
+    }
+
+    fn roots(names: &[&str]) -> Vec<String> {
+        names.iter().map(|name| (*name).to_string()).collect()
+    }
+
+    #[test]
+    fn a_new_set_arms_the_added_roots_and_drops_the_removed_ones() {
+        let current = roots(&["C:/a", "C:/b"]);
+        let change = watch_set_change(&current, &roots(&["C:/b", "C:/c"]));
+        assert_eq!(
+            change,
+            WatchSetChange {
+                to_arm: roots(&["C:/c"]),
+                to_drop: roots(&["C:/a"]),
+            }
+        );
+    }
+
+    #[test]
+    fn an_unchanged_set_neither_arms_nor_drops_anything() {
+        let current = roots(&["C:/a", "C:/b"]);
+        let change = watch_set_change(&current, &roots(&["C:/b", "C:/a"]));
+        assert_eq!(change, WatchSetChange::default());
+    }
+
+    #[test]
+    fn a_repeated_root_is_armed_once_and_an_empty_set_drops_everything() {
+        let change = watch_set_change(&[], &roots(&["C:/a", "C:/a"]));
+        assert_eq!(change.to_arm, roots(&["C:/a"]));
+
+        let current = roots(&["C:/b", "C:/a"]);
+        let change = watch_set_change(&current, &[]);
+        assert_eq!(change.to_drop, roots(&["C:/a", "C:/b"]));
+        assert_empty(&change.to_arm);
+    }
+
+    #[test]
+    fn a_path_belongs_to_the_deepest_root_that_contains_it() {
+        let monorepo = Path::new("C:/work/monorepo");
+        let package = Path::new("C:/work/monorepo/packages/app");
+        let other = Path::new("C:/work/other");
+        let candidates = [
+            (monorepo, "monorepo"),
+            (package, "package"),
+            (other, "other"),
+        ];
+
+        let owner = |path: &str| deepest_containing(candidates, Path::new(path));
+        assert_eq!(
+            owner("C:/work/monorepo/packages/app/src/main.ts"),
+            Some("package")
+        );
+        assert_eq!(owner("C:/work/monorepo/README.md"), Some("monorepo"));
+        assert_eq!(owner("C:/work/other/lib.rs"), Some("other"));
+        assert_eq!(owner("C:/elsewhere/file.txt"), None);
+    }
+
+    #[test]
+    fn per_project_events_carry_the_root_as_the_frontend_spelled_it() {
+        let payload = ProjectRootPayload {
+            root: "C:/work/app".to_string(),
+        };
+        assert_eq!(
+            serde_json::to_string(&payload).expect("serialize payload"),
+            r#"{"root":"C:/work/app"}"#
+        );
+    }
+
+    #[test]
+    fn a_sibling_with_a_shared_name_prefix_is_not_contained() {
+        let candidates = [(Path::new("C:/work/app"), "app")];
+        assert_eq!(
+            deepest_containing(candidates, Path::new("C:/work/app-old/file.txt")),
+            None
+        );
     }
     use crate::test_support::assert_empty;
     use std::collections::{HashMap, HashSet};
@@ -2773,16 +2947,20 @@ mod tests {
         fs::create_dir_all(root.join(".git")).expect("git dir");
         fs::write(root.join(".git").join("index"), "").expect("index");
         let path = root.to_string_lossy().into_owned();
-        let feed_root = crate::workspace::ide::project_key(&root);
+        let other_project = std::env::temp_dir().join("pade-language-plan-other");
+        let feed_roots: HashSet<String> = [&root, &other_project]
+            .into_iter()
+            .map(|project| crate::workspace::ide::project_key(project))
+            .collect();
 
-        let covered = planned_language_routes(&path, Some(&feed_root), |_| None);
+        let covered = planned_language_routes(&path, &feed_roots, |_| None);
         assert!(matches!(
             covered.as_slice(),
             [(folder, LanguageRoute::GitDirectory { .. })] if *folder == root.join(".git")
         ));
 
         let existing = working_tree_route(&root);
-        let uncovered = planned_language_routes(&path, None, |_| Some(existing.clone()));
+        let uncovered = planned_language_routes(&path, &HashSet::new(), |_| Some(existing.clone()));
         let [(folder, LanguageRoute::WorkingTree { ignore_rules, .. })] = uncovered.as_slice()
         else {
             panic!("expected one recursive working-tree watch");

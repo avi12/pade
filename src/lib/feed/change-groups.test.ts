@@ -13,6 +13,7 @@ function change({ path, added = 0, removed = 0, timestamp = 0 }: {
   idCounter += 1;
   return {
     id: `e${idCounter}`,
+    root: ROOT,
     path,
     kind: ChangeKind.enum.modified,
     added,

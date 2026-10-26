@@ -11,10 +11,15 @@
 // The pure half (where a member lives, what to call it) is `lib/workspace/members/workspace-members`.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { frontProject } from "@/lib/stores/workspace/frontProject.svelte";
 import type { WorkspaceMember } from "@/lib/types";
 import { settledValue } from "@/lib/util/async/settled";
 import { memberPath } from "@/lib/workspace/members/workspace-members";
+import { untrack } from "svelte";
 
+// The project the members below were loaded for. Not a copy of the front
+// project: it changes only as a load starts, so `activeMemberIn` can refuse to
+// answer for a project whose census has not begun yet.
 let root = $state("");
 let list = $state<WorkspaceMember[]>([]);
 /** HEAD branch per member, keyed by the member's absolute path. Only checkouts
@@ -64,7 +69,8 @@ export function selectMember(path: string) {
 
 /** Load the members of `projectRoot`, then their branches. A project switch
  *  resets the selection to the root: the member you had chosen belongs to the
- *  workspace you just left. */
+ *  workspace you just left. The store does this itself whenever the window's
+ *  front project changes. */
 export async function loadWorkspaceMembers(projectRoot: string) {
   root = projectRoot;
   active = projectRoot;
@@ -109,3 +115,12 @@ export async function refreshMemberBranches() {
 
   branchByPath = heads;
 }
+
+// Follow the window's front project: each one that comes to the front has its
+// members counted afresh.
+$effect.root(() => {
+  $effect(() => {
+    const projectRoot = frontProject();
+    untrack(() => loadWorkspaceMembers(projectRoot));
+  });
+});

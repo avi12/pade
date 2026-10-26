@@ -36,6 +36,7 @@ describe("task catalog", () => {
     const alpha = Promise.withResolvers<TaskGroup[]>();
     const beta = Promise.withResolvers<TaskGroup[]>();
     const catalog = createTaskCatalog({
+      project: () => project,
       descriptors: async () => [],
       async list(workspace) {
         listCalls += 1;
@@ -48,7 +49,7 @@ describe("task catalog", () => {
       },
       onChange: async () => () => undefined
     });
-    await catalog.initialize(() => project);
+    await catalog.initialize();
 
     const staleRefresh = catalog.refresh("alpha");
     project = "beta";
@@ -74,11 +75,12 @@ describe("task catalog", () => {
       command: "pnpm check"
     })];
     const catalog = createTaskCatalog({
+      project: () => "demo",
       descriptors: async () => [],
       list: async () => groups,
       onChange: async () => () => undefined
     });
-    await catalog.initialize(() => "demo");
+    await catalog.initialize();
 
     expect(catalog.snapshot.groups).toBe(groups);
     expect(knownTaskCommands(catalog.snapshot)).toEqual([{
@@ -95,8 +97,12 @@ describe("task catalog", () => {
 
   it("re-scans when a watched manifest changes, by name or by extension", async () => {
     let listCalls = 0;
-    let notify: ((path: string) => void) | undefined;
+    let notify: ((change: {
+      root: string;
+      path: string;
+    }) => void) | undefined;
     const catalog = createTaskCatalog({
+      project: () => "demo",
       descriptors: async () => [
         {
           match: ManifestMatch.enum.name,
@@ -116,17 +122,38 @@ describe("task catalog", () => {
         return () => undefined;
       }
     });
-    await catalog.initialize(() => "demo");
+    await catalog.initialize();
     expect(listCalls).toBe(1);
 
-    notify?.("C:/demo/package.json");
-    notify?.("C:/demo/src/Renderer.CSPROJ");
+    notify?.({
+      root: "demo",
+      path: "C:/demo/package.json"
+    });
+    notify?.({
+      root: "demo",
+      path: "C:/demo/src/Renderer.CSPROJ"
+    });
     await Promise.resolve();
 
     expect(listCalls).toBe(3);
 
-    notify?.("C:/demo/src/Renderer.csproj.user");
-    notify?.("C:/demo/README.md");
+    notify?.({
+      root: "demo",
+      path: "C:/demo/src/Renderer.csproj.user"
+    });
+    notify?.({
+      root: "demo",
+      path: "C:/demo/README.md"
+    });
+    await Promise.resolve();
+
+    expect(listCalls).toBe(3);
+
+    // A project behind the front one has its own manifests; they list nothing here.
+    notify?.({
+      root: "other",
+      path: "C:/other/package.json"
+    });
     await Promise.resolve();
 
     expect(listCalls).toBe(3);
@@ -165,6 +192,7 @@ describe("task catalog", () => {
     let attempts = 0;
     let activeListeners = 0;
     const catalog = createTaskCatalog({
+      project: () => "demo",
       descriptors: async () => [{
         match: ManifestMatch.enum.name,
         value: "Makefile"
@@ -184,10 +212,10 @@ describe("task catalog", () => {
       }
     });
 
-    await catalog.initialize(() => "demo");
+    await catalog.initialize();
     expect(catalog.snapshot.error).toContain("listener unavailable");
-    await catalog.initialize(() => "demo");
-    await catalog.initialize(() => "demo");
+    await catalog.initialize();
+    await catalog.initialize();
 
     expect(attempts).toBe(2);
     expect(activeListeners).toBe(1);

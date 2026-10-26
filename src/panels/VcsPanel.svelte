@@ -66,10 +66,20 @@
   }
 
   onMount(async () => {
-    unlisten = await onMessage(EventType.feedChange, () => scheduleRefresh());
+    // Only this panel's project counts: the window also watches the projects
+    // behind it, and their changes say nothing about this one's status.
+    unlisten = await onMessage(EventType.feedChange, ({ data: { root } }) => {
+      if (root === project) {
+        scheduleRefresh();
+      }
+    });
     // A branch switch, remote change, or git init reshapes the status and the
     // log without necessarily touching a watched file - refresh on it too.
-    unlistenGitState = await onMessage(EventType.gitState, () => scheduleRefresh());
+    unlistenGitState = await onMessage(EventType.gitState, ({ data: { root } }) => {
+      if (root === project) {
+        scheduleRefresh();
+      }
+    });
   });
   onDestroy(() => {
     unlisten?.();

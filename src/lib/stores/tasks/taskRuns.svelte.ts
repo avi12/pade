@@ -190,8 +190,8 @@ async function startListeners() {
 
 /** Start watching agent output for known-task runs. Idempotent; call once from
  *  the app shell (like the runner listeners). */
-export async function initTaskRunDetection(project: () => string) {
-  await taskCatalog.initialize(project);
+export async function initTaskRunDetection() {
+  await taskCatalog.initialize();
 
   if (listenerUnlistens.length === 0) {
     listenerInitialization ??= startListeners();
@@ -236,9 +236,4 @@ export async function adoptRunningTasks(snapshot: TaskCatalogSnapshot) {
       project: snapshot.project
     });
   }
-}
-
-/** Re-read task commands after this window switches projects. */
-export async function refreshTaskRunDetection() {
-  await taskCatalog.refresh();
 }

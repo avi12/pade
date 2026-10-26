@@ -55,6 +55,7 @@ import {
   TerminalScheme,
   UpdateStatus,
   Usage,
+  WatchedRootEvent,
   WatchStatus,
   WindowInfo,
   WorkspaceMember
@@ -126,7 +127,7 @@ export enum Command {
   ptyHistory = "pty_history",
   sessionTaskStop = "session_task_stop",
   sessionTaskRunning = "session_task_running",
-  watchStart = "watch_start",
+  watchProjects = "watch_projects",
   watchStatus = "watch_status",
   watchDirs = "watch_dirs",
   watchLanguages = "watch_languages",
@@ -447,11 +448,13 @@ export interface CommandProtocolMap {
   [Command.sessionTaskStop]: (data: SessionTask) => boolean;
   /** Whether a task the agent started is still running under its tree. */
   [Command.sessionTaskRunning]: (data: SessionTask) => boolean;
-  /** Watch `root` - the open workspace - so the feed follows the project on
-   *  screen. Idempotent per root; a new root re-roots the watcher. */
-  [Command.watchStart]: (data: { root: string }) => void;
-  /** What this window's watch is doing right now, for the feed's empty panel. */
-  [Command.watchStatus]: () => WatchStatus;
+  /** Watch every project the window holds a session of - the whole set, every
+   *  call. Roots new to the set are armed, roots gone from it are dropped, the
+   *  rest are left alone (their baselines survive); the newest call wins. */
+  [Command.watchProjects]: (data: { roots: string[] }) => void;
+  /** What this window's watch of `root` is doing right now, for the feed's
+   *  empty panel and its reload snapshot; empty when `root` is not watched. */
+  [Command.watchStatus]: (data: { root: string }) => WatchStatus;
   /** Arm the picker's folder watcher on the parents of the rows on the page. */
   [Command.watchDirs]: (data: { dirs: string[] }) => void;
   /** Watch the `.git` folders of the project rows on screen, so a row whose
@@ -661,9 +664,9 @@ interface EventProtocolMap {
    *  grown, replaced) - throttled per project in the backend. */
   [EventType.agentConversationsChanged]: (data: RecordedConversationsChanged) => void;
   [EventType.feedChange]: (data: ChangeEvent) => void;
-  /** The ignore rules changed (a `.gitignore` edit, a mid-session `git init`) -
-   *  re-ask `feed_ignored` about the events already shown. */
-  [EventType.feedIgnoreChanged]: (data: null) => void;
+  /** A held project's ignore rules changed (a `.gitignore` edit, a mid-session
+   *  `git init`) - re-ask `feed_ignored` about that project's events. */
+  [EventType.feedIgnoreChanged]: (data: WatchedRootEvent) => void;
   /** Project MCP config changed in an agent's registered file. */
   [EventType.mcpChanged]: (data: McpChange) => void;
   /** A picker-watched folder gained or lost a child (a project created or
@@ -673,9 +676,9 @@ interface EventProtocolMap {
   [EventType.languagesChanged]: (data: string) => void;
   /** A folder move reached its next step - shown by the prompt waiting on it. */
   [EventType.relocateProgress]: (data: RelocateProgress) => void;
-  /** The workspace's live git state changed (HEAD, config, `git init`).
-   *  Payload-free on purpose: listeners re-fetch what they display. */
-  [EventType.gitState]: (data: null) => void;
+  /** A held project's live git state changed (HEAD, config, `git init`, or a
+   *  member's). Only the root on purpose: listeners re-fetch what they display. */
+  [EventType.gitState]: (data: WatchedRootEvent) => void;
   [EventType.runnerData]: (data: RunnerData) => void;
   [EventType.runnerExit]: (data: RunnerExit) => void;
   /** The open-windows set/order changed in SOME window (broadcast). */
@@ -751,7 +754,7 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.ptyHistory]: PtyHistory,
   [Command.sessionTaskStop]: z.boolean(),
   [Command.sessionTaskRunning]: z.boolean(),
-  [Command.watchStart]: NO_REPLY,
+  [Command.watchProjects]: NO_REPLY,
   [Command.watchStatus]: WatchStatus,
   [Command.watchDirs]: NO_REPLY,
   [Command.watchLanguages]: NO_REPLY,
@@ -828,12 +831,12 @@ const EVENT_PAYLOAD_SCHEMAS = {
   [EventType.agentModelChanged]: RunningModelChanged,
   [EventType.agentConversationsChanged]: RecordedConversationsChanged,
   [EventType.feedChange]: ChangeEvent,
-  [EventType.feedIgnoreChanged]: z.null(),
+  [EventType.feedIgnoreChanged]: WatchedRootEvent,
   [EventType.mcpChanged]: McpChange,
   [EventType.directoriesChanged]: z.null(),
   [EventType.languagesChanged]: z.string(),
   [EventType.relocateProgress]: RelocateProgress,
-  [EventType.gitState]: z.null(),
+  [EventType.gitState]: WatchedRootEvent,
   [EventType.runnerData]: RunnerData,
   [EventType.runnerExit]: RunnerExit,
   [EventType.windowsChanged]: z.null(),

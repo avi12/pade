@@ -49,8 +49,8 @@
 
   // The workspace's members (backend census: a package by its manifest, a
   // checkout by its own `.git`) - the grouping ground truth change-groups
-  // prefers over folder-name conventions. The shell's windowServices discovers them once per project
-  // into the shared store; with none, the convention fallback stays in charge.
+  // prefers over folder-name conventions. The shared store counts them once per
+  // front project; with none, the convention fallback stays in charge.
   const workspaceMembers = $derived(storedMembers());
 
   // Whether the workspace has a git remote to sync from - gates the whole button
@@ -88,8 +88,10 @@
         now = Date.now();
       }
     }, 1000);
-    unlistenGitState = await onMessage(EventType.gitState, () => {
-      loadRemote(project);
+    unlistenGitState = await onMessage(EventType.gitState, ({ data: { root } }) => {
+      if (root === project) {
+        loadRemote(project);
+      }
     });
   });
 
@@ -101,15 +103,15 @@
     unlistenGitState?.();
   });
 
-  // The file-watcher itself is started and re-rooted by the shell's windowServices (keyed on
-  // the open project), so the feed just subscribes to its stream above - no need
-  // to arm it here.
+  // The file watches themselves are armed by the shell's windowServices (one per
+  // project the window holds), so the feed just reads the store their stream
+  // fills - no need to arm anything here.
 
   // The workspace's remote gating and watch status, loaded together
   // (concurrently) on mount and on a project switch. Each callee owns its own
   // error handling, so the gathered promise never rejects. The members, their
   // branches and the project's editors are not here: they belong to the shared
-  // stores windowServices fills whenever the project comes to the front.
+  // stores that follow the front project on their own.
   async function loadWorkspaceState(workspace: string) {
     await Promise.all([
       loadRemote(workspace),
@@ -119,7 +121,7 @@
   }
 
   // Re-read the workspace state on mount and whenever the window switches
-  // projects (the window's services point the feed itself at the project).
+  // projects (the feed store shows the front project's events on its own).
   // Reacts to `project` - the loads write state this effect doesn't read, so
   // this fires per workspace, never per tick.
   $effect(() => {
@@ -214,8 +216,8 @@
   });
 
   // ── The empty panel's self-description ──────────────────────────────────────
-  // An empty list is ambiguous: nothing changed, the watch is on another
-  // project, or there is no watch. The backend knows which (watch_status), so
+  // An empty list is ambiguous: nothing changed, or this project has no watch.
+  // The backend knows which (watch_status for this project's root), so
   // the panel states it instead of always saying "waiting for edits". Read on
   // mount / project switch, and again whenever the window is looked at again -
   // the moment the answer could have gone stale unnoticed.
@@ -225,8 +227,12 @@
   // (branch, members, editors) down with it, so the failure is surfaced as a
   // toast and the summary falls back to its not-known-yet wording.
   async function loadWatchStatus() {
+    const root = project;
     try {
-      watchStatus = await sendMessage(Command.watchStatus);
+      const status = await sendMessage(Command.watchStatus, { root });
+      if (root === project) {
+        watchStatus = status;
+      }
     } catch (error) {
       watchStatus = null;
       showToast(`Change Feed status unavailable - ${String(error)}`);
@@ -246,7 +252,6 @@
   {#if feedStore.events.length === 0}
     <FeedEmptyState
       onArmed={loadWatchStatus}
-      {project}
       summary={watchSummary({
         status: watchStatus,
         project,

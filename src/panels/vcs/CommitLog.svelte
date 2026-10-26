@@ -42,7 +42,11 @@
     await loadRemoteUrl();
     // A `git remote add`/`remove` (or git init) flips whether remote links
     // exist - re-read the remote the moment the live git state changes.
-    unlistenGitState = await onMessage(EventType.gitState, async () => await loadRemoteUrl());
+    unlistenGitState = await onMessage(EventType.gitState, async ({ data: { root } }) => {
+      if (root === project) {
+        await loadRemoteUrl();
+      }
+    });
   });
 
   onDestroy(() => unlistenGitState?.());

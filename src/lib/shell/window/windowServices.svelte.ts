@@ -1,8 +1,10 @@
 // The background services a window runs for as long as it lives, each keyed on
-// the open project where it matters: the backend streams it subscribes to, the
-// project watch, the workspace-member census, the branch pill's refresh, temp
-// workspace auto-naming, the send-from-IDE shortcut and Discord presence. Each
-// service owns its store; this only starts them and follows the project.
+// the front project where it matters: the backend streams it subscribes to, the
+// watch of every project it holds, the branch pill's refresh, temp workspace
+// auto-naming, the send-from-IDE shortcut and Discord presence. Each service
+// owns its store; this only starts them and names where the front project comes
+// from (`setFrontProjectSource`) - the project-scoped stores follow it on their
+// own.
 
 import { createAutoNamer } from "@/lib/agent/auto-name";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
@@ -15,29 +17,30 @@ import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { ensureChoiceAttention } from "@/lib/stores/session/sessionAttention.svelte";
 import { ensureRunnerListeners } from "@/lib/stores/tasks/runners.svelte";
 import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
-import { adoptRunningTasks, initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
+import { adoptRunningTasks, initTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
 import { watchAppUpdate } from "@/lib/stores/update/appUpdate.svelte";
 import { refreshEditors } from "@/lib/stores/workspace/editors.svelte";
-import { keepFeedsOf, retargetFeed } from "@/lib/stores/workspace/feed.svelte";
+import { keepFeedsOf } from "@/lib/stores/workspace/feed.svelte";
+import { frontProject, setFrontProjectSource } from "@/lib/stores/workspace/frontProject.svelte";
+import { heldProjects, watchHeldProjects } from "@/lib/stores/workspace/project-watch";
 import { projectKind, requestProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
-import { followOwnProject } from "@/lib/stores/workspace/projectLanguages.svelte";
-import {
-  activeMemberIn,
-  loadWorkspaceMembers,
-  refreshMemberBranches
-} from "@/lib/stores/workspace/workspaceMembers.svelte";
+import { onFrontProjectLanguagesChange } from "@/lib/stores/workspace/projectLanguages.svelte";
+import { activeMemberIn, refreshMemberBranches } from "@/lib/stores/workspace/workspaceMembers.svelte";
 import { registerSendShortcut, unregisterSendShortcut } from "@/lib/terminal/input/send-shortcut";
 import { coalesced } from "@/lib/util/async/coalesce";
 import { onMount, untrack } from "svelte";
 
-export function startWindowServices({ project, windowSessions, repository, isWindowFocused }: {
-  /** The window's open project; empty while none is. */
-  project: () => string;
+export function startWindowServices({ windowSessions, repository, isWindowFocused }: {
   windowSessions: WindowSessions;
   repository: ReturnType<typeof createActiveRepository>;
   /** Whether this window has focus - only the focused one publishes presence. */
   isWindowFocused: () => boolean;
 }) {
+  // The one place the window's front project is named: the active session's
+  // project (see windowSessions). Every project-scoped store reads it through
+  // `frontProject`.
+  setFrontProjectSource(() => windowSessions.activeProject);
+
   // Subscribe once to the backend task-runner stream so the dock updates live.
   onMount(async () => {
     await ensureRunnerListeners();
@@ -65,7 +68,7 @@ export function startWindowServices({ project, windowSessions, repository, isWin
 
   // Reflect known tasks the agent runs as "running" in the Tasks panel.
   onMount(async () => {
-    await initTaskRunDetection(project);
+    await initTaskRunDetection();
   });
 
   // Each time a project's task list arrives - the project came to the front,
@@ -102,7 +105,7 @@ export function startWindowServices({ project, windowSessions, repository, isWin
     await rereadSettings();
   }
   $effect(() => {
-    const path = project();
+    const path = frontProject();
     if (!path) {
       return;
     }
@@ -110,55 +113,41 @@ export function startWindowServices({ project, windowSessions, repository, isWin
     recordFrontProject(path);
   });
 
-  // The one place the window's project-scoped services follow the front
-  // project: each store is told here, once per switch, and no panel re-does it.
+  // The front project's editors, for the top-bar launcher and the Change Feed's
+  // reveal - picked again when its language mix moves.
+  onFrontProjectLanguagesChange(refreshEditors);
   $effect(() => {
-    const root = project();
-    untrack(() => followFrontProject(root));
-  });
-
-  // A project the window no longer holds any session of has no feed to come
-  // back to.
-  $effect(() => {
-    const heldProjects = windowSessions.sessions.map(session => session.project);
-    untrack(() => keepFeedsOf(heldProjects));
-  });
-
-  async function followFrontProject(root: string) {
-    // Keep its language mix counted as it changes, and re-pick its editor when
-    // the mix moves - a TypeScript app that grows a C# companion may now want a
-    // different one. An empty root stops following.
-    followOwnProject({
-      path: root,
-      onchange: () => refreshEditors(root)
-    });
-
-    if (!root) {
-      return;
+    const root = frontProject();
+    if (root) {
+      untrack(() => refreshEditors(root));
     }
+  });
 
-    // Watch its files app-wide - not only while the Change Feed is open - so the
-    // Tasks panel auto-updates on a manifest edit and the task-run and auto-name
-    // subscribers see changes from the moment it opens. Asked before the feed
-    // retargets, so the feed's own watch query finds it re-rooted. The backend
-    // is idempotent, so a repeat call for the same root is a no-op.
-    const watching = sendMessage(Command.watchStart, { root });
-    retargetFeed(root);
-    await Promise.all([
-      watching,
-      refreshTaskRunDetection(),
-      // Its editors, for the top-bar launcher and the Change Feed's reveal.
-      refreshEditors(root),
-      // What it is made of - nested checkouts and declared packages, as one list
-      // the member switcher, the branch pill and the feed's grouping all read.
-      loadWorkspaceMembers(root)
-    ]);
+  // Watch every project the window holds app-wide - not only while the Change
+  // Feed is open - so each gathers its own feed, the Tasks panel auto-updates on
+  // a manifest edit, and the task-run and auto-name subscribers see changes from
+  // the moment a project opens. A project's feed is kept exactly as long as the
+  // window holds it.
+  async function watchWindowProjects(roots: string[]) {
+    keepFeedsOf(roots);
+    try {
+      await watchHeldProjects(roots);
+    } catch (error) {
+      console.warn("pade: could not watch the window's projects", error);
+    }
   }
+  $effect(() => {
+    const roots = heldProjects({
+      sessionProjects: windowSessions.sessions.map(session => session.project),
+      frontProject: frontProject()
+    });
+    untrack(() => watchWindowProjects(roots));
+  });
 
   // The branch pill reports the member the switcher points at, so picking a
   // nested checkout re-reads its branch, its branch list and its remote.
   $effect(() => {
-    const member = activeMemberIn(project());
+    const member = activeMemberIn(frontProject());
     if (!member) {
       return;
     }
@@ -167,10 +156,15 @@ export function startWindowServices({ project, windowSessions, repository, isWin
   });
 
   // Keep the branch pill honest: a branch switch, git init, or remote change in
-  // the open project re-fetches what it shows (git://state carries no payload).
+  // the front project re-fetches what it shows; a project behind re-reads when
+  // it comes to the front.
   let unlistenGitState: (() => void) | undefined;
   async function subscribeToGitState() {
-    unlistenGitState = await onMessage(EventType.gitState, async () => {
+    unlistenGitState = await onMessage(EventType.gitState, async ({ data: { root } }) => {
+      if (root !== frontProject()) {
+        return;
+      }
+
       await Promise.all([repository.load(), refreshMemberBranches()]);
     });
   }
@@ -192,9 +186,9 @@ export function startWindowServices({ project, windowSessions, repository, isWin
   // The open project's language, shown VS-Code-style as a small overlay icon +
   // status line. Fetched only while presence will actually show it, and refreshed
   // on a project switch.
-  const discordProjectKind = $derived(projectKind(project()) ?? undefined);
+  const discordProjectKind = $derived(projectKind(frontProject()) ?? undefined);
   $effect(() => {
-    const shown = project();
+    const shown = frontProject();
     if (discordEnabled && discordShowProject && shown) {
       requestProjectKind(shown);
     }
@@ -212,7 +206,7 @@ export function startWindowServices({ project, windowSessions, repository, isWin
     updateDiscordPresence({
       isEnabled: discordEnabled,
       isProjectShown: discordShowProject,
-      project: project(),
+      project: frontProject(),
       // Read here so a rename (a new settings.labels entry) re-runs this effect
       // and re-publishes the friendly name, not the stale temp-<stamp> folder.
       labels: settings.labels,
@@ -224,7 +218,6 @@ export function startWindowServices({ project, windowSessions, repository, isWin
   // (lib/agent/auto-name): after a few distinct files change, ask the agent (or a
   // heuristic) for a friendly label. Fires once per workspace; label-only.
   const autoNamer = createAutoNamer({
-    currentProject: project,
     isOptedOut: () => settings.prefs.autoNameTemp === false,
     labelOf: path => settings.labels[path],
     activeAgentCommand: () => windowSessions.activeSession?.agent.command ?? ""

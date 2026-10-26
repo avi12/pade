@@ -7,8 +7,10 @@
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { isFollowedProject, watchedProjectPaths } from "@/lib/stores/workspace/followed-projects";
+import { frontProject } from "@/lib/stores/workspace/frontProject.svelte";
 import { createVisiblePathBatch, PROJECT_ROW_CACHE_LIMIT } from "@/lib/stores/workspace/visiblePathBatch.svelte";
 import type { LanguageShare } from "@/lib/types";
+import { untrack } from "svelte";
 
 /** Rows scroll past in bursts; the watch follows them once the list settles. */
 const WATCH_SETTLE_MS = 300;
@@ -116,16 +118,28 @@ export function followProjects({ paths, onchange }: {
   rearmWatch();
 }
 
-/** {@link followProjects} for the window's one own project. An empty path stops. */
-export function followOwnProject({ path, onchange }: {
-  path: string;
-  onchange: () => Promise<void>;
-}) {
-  followProjects({
-    paths: path === "" ? [] : [path],
-    onchange
-  });
+let onFrontProjectChange: ((path: string) => Promise<void>) | undefined;
+
+/** What to do when the front project's language mix moves (re-pick its editor:
+ *  a TypeScript app that grows a C# companion may now want a different one).
+ *  Set once, by the window's services. */
+export function onFrontProjectLanguagesChange(onchange: (path: string) => Promise<void>) {
+  onFrontProjectChange = onchange;
 }
+
+// Follow the window's front project: it stays counted and watched for as long
+// as it is in front. No project in front stops following.
+$effect.root(() => {
+  $effect(() => {
+    const path = frontProject();
+    untrack(() => followProjects({
+      paths: path === "" ? [] : [path],
+      async onchange(changed) {
+        await onFrontProjectChange?.(changed);
+      }
+    }));
+  });
+});
 
 /** Cached language shares: `undefined` while unresolved, `null` when the
  *  project has no countable source. */

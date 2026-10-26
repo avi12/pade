@@ -2,6 +2,7 @@ import { Command, EventType } from "@/lib/ipc/messaging";
 import { projectRunnerRows, runnerRows, stopRunner } from "@/lib/stores/tasks/runners.svelte";
 import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { adoptRunningTasks, initTaskRunDetection, isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
+import { setFrontProjectSource } from "@/lib/stores/workspace/frontProject.svelte";
 import type { RunnerInfo } from "@/lib/types";
 import {
   beforeEach,
@@ -97,6 +98,7 @@ describe("task run detection", () => {
   // captured handler is deliberately kept across tests; only the rows and the
   // mocked answers reset.
   beforeEach(async () => {
+    setFrontProjectSource(() => "demo");
     mocks.taskRunning = true;
     mocks.runningChecks = 0;
     for (const row of runnerRows()) {
@@ -105,7 +107,7 @@ describe("task run detection", () => {
   });
 
   it("attaches once when a fullscreen TUI repaints one invocation", async () => {
-    await initTaskRunDetection(() => "demo");
+    await initTaskRunDetection();
 
     const chunk = {
       id: "session-1",
@@ -126,7 +128,7 @@ describe("task run detection", () => {
   });
 
   it("ignores a repainted invocation whose process is long gone", async () => {
-    await initTaskRunDetection(() => "demo");
+    await initTaskRunDetection();
     mocks.taskRunning = false;
 
     mocks.onData?.({
@@ -142,7 +144,7 @@ describe("task run detection", () => {
   });
 
   it("stops reporting a task as running the moment its row goes", async () => {
-    await initTaskRunDetection(() => "demo");
+    await initTaskRunDetection();
     const key = taskKey({
       directory: "demo",
       command: "cargo check"
@@ -165,7 +167,7 @@ describe("task run detection", () => {
   });
 
   it("files a detected task under the project whose catalog listed it", async () => {
-    await initTaskRunDetection(() => "demo");
+    await initTaskRunDetection();
 
     mocks.onData?.({
       id: "session-3",
@@ -178,7 +180,7 @@ describe("task run detection", () => {
   });
 
   it("brings back the card of a task still running once its project lists it", async () => {
-    await initTaskRunDetection(() => "demo");
+    await initTaskRunDetection();
     mocks.backendRunners = [{
       id: "run-left-over",
       command: "cargo check",

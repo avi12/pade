@@ -1,14 +1,13 @@
 <script lang="ts">
   import type { watchSummary } from "@/lib/feed/watch/feed-status";
-  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
+  import { rewatchHeldProjects } from "@/lib/stores/workspace/project-watch";
 
   // The empty panel's self-description: an empty list is ambiguous (nothing
-  // changed, the watch is on another project, or there is no watch), so it
-  // states which - and, when nothing watches this project, offers to arm it.
-  const { summary, project, onArmed }: {
+  // changed, or there is no watch on this project), so it states which - and,
+  // when nothing watches this project, offers to arm the window's watches again.
+  const { summary, onArmed }: {
     summary: ReturnType<typeof watchSummary>;
-    project: string;
     /** Re-read what the backend reports once an arm attempt has settled. */
     onArmed: () => Promise<void>;
   } = $props();
@@ -26,7 +25,7 @@
       onclick={async () => {
         isArming = true;
         try {
-          await sendMessage(Command.watchStart, { root: project });
+          await rewatchHeldProjects();
         } catch (error) {
           // The backend's refusal names the path and the reason - the one thing
           // worth reading when a project can't be watched.

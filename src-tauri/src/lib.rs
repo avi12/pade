@@ -180,7 +180,7 @@ pub fn run() {
             terminal::runner::runner_start,
             terminal::runner::runner_stop,
             terminal::runner::runner_list,
-            workspace::watcher::watch_start,
+            workspace::watcher::watch_projects,
             workspace::watcher::watch_status,
             workspace::watcher::watch_dirs,
             workspace::watcher::watch_languages,

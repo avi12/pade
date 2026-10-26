@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 function change(path: string) {
   return {
     id: path,
+    root: "",
     path,
     kind: ChangeKind.enum.modified,
     added: 0,

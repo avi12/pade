@@ -226,7 +226,6 @@
   });
 
   startWindowServices({
-    project: () => activeProject,
     windowSessions,
     repository,
     isWindowFocused: () => isWindowFocused

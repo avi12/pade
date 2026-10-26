@@ -45,67 +45,89 @@ afterEach(() => {
 });
 
 const PROJECT = "C:\\repositories\\avi\\demo";
+const BEHIND = "C:\\repositories\\avi\\other";
 const ARMED_AT = 1_791_004_514_273;
+const BEHIND_ARMED_AT = ARMED_AT + 5_000;
 
-const SNAPSHOT: FeedSnapshot = {
-  root: PROJECT,
-  armedAt: ARMED_AT,
-  events: [{
-    id: "1",
-    path: `${PROJECT}\\src\\main.ts`,
+function changeIn(root: string) {
+  return {
+    id: `${root}-1`,
+    root,
+    path: `${root}\\src\\main.ts`,
     kind: ChangeKind.enum.modified,
     added: 3,
     removed: 1,
     summary: "Edited",
     ts: ARMED_AT + 1_000
-  }]
+  };
+}
+
+const SNAPSHOT: FeedSnapshot = {
+  feeds: [
+    {
+      root: PROJECT,
+      armedAt: ARMED_AT,
+      events: [changeIn(PROJECT)]
+    },
+    {
+      root: BEHIND,
+      armedAt: BEHIND_ARMED_AT,
+      events: [changeIn(BEHIND)]
+    }
+  ]
 };
 
 describe("eventsForLiveWatch", () => {
-  it("restores the events into the same watch, still live after a reload", () => {
-    const events = eventsForLiveWatch({
-      snapshot: SNAPSHOT,
-      watch: {
+  it("restores each project's events into its same watch, still live after a reload", () => {
+    expect(
+      eventsForLiveWatch({
+        snapshot: SNAPSHOT,
         root: PROJECT,
-        armedAt: ARMED_AT
-      },
-      project: PROJECT
-    });
-    expect(events).toEqual(SNAPSHOT.events);
+        watch: {
+          armedAt: ARMED_AT
+        }
+      })
+    ).toEqual([changeIn(PROJECT)]);
+    expect(
+      eventsForLiveWatch({
+        snapshot: SNAPSHOT,
+        root: BEHIND,
+        watch: {
+          armedAt: BEHIND_ARMED_AT
+        }
+      })
+    ).toEqual([changeIn(BEHIND)]);
   });
 
-  it("drops them for a watch armed afresh (a later app run)", () => {
+  it("drops them for a watch armed afresh (a later app run, a project held again)", () => {
     const events = eventsForLiveWatch({
       snapshot: SNAPSHOT,
+      root: PROJECT,
       watch: {
-        root: PROJECT,
         armedAt: ARMED_AT + 60_000
-      },
-      project: PROJECT
+      }
     });
     expect(events).toEqual([]);
   });
 
-  it("drops them when the window opens another project on the old watch", () => {
+  it("never hands one project another project's events", () => {
     const events = eventsForLiveWatch({
       snapshot: SNAPSHOT,
+      root: "C:\\repositories\\avi\\third",
       watch: {
-        root: PROJECT,
         armedAt: ARMED_AT
-      },
-      project: "C:\\repositories\\avi\\other"
+      }
     });
     expect(events).toEqual([]);
   });
 
-  it("drops them when nothing is watched", () => {
+  it("drops them when the project is not watched", () => {
     const events = eventsForLiveWatch({
       snapshot: SNAPSHOT,
+      root: PROJECT,
       watch: {
-        root: null,
         armedAt: null
-      },
-      project: PROJECT
+      }
     });
     expect(events).toEqual([]);
   });

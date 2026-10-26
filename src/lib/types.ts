@@ -14,8 +14,12 @@ import { z } from "zod";
 
 export const ChangeKind = z.enum(["created", "modified", "deleted"]);
 
+/** One change a watch surfaced. `root` is the held project root it belongs to,
+ *  spelled exactly as the frontend sent it in `watch_projects`, so the feed
+ *  files it under that project without re-deriving which one a path is in. */
 export const ChangeEvent = z.object({
   id: z.string(),
+  root: z.string(),
   path: z.string(),
   kind: ChangeKind,
   added: z.number(),
@@ -49,6 +53,13 @@ export const WatchStatus = z.object({
   ignored: z.number()
 });
 export type WatchStatus = z.infer<typeof WatchStatus>;
+
+/** A watch event about one held project as a whole (its ignore rules, its git
+ *  state): the root as the frontend spelled it in `watch_projects`. */
+export const WatchedRootEvent = z.object({
+  root: z.string()
+});
+export type WatchedRootEvent = z.infer<typeof WatchedRootEvent>;
 
 /** The manifest family that confirms a directory as a package (workspace
  *  member discovery - a folder is a package IFF it holds its own manifest). */

@@ -3,12 +3,14 @@
 // label and apply it. Fires once per workspace; never blocks or renames on
 // disk - the label is display-only, and never replaces a label the workspace
 // already has (the backend re-checks that as it saves, so a name the user set
-// while the namer was thinking still wins). The app shell provides the current
-// project / prefs / settings sink via `AutoNameHost` and owns the mount
-// lifecycle; the watcher subscription lives here.
+// while the namer was thinking still wins). The workspace it names is the
+// window's front project (`frontProject`); the app shell provides the prefs and
+// labels via `AutoNameHost` and owns the mount lifecycle; the watcher
+// subscription lives here.
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
+import { frontProject } from "@/lib/stores/workspace/frontProject.svelte";
 import { ChangeKind, LabelSource } from "@/lib/types";
 import type { ChangeEvent } from "@/lib/types";
 import { isTemporaryWorkspace, normalizePath } from "@/lib/util/paths";
@@ -36,9 +38,8 @@ export function namingSignal({ projectDirectory, changedPath }: {
 }
 
 /** What the app shell provides. Reads happen per change event, so the checks
- *  always see the current project and prefs. */
+ *  always see the current prefs. */
 export interface AutoNameHost {
-  currentProject: () => string;
   /** Whether the user opted out via prefs.autoNameTemp. */
   isOptedOut: () => boolean;
   /** The label already assigned to a path, if any. */
@@ -84,7 +85,7 @@ export function createAutoNamer(host: AutoNameHost) {
   }
 
   async function consider(event: ChangeEvent) {
-    const project = host.currentProject();
+    const project = frontProject();
     if (event.kind === ChangeKind.enum.deleted || !isNamingCandidate(project)) {
       return;
     }
@@ -107,7 +108,7 @@ export function createAutoNamer(host: AutoNameHost) {
 
     namedProjects.add(project); // guard so the naming call runs exactly once
     const name = await suggestName(project);
-    if (!name || host.currentProject() !== project) {
+    if (!name || frontProject() !== project) {
       return;
     }
 
@@ -118,10 +119,10 @@ export function createAutoNamer(host: AutoNameHost) {
     });
   }
 
-  // Subscribe to the change feed. The watcher itself is armed on the open project
-  // by the shell - `windowServices` sends `watch_start` whenever the window's
-  // project changes - so the namer only listens
-  // for the changes it produces; it no longer arms on the (drift-prone) cwd.
+  // Subscribe to the change feed. The watches themselves are armed on the
+  // window's projects by the shell - `windowServices` sends `watch_projects`
+  // whenever the set it holds changes - so the namer only listens for the
+  // changes they produce; it never arms on the (drift-prone) cwd.
   async function start() {
     unlisten = await onMessage(EventType.feedChange, ({ data }) => {
       consider(data);

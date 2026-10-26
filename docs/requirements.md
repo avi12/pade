@@ -88,15 +88,17 @@ writes.
 - R1.2.3 Ignore VCS/build noise (`.git`, `node_modules`, `target`, `dist`, …).
 - R1.2.4 ✅ Click a card to expand its real per-file diff (via the git seam) with a
   **Unified / Split** toggle and open-in-editor; cached per path. 🔭 agent intent.
-- R1.2.5 ✅ The watcher follows the open workspace: switching projects re-roots
-  it (`ChangeFeed` passes the open project's path to `watch_start`, which re-arms
-  on that explicit root - never the process's cwd, which can drift from it).
+- R1.2.5 ✅ The watcher follows the window's sessions: every project the window
+  holds a session of is watched (`watch_projects` with their explicit roots -
+  never the process's cwd, which can drift from them), each into its own feed, and
+  the feed shows the current session's project. Switching sessions shows that
+  project's changes, including ones made while it was in the background.
 - R1.2.6 ✅ Every diff surface (feed card, Git panel, commit modal) prints each
   code line **in full**: long lines wrap (`DiffView.svelte`), never clip or hide
   behind a horizontal scroll; the diff stays hunks + context, never the whole file.
 - R1.2.7 ✅ **Exclude what the project ignores.** Beyond the always-on build/VCS
   noise list, the watcher skips ignored paths via an ignore policy fixed per
-  `watch_start`: in a git work tree it defers to git itself (`git check-ignore` -
+  project watch: in a git work tree it defers to git itself (`git check-ignore` -
   nested `.gitignore`, `.git/info/exclude`, global excludes, negations), and with
   no git it falls back to **technology-common ignore directories inferred from the
   root manifests** (`package.json`→`node_modules`…, `Cargo.toml`→`target`, Python /
