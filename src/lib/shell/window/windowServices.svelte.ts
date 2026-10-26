@@ -18,7 +18,7 @@ import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { adoptRunningTasks, initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
 import { watchAppUpdate } from "@/lib/stores/update/appUpdate.svelte";
 import { refreshEditors } from "@/lib/stores/workspace/editors.svelte";
-import { retargetFeed } from "@/lib/stores/workspace/feed.svelte";
+import { keepFeedsOf, retargetFeed } from "@/lib/stores/workspace/feed.svelte";
 import { projectKind, requestProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
 import { followOwnProject } from "@/lib/stores/workspace/projectLanguages.svelte";
 import {
@@ -110,48 +110,49 @@ export function startWindowServices({ project, windowSessions, repository, isWin
     recordFrontProject(path);
   });
 
-  // Watch the open project's files app-wide - not only while the Change Feed is
-  // open - and show that project's feed, so the Tasks panel auto-updates on a
-  // manifest/script edit, the feed follows the current session, and the
-  // task-run and auto-name subscribers see changes from the moment a project
-  // opens. Keyed on the project so it re-roots on an in-window switch; the
-  // backend is idempotent, so a repeat call for the same root is a no-op.
+  // The one place the window's project-scoped services follow the front
+  // project: each store is told here, once per switch, and no panel re-does it.
   $effect(() => {
     const root = project();
+    untrack(() => followFrontProject(root));
+  });
+
+  // A project the window no longer holds any session of has no feed to come
+  // back to.
+  $effect(() => {
+    const heldProjects = windowSessions.sessions.map(session => session.project);
+    untrack(() => keepFeedsOf(heldProjects));
+  });
+
+  async function followFrontProject(root: string) {
+    // Keep its language mix counted as it changes, and re-pick its editor when
+    // the mix moves - a TypeScript app that grows a C# companion may now want a
+    // different one. An empty root stops following.
+    followOwnProject({
+      path: root,
+      onchange: () => refreshEditors(root)
+    });
+
     if (!root) {
       return;
     }
 
-    sendMessage(Command.watchStart, { root });
+    // Watch its files app-wide - not only while the Change Feed is open - so the
+    // Tasks panel auto-updates on a manifest edit and the task-run and auto-name
+    // subscribers see changes from the moment it opens. Asked before the feed
+    // retargets, so the feed's own watch query finds it re-rooted. The backend
+    // is idempotent, so a repeat call for the same root is a no-op.
+    const watching = sendMessage(Command.watchStart, { root });
     retargetFeed(root);
-    refreshTaskRunDetection();
-  });
-
-  // Keep the open project's language mix counted as it changes, and re-pick its
-  // editor when the mix moves - a TypeScript app that grows a C# companion may
-  // now want a different one (stores/workspace/projectLanguages, editors).
-  $effect(() => {
-    const path = project();
-    untrack(() => followOwnProject({
-      path,
-      onchange: () => refreshEditors(path)
-    }));
-  });
-
-  // What this workspace is made of - nested checkouts and declared packages, as
-  // one list (stores/workspaceMembers). Keyed on the project so an in-window
-  // switch re-discovers them; the member switcher, the branch pill and the
-  // Change Feed's grouping all read that one list.
-  $effect(() => {
-    if (!project()) {
-      return;
-    }
-
-    untrack(discoverWorkspaceMembers);
-  });
-
-  async function discoverWorkspaceMembers() {
-    await loadWorkspaceMembers(project());
+    await Promise.all([
+      watching,
+      refreshTaskRunDetection(),
+      // Its editors, for the top-bar launcher and the Change Feed's reveal.
+      refreshEditors(root),
+      // What it is made of - nested checkouts and declared packages, as one list
+      // the member switcher, the branch pill and the feed's grouping all read.
+      loadWorkspaceMembers(root)
+    ]);
   }
 
   // The branch pill reports the member the switcher points at, so picking a

@@ -7,7 +7,6 @@
   import { effective } from "@/lib/settings/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import { ensureEditors } from "@/lib/stores/workspace/editors.svelte";
   import { feedStore } from "@/lib/stores/workspace/feed.svelte";
   import { workspaceMembers as storedMembers } from "@/lib/stores/workspace/workspaceMembers.svelte";
   import type { ChangeEvent, WatchStatus } from "@/lib/types";
@@ -106,26 +105,23 @@
   // the open project), so the feed just subscribes to its stream above - no need
   // to arm it here.
 
-  // The workspace's remote gating, watch status and editors, loaded together
+  // The workspace's remote gating and watch status, loaded together
   // (concurrently) on mount and on a project switch. Each callee owns its own
-  // error handling, so the gathered promise never rejects. The members and their
-  // branches are not here: they belong to the shared store windowServices fills.
+  // error handling, so the gathered promise never rejects. The members, their
+  // branches and the project's editors are not here: they belong to the shared
+  // stores windowServices fills whenever the project comes to the front.
   async function loadWorkspaceState(workspace: string) {
     await Promise.all([
       loadRemote(workspace),
       // What the backend is actually watching, so an empty feed can say why.
-      loadWatchStatus(),
-      // Editors come from the shared store's cache on a mere remount (a side-panel
-      // switch); a fetch only runs when nothing is cached for this project yet.
-      ensureEditors(workspace)
+      loadWatchStatus()
     ]);
   }
 
   // Re-read the workspace state on mount and whenever the window switches
   // projects (the window's services point the feed itself at the project).
-  // Reacts to `project` - the loads write state this effect doesn't read, and the
-  // editors store's trigger functions are reactivity-transparent (its bookkeeping
-  // maps are non-reactive on purpose), so this fires per workspace, never per tick.
+  // Reacts to `project` - the loads write state this effect doesn't read, so
+  // this fires per workspace, never per tick.
   $effect(() => {
     const workspace = project;
     if (!workspace) {

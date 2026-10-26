@@ -174,3 +174,13 @@ export function retargetFeed(project: string) {
   feedsBehind.delete(project);
   adoptLiveWatch(project);
 }
+
+/** Drop the feeds put aside for any project not in `projects` - the window
+ *  holds no session of it any more, so its feed would never be shown again. */
+export function keepFeedsOf(projects: string[]) {
+  for (const project of feedsBehind.keys()) {
+    if (!projects.includes(project)) {
+      feedsBehind.delete(project);
+    }
+  }
+}

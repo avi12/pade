@@ -27,19 +27,12 @@
   const MENU_ID = "ide-menu";
   const MENU_ANCHOR = "--ide-anchor";
 
+  // The window's services resolve the project's editors whenever it comes to
+  // the front, so the menu only reads them.
   const ides = $derived(editorsFor(project));
   // The project's editor - an explicit pick, else the auto-detected best fit.
   const bestFit = $derived(ides[0]);
   const hasAlternatives = $derived(ides.length > 1);
-
-  // Re-profile on mount and whenever the active project changes. The store
-  // coalesces this with any other surface's resolve, so the census runs once -
-  // and its bookkeeping is non-reactive, so this reacts to `project` alone
-  // (a reactive version once re-triggered here every completed fetch).
-  $effect(() => {
-    const workspace = project;
-    refreshEditors(workspace);
-  });
 
   async function open(editor: Ide) {
     if (editor.terminal) {

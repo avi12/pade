@@ -111,17 +111,6 @@ export function refreshEditors(project: string) {
   return pendingFetch;
 }
 
-/** Resolve only when nothing is cached yet - a remounting panel (the Change
- *  Feed re-enters the DOM on every side-panel switch) reuses the cached list
- *  instead of re-running the project census. */
-export function ensureEditors(project: string) {
-  if (rankedByProject.has(project)) {
-    return Promise.resolve();
-  }
-
-  return refreshEditors(project);
-}
-
 /** Persist an explicit editor pick for the project, then re-resolve, so every
  *  surface reading this store sees the choice win at once. */
 export async function chooseEditor({ project, editorId }: {
