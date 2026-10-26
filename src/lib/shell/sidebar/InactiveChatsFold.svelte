@@ -18,19 +18,19 @@
     project: string;
     count: number;
     /** The project runs live chats above the fold - its sessions are then
-     *  the "other" ones, else simply the inactive ones. */
+     *  the "other" ones, else simply the past ones. */
     hasLiveChats: boolean;
     children: Snippet;
   } = $props();
 
   const OTHER_SESSIONS = "Other sessions";
-  const INACTIVE_SESSIONS = "Inactive sessions";
+  const PAST_SESSIONS = "Past sessions";
   const heading = $derived.by(() => {
     if (hasLiveChats) {
       return OTHER_SESSIONS;
     }
 
-    return INACTIVE_SESSIONS;
+    return PAST_SESSIONS;
   });
 </script>
 
