@@ -753,14 +753,23 @@ fn git_linguist_attributes(
     let Some(mut input) = child.stdin.take() else {
         return BTreeMap::new();
     };
-    let wrote_all_paths = paths.iter().all(|path| {
-        input
-            .write_all(path.as_bytes())
-            .and_then(|()| input.write_all(&[0]))
-            .is_ok()
+    // Git answers each path as it reads it, so the paths go in on their own
+    // thread while this one drains the answers: writing them all first fills
+    // the output pipe on a repository of any size, and then Git waits for us to
+    // read while we wait for it to read - forever.
+    let (wrote_all_paths, output) = std::thread::scope(|scope| {
+        let writer = scope.spawn(move || {
+            paths.iter().all(|path| {
+                input
+                    .write_all(path.as_bytes())
+                    .and_then(|()| input.write_all(&[0]))
+                    .is_ok()
+            })
+        });
+        let output = child.wait_with_output();
+        (writer.join().unwrap_or(false), output)
     });
-    drop(input);
-    let Ok(output) = child.wait_with_output() else {
+    let Ok(output) = output else {
         return BTreeMap::new();
     };
     if !wrote_all_paths || !output.status.success() {
@@ -1943,11 +1952,11 @@ pub async fn ide_open_file(
 mod tests {
     use super::{
         cached_language_shares, census, editor_covers_project, editor_family, executable_basename,
-        ide_kinds, language_shares, note_working_tree_change, open_arguments, open_style,
-        preference_chain, primary_declared_kind, project_declarations, project_key,
-        ranked_editor_ids, required_project_kinds, source_content, suggestible_editor_ids,
-        EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind, SourceFileEvidence,
-        SourceProfile, REGISTRY,
+        git_linguist_attributes, ide_kinds, language_shares, note_working_tree_change,
+        open_arguments, open_style, preference_chain, primary_declared_kind, project_declarations,
+        project_key, ranked_editor_ids, required_project_kinds, source_content,
+        suggestible_editor_ids, EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind,
+        SourceFileEvidence, SourceProfile, REGISTRY,
     };
     use crate::test_support::assert_not_empty;
 
@@ -2438,6 +2447,38 @@ mod tests {
             totals.get(&ProjectKind::Rust),
             Some(&(rust_source.len() as u64))
         );
+
+        std::fs::remove_dir_all(&directory).expect("cleanup");
+    }
+
+    #[test]
+    fn attributes_for_more_paths_than_a_pipe_holds_come_back_without_a_deadlock() {
+        let directory =
+            std::env::temp_dir().join(format!("pade-check-attr-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("test dir");
+        let Ok(init) = crate::util::command("git")
+            .arg("-C")
+            .arg(&directory)
+            .args(["init", "-q"])
+            .output()
+        else {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        };
+        if !init.status.success() {
+            std::fs::remove_dir_all(&directory).ok();
+            return;
+        }
+        std::fs::write(
+            directory.join(".gitattributes"),
+            "*.js linguist-generated\n",
+        )
+        .expect("attributes file");
+
+        let paths: Vec<String> = (0..5000).map(|i| format!("src/file-{i}.js")).collect();
+        let attributes = git_linguist_attributes(&directory, &paths);
+        assert_eq!(attributes.len(), paths.len());
+        assert_eq!(attributes[&paths[0]].generated, Some(true));
 
         std::fs::remove_dir_all(&directory).expect("cleanup");
     }
