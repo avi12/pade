@@ -67,6 +67,11 @@ import { z } from "zod";
  *  backend caches that read for ~3 minutes, so the endpoint is never hit faster. */
 const POLL_MS = 60_000;
 const MILLISECONDS_PER_MINUTE = 60_000;
+const MINUTES = new Intl.NumberFormat(undefined, {
+  style: "unit",
+  unit: "minute",
+  unitDisplay: "long"
+});
 /** How many of a session's pacing actions its badge keeps. */
 const HISTORY_LENGTH = 6;
 /** How long "Skip this window" holds when the window's reset isn't known. */
@@ -122,8 +127,11 @@ const PaceState = z.object({
    *  the pace it was working at. */
   rates: z.record(z.string(), z.number()).default({}),
   /** A resting session's rest ends here and it continues on its own; null for
-   *  a stopped one. */
-  restUntil: z.number().nullable().default(null)
+   *  a stopped one. Planned when PADE asks it to stop, and set again from
+   *  `restMs` once it has - its step can outlast the whole rest. */
+  restUntil: z.number().nullable().default(null),
+  /** How long a resting session rests, counted from when it actually stops. */
+  restMs: z.number().nullable().default(null)
 });
 type PaceState = z.infer<typeof PaceState>;
 
@@ -293,22 +301,96 @@ function liveRate({ accountKey, window }: {
   );
 }
 
+/** Asked to rest but still finishing its step - its rest hasn't begun, so it
+ *  has no end yet. */
+function isRestPending(state: Pick<PaceState, "phase" | "restMs">) {
+  return state.phase === PacePhase.enum.pausing && state.restMs !== null;
+}
+
+/** Where a held session moves: one that just stopped starts its rest now - not
+ *  when PADE asked, since the step it finished may have outlasted the whole
+ *  rest - and one the user restarted is taken over. */
+function heldPhase({ state, isWorkingNow }: {
+  state: Pick<PaceState, "phase" | "restUntil" | "restMs">;
+  isWorkingNow: boolean;
+}) {
+  const unchanged = {
+    phase: state.phase,
+    restUntil: state.restUntil
+  };
+  const isPausing = state.phase === PacePhase.enum.pausing;
+  if (isPausing && isWorkingNow) {
+    return unchanged;
+  }
+
+  if (isPausing) {
+    return {
+      phase: PacePhase.enum.paused,
+      restUntil: state.restMs === null ? state.restUntil : Date.now() + state.restMs
+    };
+  }
+
+  if (isWorkingNow) {
+    return {
+      ...unchanged,
+      phase: PacePhase.enum.overridden
+    };
+  }
+
+  return unchanged;
+}
+
 /** The status line for a stopped or resting session. */
 export function pacingNote({ agent, state, isContinuingWhenReady, now }: {
   agent: string;
-  state: Pick<PaceState, "phase" | "windowKind" | "utilization" | "pausedAt" | "readyAt" | "continueAt" | "restUntil">;
+  state: Pick<PaceState, "phase" | "windowKind" | "utilization" | "pausedAt" | "readyAt" | "continueAt" | "restUntil" | "restMs">;
   /** Whether it continues as soon as it has room, not just at the reset. */
   isContinuingWhenReady: boolean;
   now: number;
 }) {
   const usage = `${windowName(state.windowKind)} usage (${formatPercent(state.utilization)})`;
   if (state.restUntil !== null) {
-    return `${agent} is resting until ${spokenTime({
-      time: state.restUntil,
+    return restNote({
+      agent,
+      state,
+      usage,
       now
-    })} to slow its ${usage}`;
+    });
   }
 
+  return stopNote({
+    agent,
+    state,
+    usage,
+    isContinuingWhenReady,
+    now
+  });
+}
+
+function restNote({ agent, state, usage, now }: {
+  agent: string;
+  state: Pick<PaceState, "phase" | "restUntil" | "restMs">;
+  usage: string;
+  now: number;
+}) {
+  if (isRestPending(state)) {
+    const minutes = Math.max(1, Math.round((state.restMs ?? 0) / MILLISECONDS_PER_MINUTE));
+    return `${agent} is finishing its step, then rests for ${MINUTES.format(minutes)} to slow its ${usage}`;
+  }
+
+  return `${agent} is resting until ${spokenTime({
+    time: state.restUntil ?? now,
+    now
+  })} to slow its ${usage}`;
+}
+
+function stopNote({ agent, state, usage, isContinuingWhenReady, now }: {
+  agent: string;
+  state: Pick<PaceState, "phase" | "pausedAt" | "readyAt" | "continueAt">;
+  usage: string;
+  isContinuingWhenReady: boolean;
+  now: number;
+}) {
   const pausedAt = spokenTime({
     time: state.pausedAt,
     now
@@ -356,12 +438,13 @@ export function pacingStatus(id: string) {
   }
 
   const state = paced.get(id);
+  const hasRestEnd = state !== undefined && !isRestPending(state);
   return {
     steps,
     allowedCount: allowedStepCount(id),
     verdict: verdicts.get(id) ?? null,
     isStopped: state !== undefined,
-    restUntil: state?.restUntil ?? null,
+    restUntil: hasRestEnd ? state.restUntil : null,
     revertsAt: state?.continueAt ?? null,
     history: histories.get(id) ?? []
   };
@@ -478,7 +561,8 @@ export function createUsagePacing(host: PacingHost) {
         rates: {
           [window.key]: rate
         },
-        restUntil
+        restUntil,
+        restMs: restUntil === null ? null : restUntil - now
       }
     });
     record({
@@ -570,19 +654,14 @@ export function createUsagePacing(host: PacingHost) {
     readyAt: number;
     continueAt: number;
   }) {
-    const isWorkingNow = isWorking(id);
-    let phase = state.phase;
-    if (phase === PacePhase.enum.pausing && !isWorkingNow) {
-      phase = PacePhase.enum.paused;
-    } else if (phase !== PacePhase.enum.pausing && isWorkingNow) {
-      phase = PacePhase.enum.overridden;
-    }
-
     setPace({
       id,
       state: {
         ...state,
-        phase,
+        ...heldPhase({
+          state,
+          isWorkingNow: isWorking(id)
+        }),
         windowKind: kind,
         utilization: window.utilization,
         readyAt,
@@ -742,7 +821,9 @@ export function createUsagePacing(host: PacingHost) {
     accountKey: string;
   }) {
     const now = Date.now();
-    const isRestOver = state.restUntil !== null && now >= state.restUntil;
+    // A rest counts from when the session stopped (`hold`), so one still
+    // stopping - or stopped since the last scan - hasn't begun resting yet.
+    const isRestOver = !isRestPending(state) && state.restUntil !== null && now >= state.restUntil;
     const isStillStopping = state.phase === PacePhase.enum.pausing && isWorking(id);
     const isDue = now >= state.continueAt || (isRestOver && !isStillStopping);
     if (isDue) {

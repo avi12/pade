@@ -14,7 +14,8 @@ describe("pacingNote", () => {
     pausedAt: NOW - 20 * MINUTE_MS,
     readyAt: NOW + HOUR_MS,
     continueAt: NOW + 2 * HOUR_MS,
-    restUntil: null
+    restUntil: null,
+    restMs: null
   } as const;
   const clock = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
 
@@ -67,5 +68,21 @@ describe("pacingNote", () => {
         now: NOW
       })
     ).toBe(`Claude is resting until ${clock.format(restUntil)} to slow its session usage (72%)`);
+  });
+
+  it("names no rest end while the agent still finishes its step, which can outlast the rest", () => {
+    expect(
+      pacingNote({
+        agent: "Claude",
+        state: {
+          ...paused,
+          phase: "pausing",
+          restUntil: NOW - 5 * MINUTE_MS,
+          restMs: 15 * MINUTE_MS
+        },
+        isContinuingWhenReady: true,
+        now: NOW
+      })
+    ).toBe("Claude is finishing its step, then rests for 15 minutes to slow its session usage (72%)");
   });
 });
