@@ -68,6 +68,32 @@ describe("feed previews", () => {
     expect(previews.documentCache.get("e3")).toContain("Title");
   });
 
+  it("reads every preview through a given source instead of the watch", async () => {
+    const source = {
+      diff: vi.fn(async () => []),
+      image: vi.fn(async () => ({ dataUrl: "data:image/png;base64,AA==" })),
+      video: vi.fn(async () => null),
+      text: vi.fn(async () => "# Committed")
+    };
+    const previews = createFeedPreviews(source);
+    const card = {
+      id: "logo.png",
+      path: "logo.png"
+    };
+
+    expect(previews.isCardPreviewLoaded(card)).toBe(false);
+    await previews.loadCardPreview(card);
+    await previews.loadPreviewDocument({
+      id: "README.md",
+      path: "README.md"
+    });
+
+    expect(previews.isCardPreviewLoaded(card)).toBe(true);
+    expect(previews.imageCache.get("logo.png")).toBe("data:image/png;base64,AA==");
+    expect(previews.documentCache.get("README.md")).toContain("Committed");
+    expect(mocks.sendMessage).not.toHaveBeenCalled();
+  });
+
   it("shows the Code pane until a card is switched", () => {
     const previews = createFeedPreviews();
     expect(previews.paneOf("e4")).toBe(PreviewPane.Code);

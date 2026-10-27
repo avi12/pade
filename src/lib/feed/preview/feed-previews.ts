@@ -1,16 +1,18 @@
-// The Change Feed's lazily fetched card previews - the diff, picture, clip or
-// rendered document each card shows when opened - cached per event id for the
-// life of one mounted feed. Keyed by id (not path) so repeated edits to the same
-// file - distinct events sharing a path - each render their own preview rather
-// than the stale first one. Every fetch runs on a card's first open only, so a
-// feed full of images or docs never fetches them all at once.
+// The lazily fetched card previews - the diff, picture, clip or rendered
+// document each card shows when opened - cached per card id for the life of one
+// mounted view. The Change Feed keys them by event id (not path) so repeated
+// edits to the same file - distinct events sharing a path - each render their
+// own preview rather than the stale first one; the commit view, reading the same
+// previews out of a commit through its own source, keys them by path. Every
+// fetch runs on a card's first open only, so a view full of images or docs never
+// fetches them all at once.
 
 import type { DiffLine } from "@/lib/code/diff";
 import { markdownDocument, sandboxedHtmlDocument } from "@/lib/code/markdown";
 import { isImagePath, isMarkdownPath, isVideoPath } from "@/lib/feed/preview/preview";
 import { previewLines } from "@/lib/feed/preview/preview-lines";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import type { FeedVideo } from "@/lib/types";
+import type { FeedImage, FeedVideo } from "@/lib/types";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 /** A markdown/HTML card shows a Code|Preview toggle: Code is the diff (the
@@ -47,10 +49,30 @@ async function transcodeVideo(path: string) {
   return sendMessage(Command.feedVideo, { path });
 }
 
-interface CardFile {
+/** One card whose previews are cached under `id`. */
+export interface PreviewCard {
   id: string;
   path: string;
 }
+
+/** Where a card's previews are read from, one fetch per preview kind. */
+export interface PreviewSource {
+  diff: (path: string) => Promise<DiffLine[]>;
+  image: (path: string) => Promise<FeedImage | null>;
+  video: (path: string) => Promise<FeedVideo | null>;
+  text: (path: string) => Promise<string | null>;
+}
+
+// The Change Feed's source: the file as it is now in the watched project.
+// Git-free diff: the backend hands over the session baseline and the current
+// content; the shared parse+render path draws the diff (or the whole file when
+// the baseline landed late - see previewLines).
+const FEED_SOURCE: PreviewSource = {
+  diff: async path => previewLines(await sendMessage(Command.feedDiff, { path })),
+  image: path => sendMessage(Command.feedImage, { path }),
+  video: transcodeVideo,
+  text: path => sendMessage(Command.feedText, { path })
+};
 
 // The iframe srcdoc for a file's current text: markdown is rendered to a full
 // themed document, an HTML file is shown as-is (both inert - see
@@ -62,7 +84,7 @@ function previewDocument({ path, text }: {
   return isMarkdownPath(path) ? markdownDocument(text) : sandboxedHtmlDocument(text);
 }
 
-export function createFeedPreviews() {
+export function createFeedPreviews(source = FEED_SOURCE) {
   // The parsed diff lines per card, or `null` when the fetch failed.
   const diffCache = new SvelteMap<string, DiffLine[] | null>();
   // The data URL for an image card, or `null` when the backend has nothing to
@@ -102,12 +124,12 @@ export function createFeedPreviews() {
 
   /** Fill the preview cache for one card - the picture for an image, the clip
    *  for a video, else the baseline diff. Never rejects. */
-  async function loadCardPreview({ id, path }: CardFile) {
+  async function loadCardPreview({ id, path }: PreviewCard) {
     if (isImagePath(path)) {
       await loadOnce({
         cache: imageCache,
         id,
-        load: async () => (await sendMessage(Command.feedImage, { path }))?.dataUrl ?? null
+        load: async () => (await source.image(path))?.dataUrl ?? null
       });
       return;
     }
@@ -116,30 +138,40 @@ export function createFeedPreviews() {
       await loadOnce({
         cache: videoCache,
         id,
-        load: () => transcodeVideo(path)
+        load: () => source.video(path)
       });
       return;
     }
 
-    // Git-free preview: the backend hands over the session baseline and the
-    // current content; the shared parse+render path draws the diff (or the
-    // whole file when the baseline landed late - see previewLines).
     await loadOnce({
       cache: diffCache,
       id,
-      load: async () => previewLines(await sendMessage(Command.feedDiff, { path }))
+      load: () => source.diff(path)
     });
   }
 
-  /** Fetch a markdown/HTML card's current text and cache its srcdoc, on the
-   *  first switch to Preview only. Never rejects. */
-  async function loadPreviewDocument({ id, path }: CardFile) {
+  /** Whether a card's `loadCardPreview` fetch has landed, failed or not. */
+  function isCardPreviewLoaded({ id, path }: PreviewCard) {
+    if (isImagePath(path)) {
+      return imageCache.has(id);
+    }
+
+    if (isVideoPath(path)) {
+      return videoCache.has(id);
+    }
+
+    return diffCache.has(id);
+  }
+
+  /** Fetch a markdown/HTML card's text and cache its srcdoc, on the first
+   *  switch to Preview only. Never rejects. */
+  async function loadPreviewDocument({ id, path }: PreviewCard) {
     if (documentCache.has(id)) {
       return;
     }
 
     try {
-      const text = await sendMessage(Command.feedText, { path });
+      const text = await source.text(path);
       // Nothing to render is not a failure - and not a success either, so an
       // earlier failure for this card still reads as one.
       if (text === null) {
@@ -168,6 +200,7 @@ export function createFeedPreviews() {
     failedIds,
     paneById,
     loadCardPreview,
+    isCardPreviewLoaded,
     loadPreviewDocument,
     paneOf: (id: string) => paneById.get(id) ?? PreviewPane.Code
   };

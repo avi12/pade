@@ -1,23 +1,22 @@
 <script lang="ts">
   import { PreviewPane } from "@/lib/feed/preview/feed-previews";
-  import type { FeedPreviews } from "@/lib/feed/preview/feed-previews";
+  import type { FeedPreviews, PreviewCard } from "@/lib/feed/preview/feed-previews";
+  import RadioPills from "@/lib/feed/preview/RadioPills.svelte";
   import { DiffStyle } from "@/lib/types";
-  import type { ChangeEvent } from "@/lib/types";
   import { prefersReducedMotion } from "@/lib/ui/motion";
-  import RadioPills from "@/panels/feed/card/RadioPills.svelte";
   import { tick } from "svelte";
   import type { z } from "zod";
 
   // An open card's view choices, stacked - Code|Preview above Unified|Split -
   // so a previewable diff reads them top-to-bottom, right-aligned.
-  let { event, previews, canPreview, canSwitchDiffMode, diffMode = $bindable() }: {
-    event: ChangeEvent;
+  let { card, previews, canPreview, canSwitchDiffMode, diffMode = $bindable() }: {
+    card: PreviewCard;
     previews: FeedPreviews;
     /** A markdown/HTML card: offer its rendered Preview beside the code. */
     canPreview: boolean;
     /** A text diff is showing: offer its Unified|Split layout. */
     canSwitchDiffMode: boolean;
-    /** The feed-wide Unified|Split choice, kept across cards. */
+    /** The view-wide Unified|Split choice, kept across cards. */
     diffMode: z.infer<typeof DiffStyle>;
   } = $props();
 
@@ -47,14 +46,14 @@
   {#if canPreview}
     <!-- The rendered document is fetched on the first switch to Preview. -->
     <RadioPills
-      name="pane-{event.id}"
-      chosen={previews.paneOf(event.id)}
+      name="pane-{card.id}"
+      chosen={previews.paneOf(card.id)}
       legend="Preview mode"
       onchoose={async value => {
-        previews.paneById.set(event.id, value);
+        previews.paneById.set(card.id, value);
 
         if (value === PreviewPane.Preview) {
-          await previews.loadPreviewDocument(event);
+          await previews.loadPreviewDocument(card);
         }
       }}
       options={PANE_OPTIONS}
@@ -66,7 +65,7 @@
          motion is reduced. `tick()` lets Svelte apply the new layout inside the
          callback so the API captures the "after" state. -->
     <RadioPills
-      name="diff-{event.id}"
+      name="diff-{card.id}"
       chosen={diffMode}
       legend="Diff view"
       onchoose={value => {

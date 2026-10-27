@@ -22,7 +22,7 @@ export interface MediaView {
   url: string;
 }
 
-type CardView =
+export type CardView =
   | {
     kind: typeof CardViewKind.Message | typeof CardViewKind.Loading;
     text: string;
@@ -44,6 +44,11 @@ interface CardPreviews {
   lineCount: number;
   /** The card's last fetch failed, so an empty preview reads as an error. */
   isErrored: boolean;
+}
+
+/** Whether `view` is a picture or a clip. */
+export function isMediaView(view: CardView): view is MediaView {
+  return view.kind === CardViewKind.Image || view.kind === CardViewKind.Video;
 }
 
 function message(text: string) {

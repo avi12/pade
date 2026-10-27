@@ -3,14 +3,16 @@
   import type { MediaView } from "@/lib/feed/preview/card-view";
 
   // An image or video card's picture or clip, in place of a text diff.
-  const { view, name }: {
+  const { view, name, isFilling = false }: {
     view: MediaView;
     /** The file's name, the picture's alt text. */
     name: string;
+    /** Fill the parent's height instead of capping at a card-sized strip. */
+    isFilling?: boolean;
   } = $props();
 </script>
 
-<div class="media-wrapper">
+<div class="media-wrapper" class:filling={isFilling}>
   {#if view.kind === CardViewKind.Video}
     <!-- Muted + looping so an opened card plays like a moving
          thumbnail; the controls unmute or scrub it. -->
@@ -55,6 +57,17 @@
 
       /* A hairline keeps a light image legible against the light checkerboard. */
       box-shadow: 0 0 0 1px color-mix(in sRGB, var(--outline) 60%, transparent);
+    }
+
+    &.filling {
+      box-sizing: border-box;
+      block-size: 100%;
+      max-block-size: none;
+
+      img,
+      video {
+        max-block-size: 100%;
+      }
     }
   }
 

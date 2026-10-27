@@ -4,13 +4,13 @@
   import { PreviewPane } from "@/lib/feed/preview/feed-previews";
   import type { FeedPreviews } from "@/lib/feed/preview/feed-previews";
   import { isMediaPath, isRenderablePath } from "@/lib/feed/preview/preview";
+  import ViewToggles from "@/lib/feed/preview/ViewToggles.svelte";
   import Icon from "@/lib/Icon.svelte";
   import { windowedEditorFor } from "@/lib/stores/workspace/editors.svelte";
   import { DiffStyle } from "@/lib/types";
   import type { ChangeEvent } from "@/lib/types";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { relativeToRoot } from "@/lib/util/paths";
-  import ViewToggles from "@/panels/feed/card/ViewToggles.svelte";
   import ChangePreview from "@/panels/feed/preview/ChangePreview.svelte";
   import type { z } from "zod";
 
@@ -84,7 +84,7 @@
   </button>
   <span class="spacer"></span>
   {#if canPreview || canSwitchDiffMode}
-    <ViewToggles {canPreview} {canSwitchDiffMode} {event} {previews} bind:diffMode />
+    <ViewToggles {canPreview} {canSwitchDiffMode} card={event} {previews} bind:diffMode />
   {/if}
   <button
     class="close"
