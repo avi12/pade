@@ -5,11 +5,15 @@
 // goes back to the user's own choice. Each step is remembered per window label,
 // so a reload keeps the way back. A choice the user makes in between is theirs:
 // pacing touches a session again only while it still runs what pacing set.
+// While a session is stepped down its subagents are capped at what it runs, so
+// one that names a dearer model of its own can't spend past the step (the
+// agent reads the cap at every spawn - agents/running_model/subagent_cap).
 // This module owns the steps and their memory; lib/stores/usage/usagePacing
 // decides when to take them, and the app shell supplies the switch itself.
 
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
-import { cheaperModelChoice, lowerEffortChoice } from "@/lib/model/model-cost";
+import { cheaperModelChoice, lowerEffortChoice, subagentCap } from "@/lib/model/model-cost";
 import { bareModel, modelLabel, modelName } from "@/lib/model/model-label";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { sessionModel } from "@/lib/stores/agent/context.svelte";
@@ -119,6 +123,32 @@ function isStillPacingsChoice({ id, choice }: {
   return isSameModel && isSameEffort;
 }
 
+/** Cap the session's subagents at `model`, or lift the cap with null. A
+ *  session that hasn't started its conversation has no subagents yet. */
+async function capSubagents({ session, model }: {
+  session: AgentSession;
+  model: string | null;
+}) {
+  const conversationId = session.conversationId;
+  if (conversationId === undefined) {
+    return;
+  }
+
+  const command = session.agent.command;
+  try {
+    await sendMessage(Command.agentSetSubagentCap, {
+      command,
+      conversationId,
+      cap: model === null ? null : subagentCap({
+        model,
+        options: modelOptions(command)
+      })
+    });
+  } catch (error) {
+    console.warn("pade: could not cap the session's subagents", error);
+  }
+}
+
 function describe(choice: ModelChoice) {
   return modelLabel({
     name: modelName(choice.model ?? ""),
@@ -159,20 +189,25 @@ export function createUsageAdapter(host: AdaptHost) {
     });
   }
 
-  /** The record for a session, dropped when the user has chosen since. */
-  function pacingRecord(id: string) {
-    const choice = adapted.get(id);
+  /** The record for a session, dropped - with its subagents' cap - when the
+   *  user has chosen since. */
+  function pacingRecord(session: AgentSession) {
+    const choice = adapted.get(session.id);
     if (choice === undefined) {
       return undefined;
     }
 
     if (!isStillPacingsChoice({
-      id,
+      id: session.id,
       choice
     })) {
       setAdapted({
-        id,
+        id: session.id,
         choice: null
+      });
+      capSubagents({
+        session,
+        model: null
       });
       return undefined;
     }
@@ -228,7 +263,7 @@ export function createUsageAdapter(host: AdaptHost) {
       return false;
     }
 
-    const record = pacingRecord(session.id);
+    const record = pacingRecord(session);
     setAdapted({
       id: session.id,
       choice: {
@@ -239,6 +274,10 @@ export function createUsageAdapter(host: AdaptHost) {
         current: next,
         restoreAt: record?.restoreAt ?? restoreAt
       }
+    });
+    await capSubagents({
+      session,
+      model: next.model ?? running.model ?? null
     });
     await switchTo({
       session,
@@ -251,20 +290,25 @@ export function createUsageAdapter(host: AdaptHost) {
   /** Step a stepped-down session one notch back up the way it came. Resolves
    *  whether there was a step to undo. */
   async function stepUp(session: AgentSession) {
-    const record = pacingRecord(session.id);
+    const record = pacingRecord(session);
     const last = record?.trail.at(-1);
     if (record === undefined || last === undefined) {
       return false;
     }
 
     const rest = record.trail.slice(0, -1);
+    const isStillSteppedDown = rest.length > 0;
     setAdapted({
       id: session.id,
-      choice: rest.length > 0 ? {
+      choice: isStillSteppedDown ? {
         ...record,
         trail: rest,
         current: last.previous
       } : null
+    });
+    await capSubagents({
+      session,
+      model: isStillSteppedDown ? last.previous.model ?? null : null
     });
     await switchTo({
       session,
@@ -281,10 +325,14 @@ export function createUsageAdapter(host: AdaptHost) {
       return;
     }
 
-    const isUntouched = pacingRecord(session.id) !== undefined;
+    const isUntouched = pacingRecord(session) !== undefined;
     setAdapted({
       id: session.id,
       choice: null
+    });
+    await capSubagents({
+      session,
+      model: null
     });
 
     if (isUntouched) {

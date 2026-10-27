@@ -5,7 +5,9 @@
 //! `OPENCODE_CONFIG_CONTENT` so this launch alone adds it to the user's plugin
 //! list - their config is never touched - and `PADE_MODEL_STATE_FILE` so the
 //! plugin knows where to write. The plugin records the model and reasoning
-//! variant on `chat.message` (every prompt) and `session.updated`.
+//! variant on `chat.message` (every prompt) and `session.updated`. It also
+//! moves a subagent's first message onto the paced cap (`subagent_cap`), read
+//! from `PADE_SUBAGENT_CAP_FILE` at that moment.
 //!
 //! A model picked in the TUI stays inside the TUI until the next prompt is
 //! sent, so that is when the tab follows; before the first prompt the
@@ -13,11 +15,14 @@
 
 use std::path::{Path, PathBuf};
 
-use super::{read_session_state, state_file, EffortOption, ModelOption, RunningModel};
+use super::{
+    read_session_state, state_file, subagent_cap, EffortOption, ModelOption, RunningModel,
+};
 use crate::util::read_json;
 
 const CONFIG_CONTENT_VARIABLE: &str = "OPENCODE_CONFIG_CONTENT";
 const STATE_FILE_VARIABLE: &str = "PADE_MODEL_STATE_FILE";
+const CAP_FILE_VARIABLE: &str = "PADE_SUBAGENT_CAP_FILE";
 const PLUGIN_FILE: &str = "pade-model.js";
 const CONFIG_FILE: &str = "opencode.json";
 /// The reasoning-option kind whose values are effort levels.
@@ -28,12 +33,32 @@ const PICKER_LISTS: [&str; 2] = ["favorite", "recent"];
 
 /// Records the session's model and variant in PADE's state-file shape.
 /// `default` is the "no variant chosen" value.
-const PLUGIN_SOURCE: &str = r#"// PADE: records this session's model and reasoning variant for its tab.
-import { writeFileSync } from "node:fs";
+const PLUGIN_SOURCE: &str = r#"// PADE: records this session's model and reasoning variant for its tab, and
+// keeps its subagents within the model usage pacing caps it at.
+import { readFileSync, writeFileSync } from "node:fs";
 
 export const PadeModel = async () => {
   const file = process.env.PADE_MODEL_STATE_FILE;
+  const capFile = process.env.PADE_SUBAGENT_CAP_FILE;
+  const subagentSessions = new Set();
   let current = null;
+  // No file means the session isn't paced: its subagents run as asked.
+  const readCap = () => {
+    if (!capFile) return null;
+    try {
+      return JSON.parse(readFileSync(capFile, "utf8"));
+    } catch {
+      return null;
+    }
+  };
+  const capSubagent = (input, output) => {
+    const cap = readCap();
+    const asked = output.message?.model ?? input.model;
+    if (!cap || !output.message || !asked) return;
+    if (cap.allowed.includes(`${asked.providerID}/${asked.modelID}`)) return;
+    const [providerID, ...model] = cap.model.split("/");
+    output.message.model = { providerID, modelID: model.join("/") };
+  };
   const record = (providerID, modelID, variant) => {
     if (!file || !modelID) return;
     const now = Date.now();
@@ -46,11 +71,19 @@ export const PadeModel = async () => {
     }
   };
   return {
-    "chat.message": async (input) => {
+    "chat.message": async (input, output) => {
+      if (subagentSessions.has(input.sessionID)) {
+        capSubagent(input, output);
+        return;
+      }
       current = input.sessionID;
       record(input.model?.providerID, input.model?.modelID, input.variant);
     },
     event: async ({ event }) => {
+      if (event.type === "session.created" && event.properties?.info?.parentID) {
+        subagentSessions.add(event.properties.info.id);
+        return;
+      }
       if (event.type !== "session.updated") return;
       const info = event.properties?.info;
       if (!info || info.id !== current || !info.model) return;
@@ -62,11 +95,19 @@ export const PadeModel = async () => {
 
 /// The environment that loads the plugin and tells it where to write.
 pub(super) fn attach(conversation_id: &str) -> Vec<(String, String)> {
-    let (Some(plugin), Some(state)) = (materialize_plugin(), state_file(conversation_id)) else {
+    let (Some(plugin), Some(state), Some(cap)) = (
+        materialize_plugin(),
+        state_file(conversation_id),
+        subagent_cap::cap_file(conversation_id),
+    ) else {
         return Vec::new();
     };
     let inherited = std::env::var(CONFIG_CONTENT_VARIABLE).ok();
     vec![
+        (
+            CAP_FILE_VARIABLE.to_string(),
+            cap.to_string_lossy().into_owned(),
+        ),
         (
             CONFIG_CONTENT_VARIABLE.to_string(),
             config_with_plugin(inherited.as_deref(), &file_url(&plugin)),

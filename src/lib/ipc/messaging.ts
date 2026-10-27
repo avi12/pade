@@ -77,6 +77,7 @@ export enum Command {
   agentThemePublish = "agent_theme_publish",
   agentModelOptions = "agent_model_options",
   agentApplyModel = "agent_apply_model",
+  agentSetSubagentCap = "agent_set_subagent_cap",
   agentResumeArgs = "agent_resume_args",
   agentConversations = "agent_conversations",
   agentSessionContext = "agent_session_context",
@@ -275,6 +276,16 @@ export interface CommandProtocolMap {
     conversationId: string;
     choice: ModelChoice;
   }) => SwitchOutcome;
+  /** Cap the models a paced session's subagents may run, read by the agent at
+   *  every spawn; `cap: null` lifts it. */
+  [Command.agentSetSubagentCap]: (data: {
+    command: string;
+    conversationId: string;
+    cap: {
+      model: string;
+      allowedModels: string[];
+    } | null;
+  }) => void;
   /** Launch args that reopen the agent's recorded conversation for `cwd`
    *  (`["resume", "<uuid>"]` for Codex), empty when the agent has no such
    *  mechanism or no recording. `conversationId`: when the agent reported its
@@ -717,6 +728,7 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.agentThemePublish]: NO_REPLY,
   [Command.agentModelOptions]: z.array(ModelOption),
   [Command.agentApplyModel]: SwitchOutcome,
+  [Command.agentSetSubagentCap]: NO_REPLY,
   [Command.agentResumeArgs]: z.array(z.string()),
   [Command.agentConversations]: z.array(RecordedConversation),
   [Command.agentSessionContext]: SessionContext.nullable(),

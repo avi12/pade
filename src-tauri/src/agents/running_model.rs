@@ -35,6 +35,7 @@ mod codex;
 mod copilot;
 pub(crate) use copilot::session_root as copilot_session_root;
 mod opencode;
+pub mod subagent_cap;
 
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
@@ -424,9 +425,16 @@ fn record_hook_report() -> Result<(), String> {
     let report = read_hook_report()?;
     let conversation_id = reporting_conversation(&report).ok_or("the report names no session")?;
 
-    if is_model_switch_request(&report) {
-        answer_model_switch_request(&conversation_id);
-        return Ok(());
+    match hook_event(&report) {
+        Some(claude::PRE_MODEL_SWITCH) => {
+            answer_model_switch_request(&conversation_id);
+            return Ok(());
+        }
+        Some(subagent_cap::PRE_TOOL_USE) => {
+            subagent_cap::answer_spawn(&conversation_id, &report);
+            return Ok(());
+        }
+        _ => {}
     }
 
     let path = state_file(&conversation_id).ok_or("no PADE data directory")?;
@@ -435,7 +443,7 @@ fn record_hook_report() -> Result<(), String> {
         &report,
         now_milliseconds(),
     );
-    write_state(&path, &next).map_err(|error| error.to_string())
+    write_json(&path, &next).map_err(|error| error.to_string())
 }
 
 fn read_hook_report() -> Result<serde_json::Value, String> {
@@ -454,12 +462,11 @@ fn reporting_conversation(report: &serde_json::Value) -> Option<String> {
         .or_else(|| report.get("session_id")?.as_str().map(str::to_string))
 }
 
-/// Not a report: Claude asking whether to go ahead with a model switch.
-fn is_model_switch_request(report: &serde_json::Value) -> bool {
+/// The event a hook report is for - some are questions to answer, not reports.
+fn hook_event(report: &serde_json::Value) -> Option<&str> {
     report
         .get("hook_event_name")
         .and_then(serde_json::Value::as_str)
-        == Some(claude::PRE_MODEL_SWITCH)
 }
 
 /// PADE answers only for a switch it started itself; any other one gets
@@ -614,18 +621,18 @@ fn record_choice(conversation_id: &str, choice: &ModelChoice) {
         state.effort = Some(effort.clone());
         state.effort_at = now;
     }
-    if let Err(error) = write_state(&path, &state) {
+    if let Err(error) = write_json(&path, &state) {
         eprintln!("pade: could not record the model choice: {error}");
     }
 }
 
 /// Write through a sibling file and rename, so a reader never sees half a file.
-fn write_state(path: &Path, state: &SessionState) -> std::io::Result<()> {
+fn write_json(path: &Path, value: &impl Serialize) -> std::io::Result<()> {
     if let Some(directory) = path.parent() {
         std::fs::create_dir_all(directory)?;
     }
     let partial = path.with_extension(PARTIAL_STATE_EXTENSION);
-    std::fs::write(&partial, serde_json::to_vec(state)?)?;
+    std::fs::write(&partial, serde_json::to_vec(value)?)?;
     std::fs::rename(partial, path)
 }
 

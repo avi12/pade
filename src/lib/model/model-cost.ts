@@ -79,6 +79,23 @@ export function lowerEffortChoice({ model, effort, options }: {
   } satisfies ModelChoice;
 }
 
+/** What a paced session's subagents may run: `model` when they ask for
+ *  nothing it allows, and every catalog model no dearer than it. A model in no
+ *  known tier allows only itself. */
+export function subagentCap({ model, options }: {
+  model: string;
+  options: readonly ModelOption[];
+}) {
+  const tier = costTier(model);
+  const cheaperOrEqual = options
+    .filter(option => tier !== NO_TIER && costTier(option.id) !== NO_TIER && costTier(option.id) <= tier)
+    .map(option => option.id);
+  return {
+    model,
+    allowedModels: [model, ...cheaperOrEqual.filter(id => id !== model)]
+  };
+}
+
 /** The next cheaper model at its recommended effort level - or null when no
  *  cheaper one is known. */
 export function cheaperModelChoice({ model, options }: {

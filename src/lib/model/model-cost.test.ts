@@ -1,4 +1,4 @@
-import { cheaperModelChoice, costTier, lowerEffortChoice } from "@/lib/model/model-cost";
+import { cheaperModelChoice, costTier, lowerEffortChoice, subagentCap } from "@/lib/model/model-cost";
 import type { ModelOption } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -72,6 +72,29 @@ describe("lowerEffortChoice", () => {
         options: CLAUDE_OPTIONS
       })
     ).toBeNull();
+  });
+});
+
+describe("subagentCap", () => {
+  it("allows the cap and every cheaper model, never a dearer one", () => {
+    expect(
+      subagentCap({
+        model: "claude-sonnet-5-5",
+        options: CLAUDE_OPTIONS
+      })
+    ).toEqual({
+      model: "claude-sonnet-5-5",
+      allowedModels: ["claude-sonnet-5-5", "claude-haiku-4-5-20251001"]
+    });
+  });
+
+  it("allows only itself for a model in no known tier", () => {
+    expect(
+      subagentCap({
+        model: "gpt-5.6-sol",
+        options: CLAUDE_OPTIONS
+      }).allowedModels
+    ).toEqual(["gpt-5.6-sol"]);
   });
 });
 
