@@ -88,6 +88,15 @@ describe("cheaperModelChoice", () => {
     });
   });
 
+  it("never steps below Sonnet, the cheapest tier trusted with code", () => {
+    expect(
+      cheaperModelChoice({
+        model: "claude-sonnet-5-5",
+        options: CLAUDE_OPTIONS
+      })
+    ).toBeNull();
+  });
+
   it("has nothing cheaper below the cheapest tier, or for a model in no known tier", () => {
     expect(
       cheaperModelChoice({

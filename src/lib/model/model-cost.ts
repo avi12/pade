@@ -3,7 +3,8 @@
 // states a price, so a model's cost tier is read from the
 // family word in its id, the one thing every vendor keeps stable: Haiku and the
 // mini/nano/flash/lite lines are the cheap tier, Sonnet the middle, Opus the top.
-// A model in no known tier is never swapped, only turned down.
+// A model in no known tier is never swapped, only turned down. Pacing can't tell
+// a coding turn from a docs one, so it never swaps below the coding floor.
 
 import { bareModel, lowerEffort } from "@/lib/model/model-label";
 import type { ModelChoice, ModelOption } from "@/lib/types";
@@ -15,6 +16,8 @@ const COST_TIERS = [
   ["opus"]
 ] as const;
 const NO_TIER = -1;
+/** Sonnet's tier: the cheapest one trusted to write code. */
+const CODING_FLOOR_TIER = 1;
 
 /** A model's cost tier - its index in COST_TIERS - or -1 when no family word
  *  places it. */
@@ -23,8 +26,8 @@ export function costTier(model: string) {
   return COST_TIERS.findIndex(words => words.some(word => id.includes(word)));
 }
 
-/** The dearest catalog model in a tier below `model`'s - the gentlest cheaper
- *  step - or undefined when there is none. */
+/** The dearest catalog model in a tier below `model`'s but not below the
+ *  coding floor - the gentlest cheaper step - or undefined when there is none. */
 function cheaperModel({ model, options }: {
   model: string;
   options: readonly ModelOption[];
@@ -38,7 +41,7 @@ function cheaperModel({ model, options }: {
   let bestTier = NO_TIER;
   for (const option of options) {
     const optionTier = costTier(option.id);
-    const isCheaper = optionTier !== NO_TIER && optionTier < tier;
+    const isCheaper = optionTier >= CODING_FLOOR_TIER && optionTier < tier;
     if (isCheaper && optionTier > bestTier) {
       best = option;
       bestTier = optionTier;
