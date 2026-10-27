@@ -18,6 +18,10 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
+use crate::platform::preview::{
+    image_mime_type, preview_text, video_preview, FeedImage, FeedVideo, MAXIMUM_IMAGE_BYTES,
+    MAXIMUM_PREVIEW_BYTES,
+};
 use crate::util::now_milliseconds;
 use crate::vcs::git_in;
 
@@ -840,11 +844,6 @@ fn line_count(path: &Path) -> Option<usize> {
     }
 }
 
-/// Largest file the Change Feed will snapshot for a baseline or read for a live
-/// preview. A few hundred KB covers real source files; past it the preview falls
-/// back to "No preview available" rather than holding megabytes per touched path.
-const MAXIMUM_PREVIEW_BYTES: u64 = 512 * 1024;
-
 /// Resolve `path` to its real target and require that target to remain under
 /// `root`, so a symlink or reparse point can't turn a preview into a read of an
 /// arbitrary file. `Ok(None)` when the path is gone.
@@ -894,10 +893,7 @@ fn read_preview_text(root: &Path, path: &Path) -> Result<Option<String>, ()> {
     let Some(bytes) = read_authorized_file(root, path, MAXIMUM_PREVIEW_BYTES)? else {
         return Ok(None);
     };
-    if bytes.contains(&0) {
-        return Err(());
-    }
-    String::from_utf8(bytes).map(Some).map_err(|_| ())
+    preview_text(bytes).map(Some).ok_or(())
 }
 
 /// What happened to the file, for the line under its name on a feed card. The
@@ -2089,88 +2085,12 @@ pub async fn feed_text(
         .flatten())
 }
 
-/// The image extensions the Change Feed previews inline, each paired with the
-/// MIME type its `data:` URL carries. The one authoritative home for the
-/// extension→MIME mapping (its TS mirror is `ImageExtension` in `@/lib/preview`);
-/// an extension absent here is not treated as a previewable image. SVG is
-/// included and served as a data URL like the raster formats - the frontend
-/// renders every image through `<img src>`, so untrusted SVG markup is never
-/// inlined into the DOM (no scripts run, no external refs load).
-const IMAGE_MIME_TYPES: &[(&str, &str)] = &[
-    ("png", "image/png"),
-    ("jpg", "image/jpeg"),
-    ("jpeg", "image/jpeg"),
-    ("gif", "image/gif"),
-    ("webp", "image/webp"),
-    ("avif", "image/avif"),
-    ("bmp", "image/bmp"),
-    ("ico", "image/x-icon"),
-    ("svg", "image/svg+xml"),
-];
-
-/// The MIME type for `path`'s extension when it names an image the feed can
-/// preview, else `None`. Case-insensitive on the extension.
-fn image_mime_type(path: &Path) -> Option<&'static str> {
-    let extension = path.extension().and_then(|name| name.to_str())?;
-    IMAGE_MIME_TYPES
-        .iter()
-        .find(|(name, _)| name.eq_ignore_ascii_case(extension))
-        .map(|(_, mime)| *mime)
-}
-
-/// Largest image the Change Feed will inline as a data URL. A few megabytes
-/// covers real project assets; past it the preview is skipped rather than
-/// bloating the webview with megabytes of base64 for one card.
-const MAXIMUM_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
-
-/// Standard-alphabet (RFC 4648) base64 for the image data URL - a few lines of
-/// std rather than a new dependency (the only base64 the backend needs). Encodes
-/// each three input bytes into four characters, padding a final partial group
-/// with `=`.
-fn base64_encode(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    const PAD: char = '=';
-    let sextet = |value: u8| char::from(ALPHABET[usize::from(value & 0x3f)]);
-
-    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
-        let first = chunk[0];
-        let second = chunk.get(1).copied().unwrap_or(0);
-        let third = chunk.get(2).copied().unwrap_or(0);
-        encoded.push(sextet(first >> 2));
-        encoded.push(sextet((first << 4) | (second >> 4)));
-        encoded.push(if chunk.len() > 1 {
-            sextet((second << 2) | (third >> 6))
-        } else {
-            PAD
-        });
-        encoded.push(if chunk.len() > 2 { sextet(third) } else { PAD });
-    }
-    encoded
-}
-
-/// A `data:<mime>;base64,<bytes>` URL - the one shape every inline media preview
-/// hands the frontend, so it renders with a plain `src` and no asset protocol.
-fn data_url(mime: &str, bytes: &[u8]) -> String {
-    format!("data:{mime};base64,{}", base64_encode(bytes))
-}
-
 /// Whether this window's watch surfaced `path` this session (it holds a
 /// baseline entry for it). The gate every preview command passes first, so none
 /// of them can be turned into a reader of an arbitrary file off disk.
 fn was_surfaced(watch: &ProjectWatch, path: &Path) -> Result<bool, String> {
     let baselines = watch.baselines.lock().map_err(|error| error.to_string())?;
     Ok(baselines.contains_key(path))
-}
-
-/// A Change Feed card's inline image preview: the changed image file's bytes as a
-/// ready-to-use `data:` URL, so the frontend renders it with a plain `<img src>`
-/// and needs no asset protocol or extra capability (mirrors `feed_diff`'s flow).
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FeedImage {
-    /// A `data:<mime>;base64,<bytes>` URL - directly usable as an `<img>` source.
-    data_url: String,
 }
 
 /// The inline image preview for `path`: its bytes as a base64 `data:` URL tagged
@@ -2195,39 +2115,21 @@ pub async fn feed_image(
         return Ok(None);
     }
 
-    let Some(mime) = image_mime_type(file) else {
+    if image_mime_type(file).is_none() {
         return Ok(None);
-    };
+    }
     let Ok(Some(bytes)) = read_authorized_file(&watch.canonical_root, file, MAXIMUM_IMAGE_BYTES)
     else {
         return Ok(None);
     };
 
-    Ok(Some(FeedImage {
-        data_url: data_url(mime, &bytes),
-    }))
-}
-
-/// A Change Feed card's video preview, tagged by `kind` so the card can tell
-/// "here is a clip" from "install ffmpeg to see one".
-#[derive(Debug, Serialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum FeedVideo {
-    /// A short transcoded clip as a `data:` URL - directly usable as a `<video>` source.
-    Ready { data_url: String },
-    /// `ffmpeg` isn't installed, so no clip can be made.
-    NoTranscoder,
+    Ok(FeedImage::of(file, &bytes))
 }
 
 /// The video preview for `path`: its opening seconds transcoded by ffmpeg into a
 /// small MP4 (see [`crate::platform::media`]). `None` when `path` is not a video, was not
 /// surfaced by this window's watch this session, is gone, or ffmpeg couldn't
-/// read it. Gated and root-confined exactly like [`feed_image`]; the transcode
-/// runs on a blocking thread so a slow video never stalls the async runtime.
+/// read it. Gated and root-confined exactly like [`feed_image`].
 #[tauri::command]
 pub async fn feed_video(
     window: WebviewWindow,
@@ -2245,17 +2147,7 @@ pub async fn feed_video(
         return Ok(None);
     };
 
-    let clip =
-        tauri::async_runtime::spawn_blocking(move || crate::platform::media::preview_clip(&source))
-            .await
-            .map_err(|error| error.to_string())?;
-    match clip {
-        Ok(bytes) => Ok(Some(FeedVideo::Ready {
-            data_url: data_url(crate::platform::media::PREVIEW_CLIP_MIME, &bytes),
-        })),
-        Err(crate::platform::media::ClipError::NoTranscoder) => Ok(Some(FeedVideo::NoTranscoder)),
-        Err(crate::platform::media::ClipError::Failed) => Ok(None),
-    }
+    video_preview(source).await
 }
 
 /// The subset of `paths` the current ignore policy excludes - how the frontend
@@ -2290,17 +2182,16 @@ pub fn init(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::{
-        base64_encode, drain_burst, git_directory_lifecycle_changed, git_state_directories,
-        image_mime_type, is_git_directory_entry, is_git_state_file,
-        is_under_static_ignore_directory, line_count, line_delta, manifest_ignore_directories,
-        mcp_config_for_path, mcp_membership_changed, read_authorized_file, read_preview_text,
-        reclassify, record_first_touch_baseline, resolve_watch_root, static_ignore_directories,
-        summarize, surfaces, unique_directories, ChangeKind, GitStateMessage, WindowWatches,
-        MAXIMUM_IMAGE_BYTES, MAXIMUM_PREVIEW_BYTES,
-    };
-    use super::{
         deepest_containing, language_news, planned_language_routes, watch_set_change, IgnorePolicy,
         IgnoreRules, LanguageNews, LanguageRoute, ProjectRootPayload, WatchSetChange,
+    };
+    use super::{
+        drain_burst, git_directory_lifecycle_changed, git_state_directories,
+        is_git_directory_entry, is_git_state_file, is_under_static_ignore_directory, line_count,
+        line_delta, manifest_ignore_directories, mcp_config_for_path, mcp_membership_changed,
+        read_authorized_file, read_preview_text, reclassify, record_first_touch_baseline,
+        resolve_watch_root, static_ignore_directories, summarize, surfaces, unique_directories,
+        ChangeKind, GitStateMessage, WindowWatches, MAXIMUM_IMAGE_BYTES, MAXIMUM_PREVIEW_BYTES,
     };
     use std::sync::Arc;
 
@@ -2843,46 +2734,6 @@ mod tests {
         assert!(burst.rearm);
         assert!(burst.state_touched);
         assert!(burst.ignore_touched);
-    }
-
-    #[test]
-    fn image_mime_type_maps_known_extensions_case_insensitively() {
-        assert_eq!(
-            image_mime_type(Path::new("a/b/logo.png")),
-            Some("image/png")
-        );
-        assert_eq!(image_mime_type(Path::new("photo.JPG")), Some("image/jpeg"));
-        assert_eq!(image_mime_type(Path::new("photo.jpeg")), Some("image/jpeg"));
-        assert_eq!(
-            image_mime_type(Path::new("icon.svg")),
-            Some("image/svg+xml")
-        );
-        assert_eq!(image_mime_type(Path::new("art.avif")), Some("image/avif"));
-        assert_eq!(
-            image_mime_type(Path::new("favicon.ico")),
-            Some("image/x-icon")
-        );
-    }
-
-    #[test]
-    fn image_mime_type_is_none_for_non_images() {
-        assert_eq!(image_mime_type(Path::new("main.rs")), None);
-        assert_eq!(image_mime_type(Path::new("README")), None);
-        // Only the final extension decides; a `.png` in the stem doesn't count.
-        assert_eq!(image_mime_type(Path::new("archive.png.zip")), None);
-    }
-
-    /// The RFC 4648 test vectors - proof the hand-rolled encoder pads partial
-    /// groups correctly (the case a data URL depends on).
-    #[test]
-    fn base64_encode_matches_the_rfc_vectors() {
-        assert_eq!(base64_encode(b""), "");
-        assert_eq!(base64_encode(b"f"), "Zg==");
-        assert_eq!(base64_encode(b"fo"), "Zm8=");
-        assert_eq!(base64_encode(b"foo"), "Zm9v");
-        assert_eq!(base64_encode(b"foob"), "Zm9vYg==");
-        assert_eq!(base64_encode(b"fooba"), "Zm9vYmE=");
-        assert_eq!(base64_encode(b"foobar"), "Zm9vYmFy");
     }
 
     #[test]
