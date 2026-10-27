@@ -147,6 +147,9 @@ export enum Command {
   vcsPull = "vcs_pull",
   vcsCommit = "vcs_commit",
   vcsCommitDiff = "vcs_commit_diff",
+  vcsCommitImage = "vcs_commit_image",
+  vcsCommitVideo = "vcs_commit_video",
+  vcsCommitText = "vcs_commit_text",
   vcsRemoteUrl = "vcs_remote_url",
   vcsDefaultBranch = "vcs_default_branch",
   vcsGitInstalled = "vcs_git_installed",
@@ -231,6 +234,13 @@ const NO_REPLY = z.null().transform(() => undefined);
 
 /** A path the backend previews or acts on. */
 type PathData = { path: string };
+
+/** One file of one commit, `path` repository-relative as `vcsCommit` lists it. */
+type CommitPathData = {
+  cwd: string;
+  sha: string;
+  path: string;
+};
 
 /** A workspace moved under a new folder name, optionally into another saved
  *  root (omitted → the primary root). */
@@ -503,11 +513,14 @@ export interface CommandProtocolMap {
     sha: string;
   }) => CommitDetail;
   /** Raw unified diff for one path within a commit. */
-  [Command.vcsCommitDiff]: (data: {
-    cwd: string;
-    sha: string;
-    path: string;
-  }) => string;
+  [Command.vcsCommitDiff]: (data: CommitPathData) => string;
+  /** A commit's image as a `data:` URL (a deleted one as its parent had it),
+   *  `null` past the size cap. */
+  [Command.vcsCommitImage]: (data: CommitPathData) => FeedImage | null;
+  /** A commit's video transcoded like `feedVideo`'s. */
+  [Command.vcsCommitVideo]: (data: CommitPathData) => FeedVideo | null;
+  /** A commit's markdown/HTML text, for its rendered Preview. */
+  [Command.vcsCommitText]: (data: CommitPathData) => string | null;
   /** The branch-configured remote, falling back to `origin`, as a browser URL. */
   [Command.vcsRemoteUrl]: (data: { cwd: string }) => string | null;
   /** The configured remote's locally-known default branch, when available. */
@@ -774,6 +787,9 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.vcsPull]: PullOutcome,
   [Command.vcsCommit]: CommitDetail,
   [Command.vcsCommitDiff]: z.string(),
+  [Command.vcsCommitImage]: FeedImage.nullable(),
+  [Command.vcsCommitVideo]: FeedVideo.nullable(),
+  [Command.vcsCommitText]: z.string().nullable(),
   [Command.vcsRemoteUrl]: z.string().nullable(),
   [Command.vcsDefaultBranch]: z.string().nullable(),
   [Command.vcsGitInstalled]: z.boolean(),

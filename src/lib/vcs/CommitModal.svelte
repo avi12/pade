@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { parseDiff } from "@/lib/code/diff";
-  import type { DiffLine } from "@/lib/code/diff";
+  import { createFeedPreviews } from "@/lib/feed/preview/feed-previews";
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
+  import { effective } from "@/lib/settings/prefs.svelte";
   import type { CommitDetail } from "@/lib/types";
-  import { baseName } from "@/lib/util/paths";
-  import DiffPane from "@/lib/vcs/commitModal/DiffPane.svelte";
+  import { commitPreviewSource } from "@/lib/vcs/commit-preview-source";
   import FileList from "@/lib/vcs/commitModal/FileList.svelte";
+  import FilePreviewPane from "@/lib/vcs/commitModal/FilePreviewPane.svelte";
   import CommitStats from "@/lib/vcs/CommitStats.svelte";
   import { repositoryCommitUrl } from "@/lib/vcs/repository-links";
   import { untrack } from "svelte";
@@ -21,7 +21,7 @@
   } = $props();
 
   // Selected file within the commit; seeded to the first file so its tab is
-  // selected and focusable from the first render, before the diff loads.
+  // selected and focusable from the first render, before its preview loads.
   // Seeded once from the prop (the modal is remounted per commit) - untrack makes
   // the intentional initial-only read explicit.
   let selectedPath = $state(untrack(() => commit.files[0]?.path ?? ""));
@@ -29,21 +29,16 @@
     commit.files.find(file => file.path === selectedPath) ?? commit.files.at(0)
   );
 
-  // One file's diff, fetched on demand and cached so re-selecting never refetches.
-  // The cache is only ever read imperatively inside loadDiff - never in reactive
-  // markup - so a plain Map is correct; a SvelteMap would add needless reactivity
-  // tracking for a value the template never observes.
-  let diffLines = $state<DiffLine[]>([]);
-  let isLoading = $state(false);
-  let loadFailed = $state(false);
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read imperatively, never reactively (see comment above)
-  const cache = new Map<string, DiffLine[]>();
-
-  // Binary / very large files: git emits no textual diff, so we show the note.
-  // A load error is a distinct state and must not read as a big file.
-  const isBigFile = $derived(
-    !loadFailed && (!!selectedFile?.binary || (!isLoading && diffLines.length === 0))
+  // Each file's diff, picture, clip or rendered document as this commit left
+  // it - the Change Feed's previews, read out of the commit and cached by path
+  // so re-selecting never refetches.
+  const previews = createFeedPreviews(
+    untrack(() => commitPreviewSource({
+      cwd: project,
+      sha: commit.id
+    }))
   );
+  let diffMode = $state(effective.diffStyle);
 
   const commitUrl = $derived(
     repositoryCommitUrl({
@@ -51,53 +46,13 @@
       commit: commit.id
     })
   );
-  const paneName = $derived.by(() => {
-    if (!selectedFile) {
-      return "";
-    }
 
-    return baseName(selectedFile.path);
-  });
-
-  async function loadDiff(path: string) {
+  async function selectFile(path: string) {
     selectedPath = path;
-    loadFailed = false;
-    const cached = cache.get(path);
-    if (cached) {
-      diffLines = cached;
-      return;
-    }
-
-    isLoading = true;
-    try {
-      const raw = await sendMessage(Command.vcsCommitDiff, {
-        cwd: project,
-        sha: commit.id,
-        path
-      });
-      // Stale-response guard: a rapid A→B switch can land A's late diff under B;
-      // bail before touching shared state if the selection moved on.
-      if (path !== selectedPath) {
-        return;
-      }
-
-      const parsed = parseDiff(raw);
-      cache.set(path, parsed);
-      diffLines = parsed;
-    } catch {
-      // A fetch/parse failure is an error, not a big file - surface it as such
-      // and never cache, so re-selecting retries instead of showing stale empty.
-      if (path !== selectedPath) {
-        return;
-      }
-
-      diffLines = [];
-      loadFailed = true;
-    } finally {
-      if (path === selectedPath) {
-        isLoading = false;
-      }
-    }
+    await previews.loadCardPreview({
+      id: path,
+      path
+    });
   }
 
   async function openOnRemote() {
@@ -117,7 +72,7 @@
   // and the top-layer scrim for free (semantic HTML over a hand-rolled trap).
   let elDialog = $state<HTMLDialogElement | null>(null);
 
-  // Open the modal on the top layer and kick off the first file's diff. Guard
+  // Open the modal on the top layer and kick off the first file's preview. Guard
   // against re-opening an already-open dialog (showModal() throws otherwise).
   $effect(() => {
     if (elDialog && !elDialog.open) {
@@ -125,8 +80,10 @@
     }
 
     const first = commit.files[0];
+    // Untracked: the fetch reads the preview caches, and their filling must not
+    // re-run this effect and snap the selection back to the first file.
     if (first) {
-      loadDiff(first.path);
+      untrack(() => selectFile(first.path));
     }
   });
 </script>
@@ -179,17 +136,21 @@
   </header>
 
   <div class="body">
-    <FileList files={commit.files} onpick={path => loadDiff(path)} {selectedPath} />
+    <FileList files={commit.files} onpick={path => selectFile(path)} {selectedPath} />
 
-    <DiffPane
-      name={paneName}
-      {commitUrl}
-      {diffLines}
-      {isBigFile}
-      {loadFailed}
-      loading={isLoading}
-      onopenremote={openOnRemote}
-    />
+    {#if selectedFile}
+      <FilePreviewPane
+        card={{
+          id: selectedFile.path,
+          path: selectedFile.path
+        }}
+        {commitUrl}
+        isBinary={selectedFile.binary}
+        onopenremote={openOnRemote}
+        {previews}
+        bind:diffMode
+      />
+    {/if}
   </div>
 </dialog>
 
@@ -357,6 +318,7 @@
     min-block-size: 0;
   }
 
-  /* The changed-files tablist lives in commitModal/FileList.svelte; the diff
-     pane (path bar + states + unified diff) in commitModal/DiffPane.svelte. */
+  /* The changed-files tablist lives in commitModal/FileList.svelte; the
+     preview pane (path bar + states + the file's preview) in
+     commitModal/FilePreviewPane.svelte. */
 </style>

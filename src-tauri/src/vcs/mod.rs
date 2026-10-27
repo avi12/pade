@@ -176,16 +176,38 @@ fn collect_submodule_indexes(
 /// several windows at once, so the process working directory belongs to no one
 /// window and must never decide which repository a request reads or mutates.
 fn run_git(cwd: &str, arguments: &[&str]) -> Result<String, String> {
+    run_git_bytes(cwd, arguments).map(|stdout| String::from_utf8_lossy(&stdout).to_string())
+}
+
+/// The hardened `git <arguments>` [`run_git`] and its siblings spawn in `cwd`.
+fn git_command(cwd: &str, arguments: &[&str]) -> std::process::Command {
     let mut command = crate::util::command("git");
     command.args(arguments).current_dir(cwd);
-    let output = harden_git(&mut command)
+    harden_git(&mut command);
+    command
+}
+
+/// [`run_git`] for output that is not text - a committed image's raw bytes.
+fn run_git_bytes(cwd: &str, arguments: &[&str]) -> Result<Vec<u8>, String> {
+    let output = git_command(cwd, arguments)
         .output()
         .map_err(|error| format!("failed to run git: {error}"))?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
     }
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    Ok(output.stdout)
+}
+
+/// [`run_git`] with its stdout streamed straight into `file`, for output too
+/// large to hold in memory - a committed video handed on to ffmpeg. Whether git
+/// succeeded.
+fn run_git_into(cwd: &str, arguments: &[&str], file: std::fs::File) -> bool {
+    git_command(cwd, arguments)
+        .stdout(file)
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
 }
 
 /// Read a tracked file's committed text after it has disappeared from disk.

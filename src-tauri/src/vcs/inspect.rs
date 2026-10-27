@@ -1,13 +1,21 @@
-//! Commit inspection - one commit's message, per-file stats, and a file's diff.
+//! Commit inspection - one commit's message, per-file stats, a file's diff, and
+//! its rendered preview (picture, clip or document) as the commit left it.
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::Serialize;
 
 use super::branches::current_branch;
 use super::{
-    commit_header_format, run_git, validate_object_id, CommitHeader, NumstatRow, StatusKind,
-    FIELD_SEPARATOR,
+    commit_header_format, run_git, run_git_bytes, run_git_into, validate_object_id, CommitHeader,
+    NumstatRow, StatusKind, FIELD_SEPARATOR,
+};
+use crate::platform::media::is_video;
+use crate::platform::preview::{
+    image_mime_type, preview_text, video_preview, FeedImage, FeedVideo, MAXIMUM_IMAGE_BYTES,
+    MAXIMUM_PREVIEW_BYTES,
 };
 
 /// One file changed by a commit, with its per-file line counts.
@@ -155,9 +163,196 @@ pub async fn vcs_commit_diff(cwd: String, sha: String, path: String) -> Result<S
     )
 }
 
+/// Largest committed video the commit view hands to ffmpeg. It is streamed to a
+/// scratch file rather than held in memory, so the cap only keeps a giant
+/// asset from filling the temp folder for a fifteen-second preview.
+const MAXIMUM_VIDEO_BYTES: u64 = 512 * 1024 * 1024;
+
+/// The git object holding `path` as this commit leaves it, with its size - or,
+/// for a file the commit deleted, as its parent had it, so a deletion previews
+/// what was removed. `path` is repository-relative, as `vcs_commit` lists it;
+/// the spec starts with the validated id, so it can never read as an option.
+fn commit_blob(cwd: &str, sha: &str, path: &str) -> Option<(String, u64)> {
+    [format!("{sha}:{path}"), format!("{sha}^:{path}")]
+        .into_iter()
+        .find_map(|spec| {
+            let size = run_git(cwd, &["cat-file", "-s", &spec]).ok()?;
+            let size = size.trim().parse().ok()?;
+            Some((spec, size))
+        })
+}
+
+/// The bytes of `path` at the commit (see [`commit_blob`]), `None` when it has
+/// no such file or the file is larger than `maximum_bytes`.
+fn read_commit_blob(cwd: &str, sha: &str, path: &str, maximum_bytes: u64) -> Option<Vec<u8>> {
+    let (spec, size) = commit_blob(cwd, sha, path)?;
+    if size > maximum_bytes {
+        return None;
+    }
+    run_git_bytes(cwd, &["cat-file", "blob", &spec]).ok()
+}
+
+/// A scratch copy of a committed file, removed when dropped.
+struct ScratchFile(PathBuf);
+
+impl Drop for ScratchFile {
+    fn drop(&mut self) {
+        // Already gone is fine; the temp folder is the OS's to sweep anyway.
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+/// Copy `path` at the commit into a scratch file ffmpeg can open (it needs a
+/// seekable input - an MP4's index often sits at its end). Blocking.
+fn write_commit_blob(cwd: &str, sha: &str, path: &str) -> Option<ScratchFile> {
+    static NEXT_SCRATCH: AtomicU64 = AtomicU64::new(0);
+
+    let (spec, size) = commit_blob(cwd, sha, path)?;
+    if size > MAXIMUM_VIDEO_BYTES {
+        return None;
+    }
+    let extension = Path::new(path).extension()?.to_string_lossy();
+    let scratch = ScratchFile(std::env::temp_dir().join(format!(
+        "pade-commit-preview-{}-{}.{extension}",
+        std::process::id(),
+        NEXT_SCRATCH.fetch_add(1, Ordering::Relaxed)
+    )));
+    let file = std::fs::File::create(&scratch.0).ok()?;
+    run_git_into(cwd, &["cat-file", "blob", &spec], file).then_some(scratch)
+}
+
+/// The inline image preview of `path` as the commit left it - the commit
+/// view's counterpart of `feed_image`. `None` when `path` is not a previewable
+/// image, is absent from the commit, or is over [`MAXIMUM_IMAGE_BYTES`].
+#[tauri::command]
+pub async fn vcs_commit_image(
+    cwd: String,
+    sha: String,
+    path: String,
+) -> Result<Option<FeedImage>, String> {
+    let sha = validate_object_id(&sha)?;
+    if image_mime_type(Path::new(&path)).is_none() {
+        return Ok(None);
+    }
+    Ok(read_commit_blob(&cwd, sha, &path, MAXIMUM_IMAGE_BYTES)
+        .and_then(|bytes| FeedImage::of(Path::new(&path), &bytes)))
+}
+
+/// The video preview of `path` as the commit left it - the commit view's
+/// counterpart of `feed_video`. The blob is copied out on a blocking thread and
+/// transcoded like a changed file; `None` when it isn't a video, is absent from
+/// the commit, or ffmpeg couldn't read it.
+#[tauri::command]
+pub async fn vcs_commit_video(
+    cwd: String,
+    sha: String,
+    path: String,
+) -> Result<Option<FeedVideo>, String> {
+    let sha = validate_object_id(&sha)?.to_owned();
+    if !is_video(Path::new(&path)) {
+        return Ok(None);
+    }
+    let scratch =
+        tauri::async_runtime::spawn_blocking(move || write_commit_blob(&cwd, &sha, &path))
+            .await
+            .map_err(|error| error.to_string())?;
+    let Some(scratch) = scratch else {
+        return Ok(None);
+    };
+    video_preview(scratch.0.clone()).await
+}
+
+/// The UTF-8 text of `path` as the commit left it, for a markdown/HTML file's
+/// rendered Preview - the commit view's counterpart of `feed_text`. `None` when
+/// it is absent from the commit, binary, or over [`MAXIMUM_PREVIEW_BYTES`].
+#[tauri::command]
+pub async fn vcs_commit_text(
+    cwd: String,
+    sha: String,
+    path: String,
+) -> Result<Option<String>, String> {
+    let sha = validate_object_id(&sha)?;
+    Ok(read_commit_blob(&cwd, sha, &path, MAXIMUM_PREVIEW_BYTES).and_then(preview_text))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{parse_numstat_records, status_kinds_by_path, StatusKind};
+    use super::{
+        parse_numstat_records, read_commit_blob, run_git, status_kinds_by_path, write_commit_blob,
+        StatusKind,
+    };
+
+    /// A scratch repository with two commits: the first adds `logo.png` and
+    /// `notes.md`, the second deletes `logo.png`. `None` without git.
+    fn scratch_repository(name: &str) -> Option<(std::path::PathBuf, String, String)> {
+        let root = std::env::temp_dir().join(format!("pade-inspect-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).ok()?;
+        let cwd = root.to_string_lossy().to_string();
+        let git = |arguments: &[&str]| run_git(&cwd, arguments);
+        git(&["init", "-q"]).ok()?;
+        std::fs::write(root.join("logo.png"), b"\x89PNG bytes").ok()?;
+        std::fs::write(root.join("notes.md"), "# Notes").ok()?;
+        git(&["add", "."]).ok()?;
+        let identity = [
+            "-c",
+            "user.name=PADE",
+            "-c",
+            "user.email=pade@example.invalid",
+        ];
+        git(&[&identity[..], &["commit", "-qm", "add"]].concat()).ok()?;
+        let added = git(&["rev-parse", "HEAD"]).ok()?.trim().to_string();
+        git(&["rm", "-q", "logo.png"]).ok()?;
+        git(&[&identity[..], &["commit", "-qm", "remove"]].concat()).ok()?;
+        let removed = git(&["rev-parse", "HEAD"]).ok()?.trim().to_string();
+        Some((root, added, removed))
+    }
+
+    #[test]
+    fn a_committed_file_reads_back_byte_for_byte() {
+        let Some((root, added, _)) = scratch_repository("read") else {
+            return;
+        };
+        let cwd = root.to_string_lossy().to_string();
+        let image = read_commit_blob(&cwd, &added, "logo.png", 1024);
+        let text = read_commit_blob(&cwd, &added, "notes.md", 1024);
+        let oversized = read_commit_blob(&cwd, &added, "logo.png", 4);
+        let _ = std::fs::remove_dir_all(&root);
+
+        assert_eq!(image.as_deref(), Some(b"\x89PNG bytes".as_slice()));
+        assert_eq!(text.as_deref(), Some(b"# Notes".as_slice()));
+        assert_eq!(oversized, None);
+    }
+
+    #[test]
+    fn a_deleted_file_reads_as_its_parent_had_it() {
+        let Some((root, _, removed)) = scratch_repository("deleted") else {
+            return;
+        };
+        let cwd = root.to_string_lossy().to_string();
+        let image = read_commit_blob(&cwd, &removed, "logo.png", 1024);
+        let missing = read_commit_blob(&cwd, &removed, "absent.png", 1024);
+        let _ = std::fs::remove_dir_all(&root);
+
+        assert_eq!(image.as_deref(), Some(b"\x89PNG bytes".as_slice()));
+        assert_eq!(missing, None);
+    }
+
+    #[test]
+    fn a_scratch_copy_holds_the_blob_and_is_removed_when_dropped() {
+        let Some((root, added, _)) = scratch_repository("scratch") else {
+            return;
+        };
+        let cwd = root.to_string_lossy().to_string();
+        let scratch = write_commit_blob(&cwd, &added, "logo.png").expect("copy the blob out");
+        let copied = std::fs::read(&scratch.0).ok();
+        let scratch_path = scratch.0.clone();
+        drop(scratch);
+        let _ = std::fs::remove_dir_all(&root);
+
+        assert_eq!(copied.as_deref(), Some(b"\x89PNG bytes".as_slice()));
+        assert!(!scratch_path.exists());
+    }
 
     #[test]
     fn a_plain_numstat_record_keeps_its_path_and_counts() {
