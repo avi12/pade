@@ -472,7 +472,7 @@ fn hook_event(report: &serde_json::Value) -> Option<&str> {
 /// PADE answers only for a switch it started itself; any other one gets
 /// Claude's own prompt.
 fn answer_model_switch_request(conversation_id: &str) {
-    if claude::consume_switch_permission(conversation_id) {
+    if claude::has_switch_permission(conversation_id) {
         println!("{}", claude::ALLOW_MODEL_SWITCH);
     }
 }

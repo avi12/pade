@@ -131,18 +131,17 @@ pub(super) fn apply_live(
     Ok(())
 }
 
-/// Whether PADE granted this session's pending switch - used up by asking.
-pub(super) fn consume_switch_permission(conversation_id: &str) -> bool {
+/// Whether PADE granted this session's pending switch. Every ask during the
+/// switch gets the same answer; PADE revokes the permission once it landed.
+pub(super) fn has_switch_permission(conversation_id: &str) -> bool {
     let Some(path) = switch_permission_file(conversation_id) else {
         return false;
     };
-    let is_fresh = std::fs::metadata(&path)
+    std::fs::metadata(&path)
         .and_then(|metadata| metadata.modified())
         .ok()
         .and_then(|granted| SystemTime::now().duration_since(granted).ok())
-        .is_some_and(|age| age <= SWITCH_PERMISSION_LIFETIME);
-    let _ = std::fs::remove_file(&path);
-    is_fresh
+        .is_some_and(|age| age <= SWITCH_PERMISSION_LIFETIME)
 }
 
 /// The session's model from its hook reports, and its effort as the newest of
@@ -347,14 +346,18 @@ fn switch_by_commands(
 }
 
 fn switch_model(conversation_id: &str, model: &str, type_keys: TypeKeys) -> Result<(), String> {
-    grant_switch_permission(conversation_id);
+    let permission = SwitchPermission::grant(conversation_id);
     let typed_at = SystemTime::now();
     run_command(type_keys, &format!("/model {model}"))?;
     // Saved SINCE typing, not merely equal: switching to the model a session
     // already runs matches before Claude has written anything.
     let has_landed = wait_until(MODEL_LANDING, || {
+        if let Some(permission) = &permission {
+            permission.keep();
+        }
         is_settings_saved_since(typed_at) && saved_model().as_deref() == Some(model)
     });
+    drop(permission);
     if !has_landed {
         return Err(format!("Claude didn't switch to {model}"));
     }
@@ -496,15 +499,65 @@ fn switch_permission_file(conversation_id: &str) -> Option<PathBuf> {
     Some(state_directory()?.join(format!("{conversation_id}{SWITCH_PERMISSION_SUFFIX}")))
 }
 
-/// Let the next model switch in this session skip Claude's confirmation - the
-/// one PADE is about to type.
-fn grant_switch_permission(conversation_id: &str) {
-    let Some(path) = switch_permission_file(conversation_id) else {
-        return;
-    };
-    if let Err(error) = std::fs::write(path, []) {
-        eprintln!("pade: could not grant the model switch: {error}");
+/// Lets the model switch PADE is about to type skip Claude's confirmation, for
+/// as long as it lives; dropping it revokes the permission.
+///
+/// Claude can ask more than once for one switch (once per permission mode whose
+/// model differs, and again when the model moved while its hooks ran), and a
+/// hook sink from a host built before the permission lasted the whole switch
+/// deletes it on the first ask - leaving the next ask unanswered, so Claude
+/// stops on its "Switch model?" dialog. Hosts run their own build for as long
+/// as they hold sessions, so the file is held open without delete sharing,
+/// which such a sink's delete can't get past, and granted again if it did.
+struct SwitchPermission {
+    path: PathBuf,
+    held: Option<std::fs::File>,
+}
+
+impl SwitchPermission {
+    fn grant(conversation_id: &str) -> Option<Self> {
+        let path = switch_permission_file(conversation_id)?;
+        let held = hold_open(&path);
+        if let Err(error) = &held {
+            eprintln!("pade: could not grant the model switch: {error}");
+        }
+        Some(Self {
+            path,
+            held: held.ok(),
+        })
     }
+
+    /// Grant it again if a hook managed to use it up.
+    fn keep(&self) {
+        if !self.path.exists() {
+            let _ = std::fs::write(&self.path, []);
+        }
+    }
+}
+
+impl Drop for SwitchPermission {
+    fn drop(&mut self) {
+        self.held = None;
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+#[cfg(windows)]
+fn hold_open(path: &Path) -> std::io::Result<std::fs::File> {
+    use std::os::windows::fs::OpenOptionsExt;
+    /// `FILE_SHARE_READ | FILE_SHARE_WRITE`: everything but `FILE_SHARE_DELETE`.
+    const SHARE_ALL_BUT_DELETE: u32 = 0x1 | 0x2;
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .share_mode(SHARE_ALL_BUT_DELETE)
+        .open(path)
+}
+
+#[cfg(not(windows))]
+fn hold_open(path: &Path) -> std::io::Result<std::fs::File> {
+    std::fs::File::create(path)
 }
 
 fn newest_ultracode_entry(lines: &str) -> Option<&'static str> {
@@ -660,9 +713,26 @@ fn without_context_variant(model: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::{
-        effort_for_model, merge_settings, model_option, newest_effort_set, newest_ultracode_entry,
-        revert_switch_keys, ULTRACODE_ENTER, ULTRACODE_EXIT,
+        effort_for_model, hold_open, merge_settings, model_option, newest_effort_set,
+        newest_ultracode_entry, revert_switch_keys, ULTRACODE_ENTER, ULTRACODE_EXIT,
     };
+
+    #[cfg(windows)]
+    #[test]
+    fn a_held_permission_outlasts_a_hook_that_deletes_it() {
+        let path = std::env::temp_dir().join(format!(
+            "pade-switch-permission-{}.switch-permission",
+            std::process::id()
+        ));
+        let held = hold_open(&path).expect("held permission");
+        assert!(
+            std::fs::remove_file(&path).is_err(),
+            "an older sink's delete must fail"
+        );
+        assert!(path.exists());
+        drop(held);
+        std::fs::remove_file(&path).expect("deletable once released");
+    }
 
     #[test]
     fn the_newest_effort_the_transcript_logs_is_the_sessions_own() {
