@@ -9,6 +9,7 @@ import {
   paceForecasts,
   pauseRequest,
   RESET_GRACE_MS,
+  resumeRequest,
   slowRestUntil,
   WEEKLY_WINDOW_MS
 } from "@/lib/usage/pacing/usage-pace";
@@ -520,5 +521,21 @@ describe("pauseRequest", () => {
         isSlowing: true
       })
     ).toContain("short break");
+  });
+
+  it("pauses the agent's delegated background work too", () => {
+    const text = pauseRequest({
+      window,
+      now: NOW,
+      isSlowing: true
+    });
+    expect(text).toContain("launch no new background agents");
+    expect(text).toContain("stop every one still running");
+  });
+});
+
+describe("resumeRequest", () => {
+  it("says it comes from pacing, not the user", () => {
+    expect(resumeRequest()).toContain("not the user");
   });
 });

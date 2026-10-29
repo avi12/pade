@@ -26,7 +26,6 @@
 // `PacingHost` and drives the scan from a component `$effect`.
 
 import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
-import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { agentReportsBusy } from "@/lib/stores/agent/agentActivity.svelte";
@@ -34,7 +33,7 @@ import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { adaptedChoice, adaptedSteps, createUsageAdapter } from "@/lib/stores/usage/usageAdapt.svelte";
 import type { AdaptHost } from "@/lib/stores/usage/usageAdapt.svelte";
-import { CONTINUE_PROMPT, hasUsageLimit, readAccount } from "@/lib/stores/usage/usageResume.svelte";
+import { hasUsageLimit, readAccount } from "@/lib/stores/usage/usageResume.svelte";
 import { PacedWindowKind, PacingStep, PacingStopThen, SessionStatus } from "@/lib/types";
 import type { AccountUsage, AgentSession, PacingByWindow, UsageWindow } from "@/lib/types";
 import {
@@ -53,6 +52,7 @@ import {
   paceForecasts,
   pauseRequest,
   RATE_HISTORY_MS,
+  resumeRequest,
   slowRestUntil,
   windowName
 } from "@/lib/usage/pacing/usage-pace";
@@ -606,9 +606,10 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    await sendMessage(Command.ptyWrite, {
+    await submitPastedPrompt({
       id,
-      data: CONTINUE_PROMPT
+      text: resumeRequest(),
+      wait: afterDelay
     });
   }
 
