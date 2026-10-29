@@ -374,8 +374,13 @@ function restNote({ agent, state, usage, now }: {
   now: number;
 }) {
   if (isRestPending(state)) {
-    const minutes = Math.max(1, Math.round((state.restMs ?? 0) / MILLISECONDS_PER_MINUTE));
-    return `${agent} is finishing its step, then rests for ${MINUTES.format(minutes)} to slow its ${usage}`;
+    const restMs = state.restMs ?? 0;
+    const minutes = Math.max(1, Math.round(restMs / MILLISECONDS_PER_MINUTE));
+    const earliestEnd = spokenTime({
+      time: now + restMs,
+      now
+    });
+    return `${agent} is finishing its step, then rests for ${MINUTES.format(minutes)} (until ${earliestEnd} at the earliest) to slow its ${usage}`;
   }
 
   return `${agent} is resting until ${spokenTime({

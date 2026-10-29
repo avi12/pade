@@ -70,7 +70,7 @@ describe("pacingNote", () => {
     ).toBe(`Claude is resting until ${clock.format(restUntil)} to slow its session usage (72%)`);
   });
 
-  it("names no rest end while the agent still finishes its step, which can outlast the rest", () => {
+  it("names only the earliest rest end while the agent still finishes its step, which can outlast the rest", () => {
     expect(
       pacingNote({
         agent: "Claude",
@@ -83,6 +83,6 @@ describe("pacingNote", () => {
         isContinuingWhenReady: true,
         now: NOW
       })
-    ).toBe("Claude is finishing its step, then rests for 15 minutes to slow its session usage (72%)");
+    ).toBe(`Claude is finishing its step, then rests for 15 minutes (until ${clock.format(NOW + 15 * MINUTE_MS)} at the earliest) to slow its session usage (72%)`);
   });
 });
