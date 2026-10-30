@@ -8,6 +8,7 @@
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
   import type { RecordedConversation } from "@/lib/types";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
+  import { spokenTime } from "@/lib/usage/pacing/pacing-policy";
   import { isNewWindowClick } from "@/lib/workspace/open-windows";
 
   // One chat row in the left rail, with its right-click menu. A live chat
@@ -36,8 +37,29 @@
 
   const ELSEWHERE_NOTE = "Running in another window";
   const PAUSED_NOTE = "Paused by usage pacing";
+  const STEP_FINISHING_NOTE = "finishing its step first";
   const isElsewhere = $derived(chat.windowLabel !== undefined);
-  const isPaused = $derived(chat.isLive && !isElsewhere && pacingStatus(chat.id)?.isStopped === true);
+  const pacing = $derived(pacingStatus(chat.id));
+  const isPaused = $derived(chat.isLive && !isElsewhere && pacing?.isStopped === true);
+  // When it continues on its own - the time the pause strip on its pane names.
+  const pausedUntil = $derived.by(() => {
+    const continuesAt = pacing?.continuesAt ?? null;
+    if (continuesAt === null) {
+      return "";
+    }
+
+    return spokenTime({
+      time: continuesAt,
+      now: Date.now()
+    });
+  });
+  const pausedNote = $derived.by(() => {
+    if (pausedUntil === "") {
+      return `${PAUSED_NOTE} - ${STEP_FINISHING_NOTE}`;
+    }
+
+    return `${PAUSED_NOTE} - continues around ${pausedUntil}`;
+  });
   const isStoppable = $derived(chat.isLive && !isElsewhere);
   const status = $derived(chat.status ?? sessionStatus(chat.id));
 
@@ -92,9 +114,10 @@
       <span class="agent-icon"><Icon name={agentIconName(chat.agentId)} size={14} /></span>
     {/if}
     <span class="chat-label" dir="auto">{chat.label}</span>
-    <span class="paused" data-tooltip={PAUSED_NOTE} hidden={!isPaused}>
+    <span class="paused" data-tooltip={pausedNote} hidden={!isPaused}>
       <Icon name="pause" size={12} />
-      <span class="spoken">{PAUSED_NOTE}</span>
+      <span class="paused-until">{pausedUntil}</span>
+      <span class="spoken">{pausedNote}</span>
     </span>
     <span class="elsewhere" hidden={!isElsewhere}>
       <Icon name="external" size={12} />
@@ -195,7 +218,11 @@
     .paused {
       display: inline-flex;
       flex: none;
+      gap: 3px;
+      align-items: center;
       color: var(--warning);
+      font-family: var(--font-monospace);
+      font-size: 0.6875rem;
 
       &[hidden] {
         display: none;
