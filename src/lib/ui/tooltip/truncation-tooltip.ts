@@ -13,6 +13,30 @@ function resolve(text: TooltipText) {
 let nextAnchorId = 0;
 
 const ANCHOR_NAME_PROPERTY = "anchor-name";
+const NESTED_TOOLTIP_SELECTOR = "[data-tooltip]";
+interface Bubble {
+  text: string;
+  fontFamily?: string;
+}
+
+const NO_BUBBLE: Bubble = { text: "" };
+
+/** A descendant with its own `[data-tooltip]` (a chat row's pause mark) speaks
+ *  for itself, so over it the trigger's bubble steps aside and the two never
+ *  stack. theme.css's `:has()` rule can't do this for the shared bubble: it
+ *  lives in the top layer, outside the trigger, so only a document-wide
+ *  `:has()` could link them - the selector its PERF note bans. */
+function isOverNestedTooltip({ elTrigger, target }: {
+  elTrigger: HTMLElement;
+  target: EventTarget | null | undefined;
+}) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  const elTooltipOwner = target.closest(NESTED_TOOLTIP_SELECTOR);
+  return elTooltipOwner !== elTrigger && elTrigger.contains(elTooltipOwner);
+}
 
 /** Shared plumbing for both attachments: name the trigger as an anchor, then
  *  show/hide the single top-level bubble on hover/focus. `textToShow` returns the
@@ -25,18 +49,20 @@ const ANCHOR_NAME_PROPERTY = "anchor-name";
  *  `position: fixed`, and inside a `.picker`-style scroller Chromium paints that
  *  escaped fixed box *behind* the scrolled rows, so a following row occludes it
  *  (see overflow-tooltip.svelte). */
-function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => {
-  text: string;
-  fontFamily?: string;
-}) {
+function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
   return (elTrigger: HTMLElement) => {
     const anchorName = `--overflow-tooltip-${nextAnchorId++}`;
     elTrigger.style.setProperty(ANCHOR_NAME_PROPERTY, anchorName);
 
-    function activate() {
-      const { text, fontFamily } = bubbleToShow(elTrigger);
+    function activate(e?: Event) {
+      const { text, fontFamily } = isOverNestedTooltip({
+        elTrigger,
+        target: e?.target
+      })
+        ? NO_BUBBLE
+        : bubbleToShow(elTrigger);
       if (!text) {
-        clearOverflowTooltip(anchorName);
+        deactivate();
         return;
       }
 
@@ -69,13 +95,15 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => {
       }
     }
 
-    elTrigger.addEventListener("pointerenter", activate);
+    // `pointerover`, not `pointerenter`: it fires on every descendant crossing,
+    // so the bubble steps aside over a nested tooltip and comes back after.
+    elTrigger.addEventListener("pointerover", activate);
     elTrigger.addEventListener("pointerleave", deactivate);
     elTrigger.addEventListener("focusin", activateOnVisibleFocus);
     elTrigger.addEventListener("focusout", deactivate);
     return () => {
       deactivate();
-      elTrigger.removeEventListener("pointerenter", activate);
+      elTrigger.removeEventListener("pointerover", activate);
       elTrigger.removeEventListener("pointerleave", deactivate);
       elTrigger.removeEventListener("focusin", activateOnVisibleFocus);
       elTrigger.removeEventListener("focusout", deactivate);
@@ -108,7 +136,7 @@ export function tooltip(text: TooltipText) {
  *  them clipped counts. Clipped means cut short either way: an ellipsized line
  *  or a line-clamped block.
  *
- *  The clip check runs on `pointerenter` - the one moment that both guarantees a
+ *  The clip check runs on hover (`pointerover`) - the one moment that both guarantees a
  *  settled layout (a mount-time measure can read a mid-layout width and brand an
  *  untruncated line clipped forever) and precedes the bubble showing. With real
  *  layout in hand the DOM's own overflow answer is exact, and re-checking per
