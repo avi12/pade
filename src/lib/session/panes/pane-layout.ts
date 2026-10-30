@@ -108,9 +108,6 @@ export function layoutWithoutPane({ layout, id }: {
   };
 }
 
-/** The layout once a session is gone for good. The active session falls back to
- *  the last shown pane, else the last tab, and a split emptied by it shows that
- *  fallback, so the terminal area never goes blank while a session remains. */
 /** Who takes the front when the active session leaves: a pane still shown,
  *  else the newest session of the leaving one's project - so closing a tab
  *  keeps the window in its project while it has one - else the newest. */
@@ -128,17 +125,35 @@ function nextActiveId({ sessions, paneIds, leaving }: {
   return paneIds.at(-1) ?? (sameProject.at(-1) ?? sessions.at(-1))?.id ?? null;
 }
 
+/** The layout once a session is gone for good - see `layoutWithoutSessions`. */
 export function layoutWithoutSession({ layout, id }: {
   layout: PaneLayout;
   id: string;
 }) {
-  const sessions = layout.sessions.filter(session => session.id !== id);
-  const paneIds = layout.paneIds.filter(paneId => paneId !== id);
-  const activeId = layout.activeId === id
+  return layoutWithoutSessions({
+    layout,
+    ids: new Set([id])
+  });
+}
+
+/** The layout once sessions are gone for good - a closed tab, or a relocation
+ *  or deleted folder ending a whole project's. The active session falls back
+ *  as `nextActiveId` says: a pane still shown, else its project's newest, else
+ *  - its project gone - the newest session of another. A split emptied by it
+ *  shows that fallback, so the terminal area never goes blank while a session
+ *  remains. */
+export function layoutWithoutSessions({ layout, ids }: {
+  layout: PaneLayout;
+  ids: ReadonlySet<string>;
+}) {
+  const sessions = layout.sessions.filter(session => !ids.has(session.id));
+  const paneIds = layout.paneIds.filter(paneId => !ids.has(paneId));
+  const isActiveRemoved = layout.activeId !== null && ids.has(layout.activeId);
+  const activeId = isActiveRemoved
     ? nextActiveId({
       sessions,
       paneIds,
-      leaving: layout.sessions.find(session => session.id === id)
+      leaving: layout.sessions.find(session => session.id === layout.activeId)
     })
     : layout.activeId;
   const isSplitEmptied = paneIds.length === 0 && activeId !== null;
@@ -146,20 +161,5 @@ export function layoutWithoutSession({ layout, id }: {
     sessions,
     paneIds: isSplitEmptied ? [activeId] : paneIds,
     activeId
-  };
-}
-
-/** The layout once several sessions leave together (a relocation ending them).
- *  The active session falls back to the last remaining tab. */
-export function layoutWithoutSessions({ layout, ids }: {
-  layout: PaneLayout;
-  ids: ReadonlySet<string>;
-}) {
-  const sessions = layout.sessions.filter(session => !ids.has(session.id));
-  const isActiveRemoved = layout.activeId !== null && ids.has(layout.activeId);
-  return {
-    sessions,
-    paneIds: layout.paneIds.filter(id => !ids.has(id)),
-    activeId: isActiveRemoved ? (sessions.at(-1)?.id ?? null) : layout.activeId
   };
 }

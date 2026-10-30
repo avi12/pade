@@ -249,7 +249,7 @@ describe("layoutWithoutSession", () => {
 });
 
 describe("layoutWithoutSessions", () => {
-  it("drops every listed session and falls back to the last remaining tab", () => {
+  it("drops every listed session and shows the last remaining tab", () => {
     const layout = layoutWithoutSessions({
       layout: {
         sessions: ["a", "b", "c"].map(session),
@@ -259,7 +259,32 @@ describe("layoutWithoutSessions", () => {
       ids: new Set(["b", "c"])
     });
     expect(ids(layout.sessions)).toEqual(["a"]);
-    expect(layout.paneIds).toEqual([]);
+    expect(layout.paneIds).toEqual(["a"]);
     expect(layout.activeId).toBe("a");
+  });
+
+  it("brings another project's newest session to the front once a whole project leaves", () => {
+    function inProject(id: string, project: string) {
+      return {
+        ...session(id),
+        project
+      };
+    }
+
+    const layout = layoutWithoutSessions({
+      layout: {
+        sessions: [
+          inProject("older", "C:\\repositories\\other"),
+          inProject("newer", "C:\\repositories\\other"),
+          inProject("temp-1", "C:\\workspaces\\temp"),
+          inProject("temp-2", "C:\\workspaces\\temp")
+        ],
+        paneIds: ["temp-2"],
+        activeId: "temp-2"
+      },
+      ids: new Set(["temp-1", "temp-2"])
+    });
+    expect(layout.activeId).toBe("newer");
+    expect(layout.paneIds).toEqual(["newer"]);
   });
 });
