@@ -53,6 +53,8 @@ const COMPACTION_IMMINENT_PERCENTAGE = 5;
 // prompt-noise for an agent that answers without ever writing the file;
 // after the last attempt the session stays marked and keeps running.
 const HANDOFF_ATTEMPT_LIMIT = 3;
+/** How often a session out of attempts is checked for a doc that turned up late. */
+const LATE_DOC_POLL_MS = 15_000;
 /** The doc-name token for a session id with no usable leading segment, and the
  *  slug for a source with no usable characters. */
 const FALLBACK_NAME_PART = "session";
@@ -517,8 +519,14 @@ export function createAutoHandoff(host: HandoffHost) {
   }) {
     await submitPastedPrompt({
       id: session.id,
+      // The full path, never the bare name: an agent resolves a bare name
+      // against its own working directory - a workspace member, a worktree, a
+      // folder it picks - while PADE looks for the doc in the project root.
       text: handoffRequestBody({
-        doc,
+        doc: docPathOf({
+          session,
+          name: doc
+        }),
         reason
       }),
       wait: afterDelay
@@ -641,9 +649,54 @@ export function createAutoHandoff(host: HandoffHost) {
 
     if (attempts < HANDOFF_ATTEMPT_LIMIT) {
       unmarkHandingOff(session.id);
+    } else {
+      watchForLateDoc({
+        session,
+        doc,
+        reason
+      });
     }
 
     return false;
+  }
+
+  // Out of attempts, the session stays marked and is never asked again - but the
+  // doc can still appear: an answer queued behind a long turn, or the user moving
+  // a doc the agent wrote somewhere else into place. A slow disk look picks it up
+  // and finishes the handoff, as long as the session is still open.
+  function watchForLateDoc({ session, doc, reason }: {
+    session: AgentSession;
+    doc: string;
+    reason: HandoffReason;
+  }) {
+    const docPath = docPathOf({
+      session,
+      name: doc
+    });
+    async function look() {
+      if (!isStillOpen(session.id)) {
+        return;
+      }
+
+      if (!await isFileOnDisk(docPath)) {
+        trackTimer({
+          handler: look,
+          delayMs: LATE_DOC_POLL_MS
+        });
+        return;
+      }
+
+      handoffAttempts.delete(session.id);
+      await runHandoff({
+        session,
+        reason
+      });
+    }
+
+    trackTimer({
+      handler: look,
+      delayMs: LATE_DOC_POLL_MS
+    });
   }
 
   async function handoff({ session, reason, isMidTurn }: {
@@ -712,7 +765,12 @@ export function createAutoHandoff(host: HandoffHost) {
     const successorId = host.launchSuccessor({
       agent: successorAgent,
       cwd,
-      initialPrompt: successorPrompt(doc),
+      initialPrompt: successorPrompt(
+        docPathOf({
+          session,
+          name: doc
+        })
+      ),
       predecessorId: session.id
     });
     host.removeSession(session.id);

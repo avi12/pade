@@ -366,6 +366,65 @@ describe("createAutoHandoff", () => {
     handoff.dispose();
   });
 
+  it("names the doc by its full project path, whatever folder the agent works in", async () => {
+    const predecessor: AgentSession = {
+      id: "1a2b3c4d-session",
+      agent: {
+        id: "claude",
+        label: "Claude Code",
+        command: "claude",
+        reordersBidi: true
+      },
+      cwd: "C:/repositories/pade/packages/app",
+      project: "C:/repositories/pade"
+    };
+    const docPath = "C:/repositories/pade/continue-pade-1a2b3c4d.md";
+    let isDocWritten = false;
+    mocks.sendMessage.mockImplementation(async command => {
+      if (command === Command.workspaceProbePath) {
+        return { isFile: isDocWritten };
+      }
+
+      if (command === Command.ptyWrite) {
+        // The agent takes the request and writes the doc.
+        vi.mocked(sessionStatus).mockReturnValue(SessionStatus.enum.working);
+        isDocWritten = true;
+      }
+
+      return await answerMessage(command);
+    });
+    function stopListening() {}
+    mocks.onMessage.mockResolvedValue(stopListening);
+    let successorSeed: string | undefined;
+    const handoff = createAutoHandoff({
+      sessions: () => [predecessor],
+      availableAgents: () => [predecessor.agent],
+      isOptedOut: () => false,
+      thresholdPercentage: () => 90,
+      slugSource: () => "pade",
+      projectDirectory: session => session.project,
+      endSession: mocks.kill,
+      removeSession() {},
+      launchSuccessor({ initialPrompt }) {
+        successorSeed = initialPrompt;
+        return "new-session";
+      }
+    });
+
+    handoff.force(predecessor);
+    // The doc lands after the request is typed, so the wait takes a disk poll.
+    await vi.waitFor(() => expect(successorSeed).toBeDefined(), { timeout: 5_000 });
+
+    const typed = mocks.sendMessage.mock.calls
+      .filter(([command]) => command === Command.ptyWrite)
+      .map(([, data]) => JSON.stringify(data))
+      .join("");
+    expect(typed).toContain(docPath);
+    expect(successorSeed).toBe(successorPrompt(docPath));
+    handoff.dispose();
+    vi.mocked(sessionStatus).mockReturnValue(SessionStatus.enum.ready);
+  });
+
   it("ends the predecessor through the shell so its exit isn't read as the agent quitting", async () => {
     const predecessor: AgentSession = {
       id: "old-session",
