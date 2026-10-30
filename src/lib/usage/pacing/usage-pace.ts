@@ -438,13 +438,13 @@ export function pauseRequest({ window, now, isSlowing }: {
     now
   });
   const outcome = isSlowing ? "work takes a short break here to slow the pace" : "work pauses here to spread the rest out";
-  return `PADE usage pacing: ${formatPercent(window.utilization)} of this account's ${windowName(window.kind)} usage is spent and it resets ${countdown}, so ${outcome}. The pause covers work you delegated too: launch no new background agents, workflows or teammates, and stop every one still running, noting where each got to so it can be relaunched. Finish the step you're on, leave the work easy to pick up, then stop and wait - you'll be told to continue.`;
+  return `PADE usage pacing: ${formatPercent(window.utilization)} of this account's ${windowName(window.kind)} usage is spent and it resets ${countdown}, so ${outcome}. Finish the step you're on, stop every background agent, workflow and teammate still running, noting where each got to, launch nothing new, then stop and wait - you'll be told to continue.`;
 }
 
 /** The message that picks a paused agent back up - marked as pacing's own, so
  *  the agent never mistakes it for the user's answer to a question it asked. */
 export function resumeRequest() {
-  return "PADE usage pacing: the pause is over - pick up where you left off, relaunching any background work you stopped for it. This message comes from pacing, not the user: it answers nothing you asked, so whatever waits on the user's decision keeps waiting.";
+  return "PADE usage pacing: the pause is over (any interruption was pacing's) - continue where you left off, relaunching background work you stopped. This is not the user: it answers nothing you asked.";
 }
 
 /** What the user's own "Continue anyway" types: the user is speaking, so it

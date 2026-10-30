@@ -529,8 +529,8 @@ describe("pauseRequest", () => {
       now: NOW,
       isSlowing: true
     });
-    expect(text).toContain("launch no new background agents");
-    expect(text).toContain("stop every one still running");
+    expect(text).toContain("stop every background agent, workflow and teammate");
+    expect(text).toContain("launch nothing new");
   });
 });
 

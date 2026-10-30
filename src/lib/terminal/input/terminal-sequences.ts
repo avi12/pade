@@ -1,7 +1,10 @@
 // The terminal control sequences the pane writes - to the agent, or into xterm -
 // composed from named parts so each one reads without a comment.
 
-export const CONTROL_SEQUENCE_INTRODUCER = "\x1b[";
+/** The Esc key, alone - how an agent TUI is told to interrupt its running turn. */
+export const ESCAPE = "\x1b";
+
+export const CONTROL_SEQUENCE_INTRODUCER = `${ESCAPE}[`;
 
 const ALTERNATE_SCREEN_PRIVATE_MODE = "?1049";
 const SET_MODE = "h";

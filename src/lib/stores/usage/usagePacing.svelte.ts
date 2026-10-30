@@ -26,14 +26,16 @@
 // `PacingHost` and drives the scan from a component `$effect`.
 
 import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
-import { agentReportsBusy } from "@/lib/stores/agent/agentActivity.svelte";
+import { agentReportsBusy, isTurnRunningOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { adaptedChoice, adaptedSteps, createUsageAdapter } from "@/lib/stores/usage/usageAdapt.svelte";
 import type { AdaptHost } from "@/lib/stores/usage/usageAdapt.svelte";
 import { hasUsageLimit, readAccount } from "@/lib/stores/usage/usageResume.svelte";
+import { ESCAPE } from "@/lib/terminal/input/terminal-sequences";
 import { PacedWindowKind, PacingStep, PacingStopThen, SessionStatus } from "@/lib/types";
 import type { AccountUsage, AgentSession, PacingByWindow, UsageWindow } from "@/lib/types";
 import {
@@ -132,7 +134,11 @@ const PaceState = z.object({
    *  `restMs` once it has - its step can outlast the whole rest. */
   restUntil: z.number().nullable().default(null),
   /** How long a resting session rests, counted from when it actually stops. */
-  restMs: z.number().nullable().default(null)
+  restMs: z.number().nullable().default(null),
+  /** Whether PADE has sent the pause request. A running turn is stopped with Esc
+   *  instead - no extra turn spent re-reading the context - and the request
+   *  follows only if delegated work keeps going after it. */
+  hasSentPauseRequest: z.boolean().default(true)
 });
 type PaceState = z.infer<typeof PaceState>;
 
@@ -560,6 +566,7 @@ export function createUsagePacing(host: PacingHost) {
       stretch: now - (workingSince.get(session.id) ?? now - MINIMUM_RATE_SPAN_MS),
       now
     }) : null;
+    const isInterrupting = isTurnRunningOnScreen(session.id);
     setPace({
       id: session.id,
       state: {
@@ -574,7 +581,8 @@ export function createUsagePacing(host: PacingHost) {
           [window.key]: rate
         },
         restUntil,
-        restMs: restUntil === null ? null : restUntil - now
+        restMs: restUntil === null ? null : restUntil - now,
+        hasSentPauseRequest: !isInterrupting
       }
     });
     record({
@@ -584,15 +592,69 @@ export function createUsagePacing(host: PacingHost) {
         now
       })}`
     });
-    await submitPastedPrompt({
+
+    if (isInterrupting) {
+      await sendMessage(Command.ptyWrite, {
+        id: session.id,
+        data: ESCAPE
+      });
+      return;
+    }
+
+    await askToStop({
       id: session.id,
+      window,
+      isSlowing: isResting
+    });
+  }
+
+  // The pause request: one extra turn, spent only where Esc can't stop the work -
+  // background agents, workflows and teammates outlive the turn Esc ends.
+  async function askToStop({ id, window, isSlowing }: {
+    id: string;
+    window: UsageWindow;
+    isSlowing: boolean;
+  }) {
+    await submitPastedPrompt({
+      id,
       text: pauseRequest({
         window,
-        now,
-        isSlowing: isResting
+        now: Date.now(),
+        isSlowing
       }),
       wait: afterDelay
     });
+  }
+
+  // After Esc ended the turn, work still reported is delegated work: ask the
+  // agent to stop it, once.
+  async function stopDelegatedWork({ id, state, window }: {
+    id: string;
+    state: PaceState;
+    window: UsageWindow;
+  }) {
+    const isDelegatedWorkRunning = state.phase === PacePhase.enum.pausing
+      && !state.hasSentPauseRequest
+      && isWorking(id)
+      && !isTurnRunningOnScreen(id);
+    if (!isDelegatedWorkRunning) {
+      return state;
+    }
+
+    const asked = {
+      ...state,
+      hasSentPauseRequest: true
+    };
+    setPace({
+      id,
+      state: asked
+    });
+    await askToStop({
+      id,
+      window,
+      isSlowing: state.restMs !== null
+    });
+    return asked;
   }
 
   async function resume(id: string) {
@@ -890,7 +952,11 @@ export function createUsagePacing(host: PacingHost) {
 
     hold({
       id,
-      state,
+      state: await stopDelegatedWork({
+        id,
+        state,
+        window: binding.window
+      }),
       ...binding
     });
   }
