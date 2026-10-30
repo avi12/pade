@@ -54,6 +54,7 @@ import {
   RATE_HISTORY_MS,
   resumeRequest,
   slowRestUntil,
+  USER_CONTINUE_REQUEST,
   windowName
 } from "@/lib/usage/pacing/usage-pace";
 import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/usage-pace";
@@ -594,9 +595,19 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
+  async function resume(id: string) {
+    await pickUp({
+      id,
+      request: resumeRequest()
+    });
+  }
+
   // Pick a paused session back up - unless it is already working: a "continue"
   // typed into a running turn would queue a stray one behind it.
-  async function resume(id: string) {
+  async function pickUp({ id, request }: {
+    id: string;
+    request: string;
+  }) {
     if (!paced.has(id)) {
       return;
     }
@@ -614,7 +625,7 @@ export function createUsagePacing(host: PacingHost) {
 
     await submitPastedPrompt({
       id,
-      text: resumeRequest(),
+      text: request,
       wait: afterDelay
     });
   }
@@ -622,7 +633,10 @@ export function createUsagePacing(host: PacingHost) {
   // The user's own continue: unlike pacing's, it owns the run it starts.
   async function continueAnyway(id: string) {
     continuedAnyway.set(id, false);
-    await resume(id);
+    await pickUp({
+      id,
+      request: USER_CONTINUE_REQUEST
+    });
   }
 
   // Back on pace. A session still finishing its step is left to stop first; one

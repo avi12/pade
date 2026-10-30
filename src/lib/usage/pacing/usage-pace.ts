@@ -446,3 +446,7 @@ export function pauseRequest({ window, now, isSlowing }: {
 export function resumeRequest() {
   return "PADE usage pacing: the pause is over - pick up where you left off, relaunching any background work you stopped for it. This message comes from pacing, not the user: it answers nothing you asked, so whatever waits on the user's decision keeps waiting.";
 }
+
+/** What the user's own "Continue anyway" types: the user is speaking, so it
+ *  needs none of pacing's explaining. */
+export const USER_CONTINUE_REQUEST = "continue";
