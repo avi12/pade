@@ -5,8 +5,7 @@ import {
   LimitWindow,
   nextOccurrence,
   parseLimitHit,
-  parseResetClock,
-  showsTurnRunning
+  parseResetClock
 } from "@/lib/stores/usage/usageResume.svelte";
 import { CreditsState, UsageWindowKind } from "@/lib/types";
 import type { AccountUsage } from "@/lib/types";
@@ -135,27 +134,6 @@ describe("parseLimitHit", () => {
         now: NOW
       })
     ).toBeNull();
-  });
-});
-
-describe("showsTurnRunning", () => {
-  const transcript = Array.from({ length: 30 }, (_, index) => `line ${index}`).join("\n");
-
-  it("reads a running turn from the agent's status rows", () => {
-    const claude = `${transcript}\n❯ \n⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt · ← 1 agent\n○ grounding-finish  2/14 agents done · 8m 44s\n\n`;
-    const codex = `${transcript}\n• Working (12s • Esc to interrupt)\n\n› \n`;
-    expect(showsTurnRunning(claude)).toBe(true);
-    expect(showsTurnRunning(codex)).toBe(true);
-  });
-
-  it("sees a stopped session as idle, even with a ticking workflow row", () => {
-    const stuck = `${transcript}\n⚠ Usage limit reached · continuing automatically at 5:30pm · esc to cancel\n⏵⏵ bypass permissions on (shift+tab to cycle) · ← 1 agent\n○ grounding-finish  2/14 agents done · 8m 45s\n`;
-    expect(showsTurnRunning(stuck)).toBe(false);
-  });
-
-  it("ignores the words quoted in the transcript above the status rows", () => {
-    const quoted = `const hint = "esc to interrupt";\n${transcript}\n❯ \n⏵⏵ bypass permissions on\n`;
-    expect(showsTurnRunning(quoted)).toBe(false);
   });
 });
 

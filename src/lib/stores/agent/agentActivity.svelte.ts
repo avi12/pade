@@ -121,6 +121,39 @@ export function agentReportsBusy(id: string) {
   return activities.get(id) === AgentActivity.Busy;
 }
 
+// An agent TUI shows how to interrupt only while a turn is running - Claude Code's
+// "esc to interrupt", Codex's "Esc to interrupt", opencode's "esc interrupt" - in
+// its status rows at the foot of the screen. Only those rows are read, so the same
+// words quoted in the transcript above never count.
+const TURN_RUNNING_RE = /esc\s*(?:to\s*)?interrupt/i;
+const STATUS_ROWS = 8;
+
+/** Whether a rendered screen shows the agent mid-turn, read from its status rows. */
+export function showsTurnRunning(screen: string) {
+  const statusRows = screen.trimEnd().split("\n").slice(-STATUS_ROWS).join("\n");
+  return TURN_RUNNING_RE.test(statusRows);
+}
+
+/** Sessions whose screen, as last painted, shows a turn running. The title can't
+ *  tell this: it stays busy while background work runs after the turn ends, and
+ *  PADE's session status counts every byte, so a quiet session still ticking a
+ *  workflow's timer reads `working`. The screen says whether a turn is running. */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per screen sample, never rendered
+const turnRunningOnScreen = new Map<string, boolean>();
+
+/** Feed a session's rendered screen (xterm viewport rows) through the turn reader. */
+export function observeTurnOnScreen({ id, text }: {
+  id: string;
+  text: string;
+}) {
+  turnRunningOnScreen.set(id, showsTurnRunning(text));
+}
+
+/** Whether the session's screen, as last painted, shows a turn running. */
+export function isTurnRunningOnScreen(id: string) {
+  return turnRunningOnScreen.get(id) ?? false;
+}
+
 /** Resolve once the agent no longer reports work in flight, or its session is
  *  dropped - the gate every session-ending flow waits behind, so none severs a
  *  running workflow or background agent. Resolves at once for an agent that
@@ -140,6 +173,7 @@ registerSessionState(SessionStateKey.enum.activity, {
   forget(id) {
     activities.delete(id);
     carriedSequences.delete(id);
+    turnRunningOnScreen.delete(id);
     settleWaiters.settleAll(id);
   }
 });

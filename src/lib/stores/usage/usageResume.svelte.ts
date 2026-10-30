@@ -14,6 +14,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
+import { isTurnRunningOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
 import { createRecoveryLoop } from "@/lib/stores/agent/recoveryLoop.svelte";
 import type { RecoveryHit, RecoveryHost } from "@/lib/stores/agent/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
@@ -77,12 +78,6 @@ const LIMIT_STOP_RE = new RegExp(
   "i"
 );
 const RESET_CLOCK_RE = /resets?\s*(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i;
-// An agent TUI shows how to interrupt only while a turn is running - Claude Code's
-// "esc to interrupt", Codex's "Esc to interrupt", opencode's "esc interrupt" - in
-// its status rows at the foot of the screen. Only those rows are read, so the same
-// words quoted in the transcript above never count.
-const TURN_RUNNING_RE = /esc\s*(?:to\s*)?interrupt/i;
-const STATUS_ROWS = 8;
 /** A 12-hour clock: "3pm" is hour 3 past noon, and "12am" is midnight. */
 const HOURS_ON_A_CLOCK = 12;
 const LAST_MINUTE = 59;
@@ -102,12 +97,6 @@ const hits = new SvelteMap<string, LimitHit>();
 /** Sessions whose stop message is settled, and until when their sniffs are ignored. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read per output chunk, never rendered
 const quietUntil = new Map<string, number>();
-/** Waiting sessions whose screen, as last painted, shows a turn running. PADE's
- *  session status can't tell this: it counts every byte, and a stuck session still
- *  ticks a background workflow's timer and spins its window title, so it can read
- *  `working` indefinitely. The screen says whether the agent is actually mid-turn. */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per screen sample, never rendered
-const turnRunningOnScreen = new Map<string, boolean>();
 
 /** The next wall-clock occurrence of an "3am" / "3:30pm" style clock time. */
 export function nextOccurrence({ hour, minute, meridiem, now }: {
@@ -271,12 +260,6 @@ function sniffStop({ id, text }: {
   }
 }
 
-/** Whether a rendered screen shows the agent mid-turn, read from its status rows. */
-export function showsTurnRunning(screen: string) {
-  const statusRows = screen.trimEnd().split("\n").slice(-STATUS_ROWS).join("\n");
-  return TURN_RUNNING_RE.test(statusRows);
-}
-
 /** Feed a chunk of a session's PTY output through the limit sniffer. */
 export function observeUsageLimit({ id, chunk }: {
   id: string;
@@ -290,13 +273,12 @@ export function observeUsageLimit({ id, chunk }: {
 
 /** Feed a session's rendered screen (xterm viewport rows) through the sniffer. The
  *  screen carries what the wire can split - a TUI skips unchanged cells with cursor
- *  moves - and, for a waiting session, whether a turn is running right now. */
+ *  moves. */
 export function observeUsageLimitScreen({ id, text }: {
   id: string;
   text: string;
 }) {
   if (hits.has(id)) {
-    turnRunningOnScreen.set(id, showsTurnRunning(text));
     return;
   }
 
@@ -315,7 +297,6 @@ registerSessionState(SessionStateKey.enum.usageLimit, {
   forget(id) {
     hits.delete(id);
     quietUntil.delete(id);
-    turnRunningOnScreen.delete(id);
   }
 });
 
@@ -355,8 +336,7 @@ export function createUsageResume(host: RecoveryHost) {
     host,
     hits,
     firstDelay: 0,
-    tick: assess,
-    forgetState: id => turnRunningOnScreen.delete(id)
+    tick: assess
   });
 
   // Forget the wait and ignore the same message repainting for a while.
@@ -371,7 +351,7 @@ export function createUsageResume(host: RecoveryHost) {
   // context window → the same session continues; nearly full → it would stall
   // again within a few turns, so hand off to a fresh agent instead.
   async function resume(session: AgentSession) {
-    const isTurnRunning = turnRunningOnScreen.get(session.id) ?? false;
+    const isTurnRunning = isTurnRunningOnScreen(session.id);
     const isGone = sessionStatus(session.id) === SessionStatus.enum.exited;
     settle(session.id);
 

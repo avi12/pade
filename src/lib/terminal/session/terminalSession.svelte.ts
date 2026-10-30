@@ -5,6 +5,7 @@
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { appearance } from "@/lib/settings/prefs.svelte";
+import { observeTurnOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
 import { observeContextScreen } from "@/lib/stores/agent/context.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { observeUsageLimitScreen } from "@/lib/stores/usage/usageResume.svelte";
@@ -115,6 +116,10 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
         text: screen
       });
       observeUsageLimitScreen({
+        id: session().id,
+        text: screen
+      });
+      observeTurnOnScreen({
         id: session().id,
         text: screen
       });

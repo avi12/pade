@@ -3,8 +3,11 @@ import {
   activityFromTitle,
   AgentActivity,
   agentReportsBusy,
+  isTurnRunningOnScreen,
   observeAgentActivity,
+  observeTurnOnScreen,
   readTitles,
+  showsTurnRunning,
   whenAgentSettled
 } from "@/lib/stores/agent/agentActivity.svelte";
 import { afterEach, describe, expect, it } from "vitest";
@@ -121,6 +124,40 @@ describe("observeAgentActivity", () => {
       chunk: titleSequence("pwsh")
     });
     expect(agentReportsBusy(SESSION)).toBe(false);
+  });
+});
+
+describe("showsTurnRunning", () => {
+  const transcript = Array.from({ length: 30 }, (_, index) => `line ${index}`).join("\n");
+
+  it("reads a running turn from the agent's status rows", () => {
+    const claude = `${transcript}\n❯ \n⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt · ← 1 agent\n○ grounding-finish  2/14 agents done · 8m 44s\n\n`;
+    const codex = `${transcript}\n• Working (12s • Esc to interrupt)\n\n› \n`;
+    expect(showsTurnRunning(claude)).toBe(true);
+    expect(showsTurnRunning(codex)).toBe(true);
+  });
+
+  it("sees a stopped session as idle, even with a ticking workflow row", () => {
+    const stuck = `${transcript}\n⚠ Usage limit reached · continuing automatically at 5:30pm · esc to cancel\n⏵⏵ bypass permissions on (shift+tab to cycle) · ← 1 agent\n○ grounding-finish  2/14 agents done · 8m 45s\n`;
+    expect(showsTurnRunning(stuck)).toBe(false);
+  });
+
+  it("ignores the words quoted in the transcript above the status rows", () => {
+    const quoted = `const hint = "esc to interrupt";\n${transcript}\n❯ \n⏵⏵ bypass permissions on\n`;
+    expect(showsTurnRunning(quoted)).toBe(false);
+  });
+});
+
+describe("observeTurnOnScreen", () => {
+  it("follows the latest screen and forgets a dropped session", () => {
+    observeTurnOnScreen({
+      id: SESSION,
+      text: "❯ \n⏵⏵ bypass permissions on · esc to interrupt"
+    });
+    expect(isTurnRunningOnScreen(SESSION)).toBe(true);
+
+    forgetSession(SESSION);
+    expect(isTurnRunningOnScreen(SESSION)).toBe(false);
   });
 });
 
