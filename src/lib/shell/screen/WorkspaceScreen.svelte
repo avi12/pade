@@ -257,6 +257,7 @@
           split: true
         })}
         onselect={windowSessions.select}
+        pacing={automation.usagePacing}
         {project}
         sessions={windowSessions.sessions}
         bind:elPanes
@@ -273,7 +274,7 @@
 
     <RunnerDock activeSessionId={windowSessions.activeId} {project} />
 
-    <RecoveryNotes note={automation.note} pacing={automation.usagePacing} />
+    <RecoveryNotes note={automation.note} />
     <ShellToast />
     <SendSelectionButton activeId={windowSessions.activeId} />
   </div>

@@ -35,7 +35,13 @@
     data-tooltip="Usage pacing is holding this agent back - click for why"
     popovertarget={popoverTarget}
     type="button"
-  >PACED {status.steps.length}/{status.allowedCount}</button>
+  >
+    {#if status.isStopped}
+      PAUSED
+    {:else}
+      PACED {status.steps.length}/{status.allowedCount}
+    {/if}
+  </button>
 
   {#if !isMeasuring}
     <div id={popoverId} style:position-anchor={anchorName} class="pacing-popover popover-menu" popover>

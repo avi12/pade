@@ -19,7 +19,7 @@
     "gradle", "graphql", "grip", "grok", "haskell",
     "history", "html", "idea", "image", "java", "javascript", "json", "kotlin", "laravel",
     "license", "link", "llvm", "lock", "lua", "markdown", "maximize", "minimize", "monitor", "moon", "more", "npm",
-    "opencode", "pencil", "perl", "php", "phpstorm", "plus", "powershell", "prisma", "pycharm", "python", "r", "rails", "react",
+    "opencode", "pause", "pencil", "perl", "php", "phpstorm", "plus", "powershell", "prisma", "pycharm", "python", "r", "rails", "react",
     "refresh", "regex", "rider", "ruby", "rubymine", "rust", "rustrover", "scala", "search", "send",
     "shader", "shell", "sliders", "sparkles", "sql", "star", "stop", "sublime", "sun", "svelte", "swap", "swift",
     "terminal", "text", "toml", "trash", "typescript", "visualstudio", "vscode", "vue", "wallet",

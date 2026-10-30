@@ -2,9 +2,11 @@
   import Icon from "@/lib/Icon.svelte";
   import { layoutWithoutPane } from "@/lib/session/panes/pane-layout";
   import { DropSide } from "@/lib/session/panes/reorder";
+  import PacingNote from "@/lib/shell/screen/PacingNote.svelte";
   import { animatePaneIn, paneDropAt } from "@/lib/shell/screen/pane-dom";
   import SplitMenu from "@/lib/shell/screen/SplitMenu.svelte";
   import { dockBlockSize } from "@/lib/stores/tasks/runnerDock.svelte";
+  import type { createUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
   import type { Agent, AgentSession } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag/drag-reorder";
   import { collapsePane } from "@/lib/ui/motion";
@@ -19,6 +21,7 @@
     agents,
     dragHint,
     collapsingSplitPanes,
+    pacing,
     paneIds = $bindable(),
     activeId = $bindable(),
     isPaneDragOverTabs = $bindable(),
@@ -35,6 +38,8 @@
     dragHint: DragHint | null;
     /** Split members collapsing out (out:collapsePane); dropped on `outroend`. */
     collapsingSplitPanes: SvelteSet<string>;
+    /** The usage pauses, each shown across the top of its own session's pane. */
+    pacing: Pick<ReturnType<typeof createUsagePacing>, "pauses" | "continueNow" | "continueWhenReady">;
     paneIds: string[];
     activeId: string | null;
     /** True while a split pane's header is dragged up over the tab strip. */
@@ -124,6 +129,9 @@
           {:else if dropSideFor(session.id) === DropSide.Right}
             <div class="drop-half right"></div>
           {/if}
+          {#each pacing.pauses.filter(pause => pause.id === session.id) as pause (pause.id)}
+            <PacingNote {pacing} {pause} />
+          {/each}
           <Terminal
             isActive={session.id === activeId && paneIds.includes(session.id)}
             isRemovable={isSplit && paneIds.includes(session.id)}

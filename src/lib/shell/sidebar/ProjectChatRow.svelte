@@ -5,6 +5,7 @@
   import type { SidebarChat } from "@/lib/session/chats/chat-registry";
   import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
+  import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
   import type { RecordedConversation } from "@/lib/types";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { isNewWindowClick } from "@/lib/workspace/open-windows";
@@ -34,7 +35,9 @@
   } = $props();
 
   const ELSEWHERE_NOTE = "Running in another window";
+  const PAUSED_NOTE = "Paused by usage pacing";
   const isElsewhere = $derived(chat.windowLabel !== undefined);
+  const isPaused = $derived(chat.isLive && !isElsewhere && pacingStatus(chat.id)?.isStopped === true);
   const isStoppable = $derived(chat.isLive && !isElsewhere);
   const status = $derived(chat.status ?? sessionStatus(chat.id));
 
@@ -89,9 +92,13 @@
       <span class="agent-icon"><Icon name={agentIconName(chat.agentId)} size={14} /></span>
     {/if}
     <span class="chat-label" dir="auto">{chat.label}</span>
+    <span class="paused" data-tooltip={PAUSED_NOTE} hidden={!isPaused}>
+      <Icon name="pause" size={12} />
+      <span class="spoken">{PAUSED_NOTE}</span>
+    </span>
     <span class="elsewhere" hidden={!isElsewhere}>
       <Icon name="external" size={12} />
-      <span class="elsewhere-note">{ELSEWHERE_NOTE}</span>
+      <span class="spoken">{ELSEWHERE_NOTE}</span>
     </span>
   </button>
   {#if isStoppable}
@@ -185,8 +192,18 @@
       }
     }
 
-    /* Spoken, not shown - the window glyph says it to the eye. */
-    .elsewhere-note {
+    .paused {
+      display: inline-flex;
+      flex: none;
+      color: var(--warning);
+
+      &[hidden] {
+        display: none;
+      }
+    }
+
+    /* Spoken, not shown - the glyph beside it says it to the eye. */
+    .spoken {
       position: absolute;
       overflow: hidden;
       block-size: 1px;
