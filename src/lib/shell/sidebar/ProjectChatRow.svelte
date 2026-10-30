@@ -1,9 +1,12 @@
 <script lang="ts">
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
+  import { runningModelLook } from "@/lib/model/running-model";
+  import RunningModelName from "@/lib/model/RunningModelName.svelte";
   import AgentStatusGlyph from "@/lib/session/AgentStatusGlyph.svelte";
   import type { SidebarChat } from "@/lib/session/chats/chat-registry";
   import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
+  import { sessionModel } from "@/lib/stores/agent/context.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
   import type { RecordedConversation } from "@/lib/types";
@@ -40,6 +43,18 @@
   const STEP_FINISHING_NOTE = "finishing its step first";
   const isElsewhere = $derived(chat.windowLabel !== undefined);
   const pacing = $derived(pacingStatus(chat.id));
+  // The model and effort in words - the mark under the label shows only the
+  // model, tinted by its effort.
+  const modelNote = $derived.by(() => {
+    const running = sessionModel(chat.id);
+    if (running === null) {
+      return undefined;
+    }
+
+    return runningModelLook({
+      running
+    }).label;
+  });
   const isPaused = $derived(chat.isLive && !isElsewhere && pacing?.isStopped === true);
   // When it continues on its own - the time the pause strip on its pane names.
   const pausedUntil = $derived.by(() => {
@@ -113,7 +128,10 @@
     {:else}
       <span class="agent-icon"><Icon name={agentIconName(chat.agentId)} size={14} /></span>
     {/if}
-    <span class="chat-label" dir="auto">{chat.label}</span>
+    <span class="chat-text">
+      <span class="chat-label" dir="auto">{chat.label}</span>
+      <span class="model" data-tooltip={modelNote}><RunningModelName sessionId={chat.id} /></span>
+    </span>
     <span class="paused" data-tooltip={pausedNote} hidden={!isPaused}>
       <Icon name="pause" size={12} />
       <span class="paused-until">{pausedUntil}</span>
@@ -211,6 +229,27 @@
       color: var(--on-surface-variant);
 
       &[hidden] {
+        display: none;
+      }
+    }
+
+    /* The label over what the session runs, so the label keeps the row's
+       whole width. */
+    .chat-text {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-inline-size: 0;
+    }
+
+    /* Empty for a chat this window isn't running. */
+    .model {
+      display: inline-flex;
+      align-self: start;
+      font-family: var(--font-monospace);
+      font-size: 0.6875rem;
+
+      &:empty {
         display: none;
       }
     }
