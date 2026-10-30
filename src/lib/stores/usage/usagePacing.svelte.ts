@@ -159,6 +159,11 @@ const histories = new SvelteMap<string, {
 }[]>();
 /** Sessions the user told pacing to leave alone, and until when. */
 const skippedUntil = new SvelteMap<string, number>();
+/** Sessions the user continued anyway, left alone until that run ends - true
+ *  once the run is underway, so a scan before the agent picks the prompt up
+ *  doesn't end it early. */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
+const continuedAnyway = new Map<string, boolean>();
 /** Each agent's account forecast per window, for the Config panel's live lines. */
 const forecasts = new SvelteMap<string, Partial<Record<PacedWindowKind, PaceForecast>>>();
 /** The live loop's settings, so a badge counts the steps its window allows. */
@@ -237,6 +242,7 @@ registerSessionState(SessionStateKey.enum.usagePacing, {
     verdicts.delete(id);
     histories.delete(id);
     skippedUntil.delete(id);
+    continuedAnyway.delete(id);
     workingSince.delete(id);
     accountKeys.delete(id);
   }
@@ -613,6 +619,12 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
+  // The user's own continue: unlike pacing's, it owns the run it starts.
+  async function continueAnyway(id: string) {
+    continuedAnyway.set(id, false);
+    await resume(id);
+  }
+
   // Back on pace. A session still finishing its step is left to stop first; one
   // the user took over is released; a resting one continues; a stopped one
   // continues at once or waits for the user, as `stopThen` says.
@@ -869,6 +881,27 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
+  // A run the user continued anyway is theirs until the agent goes quiet again -
+  // its background work included - so pacing doesn't pause it on the next scan.
+  function isContinuedRun(id: string) {
+    const isUnderway = continuedAnyway.get(id);
+    if (isUnderway === undefined) {
+      return false;
+    }
+
+    if (isWorking(id)) {
+      continuedAnyway.set(id, true);
+      return true;
+    }
+
+    if (isUnderway) {
+      continuedAnyway.delete(id);
+      return false;
+    }
+
+    return true;
+  }
+
   async function paceSession({ session, account, accountKey }: {
     session: AgentSession;
     account: AccountUsage | null;
@@ -882,7 +915,7 @@ export function createUsagePacing(host: PacingHost) {
     }
 
     const isSkipped = (skippedUntil.get(id) ?? 0) > Date.now();
-    if (isSkipped || isModelSwitchApplying(id)) {
+    if (isSkipped || isModelSwitchApplying(id) || isContinuedRun(id)) {
       return;
     }
 
@@ -1059,7 +1092,7 @@ export function createUsagePacing(host: PacingHost) {
       forgetSamples(accountKeys.get(id));
 
       if (paced.has(id)) {
-        await resume(id);
+        await continueAnyway(id);
         return;
       }
 
@@ -1089,7 +1122,7 @@ export function createUsagePacing(host: PacingHost) {
         })}`
       });
     },
-    resume
+    resume: continueAnyway
   };
 
   return {
@@ -1124,8 +1157,8 @@ export function createUsagePacing(host: PacingHost) {
 
       return pauses;
     },
-    /** The user picks a paused session back up now. */
-    continueNow: resume,
+    /** The user picks a paused session back up now, and pacing lets that run be. */
+    continueNow: continueAnyway,
     /** The user has a paused session continue the moment it has room. */
     continueWhenReady(id: string) {
       const state = paced.get(id);
