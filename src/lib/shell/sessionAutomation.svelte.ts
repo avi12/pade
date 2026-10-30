@@ -23,10 +23,8 @@ import type { Agent, AgentSession } from "@/lib/types";
 import { resolvedPacing } from "@/lib/usage/pacing/pacing-scope";
 import { onDestroy, onMount } from "svelte";
 
-export function createSessionAutomation({ windowSessions, project, availableAgents, projectLabel }: {
+export function createSessionAutomation({ windowSessions, availableAgents, projectLabel }: {
   windowSessions: WindowSessions;
-  /** The window's open project. */
-  project: () => string;
   /** The installed agents a handoff may cross over to. */
   availableAgents: () => Agent[];
   /** The open project's label - the handoff document's slug source. */
@@ -153,9 +151,9 @@ export function createSessionAutomation({ windowSessions, project, availableAgen
   // back up as the Config settings say (lib/stores/usage/usagePacing).
   const usagePacing = createUsagePacing({
     sessions: () => windowSessions.sessions,
-    settings: () => resolvedPacing({
+    settings: sessionProject => resolvedPacing({
       prefs: settings.prefs,
-      project: project()
+      project: sessionProject
     }),
     isHandingOff: id => autoHandoff.isHandingOff(id),
     switchModel: async pick => await modelSwitcher.request(pick),

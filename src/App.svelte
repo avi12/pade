@@ -213,7 +213,6 @@
   // restarts and tab attention (lib/shell/sessionAutomation).
   const automation = createSessionAutomation({
     windowSessions,
-    project: () => activeProject,
     availableAgents: () => realAgents,
     projectLabel: () => projectLabel
   });

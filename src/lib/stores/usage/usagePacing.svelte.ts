@@ -174,7 +174,7 @@ const continuedAnyway = new Map<string, boolean>();
 /** Each agent's account forecast per window, for the Config panel's live lines. */
 const forecasts = new SvelteMap<string, Partial<Record<PacedWindowKind, PaceForecast>>>();
 /** The live loop's settings, so a badge counts the steps its window allows. */
-let pacingSource: (() => PacingByWindow) | null = null;
+let pacingSource: ((id: string) => PacingByWindow | null) | null = null;
 /** When each working session's current stretch of work began - how long a
  *  resting session has just worked, which sizes its rest. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
@@ -438,12 +438,13 @@ function activeSteps(id: string) {
 /** How many steps the window holding a session allows it - the session window
  *  when nothing names one yet. */
 function allowedStepCount(id: string) {
-  if (pacingSource === null) {
+  const pacing = pacingSource?.(id) ?? null;
+  if (pacing === null) {
     return 0;
   }
 
   const kind = paced.get(id)?.windowKind ?? verdicts.get(id)?.windowKind ?? PacedWindowKind.enum.session;
-  return allowedSteps(pacingSource()[kind]).length;
+  return allowedSteps(pacing[kind]).length;
 }
 
 /** Everything a session's pacing badge shows (reactive): which steps are active
@@ -503,8 +504,9 @@ export async function resumePacing(id: string) {
  *  applies without a restart, and the model switch stepping rides on. */
 export interface PacingHost extends AdaptHost {
   sessions: () => AgentSession[];
-  /** This window's workspace's settings, per paced window. */
-  settings: () => PacingByWindow;
+  /** A project's settings, per paced window - each session is paced by its own
+   *  project's, not by the one in front. */
+  settings: (project: string) => PacingByWindow;
   /** Whether the auto-handoff flow owns the session right now. */
   isHandingOff: (id: string) => boolean;
 }
@@ -534,15 +536,18 @@ export function createUsagePacing(host: PacingHost) {
     samples.set(key, readings);
   }
 
-  pacingSource = host.settings;
-
-  function margins() {
-    return pacingMargins(host.settings());
-  }
-
   function sessionOf(id: string) {
     return host.sessions().find(session => session.id === id);
   }
+
+  function settingsOf(session: AgentSession) {
+    return host.settings(session.project);
+  }
+
+  pacingSource = id => {
+    const session = sessionOf(id);
+    return session === undefined ? null : settingsOf(session);
+  };
 
   // A turn running, by the agent's own report or, for an agent that reports
   // nothing, by its output.
@@ -704,9 +709,10 @@ export function createUsagePacing(host: PacingHost) {
   // Back on pace. A session still finishing its step is left to stop first; one
   // the user took over is released; a resting one continues; a stopped one
   // continues at once or waits for the user, as `stopThen` says.
-  async function release({ id, state }: {
+  async function release({ id, state, pacing }: {
     id: string;
     state: PaceState;
+    pacing: PacingByWindow;
   }) {
     const isWorkingNow = isWorking(id);
     const isStillStopping = state.phase === PacePhase.enum.pausing && isWorkingNow;
@@ -721,7 +727,7 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    const shouldContinue = host.settings()[state.windowKind].stopThen === PacingStopThen.enum.continue
+    const shouldContinue = pacing[state.windowKind].stopThen === PacingStopThen.enum.continue
       || state.isContinuingWhenReady
       || state.restUntil !== null;
     if (shouldContinue) {
@@ -801,7 +807,7 @@ export function createUsagePacing(host: PacingHost) {
     accountKey: string;
     binding: PaceBinding;
   }) {
-    const allowed = allowedSteps(host.settings()[binding.kind]);
+    const allowed = allowedSteps(settingsOf(session)[binding.kind]);
     for (const step of allowed) {
       if (MODEL_STEPS.has(step)) {
         const hasStepped = await stepModel({
@@ -850,7 +856,7 @@ export function createUsagePacing(host: PacingHost) {
       });
     }
 
-    const marginOf = margins();
+    const marginOf = pacingMargins(settingsOf(session));
     const binding = assessPace({
       account,
       now,
@@ -908,12 +914,14 @@ export function createUsagePacing(host: PacingHost) {
 
   // A paused session: continue it at the end of its rest or its window, or move
   // it along as its runway reaches the reset. An unreadable account leaves it be.
-  async function advancePaced({ id, state, account, accountKey }: {
-    id: string;
+  async function advancePaced({ session, state, account, accountKey }: {
+    session: AgentSession;
     state: PaceState;
     account: AccountUsage | null;
     accountKey: string;
   }) {
+    const id = session.id;
+    const pacing = settingsOf(session);
     const now = Date.now();
     // A rest counts from when the session stopped (`hold`), so one still
     // stopping - or stopped since the last scan - hasn't begun resting yet.
@@ -936,7 +944,7 @@ export function createUsagePacing(host: PacingHost) {
       account,
       now,
       isPaused: true,
-      marginOf: margins(),
+      marginOf: pacingMargins(pacing),
       rateOf: window => state.rates[window.key] ?? liveRate({
         accountKey,
         window
@@ -945,7 +953,8 @@ export function createUsagePacing(host: PacingHost) {
     if (binding === null) {
       await release({
         id,
-        state
+        state,
+        pacing
       });
       return;
     }
@@ -1013,7 +1022,7 @@ export function createUsagePacing(host: PacingHost) {
     }
 
     await advancePaced({
-      id,
+      session,
       state,
       account,
       accountKey
@@ -1085,8 +1094,7 @@ export function createUsagePacing(host: PacingHost) {
     });
     await adapter.restore({
       sessions,
-      now,
-      isEveryone: false
+      now
     });
 
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's reads, never rendered
@@ -1096,6 +1104,11 @@ export function createUsagePacing(host: PacingHost) {
     for (const session of sessions) {
       const isWorthALook = paced.has(session.id) || isWorking(session.id) || adapter.isSteppedDown(session.id);
       if (!isWorthALook) {
+        continue;
+      }
+
+      if (!isPacingOn(settingsOf(session))) {
+        await standDown(session);
         continue;
       }
 
@@ -1123,19 +1136,12 @@ export function createUsagePacing(host: PacingHost) {
     }
   }
 
-  // Pacing turned off: let every paused session be, and put stepped-down ones
-  // back on their own choice.
-  async function standDown() {
-    for (const id of paced.keys()) {
-      await resume(id);
-    }
-
-    verdicts.clear();
-    await adapter.restore({
-      sessions: host.sessions(),
-      now: Date.now(),
-      isEveryone: true
-    });
+  // Pacing turned off for the session's project: let it be if paused, and put
+  // it back on its own choice if stepped down.
+  async function standDown(session: AgentSession) {
+    verdicts.delete(session.id);
+    await resume(session.id);
+    await adapter.restoreSession(session);
   }
 
   async function tick() {
@@ -1145,12 +1151,7 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    if (isPacingOn(host.settings())) {
-      await scan();
-    } else {
-      await standDown();
-    }
-
+    await scan();
     schedule();
   }
 
@@ -1218,7 +1219,7 @@ export function createUsagePacing(host: PacingHost) {
         }
 
         const isReady = state.phase === PacePhase.enum.ready;
-        const isContinuingWhenReady = host.settings()[state.windowKind].stopThen === PacingStopThen.enum.continue
+        const isContinuingWhenReady = settingsOf(session)[state.windowKind].stopThen === PacingStopThen.enum.continue
           || state.isContinuingWhenReady
           || state.restUntil !== null;
         pauses.push({

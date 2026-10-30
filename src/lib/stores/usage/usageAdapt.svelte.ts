@@ -344,16 +344,14 @@ export function createUsageAdapter(host: AdaptHost) {
     }
   }
 
-  /** Put sessions back on the user's own choice: those whose window is about to
-   *  reset, or all of them once stepping is turned off. */
-  async function restore({ sessions, now, isEveryone }: {
+  /** Put sessions whose window is about to reset back on the user's own choice. */
+  async function restore({ sessions, now }: {
     sessions: readonly AgentSession[];
     now: number;
-    isEveryone: boolean;
   }) {
     for (const session of sessions) {
       const record = adapted.get(session.id);
-      const isDue = record !== undefined && (isEveryone || now >= record.restoreAt);
+      const isDue = record !== undefined && now >= record.restoreAt;
       if (isDue) {
         await restoreSession(session);
       }
