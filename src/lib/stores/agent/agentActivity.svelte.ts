@@ -128,10 +128,24 @@ export function agentReportsBusy(id: string) {
 const TURN_RUNNING_RE = /esc\s*(?:to\s*)?interrupt/i;
 const STATUS_ROWS = 8;
 
+// Claude Code counts the background agents a session runs in the same rows -
+// "← 1 agent", "← 3 agents" - the same documented Hyrum dependency.
+const BACKGROUND_AGENTS_RE = /←\s*(\d+)\s+agents?\b/i;
+
+function statusRowsOf(screen: string) {
+  return screen.trimEnd().split("\n").slice(-STATUS_ROWS).join("\n");
+}
+
 /** Whether a rendered screen shows the agent mid-turn, read from its status rows. */
 export function showsTurnRunning(screen: string) {
-  const statusRows = screen.trimEnd().split("\n").slice(-STATUS_ROWS).join("\n");
-  return TURN_RUNNING_RE.test(statusRows);
+  return TURN_RUNNING_RE.test(statusRowsOf(screen));
+}
+
+/** How many background agents a rendered screen's status rows count - 0 when
+ *  they name none. */
+export function backgroundAgentsShown(screen: string) {
+  const match = BACKGROUND_AGENTS_RE.exec(statusRowsOf(screen));
+  return match === null ? 0 : parseInt(match[1], 10);
 }
 
 /** Sessions whose screen, as last painted, shows a turn running. The title can't
@@ -140,13 +154,23 @@ export function showsTurnRunning(screen: string) {
  *  workflow's timer reads `working`. The screen says whether a turn is running. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per screen sample, never rendered
 const turnRunningOnScreen = new Map<string, boolean>();
+/** The background agents each session's screen counted, as last painted. */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per screen sample, never rendered
+const backgroundAgentsOnScreen = new Map<string, number>();
 
-/** Feed a session's rendered screen (xterm viewport rows) through the turn reader. */
+/** Feed a session's rendered screen (xterm viewport rows) through the turn and
+ *  background-agent readers. */
 export function observeTurnOnScreen({ id, text }: {
   id: string;
   text: string;
 }) {
   turnRunningOnScreen.set(id, showsTurnRunning(text));
+  backgroundAgentsOnScreen.set(id, backgroundAgentsShown(text));
+}
+
+/** How many background agents the session's screen counted when last painted. */
+export function backgroundAgentCount(id: string) {
+  return backgroundAgentsOnScreen.get(id) ?? 0;
 }
 
 /** Whether the session's screen, as last painted, shows a turn running. */
@@ -174,6 +198,7 @@ registerSessionState(SessionStateKey.enum.activity, {
     activities.delete(id);
     carriedSequences.delete(id);
     turnRunningOnScreen.delete(id);
+    backgroundAgentsOnScreen.delete(id);
     settleWaiters.settleAll(id);
   }
 });

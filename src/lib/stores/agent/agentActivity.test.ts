@@ -3,6 +3,7 @@ import {
   activityFromTitle,
   AgentActivity,
   agentReportsBusy,
+  backgroundAgentsShown,
   isTurnRunningOnScreen,
   observeAgentActivity,
   observeTurnOnScreen,
@@ -145,6 +146,17 @@ describe("showsTurnRunning", () => {
   it("ignores the words quoted in the transcript above the status rows", () => {
     const quoted = `const hint = "esc to interrupt";\n${transcript}\n❯ \n⏵⏵ bypass permissions on\n`;
     expect(showsTurnRunning(quoted)).toBe(false);
+  });
+});
+
+describe("backgroundAgentsShown", () => {
+  it("counts the background agents in the status rows", () => {
+    expect(backgroundAgentsShown("❯ \n⏵⏵ bypass permissions on · esc to interrupt · ← 3 agents\n")).toBe(3);
+    expect(backgroundAgentsShown("❯ \n⏵⏵ bypass permissions on · ← 1 agent · ↓ to manage\n")).toBe(1);
+  });
+
+  it("counts none when the status rows name no agents", () => {
+    expect(backgroundAgentsShown("❯ \n⏵⏵ bypass permissions on\n")).toBe(0);
   });
 });
 

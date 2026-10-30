@@ -28,8 +28,11 @@
 import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
+import { cheaperModelChoice, lowerEffortChoice } from "@/lib/model/model-cost";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
-import { agentReportsBusy, isTurnRunningOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
+import { agentReportsBusy, backgroundAgentCount, isTurnRunningOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
+import { sessionModel } from "@/lib/stores/agent/context.svelte";
+import { modelOptions } from "@/lib/stores/model/modelOptions.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { adaptedChoice, adaptedSteps, createUsageAdapter } from "@/lib/stores/usage/usageAdapt.svelte";
@@ -38,6 +41,13 @@ import { hasUsageLimit, readAccount } from "@/lib/stores/usage/usageResume.svelt
 import { ESCAPE } from "@/lib/terminal/input/terminal-sequences";
 import { PacedWindowKind, PacingStep, PacingStopThen, SessionStatus } from "@/lib/types";
 import type { AccountUsage, AgentSession, PacingByWindow, UsageWindow } from "@/lib/types";
+import {
+  costWeight,
+  lightestToRestore,
+  planShedding,
+  sessionLoad,
+  shedFraction
+} from "@/lib/usage/pacing/load-shedding";
 import {
   allowedSteps,
   isPacingOn,
@@ -69,6 +79,12 @@ import { z } from "zod";
 /** How often working and paused sessions are checked against their account. The
  *  backend caches that read for ~3 minutes, so the endpoint is never hit faster. */
 const POLL_MS = 60_000;
+/** How far one scan moves a session's working share toward whether it works
+ *  now - a moving average spanning about the burn rate's own history. */
+const WORKING_SHARE_SMOOTHING = POLL_MS / RATE_HISTORY_MS;
+/** How long an account waits after letting one paused session go before the
+ *  next - long enough for its usage to show what the first one spends. */
+const RELEASE_SPACING_MS = MINIMUM_RATE_SPAN_MS;
 const MILLISECONDS_PER_MINUTE = 60_000;
 const MINUTES = new Intl.NumberFormat(undefined, {
   style: "unit",
@@ -179,6 +195,10 @@ let pacingSource: ((id: string) => PacingByWindow | null) | null = null;
  *  resting session has just worked, which sizes its rest. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
 const workingSince = new Map<string, number>();
+/** How much of the recent time each session spent working, 0 to 1 - one input
+ *  to its share of its account's spend (`loadOf`). */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
+const workingShares = new Map<string, number>();
 /** The account each session bills, as last read - so an override can start its
  *  burn rate over. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
@@ -251,6 +271,7 @@ registerSessionState(SessionStateKey.enum.usagePacing, {
     skippedUntil.delete(id);
     continuedAnyway.delete(id);
     workingSince.delete(id);
+    workingShares.delete(id);
     accountKeys.delete(id);
   }
 });
@@ -353,6 +374,41 @@ function heldPhase({ state, isWorkingNow }: {
   return unchanged;
 }
 
+/** Whether a paused session continues once it has room, not just at its reset:
+ *  its settings say so, the user asked for it, or it only rests. */
+function isContinuingOnRoom({ state, pacing }: {
+  state: Pick<PaceState, "windowKind" | "isContinuingWhenReady" | "restUntil">;
+  pacing: PacingByWindow;
+}) {
+  return pacing[state.windowKind].stopThen === PacingStopThen.enum.continue
+    || state.isContinuingWhenReady
+    || state.restUntil !== null;
+}
+
+/** When a stopped session continues on its own. */
+function stopEndTime({ state, isContinuingWhenReady }: {
+  state: Pick<PaceState, "readyAt" | "continueAt">;
+  isContinuingWhenReady: boolean;
+}) {
+  return isContinuingWhenReady ? state.readyAt : state.continueAt;
+}
+
+/** When a paused session continues on its own - its rest's end, or its stop's -
+ *  or null while it is still finishing its step and its rest hasn't begun. */
+function continueTime({ state, isContinuingWhenReady }: {
+  state: Pick<PaceState, "phase" | "readyAt" | "continueAt" | "restUntil" | "restMs">;
+  isContinuingWhenReady: boolean;
+}) {
+  if (isRestPending(state)) {
+    return null;
+  }
+
+  return state.restUntil ?? stopEndTime({
+    state,
+    isContinuingWhenReady
+  });
+}
+
 /** The status line for a stopped or resting session. */
 export function pacingNote({ agent, state, isContinuingWhenReady, now }: {
   agent: string;
@@ -414,7 +470,10 @@ function stopNote({ agent, state, usage, isContinuingWhenReady, now }: {
     now
   });
   const continuesAt = spokenTime({
-    time: isContinuingWhenReady ? state.readyAt : state.continueAt,
+    time: stopEndTime({
+      state,
+      isContinuingWhenReady
+    }),
     now
   });
   if (state.phase === PacePhase.enum.ready) {
@@ -447,6 +506,24 @@ function allowedStepCount(id: string) {
   return allowedSteps(pacing[kind]).length;
 }
 
+/** When a paused session continues on its own, by the same rule its pause note
+ *  states - null when it isn't paused, or still finishes its step. */
+function pausedUntil(id: string) {
+  const state = paced.get(id);
+  const pacing = pacingSource?.(id) ?? null;
+  if (state === undefined || pacing === null) {
+    return null;
+  }
+
+  return continueTime({
+    state,
+    isContinuingWhenReady: isContinuingOnRoom({
+      state,
+      pacing
+    })
+  });
+}
+
 /** Everything a session's pacing badge shows (reactive): which steps are active
  *  out of the allowed ones, why, what it runs now, when it reverts, and what
  *  pacing did. Null when pacing isn't touching the session. */
@@ -463,6 +540,8 @@ export function pacingStatus(id: string) {
     allowedCount: allowedStepCount(id),
     verdict: verdicts.get(id) ?? null,
     isStopped: state !== undefined,
+    /** When a paused session continues on its own. */
+    continuesAt: pausedUntil(id),
     restUntil: hasRestEnd ? state.restUntil : null,
     revertsAt: state?.continueAt ?? null,
     history: histories.get(id) ?? []
@@ -517,6 +596,19 @@ export function createUsagePacing(host: PacingHost) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let isDisposed = false;
   const adapter = createUsageAdapter(host);
+  // Accounts a scan stepped a session of. Their burn rate starts over once the
+  // scan ends, not at the first step: the rate is the whole account's - every
+  // session on it, and every subagent those run - so each of its sessions over
+  // pace takes its step on the same reading, instead of one per fresh measure.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's bookkeeping, never rendered
+  const steppedAccounts = new Set<string>();
+  /** Paused sessions a scan found back on pace, by account - only one of each
+   *  account's is let go (`releaseOnePerAccount`). */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's bookkeeping, never rendered
+  const releasable = new Map<string, AgentSession[]>();
+  /** When each account last let a paused session go. */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read per scan, never rendered
+  const lastReleaseAt = new Map<string, number>();
 
   for (const [id, state] of Object.entries(
     readStoredJson({
@@ -709,11 +801,13 @@ export function createUsagePacing(host: PacingHost) {
   // Back on pace. A session still finishing its step is left to stop first; one
   // the user took over is released; a resting one continues; a stopped one
   // continues at once or waits for the user, as `stopThen` says.
-  async function release({ id, state, pacing }: {
-    id: string;
+  async function release({ session, accountKey, state, pacing }: {
+    session: AgentSession;
+    accountKey: string;
     state: PaceState;
     pacing: PacingByWindow;
   }) {
+    const id = session.id;
     const isWorkingNow = isWorking(id);
     const isStillStopping = state.phase === PacePhase.enum.pausing && isWorkingNow;
     if (isStillStopping) {
@@ -727,11 +821,12 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    const shouldContinue = pacing[state.windowKind].stopThen === PacingStopThen.enum.continue
-      || state.isContinuingWhenReady
-      || state.restUntil !== null;
+    const shouldContinue = isContinuingOnRoom({
+      state,
+      pacing
+    });
     if (shouldContinue) {
-      await resume(id);
+      releasable.set(accountKey, [...releasable.get(accountKey) ?? [], session]);
       return;
     }
 
@@ -742,6 +837,29 @@ export function createUsagePacing(host: PacingHost) {
         phase: PacePhase.enum.ready
       }
     });
+  }
+
+  // The sessions back on pace continue one per account at a time, the lightest
+  // first, each RELEASE_SPACING_MS after the last - so the account's usage shows
+  // what that one spends before the next is let go, instead of every paused
+  // session bursting back at once and tipping it straight over pace again.
+  async function releaseOnePerAccount() {
+    const now = Date.now();
+    for (const [accountKey, sessions] of releasable) {
+      const isSpaced = now - (lastReleaseAt.get(accountKey) ?? 0) >= RELEASE_SPACING_MS;
+      const id = isSpaced ? lightestToRestore(
+        sessions.map(session => ({
+          id: session.id,
+          load: loadOf(session)
+        }))
+      ) : null;
+      if (id !== null) {
+        lastReleaseAt.set(accountKey, now);
+        await resume(id);
+      }
+    }
+
+    releasable.clear();
   }
 
   // Still over pace: note the step finishing, or the user taking over.
@@ -793,7 +911,7 @@ export function createUsagePacing(host: PacingHost) {
       return false;
     }
 
-    forgetSamples(accountKey);
+    steppedAccounts.add(accountKey);
     record({
       id: session.id,
       text: `${STEP_HISTORY_TEXT[step]} - now ${adaptedChoice(session.id)?.current ?? ""}`
@@ -840,10 +958,10 @@ export function createUsagePacing(host: PacingHost) {
     }
   }
 
-  // A working session not yet paused. Over pace: the next allowed step. On pace
-  // with room to spare: a stepped-down session climbs a notch back. Either step
-  // starts its account's burn rate over, so the next one waits on a fresh measure.
-  async function paceWorking({ session, account, accountKey }: {
+  // A working session not yet paused, judged by its own project's settings:
+  // over pace (its binding), or on pace with room to step a stepped-down choice
+  // back up. What to do about it is the account's call (`shareAccount`).
+  function assessWorking({ session, account, accountKey }: {
     session: AgentSession;
     account: AccountUsage | null;
     accountKey: string;
@@ -866,35 +984,173 @@ export function createUsagePacing(host: PacingHost) {
     });
     if (binding === null) {
       verdicts.delete(session.id);
-      const canStepUp = adapter.isSteppedDown(session.id) && hasRoomToSpare({
+    } else {
+      verdicts.set(session.id, {
+        windowKind: binding.kind,
+        utilization: binding.window.utilization,
+        runOutAt: now + (binding.continueAt - binding.readyAt),
+        readyAt: binding.readyAt,
+        resetAt: binding.continueAt
+      });
+    }
+
+    return {
+      session,
+      accountKey,
+      binding,
+      canStepUp: binding === null && adapter.isSteppedDown(session.id) && hasRoomToSpare({
         account,
         now,
         marginOf,
         rateOf
-      });
-      if (canStepUp) {
-        forgetSamples(accountKey);
-        await adapter.stepUp(session);
-        record({
-          id: session.id,
-          text: "stepped back up"
-        });
+      })
+    };
+  }
+
+  type WorkingAssessment = ReturnType<typeof assessWorking>;
+
+  // A session's estimated share-driver of its account's spend: what it runs,
+  // how much of the recent time it worked, and the subagents it runs now.
+  function loadOf(session: AgentSession) {
+    const running = sessionModel(session.id);
+    return sessionLoad({
+      cost: costWeight({
+        model: running?.id,
+        effort: running?.effort ?? undefined
+      }),
+      workingShare: workingShares.get(session.id) ?? 1,
+      subagents: backgroundAgentCount(session.id)
+    });
+  }
+
+  // What the session's next allowed step would save, as a fraction of its own
+  // load - the same first step `climb` takes: an effort or model step priced by
+  // its cost weight, a rest or stop saving all of it while it lasts.
+  function nextStepSaving({ session, binding }: {
+    session: AgentSession;
+    binding: PaceBinding;
+  }) {
+    const running = sessionModel(session.id);
+    const options = modelOptions(session.agent.command);
+    for (const step of allowedSteps(settingsOf(session)[binding.kind])) {
+      if (!MODEL_STEPS.has(step)) {
+        return 1;
       }
 
+      if (running === null) {
+        continue;
+      }
+
+      const current = {
+        model: running.id,
+        effort: running.effort ?? undefined
+      };
+      const next = step === PacingStep.enum.effort ? lowerEffortChoice({
+        model: running.id,
+        effort: running.effort ?? null,
+        options
+      }) : cheaperModelChoice({
+        model: running.id,
+        options
+      });
+      if (next !== null) {
+        return 1 - costWeight(next) / costWeight(current);
+      }
+    }
+
+    return 0;
+  }
+
+  // One account's working sessions, judged together: its burn is everything on
+  // it - every session and every subagent - so over pace, the steps go where
+  // they save the most until they cover what the account must shed
+  // (`planShedding`); on pace, one stepped-down session climbs back, the
+  // lightest first. A step starts the account's burn rate over once the scan ends.
+  async function shareAccount(assessments: readonly WorkingAssessment[]) {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's reads, never rendered
+    const loads = new Map(assessments.map(assessment => [assessment.session.id, loadOf(assessment.session)] as const));
+    const overPace = assessments.flatMap(({ binding, ...rest }) => binding === null ? [] : [{
+      ...rest,
+      binding
+    }]);
+    if (overPace.length === 0) {
+      await restoreLightest({
+        assessments,
+        loads
+      });
       return;
     }
 
-    verdicts.set(session.id, {
-      windowKind: binding.kind,
-      utilization: binding.window.utilization,
-      runOutAt: now + (binding.continueAt - binding.readyAt),
-      readyAt: binding.readyAt,
-      resetAt: binding.continueAt
+    let totalLoad = 0;
+    for (const load of loads.values()) {
+      totalLoad += load;
+    }
+
+    const chosen = planShedding({
+      candidates: overPace.map(({ session, binding }) => ({
+        id: session.id,
+        load: loads.get(session.id) ?? 0,
+        saving: nextStepSaving({
+          session,
+          binding
+        })
+      })),
+      totalLoad,
+      fraction: largestShed(overPace.map(({ binding }) => binding))
     });
-    await climb({
-      session,
-      accountKey,
-      binding
+    for (const { session, accountKey, binding } of overPace) {
+      if (chosen.includes(session.id)) {
+        await climb({
+          session,
+          accountKey,
+          binding
+        });
+      }
+    }
+  }
+
+  // What the account must shed: the most any of its holding windows asks for -
+  // null while none of them has a measured burn.
+  function largestShed(bindings: readonly PaceBinding[]) {
+    const now = Date.now();
+    let fraction: number | null = null;
+    for (const binding of bindings) {
+      const shed = shedFraction({
+        window: binding.window,
+        rate: binding.rate > 0 ? binding.rate : null,
+        freeAt: binding.continueAt,
+        now
+      });
+      const isLargestShed = shed !== null && (fraction === null || shed > fraction);
+      if (isLargestShed) {
+        fraction = shed;
+      }
+    }
+
+    return fraction;
+  }
+
+  async function restoreLightest({ assessments, loads }: {
+    assessments: readonly WorkingAssessment[];
+    loads: ReadonlyMap<string, number>;
+  }) {
+    const restorable = assessments.filter(assessment => assessment.canStepUp);
+    const id = lightestToRestore(
+      restorable.map(assessment => ({
+        id: assessment.session.id,
+        load: loads.get(assessment.session.id) ?? 0
+      }))
+    );
+    const chosen = restorable.find(assessment => assessment.session.id === id);
+    if (chosen === undefined) {
+      return;
+    }
+
+    steppedAccounts.add(chosen.accountKey);
+    await adapter.stepUp(chosen.session);
+    record({
+      id: chosen.session.id,
+      text: "stepped back up"
     });
   }
 
@@ -952,7 +1208,8 @@ export function createUsagePacing(host: PacingHost) {
     });
     if (binding === null) {
       await release({
-        id,
+        session,
+        accountKey,
         state,
         pacing
       });
@@ -1000,25 +1257,21 @@ export function createUsagePacing(host: PacingHost) {
     const isOwnedElsewhere = hasUsageLimit(id) || host.isHandingOff(id);
     if (isOwnedElsewhere) {
       forgetPace(id);
-      return;
+      return null;
     }
 
     const isSkipped = (skippedUntil.get(id) ?? 0) > Date.now();
     if (isSkipped || isModelSwitchApplying(id) || isContinuedRun(id)) {
-      return;
+      return null;
     }
 
     const state = paced.get(id);
     if (state === undefined) {
-      if (isWorking(id)) {
-        await paceWorking({
-          session,
-          account,
-          accountKey
-        });
-      }
-
-      return;
+      return isWorking(id) ? assessWorking({
+        session,
+        account,
+        accountKey
+      }) : null;
     }
 
     await advancePaced({
@@ -1027,6 +1280,7 @@ export function createUsagePacing(host: PacingHost) {
       account,
       accountKey
     });
+    return null;
   }
 
   // Take one reading per account per scan, and only while one of its sessions
@@ -1075,16 +1329,59 @@ export function createUsagePacing(host: PacingHost) {
     }
 
     for (const session of sessions) {
-      if (!isWorking(session.id)) {
+      const isWorkingNow = isWorking(session.id);
+      if (!isWorkingNow) {
         workingSince.delete(session.id);
       } else if (!workingSince.has(session.id)) {
         workingSince.set(session.id, now);
       }
+
+      const sample = isWorkingNow ? 1 : 0;
+      const previous = workingShares.get(session.id) ?? sample;
+      workingShares.set(session.id, previous + WORKING_SHARE_SMOOTHING * (sample - previous));
     }
   }
 
+  // One session worth a look, against its account (read once per agent per
+  // scan): paced by its own project's settings, or stood down when they're off.
+  // A working one not yet paused comes back as its assessment for its account.
+  async function lookAt({ session, accounts, sampled, now }: {
+    session: AgentSession;
+    accounts: Map<string, Promise<AccountUsage | null>>;
+    sampled: Set<string>;
+    now: number;
+  }) {
+    if (!isPacingOn(settingsOf(session))) {
+      await standDown(session);
+      return null;
+    }
+
+    let pending = accounts.get(session.agent.id);
+    if (pending === undefined) {
+      pending = readAccount(session);
+      accounts.set(session.agent.id, pending);
+    }
+
+    const account = await pending;
+    const accountKey = account?.account ?? session.agent.id;
+    accountKeys.set(session.id, accountKey);
+    sampleOnce({
+      session,
+      account,
+      accountKey,
+      sampled,
+      now
+    });
+    return await paceSession({
+      session,
+      account,
+      accountKey
+    });
+  }
+
   // One look at every session worth a look - working ones that may need pacing,
-  // paced ones that may continue - reading each agent's account once.
+  // paced ones that may continue - then each account's working sessions shared
+  // out together. The accounts stepped this scan start their burn rate over.
   async function scan() {
     const sessions = host.sessions();
     const now = Date.now();
@@ -1101,39 +1398,32 @@ export function createUsagePacing(host: PacingHost) {
     const accounts = new Map<string, Promise<AccountUsage | null>>();
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's bookkeeping, never rendered
     const sampled = new Set<string>();
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's bookkeeping, never rendered
+    const byAccount = new Map<string, WorkingAssessment[]>();
     for (const session of sessions) {
       const isWorthALook = paced.has(session.id) || isWorking(session.id) || adapter.isSteppedDown(session.id);
-      if (!isWorthALook) {
-        continue;
-      }
-
-      if (!isPacingOn(settingsOf(session))) {
-        await standDown(session);
-        continue;
-      }
-
-      let pending = accounts.get(session.agent.id);
-      if (pending === undefined) {
-        pending = readAccount(session);
-        accounts.set(session.agent.id, pending);
-      }
-
-      const account = await pending;
-      const accountKey = account?.account ?? session.agent.id;
-      accountKeys.set(session.id, accountKey);
-      sampleOnce({
+      const assessment = isWorthALook ? await lookAt({
         session,
-        account,
-        accountKey,
+        accounts,
         sampled,
         now
-      });
-      await paceSession({
-        session,
-        account,
-        accountKey
-      });
+      }) : null;
+      if (assessment !== null) {
+        byAccount.set(assessment.accountKey, [...byAccount.get(assessment.accountKey) ?? [], assessment]);
+      }
     }
+
+    for (const assessments of byAccount.values()) {
+      await shareAccount(assessments);
+    }
+
+    await releaseOnePerAccount();
+
+    for (const accountKey of steppedAccounts) {
+      forgetSamples(accountKey);
+    }
+
+    steppedAccounts.clear();
   }
 
   // Pacing turned off for the session's project: let it be if paused, and put
@@ -1219,9 +1509,10 @@ export function createUsagePacing(host: PacingHost) {
         }
 
         const isReady = state.phase === PacePhase.enum.ready;
-        const isContinuingWhenReady = settingsOf(session)[state.windowKind].stopThen === PacingStopThen.enum.continue
-          || state.isContinuingWhenReady
-          || state.restUntil !== null;
+        const isContinuingWhenReady = isContinuingOnRoom({
+          state,
+          pacing: settingsOf(session)
+        });
         pauses.push({
           id: session.id,
           isReady,

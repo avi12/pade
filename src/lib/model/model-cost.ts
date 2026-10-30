@@ -15,7 +15,7 @@ const COST_TIERS = [
   ["sonnet"],
   ["opus"]
 ] as const;
-const NO_TIER = -1;
+export const NO_TIER = -1;
 /** Sonnet's tier: the cheapest one trusted to write code. */
 const CODING_FLOOR_TIER = 1;
 
