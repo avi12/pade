@@ -28,6 +28,7 @@ import {
   LimitResetOutcome,
   McpChange,
   ModelOption,
+  ModelTokenUsage,
   PathProbe,
   ProjectEntry,
   PtyChunk,
@@ -81,6 +82,7 @@ export enum Command {
   agentResumeArgs = "agent_resume_args",
   agentConversations = "agent_conversations",
   agentSessionContext = "agent_session_context",
+  sessionTokenUsage = "session_token_usage",
   agentRunningModel = "agent_running_model",
   projectAutoname = "project_autoname",
   sessionGenerateName = "session_generate_name",
@@ -304,6 +306,14 @@ export interface CommandProtocolMap {
     command: string;
     conversationId?: string;
   }) => SessionContext | null;
+  /** What the session and its subagents spent since `since` (epoch ms), one
+   *  entry per model, read from the agent's own transcripts; empty for an
+   *  agent that keeps none. */
+  [Command.sessionTokenUsage]: (data: {
+    command: string;
+    conversationId?: string;
+    since: number;
+  }) => ModelTokenUsage[];
   /** The model and effort the session runs, as the agent itself reported it
    *  (hooks, its session log, a plugin - never its terminal). */
   [Command.agentRunningModel]: (data: {
@@ -732,6 +742,7 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.agentResumeArgs]: z.array(z.string()),
   [Command.agentConversations]: z.array(RecordedConversation),
   [Command.agentSessionContext]: SessionContext.nullable(),
+  [Command.sessionTokenUsage]: z.array(ModelTokenUsage),
   [Command.agentRunningModel]: RunningModel.nullable(),
   [Command.projectAutoname]: z.string().nullable(),
   [Command.sessionGenerateName]: z.string().nullable(),

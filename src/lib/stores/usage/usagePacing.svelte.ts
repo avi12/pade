@@ -44,13 +44,16 @@ import type { AccountUsage, AgentSession, PacingByWindow, UsageWindow } from "@/
 import {
   costWeight,
   lightestToRestore,
+  measuredPerEstimated,
   planShedding,
   sessionLoad,
   shedFraction
 } from "@/lib/usage/pacing/load-shedding";
+import { measuredBurn } from "@/lib/usage/pacing/measured-burn";
 import {
   allowedSteps,
   isPacingOn,
+  MILLISECONDS_PER_MINUTE,
   PACING_STEP_ORDER,
   pacingMargins,
   spokenTime
@@ -85,7 +88,6 @@ const WORKING_SHARE_SMOOTHING = POLL_MS / RATE_HISTORY_MS;
 /** How long an account waits after letting one paused session go before the
  *  next - long enough for its usage to show what the first one spends. */
 const RELEASE_SPACING_MS = MINIMUM_RATE_SPAN_MS;
-const MILLISECONDS_PER_MINUTE = 60_000;
 const MINUTES = new Intl.NumberFormat(undefined, {
   style: "unit",
   unit: "minute",
@@ -609,6 +611,14 @@ export function createUsagePacing(host: PacingHost) {
   /** When each account last let a paused session go. */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read per scan, never rendered
   const lastReleaseAt = new Map<string, number>();
+  /** Each working session's measured burn this scan, in priced tokens per
+   *  minute (`measuredBurn`) - read once per scan, before the accounts are
+   *  shared out. A session missing here has its load estimated. */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's reads, never rendered
+  const measuredLoads = new Map<string, number>();
+  /** What one unit of estimated load measures as this scan
+   *  (`measuredPerEstimated`). */
+  let estimateScale = 1;
 
   for (const [id, state] of Object.entries(
     readStoredJson({
@@ -1009,9 +1019,16 @@ export function createUsagePacing(host: PacingHost) {
 
   type WorkingAssessment = ReturnType<typeof assessWorking>;
 
-  // A session's estimated share-driver of its account's spend: what it runs,
-  // how much of the recent time it worked, and the subagents it runs now.
+  // A session's share-driver of its account's spend: what it and its subagents
+  // measurably burned lately, or - with nothing measured - its estimate, put on
+  // the measured sessions' scale.
   function loadOf(session: AgentSession) {
+    return measuredLoads.get(session.id) ?? estimatedLoad(session) * estimateScale;
+  }
+
+  // What a session is estimated to spend: what it runs, how much of the recent
+  // time it worked, and the subagents it runs now.
+  function estimatedLoad(session: AgentSession) {
     const running = sessionModel(session.id);
     return sessionLoad({
       cost: costWeight({
@@ -1379,6 +1396,43 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
+  // Measure each paced working session's burn - all at once, off the agents'
+  // transcripts - and rescale the estimates of the rest onto it. A session
+  // nothing was measured for keeps its estimate (`measuredBurn` never rejects).
+  async function measureLoads({ sessions, now }: {
+    sessions: readonly AgentSession[];
+    now: number;
+  }) {
+    const measurable = sessions.filter(session => isWorking(session.id) && isPacingOn(settingsOf(session)));
+    const readings = await Promise.all(
+      measurable.map(async session => ({
+        session,
+        measured: await measuredBurn({
+          session,
+          now
+        })
+      }))
+    );
+    measuredLoads.clear();
+    const scales: {
+      measured: number;
+      estimated: number;
+    }[] = [];
+    for (const { session, measured } of readings) {
+      if (measured === null) {
+        continue;
+      }
+
+      measuredLoads.set(session.id, measured);
+      scales.push({
+        measured,
+        estimated: estimatedLoad(session)
+      });
+    }
+
+    estimateScale = measuredPerEstimated(scales);
+  }
+
   // One look at every session worth a look - working ones that may need pacing,
   // paced ones that may continue - then each account's working sessions shared
   // out together. The accounts stepped this scan start their burn rate over.
@@ -1386,6 +1440,10 @@ export function createUsagePacing(host: PacingHost) {
     const sessions = host.sessions();
     const now = Date.now();
     trackSessions({
+      sessions,
+      now
+    });
+    await measureLoads({
       sessions,
       now
     });

@@ -870,6 +870,18 @@ export const SessionContext = z.object({
 });
 export type SessionContext = z.infer<typeof SessionContext>;
 
+/** One model's share of what a session and its subagents spent over a recent
+ *  window, by token type, as the agent's own transcripts account for it. */
+export const ModelTokenUsage = z.object({
+  model: z.string(),
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  cacheReadTokens: z.number(),
+  cacheWriteFiveMinuteTokens: z.number(),
+  cacheWriteOneHourTokens: z.number()
+});
+export type ModelTokenUsage = z.infer<typeof ModelTokenUsage>;
+
 /** One conversation an agent recorded for a project - what its own `/resume`
  *  picker lists. `resumeArguments` reopen it for an agent PADE can't pin by
  *  `conversationId` at spawn (Codex). */

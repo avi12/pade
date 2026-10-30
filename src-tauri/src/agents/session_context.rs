@@ -56,40 +56,79 @@ struct CatalogLimit {
 }
 
 /// One line of an agent session log - only the shape the token accounting and
-/// the turn's model and effort live in. Every other field is ignored.
+/// the turn's model and effort live in. Every other field is ignored. Shared
+/// with `token_burn`, which sums the same accounting over a recent window.
 #[derive(Debug, Deserialize)]
-struct LogLine {
-    message: Option<LogMessage>,
+pub(super) struct LogLine {
+    pub(super) message: Option<LogMessage>,
     /// The reasoning effort the session runs at, stamped beside every turn.
     effort: Option<String>,
+    /// When the line was written, RFC 3339 UTC.
+    pub(super) timestamp: Option<String>,
+    /// The API request a reply came back on - with the message id, what tells
+    /// one reply apart from the repeated lines of its content blocks.
+    #[serde(rename = "requestId")]
+    pub(super) request_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-struct LogMessage {
-    model: Option<String>,
-    usage: Option<TokenUsage>,
+pub(super) struct LogMessage {
+    pub(super) id: Option<String>,
+    pub(super) model: Option<String>,
+    pub(super) usage: Option<TokenUsage>,
 }
 
 /// Claude's placeholder model on turns it writes itself (an API error, an
 /// interrupt) - not a model anything ran on.
-const SYNTHETIC_MODEL: &str = "<synthetic>";
+pub(super) const SYNTHETIC_MODEL: &str = "<synthetic>";
 
 /// The token accounting an assistant turn records. Every count is optional
 /// because the same log carries other message shapes. The wire names all carry
 /// a `_tokens` suffix this struct drops - the type already says what they count.
 #[derive(Debug, Deserialize)]
-struct TokenUsage {
+pub(super) struct TokenUsage {
     #[serde(rename = "input_tokens")]
-    input: Option<u64>,
+    pub(super) input: Option<u64>,
     #[serde(rename = "output_tokens")]
-    output: Option<u64>,
+    pub(super) output: Option<u64>,
     #[serde(rename = "cache_read_input_tokens")]
-    cache_read: Option<u64>,
+    pub(super) cache_read: Option<u64>,
     #[serde(rename = "cache_creation_input_tokens")]
     cache_written: Option<u64>,
+    /// The cache writes split by how long they live - priced differently.
+    #[serde(rename = "cache_creation")]
+    cache_written_by_lifetime: Option<CacheWrites>,
+}
+
+/// How a turn's cache writes split between the two cache lifetimes.
+#[derive(Debug, Deserialize)]
+struct CacheWrites {
+    #[serde(rename = "ephemeral_5m_input_tokens")]
+    five_minute: Option<u64>,
+    #[serde(rename = "ephemeral_1h_input_tokens")]
+    one_hour: Option<u64>,
 }
 
 impl TokenUsage {
+    /// The turn's cache writes as (five-minute, one-hour) tokens. A log with no
+    /// split, or a split short of the total, counts the rest as five-minute
+    /// writes - the lifetime a cache write gets unless asked for longer.
+    pub(super) fn cache_writes(&self) -> (u64, u64) {
+        let total = self.cache_written.unwrap_or_default();
+        let one_hour = self
+            .cache_written_by_lifetime
+            .as_ref()
+            .and_then(|split| split.one_hour)
+            .unwrap_or_default();
+        let five_minute = self
+            .cache_written_by_lifetime
+            .as_ref()
+            .and_then(|split| split.five_minute)
+            .unwrap_or_default();
+        let unsplit = total.saturating_sub(one_hour + five_minute);
+        (five_minute + unsplit, one_hour)
+    }
+
     /// What the conversation occupies after this turn: everything the next
     /// request re-sends - the uncached input, the cached prefix it reads back,
     /// the prefix it just wrote, and the reply it just produced. Cache reads
@@ -318,7 +357,7 @@ pub fn claude_transcript(conversation_id: &str) -> Option<PathBuf> {
 /// so the project directory is matched by scanning rather than by re-deriving
 /// Claude's path encoding. The one place this file is located; see the module
 /// note on why only Claude is resolved.
-fn claude_session_log(command: &str, conversation_id: Option<&str>) -> Option<PathBuf> {
+pub(super) fn claude_session_log(command: &str, conversation_id: Option<&str>) -> Option<PathBuf> {
     if command != ID_CLAUDE {
         return None;
     }

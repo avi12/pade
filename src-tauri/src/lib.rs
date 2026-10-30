@@ -182,6 +182,7 @@ pub fn run() {
             agents::resume::agent_resume_args,
             agents::conversations::agent_conversations,
             agents::session_context::agent_session_context,
+            agents::token_burn::session_token_usage,
             agents::running_model::agent_running_model,
             agents::running_model::agent_model_options,
             agents::running_model::agent_apply_model,

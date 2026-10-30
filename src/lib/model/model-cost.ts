@@ -2,7 +2,8 @@
 // model thinking less (one effort level down), or a cheaper model. No catalog
 // states a price, so a model's cost tier is read from the
 // family word in its id, the one thing every vendor keeps stable: Haiku and the
-// mini/nano/flash/lite lines are the cheap tier, Sonnet the middle, Opus the top.
+// mini/nano/flash/lite lines are the cheap tier, then Sonnet, Opus, and Fable
+// at the top. What each tier costs lives in `token-price.ts`.
 // A model in no known tier is never swapped, only turned down. Pacing can't tell
 // a coding turn from a docs one, so it never swaps below the coding floor.
 
@@ -13,8 +14,11 @@ import type { ModelChoice, ModelOption } from "@/lib/types";
 const COST_TIERS = [
   ["haiku", "mini", "nano", "flash", "lite"],
   ["sonnet"],
-  ["opus"]
+  ["opus"],
+  ["fable"]
 ] as const;
+/** The tiers' shape, so a table keyed by tier has exactly one entry each. */
+export type CostTiers = typeof COST_TIERS;
 export const NO_TIER = -1;
 /** Sonnet's tier: the cheapest one trusted to write code. */
 const CODING_FLOOR_TIER = 1;

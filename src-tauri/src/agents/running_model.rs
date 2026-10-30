@@ -636,7 +636,7 @@ fn write_json(path: &Path, value: &impl Serialize) -> std::io::Result<()> {
     std::fs::rename(partial, path)
 }
 
-fn modified_milliseconds(path: &Path) -> Option<u64> {
+pub(super) fn modified_milliseconds(path: &Path) -> Option<u64> {
     Some(milliseconds_since_unix_epoch(
         std::fs::metadata(path).ok()?.modified().ok()?,
     ))
@@ -644,7 +644,7 @@ fn modified_milliseconds(path: &Path) -> Option<u64> {
 
 /// Milliseconds since the epoch for an RFC 3339 UTC timestamp as agents write
 /// them (`2026-10-12T01:28:38.123Z`). Hand-rolled to keep a date crate out.
-fn timestamp_milliseconds(timestamp: &str) -> Option<u64> {
+pub(super) fn timestamp_milliseconds(timestamp: &str) -> Option<u64> {
     let (date, time) = timestamp.strip_suffix('Z')?.split_once('T')?;
     let [year, month, day] = three_numbers(date, '-')?;
     let (clock, fraction) = time.split_once('.').unwrap_or((time, "0"));

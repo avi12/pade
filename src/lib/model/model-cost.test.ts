@@ -38,6 +38,7 @@ describe("costTier", () => {
   it("reads the tier from the family word", () => {
     expect(costTier("claude-haiku-4-5-20251001")).toBeLessThan(costTier("claude-sonnet-5-5"));
     expect(costTier("claude-sonnet-5-5")).toBeLessThan(costTier("claude-opus-5-5[1m]"));
+    expect(costTier("claude-opus-5-5")).toBeLessThan(costTier("claude-fable-5-1"));
     expect(costTier("openai/gpt-5.6-mini")).toBe(costTier("claude-haiku-4-5-20251001"));
     expect(costTier("gpt-5.6-sol")).toBe(-1);
   });
@@ -108,6 +109,18 @@ describe("cheaperModelChoice", () => {
     ).toEqual({
       model: "claude-sonnet-5-5",
       effort: "medium"
+    });
+  });
+
+  it("steps Fable down to Opus", () => {
+    expect(
+      cheaperModelChoice({
+        model: "claude-fable-5-1",
+        options: CLAUDE_OPTIONS
+      })
+    ).toEqual({
+      model: "claude-opus-5-5",
+      effort: undefined
     });
   });
 

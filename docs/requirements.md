@@ -261,6 +261,12 @@ writes.
   when more than the chosen margin (**Act when ahead of an even spend by** 6 h
   / 12 h (default) / 1 d / 2 d) ahead of it. Either way nothing is paced under
   60% used. Usage credits don't turn pacing off - going over costs real money.
+  An account's burn is shared by every session on it and their subagents, so
+  the slowdown goes to the sessions spending the most of it: a Claude session's
+  share is **measured** from its own transcripts (the tokens it and its
+  subagents spent in the last 20 minutes, priced by list-price ratio,
+  `lib/usage/pacing/token-price.ts`), any other agent's is estimated from its
+  model, effort, time spent working and subagents.
   The Config panel's **Usage pacing** card has a **This workspace / Global**
   scope switch over one block per window (**Session window**, **Weekly
   window**), each with its own settings (`lib/usage/pacing/pacing-scope.ts`): global

@@ -7,7 +7,8 @@
 //! The submodules hold everything else that speaks to a running agent: naming
 //! a session or project (`naming`, with `copilot` as a name source), reopening
 //! its conversation (`resume`), reading its live model and effort
-//! (`running_model`) and its context fill (`session_context`).
+//! (`running_model`), its context fill (`session_context`) and the tokens it
+//! and its subagents spent lately (`token_burn`).
 
 pub(crate) mod conversation_watch;
 pub(crate) mod conversations;
@@ -17,6 +18,7 @@ pub(crate) mod resume;
 pub(crate) mod running_model;
 pub(crate) mod session_context;
 pub(crate) mod summary;
+pub(crate) mod token_burn;
 
 use std::path::PathBuf;
 

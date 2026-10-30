@@ -212,7 +212,7 @@ export function allowedSteps(settings: PacingSettings) {
   return ordered(settings.steps);
 }
 
-const MILLISECONDS_PER_MINUTE = 60_000;
+export const MILLISECONDS_PER_MINUTE = 60_000;
 
 /** How far ahead of pace each window may run, from its settings - null for a
  *  window whose pacing is off. */

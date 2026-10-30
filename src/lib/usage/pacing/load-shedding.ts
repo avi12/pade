@@ -6,11 +6,16 @@
 // every subagent those sessions run. So when it runs over pace, the question is
 // not "should this session slow down" but "how much of the account's spend must
 // go, and from whom". Each session's share is estimated from what drives its
-// spend:
+// spend. Where the agent's own transcripts say what it spent, the share is
+// measured: the priced tokens it and its subagents burned per minute lately
+// (`token-price`, `measured-burn`). Otherwise it is estimated:
 //
-//     load = model cost × effort weight × working share × (1 + subagents)
+//     load = model price × effort weight × working share × (1 + subagents)
 //
-// and the account must shed the fraction its burn runs over the pace that lasts
+// with the model's price the same list-price ratio the measured tokens are
+// priced by (Haiku 1, Sonnet 4, Opus 8, Fable 20), and the estimate rescaled
+// onto the measured sessions' scale (`measuredPerEstimated`) so both kinds of
+// load share one account. The account must shed the fraction its burn runs over the pace that lasts
 // to the reset:
 //
 //     shed = 1 - target rate / measured rate,  target = left / time to reset
@@ -21,15 +26,10 @@
 // the shed. A session takes at most one step per round: the next round measures
 // again before asking for more.
 
-import { costTier, NO_TIER } from "@/lib/model/model-cost";
 import { effortStep } from "@/lib/model/model-label";
 import type { ModelChoice, UsageWindow } from "@/lib/types";
+import { priceRatio } from "@/lib/usage/pacing/token-price";
 
-/** Relative price per cost tier, cheapest first (Haiku, Sonnet, Opus) - the
- *  rough ratio of their per-token prices. */
-const TIER_WEIGHTS = [1, 3, 5] as const;
-/** A model no tier places costs as much as the middle tier. */
-const UNKNOWN_TIER_WEIGHT = TIER_WEIGHTS[1];
 /** An effort ladder spans these weights, lowest level to highest - more effort
  *  means more thinking tokens on the same model. */
 const LOWEST_EFFORT_WEIGHT = 0.5;
@@ -42,8 +42,7 @@ const FULL_PERCENTAGE = 100;
 export function costWeight({ model, effort, ladder = [] }: ModelChoice & {
   ladder?: readonly string[];
 }) {
-  const tier = costTier(model ?? "");
-  const tierWeight = tier === NO_TIER ? UNKNOWN_TIER_WEIGHT : TIER_WEIGHTS[tier];
+  const tierWeight = priceRatio(model ?? "");
   const place = effort === undefined ? null : effortStep({
     model: model ?? "",
     effort,
@@ -66,6 +65,24 @@ export function sessionLoad({ cost, workingShare, subagents }: {
   subagents: number;
 }) {
   return cost * workingShare * (1 + subagents);
+}
+
+/** How much measured load one unit of estimated load stands for, over the
+ *  sessions both measured and estimated - so a session nothing measured yet
+ *  joins the measured ones on their scale. 1 while nothing is measured. */
+export function measuredPerEstimated(sessions: readonly {
+  measured: number;
+  estimated: number;
+}[]) {
+  let measured = 0;
+  let estimated = 0;
+  for (const session of sessions) {
+    measured += session.measured;
+    estimated += session.estimated;
+  }
+
+  const isComparable = measured > 0 && estimated > 0;
+  return isComparable ? measured / estimated : 1;
 }
 
 /** The fraction of its spend an account must shed to last until `freeAt` -

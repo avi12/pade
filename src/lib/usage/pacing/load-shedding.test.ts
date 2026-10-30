@@ -2,6 +2,7 @@ import { UsageWindowKind } from "@/lib/types";
 import {
   costWeight,
   lightestToRestore,
+  measuredPerEstimated,
   planShedding,
   sessionLoad,
   shedFraction
@@ -29,6 +30,27 @@ describe("costWeight", () => {
     expect(sonnet).toBeGreaterThan(haiku);
   });
 
+  it("prices the tiers by their long-context list-price ratio", () => {
+    const haiku = costWeight({
+      model: "claude-haiku-5-5"
+    });
+    expect(
+      costWeight({
+        model: "claude-sonnet-5-5"
+      }) / haiku
+    ).toBe(4);
+    expect(
+      costWeight({
+        model: "claude-opus-5-5"
+      }) / haiku
+    ).toBe(8);
+    expect(
+      costWeight({
+        model: "claude-fable-5-1"
+      }) / haiku
+    ).toBe(20);
+  });
+
   it("prices more effort above less on the same model", () => {
     const high = costWeight({
       model: "claude-opus-5-5",
@@ -51,6 +73,35 @@ describe("costWeight", () => {
         model: "claude-sonnet-5-5"
       })
     );
+  });
+});
+
+describe("measuredPerEstimated", () => {
+  it("scales an estimate onto what the measured sessions burn", () => {
+    expect(
+      measuredPerEstimated([
+        {
+          measured: 3000,
+          estimated: 2
+        },
+        {
+          measured: 1000,
+          estimated: 2
+        }
+      ])
+    ).toBe(1000);
+  });
+
+  it("leaves an estimate as it is while nothing is measured", () => {
+    expect(measuredPerEstimated([])).toBe(1);
+    expect(
+      measuredPerEstimated([
+        {
+          measured: 500,
+          estimated: 0
+        }
+      ])
+    ).toBe(1);
   });
 });
 
