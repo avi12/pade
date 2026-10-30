@@ -9,11 +9,9 @@
   // exact words in the tooltip. A button: it opens the tab strip's model menu.
   // Nothing renders until the agent has reported.
 
-  import Icon from "@/lib/Icon.svelte";
-  import EffortTint from "@/lib/model/EffortTint.svelte";
-  import { effortStep, effortTone, modelLabel } from "@/lib/model/model-label";
+  import { runningModelLook } from "@/lib/model/running-model";
+  import RunningModelName from "@/lib/model/RunningModelName.svelte";
   import { sessionModel } from "@/lib/stores/agent/context.svelte";
-  import { modelOption } from "@/lib/stores/model/modelOptions.svelte";
   import type { AgentSession } from "@/lib/types";
 
   const { session, menuId, anchored, onopen }: {
@@ -38,32 +36,9 @@
       return "";
     }
 
-    const modelAndEffort = modelLabel(running);
-    if (running.isUltracode) {
-      return `${modelAndEffort} · Ultracode on`;
-    }
-
-    return modelAndEffort;
-  });
-  const tone = $derived.by(() => {
-    if (running === null || running.effort === null) {
-      return null;
-    }
-
-    const ladder = modelOption({
-      command: session.agent.command,
-      model: running.id
-    })?.efforts.map(option => option.id);
-    const step = effortStep({
-      model: running.id,
-      effort: running.effort,
-      ladder
-    });
-    if (step === null) {
-      return null;
-    }
-
-    return effortTone(step);
+    return runningModelLook({
+      running
+    }).label;
   });
 </script>
 
@@ -77,12 +52,7 @@
     onclick={async () => await onopen()}
     popovertarget={menuId}
   >
-    <EffortTint {tone}>
-      {running.name}
-      {#if running.isUltracode}
-        <Icon name="bolt" size={12} />
-      {/if}
-    </EffortTint>
+    <RunningModelName command={session.agent.command} sessionId={session.id} />
   </button>
 {/if}
 
