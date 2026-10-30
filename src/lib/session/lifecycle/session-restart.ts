@@ -25,10 +25,12 @@ export function mcpRestartTargets({ sessions, change }: {
 }
 
 /** Apply a re-key (old session id → new id) across the pane layout: each
- *  restarted session gets its new id and drops its `initialPrompt` (already
- *  sent, so the agent resumes rather than re-sends), while the pane order and
- *  active pane follow their sessions to the new ids. Pure - the caller assigns
- *  the results to its reactive state and does the side effects (kill, bookkeeping). */
+ *  restarted session gets its new id, while the pane order and active pane
+ *  follow their sessions to the new ids. A pending first prompt stays behind
+ *  with the old id (stores/session/pendingPrompts carries none across a
+ *  restart), so the agent resumes rather than re-sends. Pure - the caller
+ *  assigns the results to its reactive state and does the side effects (kill,
+ *  bookkeeping). */
 export function rekeyLayout({ sessions, paneIds, activeId, rekeyed }: {
   sessions: readonly AgentSession[];
   paneIds: readonly string[];
@@ -40,8 +42,7 @@ export function rekeyLayout({ sessions, paneIds, activeId, rekeyed }: {
       const restartedId = rekeyed[session.id];
       return restartedId ? {
         ...session,
-        id: restartedId,
-        initialPrompt: undefined
+        id: restartedId
       } : session;
     }),
     paneIds: paneIds.map(id => rekeyed[id] ?? id),

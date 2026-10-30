@@ -114,12 +114,9 @@ describe("mcpRestartTargets", () => {
 });
 
 describe("rekeyLayout", () => {
-  it("re-keys the restarted sessions and drops their initial prompt", () => {
+  it("re-keys the restarted sessions", () => {
     const sessions = [
-      session({
-        id: "a",
-        initialPrompt: "build it"
-      }),
+      session({ id: "a" }),
       session({ id: "b" })
     ];
     const relaid = rekeyLayout({
@@ -131,7 +128,6 @@ describe("rekeyLayout", () => {
       }
     });
     expect(relaid.sessions.map(session => session.id)).toEqual(["a2", "b"]);
-    expect(relaid.sessions[0].initialPrompt).toBeUndefined();
     expect(relaid.sessions[0].conversationId).toBe("conv-a");
     expect(relaid.paneIds).toEqual(["a2", "b"]);
     expect(relaid.activeId).toBe("a2");

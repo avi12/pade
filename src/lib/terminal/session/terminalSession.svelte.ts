@@ -7,6 +7,7 @@ import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging"
 import { appearance } from "@/lib/settings/prefs.svelte";
 import { observeTurnOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
 import { observeContextScreen } from "@/lib/stores/agent/context.svelte";
+import { clearPendingPrompt, pendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { observeUsageLimitScreen } from "@/lib/stores/usage/usageResume.svelte";
 import { createSessionActivity } from "@/lib/terminal/activity/sessionActivity.svelte";
@@ -72,9 +73,10 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
   // "trust this folder?" prompt before its input is live, so it's delivered once
   // the agent has accepted that gate and settled at its REPL.
   const delivery = createInitialPromptDelivery({
-    prompt: () => session().initialPrompt,
+    prompt: () => pendingPrompt(session().id),
     write: writeToPty,
-    isWorking: () => activity.status === SessionStatus.enum.working
+    isWorking: () => activity.status === SessionStatus.enum.working,
+    settle: () => clearPendingPrompt(session().id)
   });
   const colorScheme = createColorSchemeRelay({
     agentId: () => session().agent.id,

@@ -831,7 +831,6 @@ export interface AgentSession {
    *  several projects at once; the window's project context (top bar, Change
    *  Feed, repository, tasks) follows the active session's project. */
   project: string;
-  initialPrompt?: string;
   /** Working dir override - a per-branch git worktree, when set. */
   cwd?: string;
   /** Branch this session works, when spawned on a worktree. */

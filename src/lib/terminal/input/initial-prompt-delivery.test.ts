@@ -18,13 +18,19 @@ function deliveryFor({ prompt = PROMPT, isWorking = false }: {
   isWorking?: boolean;
 } = {}) {
   const written: string[] = [];
-  const state = { isWorking };
+  const state = {
+    isWorking,
+    isSettled: false
+  };
   const delivery = createInitialPromptDelivery({
     prompt: () => prompt,
     async write(data) {
       written.push(data);
     },
-    isWorking: () => state.isWorking
+    isWorking: () => state.isWorking,
+    settle() {
+      state.isSettled = true;
+    }
   });
   return {
     delivery,
@@ -67,10 +73,13 @@ describe("createInitialPromptDelivery", () => {
     await delivering;
     expect(written).toEqual([pastedText(PROMPT), ENTER]);
 
+    expect(state.isSettled).toBe(false);
     state.isWorking = true;
     await vi.advanceTimersByTimeAsync(2_000);
     await delivery.deliverIfReady();
     expect(written).toEqual([pastedText(PROMPT), ENTER]);
+    // Settled, so the prompt no longer rides along on a reload or a hand-off.
+    expect(state.isSettled).toBe(true);
   });
 
   it("re-sends only the Enter when the paste already echoed", async () => {

@@ -23,7 +23,8 @@ export const SessionStateKey = z.enum([
   "usagePacing",
   "usageAdapt",
   "modelSwitch",
-  "retheme"
+  "retheme",
+  "pendingPrompt"
 ]);
 export type SessionStateKey = z.infer<typeof SessionStateKey>;
 

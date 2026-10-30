@@ -6,6 +6,7 @@ import {
   type SessionSnapshot
 } from "@/lib/session/lifecycle/session-restore";
 import { forgetSession } from "@/lib/session/lifecycle/session-scope";
+import { clearPendingPrompt, pendingPrompt, setPendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
 import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import type { AgentSession } from "@/lib/types";
 import {
@@ -78,16 +79,43 @@ describe("save / read round trip", () => {
     expect(snapshot?.activeId).toBe("b");
   });
 
-  it("strips the already-submitted initial prompt", () => {
+  it("carries a first prompt still waiting to be delivered, and gives it back", () => {
+    setPendingPrompt({
+      id: "a",
+      prompt: "build me a thing"
+    });
     saveSessionSnapshot({
       project: "C:\\repos\\pade",
-      sessions: [session("a", { initialPrompt: "build me a thing" })],
+      sessions: [session("a")],
+      paneIds: ["a"],
+      activeId: "a"
+    });
+    forgetSession("a");
+
+    const snapshot = readSessionSnapshot();
+    expect(
+      snapshot && pruneToLive({
+        snapshot,
+        liveIds: new Set(["a"])
+      })
+    ).not.toBeNull();
+    expect(pendingPrompt("a")).toBe("build me a thing");
+  });
+
+  it("leaves out a first prompt already delivered", () => {
+    setPendingPrompt({
+      id: "a",
+      prompt: "build me a thing"
+    });
+    clearPendingPrompt("a");
+    saveSessionSnapshot({
+      project: "C:\\repos\\pade",
+      sessions: [session("a")],
       paneIds: ["a"],
       activeId: "a"
     });
 
-    const stored = backing.get(KEY) ?? "";
-    expect(stored).not.toContain("build me a thing");
+    expect(backing.get(KEY) ?? "").not.toContain("build me a thing");
   });
 
   it("keeps each session's name, and gives it back when the session is restored", () => {

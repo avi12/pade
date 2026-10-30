@@ -40,14 +40,22 @@ const TRUST_GATE_KEY_BYTES = {
 const PROMPT_SUBMIT_SETTLE_MS = 1_200;
 const PROMPT_MAXIMUM_ATTEMPTS = 8;
 
-export function createInitialPromptDelivery({ prompt, write, isWorking }: {
-  /** The session's first prompt, if it has one. */
+export function createInitialPromptDelivery({ prompt, write, isWorking, settle }: {
+  /** The session's first prompt, while it still waits to be delivered. */
   prompt: () => string | undefined;
   write: (data: string) => Promise<void>;
   /** The session is busy right now (not settled at its prompt). */
   isWorking: () => boolean;
+  /** Delivery is over - the agent took the prompt up, or it was given up on -
+   *  so the prompt stops being pending wherever the session goes next. */
+  settle: () => void;
 }) {
   let isDelivered = false;
+
+  function finishDelivery() {
+    isDelivered = true;
+    settle();
+  }
   // Whether the last screen sample showed the trust gate. Delivery holds while it
   // does - a prompt pasted into the gate's menu is lost.
   let isTrustGateOnScreen = false;
@@ -87,7 +95,7 @@ export function createInitialPromptDelivery({ prompt, write, isWorking }: {
     }
 
     if (attempts >= PROMPT_MAXIMUM_ATTEMPTS) {
-      isDelivered = true;
+      finishDelivery();
       clearTimeout(verifyTimer);
       return;
     }
@@ -134,7 +142,7 @@ export function createInitialPromptDelivery({ prompt, write, isWorking }: {
       isAwaitingVerify = false;
 
       if (isWorking()) {
-        isDelivered = true;
+        finishDelivery();
         return;
       }
 

@@ -15,6 +15,7 @@ import { layoutWithoutSession, layoutWithoutSessions, wrappedIndex } from "@/lib
 import type { PaneLayout } from "@/lib/session/panes/pane-layout";
 import { settings } from "@/lib/settings/settings.svelte";
 import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
+import { setPendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
 import { applyNamingToAll, isNaming, setNaming } from "@/lib/stores/session/sessionNaming.svelte";
 import { isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
@@ -58,7 +59,6 @@ function newSession({ options, project }: {
     id: options.sessionId ?? crypto.randomUUID(),
     agent: options.agent,
     project,
-    initialPrompt: options.initialPrompt,
     modelChoice: startingModelChoice({
       explicit: options.modelChoice,
       prefs: settings.prefs,
@@ -190,6 +190,10 @@ export function createWindowSessions(host: WindowSessionsHost) {
       project: options.project ?? activeProject
     });
     sessions.push(session);
+    setPendingPrompt({
+      id: session.id,
+      prompt: options.initialPrompt
+    });
     // A new tab is born under its project's setting - the same one the effect
     // above applies to the tabs already open.
     setNaming({
