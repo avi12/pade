@@ -1,5 +1,10 @@
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import { heldProjects, rewatchHeldProjects, watchHeldProjects } from "@/lib/stores/workspace/project-watch";
+import {
+  heldProjects,
+  onWatchesArmed,
+  rewatchHeldProjects,
+  watchHeldProjects
+} from "@/lib/stores/workspace/project-watch";
 import { describe, expect, it, vi } from "vitest";
 
 const APP = "C:/work/app";
@@ -42,5 +47,28 @@ describe("watchHeldProjects", () => {
       [Command.watchProjects, { roots: [APP] }],
       [Command.watchProjects, { roots: [APP] }]
     ]);
+  });
+
+  it("tells subscribers each time a request settles, failed ones included", async () => {
+    const listener = vi.fn(async () => {});
+    const unsubscribe = onWatchesArmed(listener);
+    vi.mocked(sendMessage).mockRejectedValueOnce(new Error("locked"));
+
+    await expect(watchHeldProjects([API])).rejects.toThrow("locked");
+    await rewatchHeldProjects();
+    unsubscribe();
+    await rewatchHeldProjects();
+
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a set whose last request failed", async () => {
+    vi.mocked(sendMessage).mockClear();
+    vi.mocked(sendMessage).mockRejectedValueOnce(new Error("locked"));
+
+    await expect(watchHeldProjects(["C:/work/retry"])).rejects.toThrow("locked");
+    await watchHeldProjects(["C:/work/retry"]);
+
+    expect(vi.mocked(sendMessage)).toHaveBeenCalledTimes(2);
   });
 });

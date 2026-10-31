@@ -6,11 +6,7 @@
   // The empty panel's self-description: an empty list is ambiguous (nothing
   // changed, or there is no watch on this project), so it states which - and,
   // when nothing watches this project, offers to arm the window's watches again.
-  const { summary, onArmed }: {
-    summary: ReturnType<typeof watchSummary>;
-    /** Re-read what the backend reports once an arm attempt has settled. */
-    onArmed: () => Promise<void>;
-  } = $props();
+  const { summary }: { summary: ReturnType<typeof watchSummary> } = $props();
 
   let isArming = $state(false);
 </script>
@@ -32,7 +28,6 @@
           showToast(String(error));
         }
 
-        await onArmed();
         isArming = false;
       }}
     >

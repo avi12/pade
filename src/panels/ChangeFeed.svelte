@@ -8,6 +8,7 @@
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import { feedStore } from "@/lib/stores/workspace/feed.svelte";
+  import { onWatchesArmed } from "@/lib/stores/workspace/project-watch";
   import { workspaceMembers as storedMembers } from "@/lib/stores/workspace/workspaceMembers.svelte";
   import type { ChangeEvent, WatchStatus } from "@/lib/types";
   import FeedCards from "@/panels/feed/FeedCards.svelte";
@@ -95,12 +96,17 @@
     });
   });
 
+  // The window arms its watches after the panel can mount, so a status read on
+  // mount alone could report a watch that is only moments away.
+  const unlistenWatchesArmed = onWatchesArmed(loadWatchStatus);
+
   onDestroy(() => {
     if (clock !== undefined) {
       clearInterval(clock);
     }
 
     unlistenGitState?.();
+    unlistenWatchesArmed();
   });
 
   // The file watches themselves are armed by the shell's windowServices (one per
@@ -251,7 +257,6 @@
 <div class="feed">
   {#if feedStore.events.length === 0}
     <FeedEmptyState
-      onArmed={loadWatchStatus}
       summary={watchSummary({
         status: watchStatus,
         project,
