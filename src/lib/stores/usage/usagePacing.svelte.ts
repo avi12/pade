@@ -742,7 +742,7 @@ export function createUsagePacing(host: PacingHost) {
   }) {
     const isDelegatedWorkRunning = state.phase === PacePhase.enum.pausing
       && !state.hasSentPauseRequest
-      && isWorking(id)
+      && (isWorking(id) || backgroundAgentCount(id) > 0)
       && !isTurnRunningOnScreen(id);
     if (!isDelegatedWorkRunning) {
       return state;
