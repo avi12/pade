@@ -1,8 +1,8 @@
 <script lang="ts">
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
-  import { PacedWindowKind } from "@/lib/types";
-  import type { PacingSettings } from "@/lib/types";
+  import type { AccountUsage, PacedWindowKind, PacingSettings } from "@/lib/types";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import {
     globalPacing,
@@ -11,7 +11,10 @@
     withGlobalWindowPacing,
     withProjectWindowPacing
   } from "@/lib/usage/pacing/pacing-scope";
+  import { reportedPacedKinds } from "@/lib/usage/pacing/usage-pace";
+  import { settledValue } from "@/lib/util/async/settled";
   import PacingWindowSettings from "@/panels/config/pacing/PacingWindowSettings.svelte";
+  import { untrack } from "svelte";
 
   // Usage pacing's settings, one block per paced window (session, weekly), and
   // which scope they edit (lib/usage/pacing/pacing-scope): the global settings every
@@ -43,6 +46,30 @@
     [PacingScope.Workspace]: "Changes here apply to this workspace only",
     [PacingScope.Global]: "Every workspace without its own settings follows these"
   };
+
+  // Only the windows the agent's plan has: Claude Ultra reports a weekly limit
+  // and no session one, so it gets no session settings. The backend caches the
+  // reading for a few minutes.
+  let account = $state<AccountUsage | null>(null);
+  $effect(() => {
+    const agentId = agent;
+    untrack(() => loadAccount(agentId));
+  });
+
+  async function loadAccount(agentId: string) {
+    const reading = await settledValue({
+      promise: sendMessage(Command.usageAccountAgent, {
+        agent: agentId,
+        forceRefresh: false
+      }),
+      fallback: null
+    });
+    if (agentId === agent) {
+      account = reading?.account ?? null;
+    }
+  }
+
+  const shownKinds = $derived(reportedPacedKinds(account));
 
   let scope = $state<PacingScope>(PacingScope.Workspace);
   const isWorkspaceScope = $derived(scope === PacingScope.Workspace);
@@ -119,7 +146,7 @@
   <span class="field-hint">{SCOPE_HINTS[scope]}</span>
 </div>
 
-{#each PacedWindowKind.options as kind (kind)}
+{#each shownKinds as kind (kind)}
   <PacingWindowSettings
     {agent}
     inherit={inheritFor(kind)}

@@ -69,6 +69,18 @@ function pacedKind(kind: UsageWindowKind) {
   return parsed.success ? parsed.data : null;
 }
 
+/** The paced windows an account reports, in the enum's order - a plan without
+ *  a session limit (Claude Ultra) reports only its weekly one. Every paced
+ *  window while there is no reading, since nothing says which the plan has. */
+export function reportedPacedKinds(account: AccountUsage | null) {
+  if (account === null) {
+    return PacedWindowKind.options;
+  }
+
+  const reported = new Set(account.windows.map(window => pacedKind(window.kind)));
+  return PacedWindowKind.options.filter(kind => reported.has(kind));
+}
+
 export function windowName(kind: UsageWindowKind) {
   const paced = pacedKind(kind);
   return paced === null ? kind : PACED_WINDOW_NAMES[paced];

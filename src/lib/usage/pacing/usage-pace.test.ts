@@ -8,6 +8,7 @@ import {
   PACE_FLOOR_PERCENTAGE,
   paceForecasts,
   pauseRequest,
+  reportedPacedKinds,
   RESET_GRACE_MS,
   resumeRequest,
   slowRestUntil,
@@ -408,6 +409,40 @@ describe("paceForecasts", () => {
         rateOf: () => null
       }).session?.runOutAt
     ).toBeNull();
+  });
+});
+
+describe("reportedPacedKinds", () => {
+  it("leaves out a session limit the plan doesn't report", () => {
+    expect(
+      reportedPacedKinds(
+        account([weeklyWindow({
+          utilization: 30,
+          resetsIn: 3 * DAY_MS
+        })])
+      )
+    ).toEqual([PacedWindowKind.enum.weekly]);
+  });
+
+  it("keeps both in their order when both are reported", () => {
+    expect(
+      reportedPacedKinds(
+        account([
+          weeklyWindow({
+            utilization: 30,
+            resetsIn: 3 * DAY_MS
+          }),
+          sessionWindow({
+            utilization: 70,
+            resetsIn: 3 * HOUR_MS
+          })
+        ])
+      )
+    ).toEqual(PacedWindowKind.options);
+  });
+
+  it("offers every paced window while there is no reading", () => {
+    expect(reportedPacedKinds(null)).toEqual(PacedWindowKind.options);
   });
 });
 
