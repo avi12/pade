@@ -44,16 +44,20 @@
   {#if branches.length > 0}
     <li class="menu-divider" role="separator"></li>
     <li class="menu-separator">On a branch - new worktree</li>
-    {#each branches as branch (branch)}
-      <li>
-        <button
-          class="menu-item branch-item"
-          onclick={async () => await onlaunchbranch(branch)}
-          popovertarget={ADD_SESSION_MENU_ID}
-          popovertargetaction="hide"
-        ><span class="branch-icon"><Icon name="git" /></span>{branch}</button>
-      </li>
-    {/each}
+    <li class="branch-section">
+      <ul class="branch-list">
+        {#each branches as branch (branch)}
+          <li>
+            <button
+              class="menu-item branch-item"
+              onclick={async () => await onlaunchbranch(branch)}
+              popovertarget={ADD_SESSION_MENU_ID}
+              popovertargetaction="hide"
+            ><span class="branch-icon"><Icon name="git" /></span>{branch}</button>
+          </li>
+        {/each}
+      </ul>
+    </li>
   {/if}
 </ul>
 
@@ -61,8 +65,28 @@
   /* Shell and rows come from the shared .popover-menu and .menu-item; only
      width and anchor side live here. */
   .menu {
+    /* Percentages resolve against the position-area cell - the room below the
+       "+" - so the menu stops at the window's foot and the branches scroll
+       while the agents stay in view. */
+    display: flex;
+    flex-direction: column;
+    max-block-size: calc(100% - var(--popover-menu-offset));
     min-inline-size: 220px;
     position-area: bottom span-right;
+
+    .branch-section {
+      display: flex;
+      flex-direction: column;
+      min-block-size: 0;
+    }
+
+    .branch-list {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
 
     /* Leading glyph tints: agents read primary, branches read tertiary (git). */
     .launch-icon {
