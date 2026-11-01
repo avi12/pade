@@ -30,7 +30,7 @@
   class="output"
   {@attach autoscroll}
 >
-  {#each lines as line, i (i)}
+  {#each lines as line (line.id)}
     <div
       class="line"
       class:error={line.stream === RunnerStream.enum.stderr}

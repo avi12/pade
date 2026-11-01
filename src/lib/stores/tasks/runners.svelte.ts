@@ -19,12 +19,21 @@ type RunnerKind = TaskGroup["kind"];
  * exceeds this, the oldest lines are dropped from the head.
  */
 const MAX_LINES = 5000;
+/** Lines allowed past the cap before the head is trimmed back to it - trimming
+ *  in batches, not one line per line, keeps a busy runner from shifting the
+ *  whole buffer on every arrival. */
+const TRIM_SLACK = 500;
 
-/** One captured output line plus which stream it arrived on (for stderr tinting). */
+/** One captured output line plus which stream it arrived on (for stderr
+ *  tinting), with an id that never changes - the output keys by it, so trimming
+ *  the head removes those lines instead of re-rendering every one. */
 interface RunnerLine {
+  id: number;
   text: string;
   stream: RunnerStream;
 }
+
+let nextLineId = 0;
 
 export interface RunnerRow {
   id: string;
@@ -102,6 +111,22 @@ function addRow(row: RunnerTask & Pick<RunnerRow, "id" | "attached">) {
   });
 }
 
+/** Append a line under a fresh id, trimming the head back to the cap once it
+ *  runs a batch past it. */
+function appendLine({ row, text, stream }: Omit<RunnerLine, "id"> & { row: RunnerRow }) {
+  nextLineId += 1;
+  row.lines.push({
+    id: nextLineId,
+    text,
+    stream
+  });
+
+  const isOverCap = row.lines.length > MAX_LINES + TRIM_SLACK;
+  if (isOverCap) {
+    row.lines.splice(0, row.lines.length - MAX_LINES);
+  }
+}
+
 /** Subscribe to the backend runner stream exactly once (call from App onMount). */
 export async function ensureRunnerListeners() {
   if (isListening) {
@@ -115,14 +140,11 @@ export async function ensureRunnerListeners() {
       return;
     }
 
-    row.lines.push({
+    appendLine({
+      row,
       text: data,
       stream
     });
-
-    if (row.lines.length > MAX_LINES) {
-      row.lines.splice(0, row.lines.length - MAX_LINES);
-    }
   });
   await onMessage(EventType.runnerExit, ({ data: { id, code } }) => {
     const row = rowByBackendId(id);
@@ -290,16 +312,13 @@ export async function rerunRunner({ id, preserve }: {
 
   const previousBackendId = row.backendId;
   if (preserve) {
-    row.lines.push(
-      {
-        text: "",
+    for (const text of ["", rerunDivider()]) {
+      appendLine({
+        row,
+        text,
         stream: RunnerStream.enum.stdout
-      },
-      {
-        text: rerunDivider(),
-        stream: RunnerStream.enum.stdout
-      }
-    );
+      });
+    }
   } else {
     row.lines = [];
   }
@@ -318,7 +337,8 @@ export async function rerunRunner({ id, preserve }: {
     // Surface the restart failure in the pane itself: crit dot + the error text.
     row.isDone = true;
     row.isFailed = true;
-    row.lines.push({
+    appendLine({
+      row,
       text: String(error),
       stream: RunnerStream.enum.stderr
     });
