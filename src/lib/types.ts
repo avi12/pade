@@ -799,9 +799,11 @@ export type RunnerInfo = z.infer<typeof RunnerInfo>;
 export const RunnerStream = z.enum(["stdout", "stderr"]);
 export type RunnerStream = z.infer<typeof RunnerStream>;
 
+/** A batch of a runner's output lines from one stream - a burst arrives as one
+ *  event, not one per line. */
 export const RunnerData = z.object({
   id: z.string(),
-  data: z.string(),
+  lines: z.array(z.string()),
   stream: RunnerStream
 });
 export type RunnerData = z.infer<typeof RunnerData>;

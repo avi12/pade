@@ -16,8 +16,9 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Stdio};
+use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
@@ -32,6 +33,12 @@ const MAXIMUM_RUNNER_COMMAND_BYTES: usize = 16 * 1024;
 /// How often the exit-waiter polls its child, releasing the child lock in
 /// between so `runner_stop` can always reach it.
 const EXIT_POLL_INTERVAL: Duration = Duration::from_millis(100);
+/// How long a batch of output lines stays open after its first line - about one
+/// frame, so streaming output still reads as live.
+const BATCH_WINDOW: Duration = Duration::from_millis(16);
+/// The most lines one `runner://data` event carries; a longer burst is split, so
+/// rendering one batch never holds a frame for long.
+const MAXIMUM_BATCH_LINES: usize = 250;
 
 /// The events carrying a runner's output lines and its exit. These names are
 /// the frontend contract (`src/lib/bridge.ts`) - the two sides must agree.
@@ -127,15 +134,15 @@ enum RunnerStream {
     Stderr,
 }
 
-/// One captured line of output from a runner.
+/// A batch of captured lines from one of a runner's streams.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct RunnerData<'a> {
-    /// Borrowed, so a line is emitted without copying the runner id or the
+    /// Borrowed, so a batch is emitted without copying the runner id or the
     /// text the reader already holds.
     id: &'a str,
-    data: &'a str,
-    /// Which stream the line came from.
+    lines: Vec<&'a str>,
+    /// Which stream the lines came from.
     stream: RunnerStream,
 }
 
@@ -168,10 +175,28 @@ fn last_carriage_frame(line: &str) -> &str {
     line.rsplit('\r').next().unwrap_or(line)
 }
 
-/// Pump one piped stream line-by-line to the frontend, tagging each line with the
-/// runner id and stream name. Emit errors are swallowed so a closed frontend never
-/// panics the reader thread.
-fn pump_stream<R: BufRead>(
+/// Collect the lines that follow `first` within one batch window (or up to the
+/// batch cap), so a burst - a type checker printing thousands of errors at once -
+/// reaches the frontend as a few events rather than one per line, each of which
+/// would cost the webview a dispatch and a re-render.
+fn collect_batch(first: String, receiver: &Receiver<String>) -> Vec<String> {
+    let deadline = Instant::now() + BATCH_WINDOW;
+    let mut batch = vec![first];
+    while batch.len() < MAXIMUM_BATCH_LINES {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        let Ok(line) = receiver.recv_timeout(remaining) else {
+            break;
+        };
+        batch.push(line);
+    }
+    batch
+}
+
+/// Pump one piped stream to the frontend in batches of lines, tagged with the
+/// runner id and stream name. A reader thread feeds the lines through a channel so
+/// the batch window can close on time even while the pipe is quiet. Emit errors
+/// are swallowed so a closed frontend never panics the pump.
+fn pump_stream<R: BufRead + Send + 'static>(
     PumpRequest {
         app,
         owner,
@@ -180,14 +205,24 @@ fn pump_stream<R: BufRead>(
         reader,
     }: PumpRequest<R>,
 ) {
-    for line in reader.lines() {
-        let Ok(data) = line else { break };
+    let (sender, receiver) = mpsc::channel();
+    std::thread::spawn(move || {
+        for line in reader.lines() {
+            let Ok(line) = line else { break };
+            if sender.send(line).is_err() {
+                break;
+            }
+        }
+    });
+
+    while let Ok(first) = receiver.recv() {
+        let batch = collect_batch(first, &receiver);
         let _ = app.emit_to(
             &owner,
             RUNNER_DATA_EVENT,
             RunnerData {
                 id: &id,
-                data: last_carriage_frame(&data),
+                lines: batch.iter().map(|line| last_carriage_frame(line)).collect(),
                 stream,
             },
         );
@@ -385,21 +420,50 @@ pub fn init(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{last_carriage_frame, RunnerData, RunnerStream};
+    use std::sync::mpsc;
+
+    use super::{
+        collect_batch, last_carriage_frame, RunnerData, RunnerStream, MAXIMUM_BATCH_LINES,
+    };
 
     /// The `runner://data` payload is the frontend contract; borrowing its
     /// fields must not change the wire shape.
     #[test]
-    fn a_runner_line_serializes_as_id_data_and_stream() {
-        let line = RunnerData {
+    fn a_runner_batch_serializes_as_id_lines_and_stream() {
+        let batch = RunnerData {
             id: "dev",
-            data: "ready",
+            lines: vec!["ready", "listening"],
             stream: RunnerStream::Stderr,
         };
         assert_eq!(
-            serde_json::to_value(&line).expect("serializable"),
-            serde_json::json!({ "id": "dev", "data": "ready", "stream": "stderr" })
+            serde_json::to_value(&batch).expect("serializable"),
+            serde_json::json!({ "id": "dev", "lines": ["ready", "listening"], "stream": "stderr" })
         );
+    }
+
+    #[test]
+    fn a_burst_arrives_as_one_batch_in_order() {
+        let (sender, receiver) = mpsc::channel();
+        for index in 1..=3 {
+            sender.send(format!("line {index}")).expect("open channel");
+        }
+        assert_eq!(
+            collect_batch("line 0".into(), &receiver),
+            ["line 0", "line 1", "line 2", "line 3"]
+        );
+    }
+
+    #[test]
+    fn a_burst_past_the_cap_is_split() {
+        let (sender, receiver) = mpsc::channel();
+        for _ in 0..MAXIMUM_BATCH_LINES {
+            sender.send(String::new()).expect("open channel");
+        }
+        assert_eq!(
+            collect_batch(String::new(), &receiver).len(),
+            MAXIMUM_BATCH_LINES
+        );
+        assert!(receiver.try_recv().is_ok());
     }
 
     #[test]

@@ -111,15 +111,22 @@ function addRow(row: RunnerTask & Pick<RunnerRow, "id" | "attached">) {
   });
 }
 
-/** Append a line under a fresh id, trimming the head back to the cap once it
- *  runs a batch past it. */
-function appendLine({ row, text, stream }: Omit<RunnerLine, "id"> & { row: RunnerRow }) {
-  nextLineId += 1;
-  row.lines.push({
-    id: nextLineId,
-    text,
-    stream
-  });
+/** Append lines from one stream, each under a fresh id, trimming the head back to
+ *  the cap once it runs a batch past it. */
+function appendLines({ row, texts, stream }: Pick<RunnerLine, "stream"> & {
+  row: RunnerRow;
+  texts: readonly string[];
+}) {
+  row.lines.push(
+    ...texts.map(text => {
+      nextLineId += 1;
+      return {
+        id: nextLineId,
+        text,
+        stream
+      };
+    })
+  );
 
   const isOverCap = row.lines.length > MAX_LINES + TRIM_SLACK;
   if (isOverCap) {
@@ -134,15 +141,15 @@ export async function ensureRunnerListeners() {
   }
 
   isListening = true;
-  await onMessage(EventType.runnerData, ({ data: { id, data, stream } }) => {
+  await onMessage(EventType.runnerData, ({ data: { id, lines, stream } }) => {
     const row = rowByBackendId(id);
     if (!row) {
       return;
     }
 
-    appendLine({
+    appendLines({
       row,
-      text: data,
+      texts: lines,
       stream
     });
   });
@@ -312,13 +319,11 @@ export async function rerunRunner({ id, preserve }: {
 
   const previousBackendId = row.backendId;
   if (preserve) {
-    for (const text of ["", rerunDivider()]) {
-      appendLine({
-        row,
-        text,
-        stream: RunnerStream.enum.stdout
-      });
-    }
+    appendLines({
+      row,
+      texts: ["", rerunDivider()],
+      stream: RunnerStream.enum.stdout
+    });
   } else {
     row.lines = [];
   }
@@ -337,9 +342,9 @@ export async function rerunRunner({ id, preserve }: {
     // Surface the restart failure in the pane itself: crit dot + the error text.
     row.isDone = true;
     row.isFailed = true;
-    appendLine({
+    appendLines({
       row,
-      text: String(error),
+      texts: [String(error)],
       stream: RunnerStream.enum.stderr
     });
     return;
