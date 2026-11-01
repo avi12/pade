@@ -11,7 +11,10 @@ import type { RecordedConversation } from "@/lib/types";
 import { settledValue } from "@/lib/util/async/settled";
 import { normalizePath } from "@/lib/util/paths";
 
-const conversationsByProject = $state<Record<string, RecordedConversation[]>>({});
+// Raw and replaced whole: a deep proxy would wrap every field of every read,
+// and the sidebar re-reads every listed project each time a Codex or Copilot
+// store changes.
+let conversationsByProject = $state.raw<Readonly<Record<string, readonly RecordedConversation[]>>>({});
 
 // The projects on screen, so a reported change re-reads only what is shown.
 let listedProjects: readonly string[] = [];
@@ -63,7 +66,13 @@ async function readProjectConversations(project: string) {
     fallback: []
   });
   const isNewestRead = latestReads[key] === read;
-  if (isNewestRead) {
-    conversationsByProject[key] = conversations;
+  // A transcript growing re-reads an unchanged list - writing it anyway would
+  // redraw the whole rail for nothing.
+  const isChanged = JSON.stringify(conversations) !== JSON.stringify(conversationsByProject[key]);
+  if (isNewestRead && isChanged) {
+    conversationsByProject = {
+      ...conversationsByProject,
+      [key]: conversations
+    };
   }
 }
