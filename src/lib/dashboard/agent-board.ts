@@ -94,12 +94,22 @@ export function parseBoardMessage(raw: unknown) {
 export const NO_BOARD_WINDOWS: ReadonlyMap<string, BoardWindow> = new Map();
 
 /** The windows known to the board after `message`: a snapshot replaces its
- *  window's last one, a goodbye drops it, anything else changes nothing. */
-export function windowsAfterMessage({ windows, message }: {
+ *  window's last one, a goodbye drops it, anything else changes nothing. The
+ *  same map comes back for the listener's own window - a channel delivers a
+ *  window's posts to its other listeners too - and for a snapshot that repeats
+ *  the last one, so neither redraws what reads the board. */
+export function windowsAfterMessage({ windows, message, ownLabel }: {
   windows: ReadonlyMap<string, BoardWindow>;
   message: BoardMessage;
+  ownLabel: string;
 }) {
   if (message.kind === BoardMessageKind.enum.window) {
+    const isOwnWindow = message.window.label === ownLabel;
+    const isRepeat = JSON.stringify(windows.get(message.window.label)) === JSON.stringify(message.window);
+    if (isOwnWindow || isRepeat) {
+      return windows;
+    }
+
     return new Map(windows).set(message.window.label, message.window);
   }
 

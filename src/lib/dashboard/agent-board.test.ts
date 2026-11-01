@@ -277,6 +277,7 @@ describe("parseBoardMessage", () => {
 });
 
 describe("the board's windows", () => {
+  const OWN_LABEL = "dashboard";
   const first = window({
     projectLabel: "w-1",
     agents: [agent({ id: "a" })]
@@ -296,7 +297,8 @@ describe("the board's windows", () => {
       message: {
         kind: BoardMessageKind.enum.window,
         window: first
-      }
+      },
+      ownLabel: OWN_LABEL
     });
     const updated = windowsAfterMessage({
       windows: withFirst,
@@ -306,9 +308,36 @@ describe("the board's windows", () => {
           ...first,
           agents: []
         }
-      }
+      },
+      ownLabel: OWN_LABEL
     });
     expect(updated.get("w-1")?.agents).toEqual([]);
+  });
+
+  it("keeps the same map for its own window's snapshot and for a repeat", () => {
+    const windows = new Map([["w-1", first]]);
+    expect(
+      windowsAfterMessage({
+        windows,
+        message: {
+          kind: BoardMessageKind.enum.window,
+          window: second
+        },
+        ownLabel: "w-2"
+      })
+    ).toBe(windows);
+    expect(
+      windowsAfterMessage({
+        windows,
+        message: {
+          kind: BoardMessageKind.enum.window,
+          window: {
+            ...first
+          }
+        },
+        ownLabel: OWN_LABEL
+      })
+    ).toBe(windows);
   });
 
   it("drops a window that said goodbye, so other rails stop showing its sessions live", () => {
@@ -318,7 +347,8 @@ describe("the board's windows", () => {
       message: {
         kind: BoardMessageKind.enum.windowGone,
         label: "w-2"
-      }
+      },
+      ownLabel: OWN_LABEL
     });
     expect([...after.keys()]).toEqual(["w-1"]);
     expect(
@@ -352,7 +382,8 @@ describe("the board's windows", () => {
         windows,
         message: {
           kind: BoardMessageKind.enum.rollCall
-        }
+        },
+        ownLabel: OWN_LABEL
       })
     ).toBe(windows);
   });

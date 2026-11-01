@@ -14,6 +14,7 @@ import {
 import type { BoardMessage, BoardWindow } from "@/lib/dashboard/agent-board";
 import { BoardMessageKind } from "@/lib/dashboard/agent-board";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
+import { windowLabel } from "@/lib/ipc/platform";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { onDestroy, onMount } from "svelte";
 
@@ -22,6 +23,7 @@ export function createBoardWindows({ announcement }: {
   announcement: BoardMessage;
 }) {
   const channel = new BroadcastChannel(BOARD_CHANNEL);
+  const ownLabel = windowLabel();
   // Replaced whole on every change (the pure rules return a new map), so a raw
   // state of an immutable map is all the reactivity it needs.
   let windows = $state.raw<ReadonlyMap<string, BoardWindow>>(NO_BOARD_WINDOWS);
@@ -53,7 +55,8 @@ export function createBoardWindows({ announcement }: {
       if (parsed.success) {
         windows = windowsAfterMessage({
           windows,
-          message: parsed.data
+          message: parsed.data,
+          ownLabel
         });
       }
     };
