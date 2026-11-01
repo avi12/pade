@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "app": "tauri dev",
+    "app": "node scripts/app-dev.mjs",
     "app:build": "tauri build --no-bundle",
     "release": "node scripts/release.mjs",
     "check": "svelte-check --tsgo --tsconfig ./tsconfig.json",

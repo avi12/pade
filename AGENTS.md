@@ -415,7 +415,7 @@ shims next to Node. Verify with `pnpm --version` (expect 11.1.2).
 
 ```powershell
 pnpm install
-pnpm app          # tauri dev: Rust core + native window, frontend on :1430
+pnpm app          # tauri dev: Rust core + native window, frontend on :1430, CDP on :9222
 pnpm dev          # Vite only, no native window
 ```
 

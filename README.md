@@ -74,7 +74,7 @@ Full status per requirement: [`docs/requirements.md`](docs/requirements.md).
 
 ```bash
 pnpm install
-pnpm app          # tauri dev - compiles the Rust core and opens the native window
+pnpm app          # tauri dev - compiles the Rust core and opens the native window, DevTools (CDP) on :9222
 ```
 
 The terminal launches your platform shell by default. To launch an agent CLI
