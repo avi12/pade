@@ -11,55 +11,49 @@
     id: RunnerRow["id"];
     lines: RunnerRow["lines"];
   } = $props();
-
-  // Keep the pane pinned to its newest line as it streams.
-  function autoscroll(elOutput: HTMLElement) {
-    const observer = new MutationObserver(() => {
-      elOutput.scrollTop = elOutput.scrollHeight;
-    });
-    observer.observe(elOutput, {
-      childList: true,
-      subtree: true
-    });
-    return () => observer.disconnect();
-  }
 </script>
 
 <div
   style:view-transition-name={`runner-output-${id}`}
   class="output"
-  {@attach autoscroll}
 >
-  {#each lines as line (line.id)}
-    <div
-      class="line"
-      class:error={line.stream === RunnerStream.enum.stderr}
-    >{#each linkSegments(parseAnsi(line.text)) as segment, iSegment (iSegment)}{#if segment.url}
-      {@const url = segment.url}<a
+  <div class="lines">
+    {#each lines as line (line.id)}
+      <div
+        class="line"
+        class:error={line.stream === RunnerStream.enum.stderr}
+      >{#each linkSegments(parseAnsi(line.text)) as segment, iSegment (iSegment)}{#if segment.url}
+        {@const url = segment.url}<a
+          style:color={segment.color}
+          style:background={segment.background}
+          class:bold={segment.bold}
+          class:dim={segment.dim}
+          class:italic={segment.italic}
+          href={url}
+          onclick={async e => {
+            e.preventDefault();
+            await openTerminalLink(url);
+          }}
+        >{segment.text}</a>{:else}<span
         style:color={segment.color}
         style:background={segment.background}
         class:bold={segment.bold}
         class:dim={segment.dim}
         class:italic={segment.italic}
-        href={url}
-        onclick={async e => {
-          e.preventDefault();
-          await openTerminalLink(url);
-        }}
-      >{segment.text}</a>{:else}<span
-      style:color={segment.color}
-      style:background={segment.background}
-      class:bold={segment.bold}
-      class:dim={segment.dim}
-      class:italic={segment.italic}
-      class:underline={segment.underline}
-    >{segment.text || " "}</span>{/if}{/each}</div>
-  {/each}
+        class:underline={segment.underline}
+      >{segment.text || " "}</span>{/if}{/each}</div>
+    {/each}
+  </div>
 </div>
 
 <style>
+  /* Reversed, so the scroll origin is the newest line: the pane stays pinned to
+     it as lines stream in, and keeps its place once scrolled up - no script
+     reading the full height (which laid out every line) on each arrival. */
   .output {
+    display: flex;
     flex: 1;
+    flex-direction: column-reverse;
     overflow: auto;
     min-block-size: 0;
     padding-block: 8px;
@@ -71,7 +65,11 @@
     line-height: 1.5;
   }
 
+  /* Off-screen lines skip layout and paint until scrolled to - a runner keeps
+     thousands of them. */
   .line {
+    contain-intrinsic-block-size: auto 1.5em;
+    content-visibility: auto;
     min-block-size: 1.5em;
     white-space: pre-wrap;
     animation: line-in 180ms var(--ease);
