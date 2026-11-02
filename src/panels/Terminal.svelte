@@ -268,8 +268,11 @@
      pins the grid to the end of the content the terminal is actually showing (see
      `isBottomAnchored`) - a fullscreen agent's frame and an unscrolled conversation pin the
      top, a scrolled one pins the bottom. The grid is whole cells and never quite fills
-     the frame, so the leftover sits as a sliver of background at the unpinned edge. */
+     the frame, so the leftover sits as a sliver of background at the unpinned edge.
+     Strictly contained: its size comes from the pane, never its content, so every row
+     xterm rewrites re-lays out this frame alone instead of the whole window. */
   .terminal-viewport {
+    contain: strict;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
