@@ -73,29 +73,12 @@ fn command_matches(command_line: &str, command: &str) -> bool {
 /// and match are unit-testable without enumerating the live system. `root` (the
 /// agent itself) is never included, so a Stop can never kill the agent.
 fn task_processes(processes: &[ProcessInfo], root: u32, command: &str) -> Vec<u32> {
-    // Index children by parent once, so the walk is linear in the snapshot
-    // rather than a full rescan per visited process.
-    let mut children: HashMap<u32, Vec<u32>> = HashMap::new();
-    for process in processes {
-        let is_own_parent = process.process_id == process.parent_process_id;
-        if !is_own_parent {
-            children
-                .entry(process.parent_process_id)
-                .or_default()
-                .push(process.process_id);
-        }
-    }
-
-    let mut descendants: HashSet<u32> = HashSet::new();
-    let mut frontier = vec![root];
-    while let Some(parent) = frontier.pop() {
-        for &child in children.get(&parent).into_iter().flatten() {
-            if descendants.insert(child) {
-                frontier.push(child);
-            }
-        }
-    }
-
+    let descendants = descendants(
+        processes
+            .iter()
+            .map(|process| (process.process_id, process.parent_process_id)),
+        root,
+    );
     processes
         .iter()
         .filter(|process| descendants.contains(&process.process_id))
@@ -104,47 +87,54 @@ fn task_processes(processes: &[ProcessInfo], root: u32, command: &str) -> Vec<u3
         .collect()
 }
 
-/// One row of the CIM process snapshot. Fields are optional because a process can
-/// vanish mid-query and CIM then reports nulls.
-#[cfg(windows)]
-#[derive(serde::Deserialize)]
-struct CimProcess {
-    #[serde(rename = "ProcessId")]
-    process_id: Option<u32>,
-    #[serde(rename = "ParentProcessId")]
-    parent_process_id: Option<u32>,
-    #[serde(rename = "CommandLine")]
-    command_line: Option<String>,
-}
-
-/// Snapshot every running process (id, parent, command line) via a single CIM
-/// query. Shelled through `util::command` (no console window; not `wmic`, which is
-/// deprecated on current Windows) rather than PEB-walking each process by hand.
-#[cfg(windows)]
-fn snapshot_processes() -> Result<Vec<ProcessInfo>, String> {
-    let output = crate::util::command("powershell")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress",
-        ])
-        .output()
-        .map_err(|error| error.to_string())?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+/// Every process below `root`, from `(process, parent)` links. `root` itself is
+/// never included.
+fn descendants(links: impl IntoIterator<Item = (u32, u32)>, root: u32) -> HashSet<u32> {
+    // Index children by parent once, so the walk is linear in the snapshot
+    // rather than a full rescan per visited process.
+    let mut children: HashMap<u32, Vec<u32>> = HashMap::new();
+    for (process_id, parent_process_id) in links {
+        let is_own_parent = process_id == parent_process_id;
+        if !is_own_parent {
+            children
+                .entry(parent_process_id)
+                .or_default()
+                .push(process_id);
+        }
     }
 
-    let text = String::from_utf8_lossy(&output.stdout);
-    let rows: Vec<CimProcess> =
-        serde_json::from_str(text.trim()).map_err(|error| error.to_string())?;
-    Ok(rows
+    let mut found: HashSet<u32> = HashSet::new();
+    let mut frontier = vec![root];
+    while let Some(parent) = frontier.pop() {
+        for &child in children.get(&parent).into_iter().flatten() {
+            if found.insert(child) {
+                frontier.push(child);
+            }
+        }
+    }
+    found
+}
+
+/// Snapshot the processes under `root` (id, parent, command line): one system
+/// process list, then the command lines of `root`'s descendants alone - a
+/// process that exits in between simply drops out.
+#[cfg(windows)]
+fn snapshot_processes(root: u32) -> Result<Vec<ProcessInfo>, String> {
+    let entries = process_snapshot::processes().map_err(|error| error.to_string())?;
+    let below_root = descendants(
+        entries
+            .iter()
+            .map(|entry| (entry.process_id, entry.parent_process_id)),
+        root,
+    );
+    Ok(entries
         .into_iter()
-        .filter_map(|row| {
-            row.process_id.map(|process_id| ProcessInfo {
-                process_id,
-                parent_process_id: row.parent_process_id.unwrap_or_default(),
-                command_line: row.command_line.unwrap_or_default(),
+        .filter(|entry| below_root.contains(&entry.process_id))
+        .filter_map(|entry| {
+            Some(ProcessInfo {
+                process_id: entry.process_id,
+                parent_process_id: entry.parent_process_id,
+                command_line: process_snapshot::command_line(entry.process_id)?,
             })
         })
         .collect())
@@ -155,7 +145,7 @@ fn snapshot_processes() -> Result<Vec<ProcessInfo>, String> {
 /// and the tree-kill both go through Windows tooling.
 #[cfg(windows)]
 pub(crate) fn stop_task_tree(root: u32, command: &str) -> Result<bool, String> {
-    let processes = snapshot_processes()?;
+    let processes = snapshot_processes(root)?;
     let targets = task_processes(&processes, root, command);
     for process_id in &targets {
         kill_process_tree(*process_id);
@@ -174,7 +164,7 @@ pub(crate) fn stop_task_tree(_root: u32, _command: &str) -> Result<bool, String>
 /// liveness. Windows only.
 #[cfg(windows)]
 pub(crate) fn task_running(root: u32, command: &str) -> Result<bool, String> {
-    let processes = snapshot_processes()?;
+    let processes = snapshot_processes(root)?;
     Ok(!task_processes(&processes, root, command).is_empty())
 }
 

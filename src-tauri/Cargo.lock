@@ -2817,6 +2817,7 @@ dependencies = [
  "portable-pty",
  "process-job",
  "process-priority",
+ "process-snapshot",
  "rusqlite",
  "serde",
  "serde_json",
@@ -3169,6 +3170,13 @@ dependencies = [
 
 [[package]]
 name = "process-priority"
+version = "0.0.1"
+dependencies = [
+ "windows",
+]
+
+[[package]]
+name = "process-snapshot"
 version = "0.0.1"
 dependencies = [
  "windows",

@@ -14,7 +14,7 @@ license = "Apache-2.0"
 # expects both). Each crate keeps its own `[lints]` (this one forbids unsafe; the
 # handler must allow it).
 [workspace]
-members = ["contextmenu-handler", "process-job", "process-priority", "webview-recovery"]
+members = ["contextmenu-handler", "process-job", "process-priority", "process-snapshot", "webview-recovery"]
 resolver = "2"
 
 [lib]
@@ -62,6 +62,9 @@ process-priority = { path = "process-priority" }
 # The PTY host's kill-on-close job object (see src/terminal/pty_host/server.rs):
 # unsafe FFI, so it lives in its own workspace member like process-priority.
 process-job = { path = "process-job" }
+# Task tracking's process-tree reads (see src/terminal/process_tree.rs): Toolhelp
+# and per-process command lines, unsafe FFI in its own member like the two above.
+process-snapshot = { path = "process-snapshot" }
 # WebView2 `ProcessFailed` auto-recovery (see src/platform/recovery.rs). A separate
 # workspace member because COM event registration is unsafe and this crate
 # forbids unsafe code; it pins webview2-com/windows-core to the versions
