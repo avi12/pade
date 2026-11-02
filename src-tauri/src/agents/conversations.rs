@@ -366,6 +366,27 @@ fn without_tag(text: &str, tag: &str) -> String {
     }
 }
 
+/// The interactive session a Codex rollout records, `None` for a oneshot.
+fn codex_session(path: &Path, modified: SystemTime) -> Option<InteractiveSession> {
+    CODEX_SESSIONS.get_or_parse(path, modified, |path| {
+        InteractiveSession::of(&first_line(path)?)
+    })
+}
+
+/// Where a Codex rollout's interactive session ran - how a change to it names
+/// its project.
+pub(super) fn codex_rollout_cwd(path: &Path) -> Option<String> {
+    Some(codex_session(path, modified_time(path)?)?.cwd().to_string())
+}
+
+/// Where a Copilot workspace's session ran - how a change to it names its
+/// project.
+pub(super) fn copilot_workspace_cwd(path: &Path) -> Option<String> {
+    let workspace =
+        COPILOT_WORKSPACES.get_or_parse(path, modified_time(path)?, copilot_workspace)?;
+    Some(workspace.cwd)
+}
+
 fn codex_conversations(project: &str) -> Vec<RecordedConversation> {
     let Some(home) = codex_home() else {
         return Vec::new();
@@ -373,10 +394,7 @@ fn codex_conversations(project: &str) -> Vec<RecordedConversation> {
     let titles = codex_titles(&home.join(CODEX_SESSION_INDEX));
     newest(rollout_files(&home.join(CODEX_SESSIONS_DIRECTORY)))
         .filter_map(|(modified, path)| {
-            let session = CODEX_SESSIONS.get_or_parse(&path, modified, |path| {
-                InteractiveSession::of(&first_line(path)?)
-            })?;
-            let session_id = session.id_in(project)?;
+            let session_id = codex_session(&path, modified)?.id_in(project)?;
             Some(RecordedConversation {
                 agent_id: ID_CODEX,
                 title: titles.get(&session_id).cloned(),

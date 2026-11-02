@@ -115,6 +115,11 @@ impl InteractiveSession {
         })
     }
 
+    /// The working directory the session ran in.
+    pub(super) fn cwd(&self) -> &str {
+        &self.cwd
+    }
+
     /// The session id, when the session ran in the wanted working directory.
     pub(super) fn id_in(&self, wanted_cwd: &str) -> Option<String> {
         same_path(&self.cwd, wanted_cwd).then(|| self.session_id.clone())

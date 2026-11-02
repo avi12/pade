@@ -12,8 +12,7 @@ import { settledValue } from "@/lib/util/async/settled";
 import { normalizePath } from "@/lib/util/paths";
 
 // Raw and replaced whole: a deep proxy would wrap every field of every read,
-// and the sidebar re-reads every listed project each time a Codex or Copilot
-// store changes.
+// and the sidebar re-reads a project each time an agent writes to its store.
 let conversationsByProject = $state.raw<Readonly<Record<string, readonly RecordedConversation[]>>>({});
 
 // The projects on screen, so a reported change re-reads only what is shown.

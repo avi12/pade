@@ -7,9 +7,11 @@
 //!
 //!   * Claude Code - `~/.claude/projects`, one folder per encoded project, so a
 //!     change names its project through the projects the windows have listed;
-//!   * Codex - its `sessions` tree and `session_index.jsonl` (titles), which
-//!     name no project in the path, so they announce a change to every one;
-//!   * Copilot - its session-state folders and their `workspace.yaml`, likewise.
+//!   * Codex - its `sessions` tree, whose rollouts name their project by the
+//!     `cwd` on their first line, and `session_index.jsonl` (titles), which
+//!     names none, so it announces a change to every one;
+//!   * Copilot - each `workspace.yaml` names its project by its `cwd`; a
+//!     session folder appearing or going announces to every one.
 //!
 //! A transcript is appended on every token batch, so announcements are
 //! throttled per project on their own thread: the first change goes out at
@@ -27,12 +29,13 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::agents::conversations::{
-    CODEX_SESSION_INDEX, COPILOT_WORKSPACE_FILE, TRANSCRIPT_EXTENSION,
+    codex_rollout_cwd, copilot_workspace_cwd, CODEX_SESSION_INDEX, COPILOT_WORKSPACE_FILE,
+    TRANSCRIPT_EXTENSION,
 };
 use crate::agents::resume::{CODEX_SESSIONS_DIRECTORY, ROLLOUT_EXTENSION};
 use crate::agents::running_model::copilot_session_root;
 use crate::agents::{claude_projects_directory, codex_home};
-use crate::util::encode_project;
+use crate::util::{encode_project, same_path};
 
 const CHANGED_EVENT: &str = "agent-conversations://changed";
 /// The least time between two announcements for one project.
@@ -71,7 +74,7 @@ pub fn init(app: &AppHandle) {
             .unwrap_or_else(PoisonError::into_inner)
             .clone();
         for path in &event.paths {
-            for scope in changed_scopes(path, &routes, &listed) {
+            for scope in changed_scopes(path, &routes, &listed, session_cwd) {
                 // The receiving thread lives as long as the app; a failed send
                 // means it is shutting down, with nobody left to tell.
                 if sender.send(scope).is_err() {
@@ -171,11 +174,14 @@ fn watched_stores() -> Vec<(PathBuf, ConversationStore)> {
 }
 
 /// Which projects a changed path concerns - none when it is noise (a
-/// subagent's transcript, Codex's logs, Copilot's per-turn event log).
+/// subagent's transcript, Codex's logs or oneshot runs, Copilot's per-turn
+/// event log). `session_cwd` reads where a Codex rollout's or a Copilot
+/// workspace's session ran.
 fn changed_scopes(
     path: &Path,
     stores: &[(PathBuf, ConversationStore)],
     listed: &HashSet<String>,
+    session_cwd: impl Fn(&Path, ConversationStore) -> Option<String>,
 ) -> Vec<ChangeScope> {
     let Some((directory, store)) = stores
         .iter()
@@ -187,20 +193,49 @@ fn changed_scopes(
         return Vec::new();
     };
     let parts: Vec<&str> = relative.iter().filter_map(|part| part.to_str()).collect();
-    let is_every = match store {
-        ConversationStore::ClaudeProjects => {
-            return claude_scopes(&parts, listed);
+    let is_session_file = match store {
+        ConversationStore::ClaudeProjects => return claude_scopes(&parts, listed),
+        ConversationStore::CodexHome if parts == [CODEX_SESSION_INDEX] => {
+            return vec![ChangeScope::Every];
         }
+        ConversationStore::CopilotSessions if parts.len() == 1 => {
+            return vec![ChangeScope::Every];
+        }
+        ConversationStore::CodexHome => false,
         ConversationStore::CodexSessions => has_extension(path, ROLLOUT_EXTENSION),
-        ConversationStore::CodexHome => parts == [CODEX_SESSION_INDEX],
-        ConversationStore::CopilotSessions => {
-            matches!(parts.as_slice(), [_] | [_, COPILOT_WORKSPACE_FILE])
-        }
+        ConversationStore::CopilotSessions => parts.get(1) == Some(&COPILOT_WORKSPACE_FILE),
     };
-    if is_every {
-        vec![ChangeScope::Every]
+    if !is_session_file {
+        return Vec::new();
+    }
+
+    session_scopes(path, session_cwd(path, *store), listed)
+}
+
+/// The listed projects a session ran in. A session file that can't say is a
+/// oneshot or one still being written - its next write says again - unless it
+/// is gone, which every listed project re-reads for.
+fn session_scopes(path: &Path, cwd: Option<String>, listed: &HashSet<String>) -> Vec<ChangeScope> {
+    let Some(cwd) = cwd else {
+        return if path.exists() {
+            Vec::new()
+        } else {
+            vec![ChangeScope::Every]
+        };
+    };
+    listed
+        .iter()
+        .filter(|project| same_path(project, &cwd))
+        .map(|project| ChangeScope::Project(project.clone()))
+        .collect()
+}
+
+/// Where a changed Codex rollout's or Copilot workspace's session ran.
+fn session_cwd(path: &Path, store: ConversationStore) -> Option<String> {
+    if store == ConversationStore::CodexSessions {
+        codex_rollout_cwd(path)
     } else {
-        Vec::new()
+        copilot_workspace_cwd(path)
     }
 }
 
@@ -352,8 +387,26 @@ mod tests {
         HashSet::from([PROJECT.to_string(), "C:/elsewhere".to_string()])
     }
 
+    /// The session file every test session ran in this project from.
+    const SESSION_FILE_STEM: &str = "in-project";
+
     fn scopes_of(path: &Path) -> Vec<ChangeScope> {
-        changed_scopes(path, &stores(), &listed())
+        changed_scopes(path, &stores(), &listed(), |path, _| {
+            let is_in_project = path
+                .to_str()
+                .is_some_and(|text| text.contains(SESSION_FILE_STEM));
+            is_in_project.then(|| PROJECT.to_string())
+        })
+    }
+
+    fn codex_rollout(name: &str) -> PathBuf {
+        root()
+            .join(".codex")
+            .join("sessions")
+            .join("2026")
+            .join("10")
+            .join("25")
+            .join(name)
     }
 
     fn claude_folder() -> PathBuf {
@@ -395,15 +448,24 @@ mod tests {
     }
 
     #[test]
-    fn codex_rollouts_and_its_title_index_concern_every_project() {
-        let rollout = root()
-            .join(".codex")
-            .join("sessions")
-            .join("2026")
-            .join("10")
-            .join("25")
-            .join("rollout-1.jsonl");
-        assert_eq!(scopes_of(&rollout), vec![ChangeScope::Every]);
+    fn a_codex_rollout_names_the_project_it_ran_in() {
+        let rollout = codex_rollout(&format!("rollout-{SESSION_FILE_STEM}.jsonl"));
+        assert_eq!(
+            scopes_of(&rollout),
+            vec![ChangeScope::Project(PROJECT.to_string())]
+        );
+    }
+
+    #[test]
+    fn a_gone_codex_rollout_concerns_every_project() {
+        assert_eq!(
+            scopes_of(&codex_rollout("rollout-gone.jsonl")),
+            vec![ChangeScope::Every]
+        );
+    }
+
+    #[test]
+    fn codex_title_index_concerns_every_project_and_its_logs_are_noise() {
         let index = root().join(".codex").join(CODEX_SESSION_INDEX);
         assert_eq!(scopes_of(&index), vec![ChangeScope::Every]);
         let log = root().join(".codex").join("history.jsonl");
@@ -411,14 +473,28 @@ mod tests {
     }
 
     #[test]
-    fn a_copilot_session_folder_or_workspace_concerns_every_project() {
+    fn a_copilot_workspace_names_its_project_and_a_session_folder_every_one() {
         let session = root().join(".copilot").join("session-state").join("id-1");
         assert_eq!(scopes_of(&session), vec![ChangeScope::Every]);
+        let in_project = root()
+            .join(".copilot")
+            .join("session-state")
+            .join(SESSION_FILE_STEM);
         assert_eq!(
-            scopes_of(&session.join(COPILOT_WORKSPACE_FILE)),
-            vec![ChangeScope::Every]
+            scopes_of(&in_project.join(COPILOT_WORKSPACE_FILE)),
+            vec![ChangeScope::Project(PROJECT.to_string())]
         );
         assert_eq!(scopes_of(&session.join("events.jsonl")), Vec::new());
+    }
+
+    #[test]
+    fn a_session_in_an_unlisted_project_is_noise() {
+        let scopes = session_scopes(
+            Path::new("C:/home/.codex/sessions/rollout.jsonl"),
+            Some("C:/never-listed".to_string()),
+            &listed(),
+        );
+        assert_eq!(scopes, Vec::new());
     }
 
     #[test]
