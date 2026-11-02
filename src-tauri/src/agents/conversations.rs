@@ -15,20 +15,30 @@
 //! (`session_id_flag`), Codex through `codex resume <id>`.
 
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{DirEntry, File};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
+use std::sync::LazyLock;
 use std::time::SystemTime;
 
 use serde::Serialize;
 
 use crate::agents::conversation_watch::remember_listed_project;
+use crate::agents::parsed_files::ParsedFiles;
 use crate::agents::resume::{
-    first_line, interactive_session_id, rollout_files, CODEX_SESSIONS_DIRECTORY,
+    first_line, rollout_files, InteractiveSession, CODEX_SESSIONS_DIRECTORY,
 };
 use crate::agents::running_model::{copilot_session_root, session_resume_arguments};
 use crate::agents::{claude_projects_directory, codex_home, ID_CLAUDE, ID_CODEX, ID_COPILOT};
 use crate::util::{encode_project, milliseconds_since_unix_epoch, same_path};
+
+/// Each file's parse, kept until the file is written again: a project is
+/// re-listed about once a second while an agent works.
+static CLAUDE_TITLES: LazyLock<ParsedFiles<Option<String>>> = LazyLock::new(ParsedFiles::default);
+static CODEX_SESSIONS: LazyLock<ParsedFiles<Option<InteractiveSession>>> =
+    LazyLock::new(ParsedFiles::default);
+static COPILOT_WORKSPACES: LazyLock<ParsedFiles<Option<CopilotWorkspace>>> =
+    LazyLock::new(ParsedFiles::default);
 
 /// The most conversations listed for one project, newest first - `/resume`
 /// pages its own list the same way.
@@ -135,6 +145,22 @@ fn modified_time(path: &Path) -> Option<SystemTime> {
         .ok()
 }
 
+/// A directory entry's modified time as the listing itself reports it - on
+/// Windows that costs nothing, where [`modified_time`] opens the file.
+fn listed_modified_time(entry: &DirEntry) -> Option<SystemTime> {
+    entry
+        .metadata()
+        .and_then(|metadata| metadata.modified())
+        .ok()
+}
+
+/// The list title a Claude transcript earns, `None` for one that isn't a
+/// conversation to resume (see [`first_typed_prompt`]).
+fn claude_transcript_title(path: &Path) -> Option<String> {
+    let first_prompt = first_typed_prompt(path)?;
+    Some(transcript_title(path).unwrap_or(first_prompt))
+}
+
 fn claude_conversations(project: &str) -> Vec<RecordedConversation> {
     let Some(projects) = claude_projects_directory() else {
         return Vec::new();
@@ -144,22 +170,22 @@ fn claude_conversations(project: &str) -> Vec<RecordedConversation> {
     };
     let transcripts = entries
         .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.extension()
+        .filter(|entry| {
+            Path::new(&entry.file_name())
+                .extension()
                 .is_some_and(|extension| extension == TRANSCRIPT_EXTENSION)
         })
-        .filter_map(|path| Some((modified_time(&path)?, path)))
+        .filter_map(|entry| Some((listed_modified_time(&entry)?, entry.path())))
         .collect();
 
     newest(transcripts)
         .filter_map(|(modified, path)| {
             let conversation_id = path.file_stem()?.to_str()?.to_string();
-            let first_prompt = first_typed_prompt(&path)?;
+            let title = CLAUDE_TITLES.get_or_parse(&path, modified, claude_transcript_title)?;
             Some(RecordedConversation {
                 agent_id: ID_CLAUDE,
                 conversation_id,
-                title: transcript_title(&path).or(Some(first_prompt)),
+                title: Some(title),
                 updated_at: milliseconds_since_unix_epoch(modified),
                 resume_arguments: Vec::new(),
             })
@@ -347,7 +373,10 @@ fn codex_conversations(project: &str) -> Vec<RecordedConversation> {
     let titles = codex_titles(&home.join(CODEX_SESSION_INDEX));
     newest(rollout_files(&home.join(CODEX_SESSIONS_DIRECTORY)))
         .filter_map(|(modified, path)| {
-            let session_id = interactive_session_id(&first_line(&path)?, project)?;
+            let session = CODEX_SESSIONS.get_or_parse(&path, modified, |path| {
+                InteractiveSession::of(&first_line(path)?)
+            })?;
+            let session_id = session.id_in(project)?;
             Some(RecordedConversation {
                 agent_id: ID_CODEX,
                 title: titles.get(&session_id).cloned(),
@@ -375,6 +404,21 @@ fn codex_titles(index: &Path) -> HashMap<String, String> {
         .collect()
 }
 
+/// The two fields of a Copilot `workspace.yaml` the list reads.
+#[derive(Clone)]
+struct CopilotWorkspace {
+    cwd: String,
+    summary: Option<String>,
+}
+
+fn copilot_workspace(path: &Path) -> Option<CopilotWorkspace> {
+    let workspace = std::fs::read_to_string(path).ok()?;
+    Some(CopilotWorkspace {
+        cwd: yaml_value(&workspace, COPILOT_CWD_KEY)?,
+        summary: yaml_value(&workspace, COPILOT_SUMMARY_KEY),
+    })
+}
+
 fn copilot_conversations(project: &str) -> Vec<RecordedConversation> {
     let Some(Ok(entries)) = copilot_session_root().map(std::fs::read_dir) else {
         return Vec::new();
@@ -387,16 +431,15 @@ fn copilot_conversations(project: &str) -> Vec<RecordedConversation> {
 
     newest(workspaces)
         .filter_map(|(modified, path)| {
-            let workspace = std::fs::read_to_string(&path).ok()?;
-            let cwd = yaml_value(&workspace, COPILOT_CWD_KEY)?;
-            if !same_path(&cwd, project) {
+            let workspace = COPILOT_WORKSPACES.get_or_parse(&path, modified, copilot_workspace)?;
+            if !same_path(&workspace.cwd, project) {
                 return None;
             }
 
             Some(RecordedConversation {
                 agent_id: ID_COPILOT,
                 conversation_id: path.parent()?.file_name()?.to_str()?.to_string(),
-                title: yaml_value(&workspace, COPILOT_SUMMARY_KEY),
+                title: workspace.summary,
                 updated_at: milliseconds_since_unix_epoch(modified),
                 resume_arguments: Vec::new(),
             })

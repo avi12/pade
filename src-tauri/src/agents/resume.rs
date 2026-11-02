@@ -59,7 +59,9 @@ pub(super) fn rollout_files(directory: &Path) -> Vec<(std::time::SystemTime, Pat
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() {
+        // The listing's own file type: `path.is_dir()` would open every entry.
+        let is_directory = entry.file_type().is_ok_and(|file_type| file_type.is_dir());
+        if is_directory {
             found.extend(rollout_files(&path));
             continue;
         }
@@ -86,25 +88,43 @@ pub(super) fn first_line(path: &Path) -> Option<String> {
     Some(line)
 }
 
+/// An interactive session as its rollout's `session_meta` line records it: where
+/// it ran and its id. Field extraction over full JSON parsing: the meta line
+/// drags in the entire base-instructions prompt, and two string fields don't
+/// justify a serde model of Codex's private schema.
+#[derive(Clone)]
+pub(super) struct InteractiveSession {
+    cwd: String,
+    session_id: String,
+}
+
+impl InteractiveSession {
+    /// `None` for a line that is no interactive session's - a `codex exec`
+    /// oneshot has `"source":"exec"` and cannot be resumed into a TUI
+    /// conversation.
+    pub(super) fn of(metadata_line: &str) -> Option<Self> {
+        let is_oneshot = json_string_field(metadata_line, SOURCE_FIELD)
+            .is_some_and(|source| source == EXEC_SOURCE);
+        if is_oneshot {
+            return None;
+        }
+
+        Some(Self {
+            cwd: json_string_field(metadata_line, CWD_FIELD)?.replace("\\\\", "\\"),
+            session_id: json_string_field(metadata_line, SESSION_ID_FIELD)?,
+        })
+    }
+
+    /// The session id, when the session ran in the wanted working directory.
+    pub(super) fn id_in(&self, wanted_cwd: &str) -> Option<String> {
+        same_path(&self.cwd, wanted_cwd).then(|| self.session_id.clone())
+    }
+}
+
 /// Pull the session id out of one `session_meta` line - only when it records an
-/// interactive session (a `codex exec` oneshot has `"source":"exec"` and cannot
-/// be resumed into a TUI conversation) in the wanted working directory.
-/// Field extraction over full JSON parsing: the meta line drags in the entire
-/// base-instructions prompt, and two string fields don't justify a serde model
-/// of Codex's private schema.
+/// interactive session in the wanted working directory.
 pub(super) fn interactive_session_id(metadata_line: &str, wanted_cwd: &str) -> Option<String> {
-    let is_oneshot =
-        json_string_field(metadata_line, SOURCE_FIELD).is_some_and(|source| source == EXEC_SOURCE);
-    if is_oneshot {
-        return None;
-    }
-
-    let cwd = json_string_field(metadata_line, CWD_FIELD)?;
-    if !same_path(&cwd.replace("\\\\", "\\"), wanted_cwd) {
-        return None;
-    }
-
-    json_string_field(metadata_line, SESSION_ID_FIELD)
+    InteractiveSession::of(metadata_line)?.id_in(wanted_cwd)
 }
 
 /// How long the `opencode db` lookup may take before ADE gives up and spawns a

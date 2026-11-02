@@ -14,6 +14,7 @@ pub(crate) mod conversation_watch;
 pub(crate) mod conversations;
 pub(crate) mod copilot;
 pub(crate) mod naming;
+pub(crate) mod parsed_files;
 pub(crate) mod resume;
 pub(crate) mod running_model;
 pub(crate) mod session_context;
