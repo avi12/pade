@@ -68,11 +68,16 @@
     /* Percentages resolve against the position-area cell - the room below the
        "+" - so the menu stops at the window's foot and the branches scroll
        while the agents stay in view. */
-    display: flex;
     flex-direction: column;
     max-block-size: calc(100% - var(--popover-menu-offset));
     min-inline-size: 220px;
     position-area: bottom span-right;
+
+    /* Flex only while open: an unconditional display would beat the closed
+       popover's display: none and leave an invisible menu catching clicks. */
+    &:popover-open {
+      display: flex;
+    }
 
     .branch-section {
       display: flex;
