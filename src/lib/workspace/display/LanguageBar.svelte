@@ -125,6 +125,13 @@
       }
     }
 
+    /* Cyberpunk: a flat strip of square segments, never framed, starting
+       where the row that holds it says its writing starts. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      inset-inline: var(--language-bar-inset-inline, 8px);
+      outline: none;
+    }
+
     &[data-entering] > span {
       @starting-style {
         scale: 0 1;

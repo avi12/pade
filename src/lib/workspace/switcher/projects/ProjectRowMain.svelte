@@ -141,9 +141,10 @@
     &.current {
       box-shadow: inset 3px 0 0 0 var(--primary);
 
-      /* Cyberpunk: the rail is the frame's red accent - it marks, never writes. */
+      /* Cyberpunk: the red accent rail runs down the whole header row
+         instead (SidebarProjectGroup), so the button wears none of its own. */
       :global(:root[data-palette="cyberpunk"]) & {
-        box-shadow: inset 3px 0 0 0 var(--cyber-accent);
+        box-shadow: none;
       }
     }
 
@@ -160,6 +161,29 @@
       background: var(--primary-container);
       color: var(--on-primary-container);
       outline: none;
+    }
+
+    /* Cyberpunk: a flat row - tighter, and pointing at it only raises the
+       fill a step rather than lighting the cyan plate. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      --row-gap: 0.4375rem;
+      --row-padding-start: 0.375rem;
+      --kind-icon-inline-size: 1.25rem;
+
+      /* The language bar lines up under the name, past the kind icon. */
+      --language-bar-inset-inline:
+        calc(var(--row-padding-start) + var(--kind-icon-inline-size) + var(--row-gap))
+        0.25rem;
+
+      gap: var(--row-gap);
+      padding-inline: var(--row-padding-start) 0.25rem;
+
+      &:is(:hover, :focus-visible) {
+        --on-surface-variant: inherit;
+
+        background: var(--surface-3);
+        color: var(--on-surface);
+      }
     }
   }
 
@@ -200,6 +224,17 @@
         flex: none;
         color: var(--tertiary);
       }
+
+      /* Cyberpunk: the branch is quiet mono writing, its glyph in the same
+         muted ink. */
+      :global(:root[data-palette="cyberpunk"]) & {
+        font-weight: 400;
+        letter-spacing: 0.02em;
+
+        .branch-icon {
+          color: inherit;
+        }
+      }
     }
   }
 
@@ -217,6 +252,11 @@
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
     font-size: 0.6875rem;
+
+    :global(:root[data-palette="cyberpunk"]) & {
+      font-weight: 800;
+      font-size: 0.625rem;
+    }
   }
 
   .project-row-mark {
