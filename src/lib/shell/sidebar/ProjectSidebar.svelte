@@ -6,6 +6,7 @@
   import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
   import { PROJECT_SEARCH_ID } from "@/lib/shell/shortcuts/window-shortcut-actions";
+  import { activityCounts, chatActivity, chatStatus } from "@/lib/shell/sidebar/chat-activity";
   import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";
   import { firstListedProject, sidebarProjectOrder, sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
   import SidebarHeader from "@/lib/shell/sidebar/SidebarHeader.svelte";
@@ -121,6 +122,20 @@
     })
   );
 
+  // How many chats across every listed project are working and wait on you -
+  // the head's totals, whatever the search narrows.
+  const counts = $derived(
+    activityCounts(
+      groups.flatMap(group => group.chats.map(chat => chatActivity({
+        isLive: chat.isLive,
+        status: chatStatus(chat)
+      })))
+    )
+  );
+
+  // The rail folded to a strip - kept for this window's life, not saved.
+  let isCollapsed = $state(false);
+
   const sections = $derived(
     sidebarSections({
       groups,
@@ -217,10 +232,19 @@
   }}
 />
 
-<nav class="sidebar" aria-label="Projects and chats">
-  <SidebarHeader {onopenthrowaway} {onswitch} />
+<nav class="sidebar" class:collapsed={isCollapsed} aria-label="Projects and chats">
+  <SidebarHeader
+    {isCollapsed}
+    needsYouCount={counts.needsYou}
+    {onopenthrowaway}
+    {onswitch}
+    ontogglecollapse={() => {
+      isCollapsed = !isCollapsed;
+    }}
+    workingCount={counts.working}
+  />
 
-  <search class="search">
+  <search class="search" hidden={isCollapsed}>
     <!-- Ctrl P focuses it from anywhere (a window shortcut) -->
     <SwitcherFilter
       id={PROJECT_SEARCH_ID}
@@ -237,41 +261,43 @@
     />
   </search>
 
-  <SidebarProjectList
-    {activeId}
-    isFiltered={filter.trim() !== ""}
-    labels={settings.labels}
-    {now}
-    {ondeletechat}
-    ondeleteproject={target => {
-      deleteTarget = target;
-    }}
-    {onnewchat}
-    onpick={async ({ project: picked, event }) => await pickProject({
-      project: picked,
-      opensNewWindow: isNewWindowClick(event)
-    })}
-    onrelabel={target => {
-      relabelTarget = target;
-    }}
-    onremove={async target => {
-      await sendSettingsMessage(Command.workspaceRemoveRecent, { path: target });
-    }}
-    onrenamefolder={target => {
-      renameFolderTarget = target;
-    }}
-    onreorderpins={async paths => {
-      await sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths });
-    }}
-    {onresumeconversation}
-    {onselectchat}
-    {onstopchat}
-    ontogglepin={async target => {
-      await sendSettingsMessage(Command.workspaceSetPinned, target);
-    }}
-    {sections}
-    {windowRows}
-  />
+  {#if !isCollapsed}
+    <SidebarProjectList
+      {activeId}
+      isFiltered={filter.trim() !== ""}
+      labels={settings.labels}
+      {now}
+      {ondeletechat}
+      ondeleteproject={target => {
+        deleteTarget = target;
+      }}
+      {onnewchat}
+      onpick={async ({ project: picked, event }) => await pickProject({
+        project: picked,
+        opensNewWindow: isNewWindowClick(event)
+      })}
+      onrelabel={target => {
+        relabelTarget = target;
+      }}
+      onremove={async target => {
+        await sendSettingsMessage(Command.workspaceRemoveRecent, { path: target });
+      }}
+      onrenamefolder={target => {
+        renameFolderTarget = target;
+      }}
+      onreorderpins={async paths => {
+        await sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths });
+      }}
+      {onresumeconversation}
+      {onselectchat}
+      {onstopchat}
+      ontogglepin={async target => {
+        await sendSettingsMessage(Command.workspaceSetPinned, target);
+      }}
+      {sections}
+      {windowRows}
+    />
+  {/if}
 
   <SwitcherDialogs
     labels={settings.labels}
@@ -310,6 +336,11 @@
       }
     }
 
+    /* Folded, the rail is a strip holding only the button that opens it. */
+    &.collapsed {
+      inline-size: 2.75rem;
+    }
+
     /* Cyberpunk frames the rail with a two-pixel rule on its inner edge. */
     :global(:root[data-palette="cyberpunk"]) & {
       border-inline-end: 2px solid var(--cyber-frame);
@@ -337,7 +368,7 @@
   }
 
   @media (width <= 720px) {
-    .sidebar {
+    .sidebar:not(.collapsed) {
       inline-size: 208px;
     }
   }
