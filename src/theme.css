@@ -1004,7 +1004,9 @@ textarea {
   }
 
   /* Nested tooltips: while a descendant's own tooltip shows, suppress this one so
-     the two never stack (e.g. a usage bar inside the usage pill). */
+     the two never stack (e.g. a usage bar inside the usage pill). The shared
+     overflow bubble marks its trigger while it is up (truncation-tooltip). */
+  &:has([data-overflow-tooltip-shown])::after,
   &:has([data-tooltip]:hover)::after,
   &:has([data-tooltip]:focus-visible)::after {
     opacity: 0%;

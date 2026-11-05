@@ -15,6 +15,9 @@ let nextAnchorId = 0;
 const ANCHOR_NAME_PROPERTY = "anchor-name";
 const TRIGGER_ATTRIBUTE = "data-overflow-tooltip";
 const NESTED_TOOLTIP_SELECTOR = `[data-tooltip], [${TRIGGER_ATTRIBUTE}]`;
+// Set while this trigger's bubble is up, so theme.css can hide an enclosing
+// `[data-tooltip]` pseudo (the usage pill around its limit bars) meanwhile.
+const SHOWN_ATTRIBUTE = "data-overflow-tooltip-shown";
 interface Bubble {
   text: string;
   fontFamily?: string;
@@ -74,6 +77,7 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
         text,
         fontFamily
       });
+      elTrigger.toggleAttribute(SHOWN_ATTRIBUTE, true);
       // Any scroll dismisses the bubble, as a native tooltip does: its row
       // may slide under a pinned section (which `anchors-visible` can't see,
       // since nothing clips it) while the bubble would still be riding it.
@@ -85,6 +89,7 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
 
     function deactivate() {
       removeEventListener("scroll", deactivate, { capture: true });
+      elTrigger.removeAttribute(SHOWN_ATTRIBUTE);
       clearOverflowTooltip(anchorName);
     }
 
