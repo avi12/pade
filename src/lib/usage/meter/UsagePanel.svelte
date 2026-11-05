@@ -4,11 +4,18 @@
   import UsageKindLegend from "@/lib/usage/meter/UsageKindLegend.svelte";
   import UsageSpotlight from "@/lib/usage/meter/UsageSpotlight.svelte";
   import UsageSummary from "@/lib/usage/meter/UsageSummary.svelte";
+  import UsagePacingSettings from "@/lib/usage/pacing/settings/UsagePacingSettings.svelte";
   import { type AgentGroup, findSpotlight } from "@/lib/usage/usage-groups";
 
-  // The meter's details popover: the summary, the limit closest to its cap, and
-  // a card per running agent under a legend of the kind codes.
-  const { groups, justReset }: {
+  // The meter's details popover: the summary, usage pacing's settings (the one
+  // place they live), the limit closest to its cap, and a card per running
+  // agent under a legend of the kind codes. Pacing shows even with nothing
+  // running, so its settings are always within reach.
+  const { agent, project, groups, justReset }: {
+    /** The active session's agent id, whose account pacing's live lines read. */
+    agent: string;
+    /** The window's workspace, which pacing's workspace scope edits. */
+    project: string;
     groups: AgentGroup[];
     justReset: ReadonlySet<string>;
   } = $props();
@@ -26,7 +33,11 @@
 >
   {#if groups.length > 0}
     <UsageSummary {groups} />
+  {/if}
 
+  <UsagePacingSettings {agent} {project} />
+
+  {#if groups.length > 0}
     {#if spotlight}
       <UsageSpotlight {justReset} {spotlight} />
     {/if}
@@ -51,9 +62,10 @@
     position: absolute;
     inset: auto;
 
-    /* A native [popover] defaults to overflow:auto - clip so no stray scrollbar
-       shows; the inner .agents list owns vertical scrolling. */
-    overflow: clip;
+    /* The inner .agents list owns most of the scrolling; the panel itself
+       scrolls only when pacing's open folds outgrow a short window. */
+    overflow: clip auto;
+    max-block-size: calc(100dvh - 4rem);
     inline-size: min(29rem, 92vw);
     margin-block-start: 6px;
     padding: 15px;

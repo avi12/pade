@@ -28,7 +28,13 @@
   // The running agent sessions - one usage group per distinct coding agent among
   // them is derived below (the shell's windowSessions owns the list; the shell fallback and
   // terminal-editor sessions are filtered out in `buildGroups`).
-  const { sessions }: { sessions: AgentSession[] } = $props();
+  const { agent, project, sessions }: {
+    /** The active session's agent id, whose account the panel's pacing reads. */
+    agent: string;
+    /** The window's workspace, which pacing's workspace scope edits. */
+    project: string;
+    sessions: AgentSession[];
+  } = $props();
 
   // Live account usage per agent (mirrors claude.ai / `claude /usage` and Codex's
   // own limits): each agent's rate-limit windows - the session, weekly, and any
@@ -182,7 +188,7 @@
 <span class="usage-wrap menu-host">
   <UsageTrigger {groups} {justReset} {resetLabel} {showsResetInPill} />
 
-  <UsagePanel {groups} {justReset} />
+  <UsagePanel {agent} {groups} {justReset} {project} />
 
   {#if showsResetInPill}
     <button

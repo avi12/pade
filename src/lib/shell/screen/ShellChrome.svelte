@@ -25,6 +25,7 @@
     repository,
     sessions,
     activeSession,
+    agent,
     side = $bindable(),
     onsavetemp,
     onmerge,
@@ -36,6 +37,8 @@
     repository: ReturnType<typeof createActiveRepository>;
     sessions: AgentSession[];
     activeSession: AgentSession | undefined;
+    /** The active session's agent id, whose account the usage panel's pacing reads. */
+    agent: string;
     side: Side | null;
     onsavetemp: ComponentProps<typeof AppMenu>["onsavetemp"];
     onmerge: ComponentProps<typeof AppMenu>["onmerge"];
@@ -96,7 +99,7 @@
   />
   <span class="chrome-spacer"></span>
 
-  <UsageMeter {sessions} />
+  <UsageMeter {agent} {project} {sessions} />
   <!-- Open a console editor (Neovim/Vim/Helix) in its own terminal tab,
        split beside the agent so you can watch and edit at once. GUI editors
        go through the OS (ide.open); these need a real TTY, which only a PADE

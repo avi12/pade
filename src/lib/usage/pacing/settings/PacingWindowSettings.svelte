@@ -8,9 +8,9 @@
     pacingPreset,
     withPreset
   } from "@/lib/usage/pacing/pacing-policy";
-  import PacingFineTune from "@/panels/config/pacing/PacingFineTune.svelte";
-  import PacingForecast from "@/panels/config/pacing/PacingForecast.svelte";
-  import PacingWindowHeader from "@/panels/config/pacing/PacingWindowHeader.svelte";
+  import PacingFineTune from "@/lib/usage/pacing/settings/PacingFineTune.svelte";
+  import PacingForecast from "@/lib/usage/pacing/settings/PacingForecast.svelte";
+  import PacingWindowHeader from "@/lib/usage/pacing/settings/PacingWindowHeader.svelte";
 
   // One paced window's settings (lib/usage/pacing/pacing-policy): its strength preset
   // up front, its live line, and the margin and steps folded under Fine-tune.

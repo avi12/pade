@@ -2,7 +2,7 @@
   import type { PacedWindowKind, PacingSettings } from "@/lib/types";
   import Select from "@/lib/ui/controls/Select.svelte";
   import { marginLabel, PACED_WINDOW_TEXT, PACING_EARLY_OPTIONS } from "@/lib/usage/pacing/pacing-policy";
-  import PacingSteps from "@/panels/config/pacing/PacingSteps.svelte";
+  import PacingSteps from "@/lib/usage/pacing/settings/PacingSteps.svelte";
 
   // A paced window's Fine-tune fold: how far ahead of pace it may run before
   // pacing acts (in the window's own scale - minutes for a session, hours and

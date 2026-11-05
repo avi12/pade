@@ -11,9 +11,9 @@
     withGlobalWindowPacing,
     withProjectWindowPacing
   } from "@/lib/usage/pacing/pacing-scope";
+  import PacingWindowSettings from "@/lib/usage/pacing/settings/PacingWindowSettings.svelte";
   import { reportedPacedKinds } from "@/lib/usage/pacing/usage-pace";
   import { settledValue } from "@/lib/util/async/settled";
-  import PacingWindowSettings from "@/panels/config/pacing/PacingWindowSettings.svelte";
   import { untrack } from "svelte";
 
   // Usage pacing's settings, one block per paced window (session, weekly), and
@@ -134,35 +134,104 @@
   }
 </script>
 
-<div class="field">
-  <Segmented
-    chosen={scope}
-    label="Which usage pacing settings to edit"
-    onchoose={value => {
-      scope = value;
-    }}
-    options={scopeOptions}
-  />
-  <span class="field-hint">{SCOPE_HINTS[scope]}</span>
-</div>
+<section class="pacing" aria-label="Usage pacing">
+  <header class="pacing-head">
+    <span class="eyebrow section-label">Usage pacing</span>
+    <Segmented
+      chosen={scope}
+      label="Which usage pacing settings to edit"
+      onchoose={value => {
+        scope = value;
+      }}
+      options={scopeOptions}
+    />
+  </header>
+  <span class="field-hint scope-hint">{SCOPE_HINTS[scope]}</span>
 
-{#each shownKinds as kind (kind)}
-  <PacingWindowSettings
-    {agent}
-    inherit={inheritFor(kind)}
-    {kind}
-    onsave={async settings => await save({
-      kind,
-      settings
-    })}
-    settings={shown[kind]}
-  />
-{/each}
+  {#each shownKinds as kind (kind)}
+    <PacingWindowSettings
+      {agent}
+      inherit={inheritFor(kind)}
+      {kind}
+      onsave={async settings => await save({
+        kind,
+        settings
+      })}
+      settings={shown[kind]}
+    />
+  {/each}
 
-<p class="field-hint">Every step undoes itself as room comes back, and everything reverts when the window resets</p>
+  <p class="field-hint">Every step undoes itself as room comes back, and everything reverts when the window resets</p>
+</section>
 
 <style>
+  /* A section of the usage panel, framed like its spotlight card. */
+  .pacing {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-block-end: 14px;
+    padding-block: 12px;
+    padding-inline: 13px;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-medium);
+    background: var(--surface-1);
+  }
+
+  .pacing-head {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .scope-hint {
+    margin-block-start: -6px;
+  }
+
   p {
     margin: 0;
+  }
+
+  /* The field vocabulary the pacing parts write in (`.field`, `.field-row`,
+     `.field-text`, `.field-label`, `.field-hint`), at the usage panel's smaller
+     scale, at zero specificity (`:where`) so a part's own rule still wins. */
+  :where(.pacing) :global(.field) {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  :where(.pacing) :global(.field-row) {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  :where(.pacing) :global(.field-text) {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    line-height: 1.3;
+  }
+
+  :where(.pacing) :global(.field-label) {
+    color: var(--on-surface);
+    font-weight: 600;
+    font-size: 0.6875rem;
+  }
+
+  :where(.pacing) :global(.field-hint) {
+    color: var(--on-surface-variant);
+    font-size: 0.6563rem;
+  }
+
+  /* The design's pacing-mode row is a notch tighter than a Config switch. */
+  :where(.pacing) :global(.segmented .option) {
+    padding-block: 6px;
+    padding-inline: 6px;
+    font-size: 0.6875rem;
+    white-space: nowrap;
   }
 </style>

@@ -110,7 +110,8 @@
   let isPaneDragOverTabs = $state(false);
   let isResizingSidePanel = $state(false);
 
-  // Active agent id - used to show only its relevant config files.
+  // Active agent id - Config shows only its files, and the usage panel's pacing
+  // reads its account.
   const activeAgent = $derived(windowSessions.activeSession?.agent.id ?? "");
 
   /** Close a session the way its tab's close does, animation included. */
@@ -142,6 +143,7 @@
     <header class="topbar">
       <ShellChrome
         activeSession={windowSessions.activeSession}
+        agent={activeAgent}
         {isTemp}
         label={projectLabel}
         {onmerge}
