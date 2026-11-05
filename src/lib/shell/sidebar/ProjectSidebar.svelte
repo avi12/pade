@@ -304,6 +304,12 @@
     border-inline-end: 1px solid var(--outline);
     background: var(--surface-1);
 
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-palette="cyberpunk"]) & {
+        animation: var(--cyber-glitch-in-animation);
+      }
+    }
+
     /* Cyberpunk frames the rail with a two-pixel rule on its inner edge. */
     :global(:root[data-palette="cyberpunk"]) & {
       border-inline-end: 2px solid var(--cyber-frame);

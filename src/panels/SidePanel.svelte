@@ -65,6 +65,12 @@
     border-inline-start: 1px solid var(--outline);
     background: var(--surface);
     animation: panel-in 340ms var(--ease);
+
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-palette="cyberpunk"]) & {
+        animation: var(--cyber-glitch-in-animation);
+      }
+    }
   }
 
   .panel-body {

@@ -34,6 +34,12 @@
     transform: translateX(-50%);
     animation: pop-in 240ms var(--spring);
 
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-palette="cyberpunk"]) & {
+        animation: var(--cyber-glitch-in-animation);
+      }
+    }
+
     .toast-icon {
       display: inline-flex;
       color: var(--primary);

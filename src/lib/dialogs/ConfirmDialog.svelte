@@ -179,6 +179,12 @@
     box-shadow: 0 32px 80px var(--shadow-color);
     animation: pop-in 240ms var(--spring);
 
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-palette="cyberpunk"]) & {
+        animation: var(--cyber-glitch-in-animation);
+      }
+    }
+
     &::backdrop {
       background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 55%));
       animation: fadein 160ms var(--ease);

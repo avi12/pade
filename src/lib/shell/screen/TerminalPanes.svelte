@@ -215,6 +215,12 @@
   }
 
   .terminal-slot {
+    /* What animatePaneIn plays on a slot joining a split. Under Cyberpunk it
+       glitches in instead: the slicing masks the live slot - it snapshots
+       nothing, the way pane-enter's own reveal clip doesn't - so the terminal
+       keeps painting through it rather than ghosting. */
+    --pane-enter-animation: pane-enter 340ms var(--spring);
+
     position: relative;
     display: flex;
     flex: 1;
@@ -227,6 +233,12 @@
        tab must not animate the terminal (it would read as a needless wipe). Only a
        genuine split-ADD springs its newcomer in, fired imperatively on that one
       slot via animatePaneIn (pane-enter), never here on every `.shown`. */
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-palette="cyberpunk"]) & {
+        --pane-enter-animation: var(--cyber-glitch-in-animation);
+      }
+    }
+
     &:not(.shown) {
       position: absolute;
       inset: 0 0 var(--dock-difference);

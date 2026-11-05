@@ -27,6 +27,12 @@
     font-size: 0.8125rem;
     box-shadow: 0 10px 30px var(--shadow-color);
     animation: pop-in 220ms var(--ease);
+
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-palette="cyberpunk"]) & {
+        animation: var(--cyber-glitch-in-animation);
+      }
+    }
   }
 
   .status-dot {

@@ -5,8 +5,9 @@
 import { paneAtPoint } from "@/lib/session/panes/pane-layout";
 import { tick } from "svelte";
 
-// The spring a pane joining a split enters with.
-const PANE_ENTER_ANIMATION = "pane-enter 340ms var(--spring)";
+// The entrance a pane joining a split plays - the slot's own CSS names it
+// (TerminalPanes), so a palette can swap it without touching this module.
+const PANE_ENTER_ANIMATION = "var(--pane-enter-animation)";
 
 /** The shown pane under a point, and which half of it - used both for the live
  *  highlight and for the actual drop, so the two never disagree (DRY). */

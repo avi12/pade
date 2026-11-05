@@ -898,6 +898,16 @@
 <style>
   .app-root {
     block-size: 100%;
+
+    /* Switching the Cyberpunk palette on tears the whole window in once: the
+       animation starts the moment the root's attribute makes this match, so
+       the switch itself is the trigger and no script is involved. A light /
+       dark flip keeps the same animation and so never replays it. */
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-palette="cyberpunk"]) & {
+        animation: var(--cyber-tear-animation);
+      }
+    }
   }
 
   /* The home screen: the same left rail the workspace shows, beside the
