@@ -170,7 +170,7 @@
   --tertiary: hsl(160deg 55% 32%);
   --tertiary-wash: hsl(160deg 55% 45% / 16%);
   --warning: hsl(28deg 90% 42%);
-  --warning-wash: hsl(28deg 90% 45% / 14%);
+  --warning-wash: hsl(28deg 90% 45% / 16%);
   --critical: hsl(352deg 72% 50%);
   --critical-wash: hsl(352deg 72% 55% / 14%);
 
