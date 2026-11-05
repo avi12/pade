@@ -2115,7 +2115,10 @@ textarea {
 }
 
 /* A box arriving (a dialog, a toast, the rail, a pane, the side panel): sliced
-   in from nothing, split, then settled. */
+   in from nothing, split, then settled. It settles on `clip-path: none`, not a
+   full inset: an inset still clips to the border box, cutting off what the box
+   draws past it (a dialog card's shadow plate round its chamfer), which then
+   snapped back the instant the animation ended. */
 @keyframes cyber-glitch-in {
   0% {
     clip-path: inset(0 0 88% 0);
@@ -2141,7 +2144,7 @@ textarea {
   }
 
   60% {
-    clip-path: inset(0 0 0 0);
+    clip-path: none;
     filter: drop-shadow(1px 0 var(--cyber-glitch-1)) drop-shadow(-1px 0 var(--cyber-glitch-2));
     translate: 0 0;
   }
