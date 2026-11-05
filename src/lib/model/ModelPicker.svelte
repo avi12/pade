@@ -66,6 +66,12 @@
     &.current {
       color: var(--primary);
       font-weight: 600;
+
+      /* Cyberpunk fills the running model's row, the selected slab. */
+      :global(:root[data-palette="cyberpunk"]) & {
+        background: var(--primary-container);
+        color: var(--on-primary-container);
+      }
     }
 
     .check {

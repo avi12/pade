@@ -45,6 +45,18 @@
     gap: 4px;
     padding-block: 2px 6px;
     padding-inline: 6px;
+
+    /* Cyberpunk sets the levels in one sunken strip, the design's segmented
+       effort control. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      gap: 3px;
+      margin-block-end: 6px;
+      margin-inline: 6px;
+      padding: 3px;
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-small);
+      background: var(--surface-1);
+    }
   }
 
   .effort {
@@ -65,6 +77,11 @@
     &.current {
       border-color: var(--primary);
       background: var(--surface-3);
+
+      :global(:root[data-palette="cyberpunk"]) & {
+        border-color: transparent;
+        background: var(--primary-container);
+      }
     }
 
     &.recommended {
