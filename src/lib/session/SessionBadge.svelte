@@ -39,6 +39,10 @@
       font-family: var(--font-monospace);
       font-weight: 700;
       font-size: 0.8125rem;
+
+      :global(:root[data-palette="cyberpunk"]) & {
+        letter-spacing: 0.02em;
+      }
     }
 
     /* The state phrase is 600-weight in every state (canon); each status
@@ -53,6 +57,12 @@
       inline-size: 9px;
       border-radius: var(--radius-full);
       background: var(--on-surface-variant);
+
+      /* The design's pane head marks status with a smaller square. */
+      :global(:root[data-palette="cyberpunk"]) & {
+        block-size: 6px;
+        inline-size: 6px;
+      }
     }
 
     /* Working: primary dot, dim-flashing (shared global @keyframes pulse) -
