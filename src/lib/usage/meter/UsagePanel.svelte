@@ -32,7 +32,7 @@
     {/if}
 
     <div class="agents-head">
-      <span class="eyebrow">All agents</span>
+      <span class="eyebrow section-label">All agents</span>
       <UsageKindLegend {groups} />
     </div>
 
@@ -67,13 +67,10 @@
   }
 
   /* Shared by the panel's sections, at zero specificity (`:where`) so a
-     section's own rule still wins. A small uppercase section label: */
+     section's own rule still wins. A small section label's size (its writing
+     is the shared `.section-label`): */
   :where(.panel) :global(.eyebrow) {
-    color: var(--on-surface-variant);
-    font-weight: 700;
     font-size: 0.625rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
 
   /* An agent's icon, tinted by whichever severity its context set on --severity-color. */

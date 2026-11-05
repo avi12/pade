@@ -47,7 +47,7 @@
 >
   <Logo size={18} />
   <span class="stack">
-    <span class="eyebrow">Project</span>
+    <span class="eyebrow section-label">Project</span>
     <span class="name">
       {label}
       {#if isTemp}
@@ -86,11 +86,7 @@
     }
 
     .eyebrow {
-      color: var(--on-surface-variant);
-      font-weight: 700;
       font-size: 0.5625rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
     }
 
     .name {

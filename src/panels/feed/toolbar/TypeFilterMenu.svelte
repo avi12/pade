@@ -27,7 +27,7 @@
 
 <div {id} style:position-anchor={anchor} class="type-popover popover-menu" popover>
   <div class="popover-header">
-    <span class="pop-title">File type</span>
+    <span class="pop-title section-label">File type</span>
     <!-- Fills every box when not all are ticked, else clears the selection
          back to the "show all" default. -->
     <button
@@ -107,11 +107,7 @@
     }
 
     .pop-title {
-      color: var(--on-surface-variant);
-      font-weight: 700;
       font-size: 0.625rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
     }
 
     /* "Select all" is a text action, not a checkbox: a plain blue link-button. */

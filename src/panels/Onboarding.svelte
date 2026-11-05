@@ -28,7 +28,7 @@
     <button class="cwd" onclick={onswitchproject}>
       <span class="lead"><Icon name="folder" /></span>
       <span class="stack">
-        <span class="eyebrow">Working directory</span>
+        <span class="eyebrow section-label">Working directory</span>
         <span class="path">{path}</span>
       </span>
       <span class="switch">Switch project</span>
@@ -141,11 +141,7 @@
     }
 
     .eyebrow {
-      color: var(--on-surface-variant);
-      font-weight: 700;
       font-size: 0.5625rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
     }
 
     .path {

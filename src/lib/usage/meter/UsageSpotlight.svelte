@@ -25,7 +25,7 @@
     <span class="spotlight-id">
       <span class="agent-icon"><Icon name={spotlight.agent.icon} /></span>
       <span class="spotlight-text">
-        <span class="eyebrow">Closest to a limit</span>
+        <span class="eyebrow section-label">Closest to a limit</span>
         <span class="spotlight-title">{spotlight.agent.name} · {spotlight.limit.label}</span>
       </span>
     </span>
@@ -76,7 +76,6 @@
 
     .eyebrow {
       font-size: 0.5625rem;
-      letter-spacing: 0.09em;
     }
 
     .spotlight-title {

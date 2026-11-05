@@ -31,7 +31,7 @@
   );
 </script>
 
-<h4>Usage pacing</h4>
+<h4 class="section-label">Usage pacing</h4>
 {#each lines as line (line)}
   <p>{line}</p>
 {/each}
@@ -52,10 +52,7 @@
 <style>
   h4 {
     margin: 0;
-    color: var(--on-surface-variant);
     font-size: 0.625rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
 
   p {

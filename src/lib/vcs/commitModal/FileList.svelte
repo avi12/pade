@@ -32,7 +32,7 @@
 </script>
 
 <nav class="files" aria-label="Changed files">
-  <h3 id="commit-file-list-label" class="files-eyebrow">Files</h3>
+  <h3 id="commit-file-list-label" class="files-eyebrow section-label">Files</h3>
   <ul
     bind:this={listElement}
     aria-labelledby="commit-file-list-label"
@@ -113,11 +113,7 @@
       margin: 0;
       padding-block: 6px 4px;
       padding-inline: 8px;
-      color: var(--on-surface-variant);
-      font-weight: 700;
       font-size: 0.625rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
     }
 
     ul {

@@ -26,7 +26,7 @@
 </script>
 
 <div class="sidebar-head">
-  <h2>Projects</h2>
+  <h2 class="section-label">Projects</h2>
   <button
     class="actions-trigger"
     aria-haspopup="menu"
@@ -73,11 +73,7 @@
 
     h2 {
       margin: 0;
-      color: var(--on-surface-variant);
-      font-weight: 700;
       font-size: 0.6875rem;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
 
       @media (prefers-reduced-motion: no-preference) {
         :global(:root[data-palette="cyberpunk"]) .sidebar-head:hover & {
@@ -86,9 +82,9 @@
       }
     }
 
-    /* Cyberpunk: a red accent bar leads the head, and the title is a section
-       label - amber mono, wider tracking, behind a red `//`. The title takes
-       the free space so the bar stays at the edge and the menu at the end. */
+    /* Cyberpunk: a red accent bar leads the head (the title's label look is
+       the shared `.section-label`). The title takes the free space so the bar
+       stays at the edge and the menu at the end. */
     :global(:root[data-palette="cyberpunk"]) & {
       &::before {
         content: "";
@@ -101,14 +97,6 @@
 
       h2 {
         flex: 1;
-        color: var(--cyber-label);
-        font-family: var(--font-monospace);
-        letter-spacing: 0.12em;
-
-        &::before {
-          content: "// ";
-          color: var(--cyber-accent);
-        }
       }
     }
   }

@@ -1452,16 +1452,24 @@ textarea {
    A label names the group under it; a divider only separates. A group that has
    both wants the label alone (the label carries its own rule under the skins
    that draw one), so put the divider before a label only where the sections
-   genuinely need the extra beat. */
+   genuinely need the extra beat.
+
+   A section label outside a menu (a popover's title, a card's heading, the
+   rail's list heads) wears the same writing through `.section-label`, so a
+   palette's take on "a label naming a group" is written once, below and in
+   the Cyberpunk block; each label keeps only its own size and spacing. */
+:is(.menu-separator, .section-label) {
+  color: var(--on-surface-variant);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .menu-separator {
   margin-block: 6px 2px;
   padding-block: 2px 4px;
   padding-inline: 10px;
-  color: var(--on-surface-variant);
-  font-weight: 700;
   font-size: 0.625rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 
   /* A menu that opens on a label has nothing above it to be spaced from. */
   &:first-child {
@@ -2000,8 +2008,21 @@ textarea {
      switcher's sticky list heads (ProjectSection) wear the same label look.
 
      Room for the rule the label now carries comes with it. The label itself is
-     the design's: amber mono, tracked wider, led by a red `// ` - amber labels,
-     with the red spent on a mark rather than on the words. */
+     the design's, on every section label in the app: amber mono, tracked
+     wider, led by a red `// ` - amber labels, with the red spent on a mark
+     rather than on the words. The mark keeps its space inside a flex label. */
+  :is(.menu-separator, .section-label) {
+    color: var(--cyber-label);
+    font-family: var(--font-monospace);
+    letter-spacing: 0.12em;
+
+    &::before {
+      content: "// ";
+      color: var(--cyber-accent);
+      white-space: pre;
+    }
+  }
+
   .menu-separator {
     margin-block: 8px 4px;
     padding-block: 2px 6px;
@@ -2010,14 +2031,6 @@ textarea {
     background-position: bottom left;
     background-size: 100% 4px;
     background-repeat: no-repeat;
-    color: var(--cyber-label);
-    font-family: var(--font-monospace);
-    letter-spacing: 0.12em;
-
-    &::before {
-      content: "// ";
-      color: var(--cyber-accent);
-    }
   }
 
   .menu-divider {

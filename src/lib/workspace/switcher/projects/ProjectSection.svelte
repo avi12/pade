@@ -51,7 +51,7 @@
 </script>
 
 {#if items.length > 0}
-  <div class="list-head">{heading}</div>
+  <div class="list-head section-label">{heading}</div>
   {#each items as item (key(item))}
     <!-- An item that leaves (a narrowed search, Remove from list) closes up
          while the ones below glide into its place; one that joins opens in,
@@ -86,25 +86,7 @@
     padding-block: 7px 3px;
     padding-inline: 8px;
     background: var(--surface-1);
-    color: var(--on-surface-variant);
-    font-weight: 700;
     font-size: 0.5625rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-
-    /* Cyberpunk: a section label reads amber in the mono face, tracked wider,
-       behind a red `//` - red marks, it never carries the words. */
-    :global(:root[data-palette="cyberpunk"]) & {
-      color: var(--cyber-label);
-      font-family: var(--font-monospace);
-      letter-spacing: 0.12em;
-
-      &::before {
-        content: "// ";
-        color: var(--cyber-accent);
-        white-space: pre;
-      }
-    }
   }
 
   /* Scrolled into view, an item stops below the sticky section label rather
