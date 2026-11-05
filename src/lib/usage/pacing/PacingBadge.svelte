@@ -30,6 +30,7 @@
   <button
     style:anchor-name={anchorName}
     class="badge"
+    class:stopped={status.isStopped}
     aria-label={`Usage pacing: ${status.steps.length} of ${status.allowedCount} steps active`}
     data-noreorder
     data-tooltip="Usage pacing is holding this agent back - click for why"
@@ -63,6 +64,14 @@
     font-weight: 700;
     font-size: 0.625rem;
     letter-spacing: 0.04em;
+
+    /* Cyberpunk: a session pacing has stopped outright stutters every few
+       seconds - an alarm on a held state, not on the step count changing. */
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-palette="cyberpunk"]) &.stopped {
+        animation: var(--cyber-alarm-animation);
+      }
+    }
   }
 
   .pacing-popover {
