@@ -62,5 +62,22 @@
       font-weight: 700;
       font-size: 0.5625rem;
     }
+
+    /* Cyberpunk: a slim filter bar, tighter than the shared field, drawn by a
+       hairline teal rule until focus lights it. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      gap: 0.4375rem;
+      margin-block-end: 0.5rem;
+      padding-inline: 0.5rem;
+      font-size: 0.75rem;
+
+      input {
+        padding-block: 0.3125rem;
+      }
+
+      &:not(:focus-within) {
+        border-color: var(--outline);
+      }
+    }
   }
 </style>

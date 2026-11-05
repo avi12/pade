@@ -192,6 +192,10 @@
     &.active {
       --stop-opacity: 100%;
     }
+
+    :global(:root[data-palette="cyberpunk"]) &:hover:not(.active) {
+      background: var(--surface-3);
+    }
   }
 
   .chat {
@@ -209,6 +213,17 @@
     font-size: 0.7813rem;
     text-align: start;
     cursor: pointer;
+
+    /* Cyberpunk: a session name is mono writing, set a size under its
+       project's. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      padding-block: 0.3125rem;
+      padding-inline: 0.4375rem;
+      font-family: var(--font-monospace);
+      font-weight: 500;
+      font-size: 0.7188rem;
+      letter-spacing: 0.02em;
+    }
 
     .agent-icon {
       display: inline-flex;

@@ -38,5 +38,11 @@
     font-size: 0.8125rem;
     overflow-wrap: anywhere;
     line-clamp: 2;
+
+    :global(:root[data-palette="cyberpunk"]) & {
+      font-weight: 700;
+      font-size: 0.7813rem;
+      letter-spacing: 0.02em;
+    }
   }
 </style>

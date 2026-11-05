@@ -207,6 +207,13 @@
     scrollbar-color: color-mix(in sRGB, var(--primary) 45%, transparent) var(--surface-1);
     scrollbar-width: thin;
     scrollbar-gutter: stable;
+
+    /* Cyberpunk: flat rows close-packed, each project's chats carrying the
+       space under it. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      gap: 0.125rem;
+      padding-inline: 0.375rem;
+    }
   }
 
   .empty {

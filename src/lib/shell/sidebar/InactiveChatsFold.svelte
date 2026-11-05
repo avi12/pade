@@ -104,6 +104,10 @@
     &:hover {
       background: var(--surface-2);
       color: var(--on-surface);
+
+      :global(:root[data-palette="cyberpunk"]) & {
+        background: var(--surface-3);
+      }
     }
   }
 

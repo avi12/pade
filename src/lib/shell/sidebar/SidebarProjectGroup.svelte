@@ -118,7 +118,7 @@
 <section class="group">
   <!-- One keyboard line: the header is the project's only tab stop, and the
        arrows reach its buttons (sidebar-keyboard). -->
-  <div class="project-row" data-sidebar-line>
+  <div class="project-row" class:current={group.isCurrent} data-sidebar-line>
     <ReorderGrip
       idAttribute={PIN_ID_ATTRIBUTE}
       isEnabled={isPinReorderable}
@@ -192,6 +192,13 @@
     &:focus-within {
       --row-kebab-opacity: 100%;
     }
+
+    /* Cyberpunk: the project in front is one flat lit strip - a raised fill
+       under the whole header, buttons and all, led by the red accent rail. */
+    :global(:root[data-palette="cyberpunk"]) &.current {
+      background: var(--surface-2);
+      box-shadow: inset 3px 0 0 0 var(--cyber-accent);
+    }
   }
 
   .new-chat {
@@ -220,6 +227,17 @@
       background: var(--surface-3);
       color: var(--on-surface);
     }
+
+    /* Cyberpunk: a square hit target, lit cyan on hover like the design. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      block-size: 1.5rem;
+      inline-size: 1.5rem;
+
+      &:hover {
+        background: var(--primary-container);
+        color: var(--on-primary-container);
+      }
+    }
   }
 
   /* Chats indent under their project - the grouping reads from position
@@ -233,6 +251,10 @@
     padding: 0;
     padding-inline-start: 18px;
     list-style: none;
+
+    :global(:root[data-palette="cyberpunk"]) & {
+      padding-block: 0.125rem 0.375rem;
+    }
   }
 
   .no-chats {

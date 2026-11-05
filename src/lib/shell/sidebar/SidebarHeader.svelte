@@ -86,6 +86,8 @@
        the shared `.section-label`). The title takes the free space so the bar
        stays at the edge and the menu at the end. */
     :global(:root[data-palette="cyberpunk"]) & {
+      padding-block: 0.625rem 0.375rem;
+
       &::before {
         content: "";
         flex: none;
@@ -97,6 +99,7 @@
 
       h2 {
         flex: 1;
+        font-size: 0.625rem;
       }
     }
   }
