@@ -1,5 +1,6 @@
 import {
   bareModel,
+  effortBars,
   effortStep,
   effortTone,
   lowerEffort,
@@ -151,6 +152,78 @@ describe("effortStep", () => {
       step: 5,
       steps: 6
     });
+  });
+});
+
+describe("effortBars", () => {
+  it("lights the bars up to the level in use, climbing in height", () => {
+    expect(
+      effortBars({
+        model: "claude-opus-5-5",
+        effort: "xhigh"
+      })
+    ).toEqual([
+      {
+        level: "low",
+        heightPercent: 35,
+        isLit: true
+      },
+      {
+        level: "medium",
+        heightPercent: 51,
+        isLit: true
+      },
+      {
+        level: "high",
+        heightPercent: 68,
+        isLit: true
+      },
+      {
+        level: "xhigh",
+        heightPercent: 84,
+        isLit: true
+      },
+      {
+        level: "max",
+        heightPercent: 100,
+        isLit: false
+      }
+    ]);
+  });
+
+  it("draws one bar per level of the model's own ladder", () => {
+    const bars = effortBars({
+      model: "gpt-5.6-terra",
+      effort: "low",
+      ladder: ["low", "high", "ultra"]
+    });
+    expect(bars.map(bar => bar.heightPercent)).toEqual([35, 68, 100]);
+    expect(bars.map(bar => bar.isLit)).toEqual([true, false, false]);
+  });
+
+  it("draws a one-level ladder as one full, lit bar", () => {
+    expect(
+      effortBars({
+        model: "gpt-5.6-terra",
+        effort: "auto",
+        ladder: ["auto"]
+      })
+    ).toEqual([
+      {
+        level: "auto",
+        heightPercent: 100,
+        isLit: true
+      }
+    ]);
+  });
+
+  it("is empty for a level no ladder knows", () => {
+    expect(
+      effortBars({
+        model: "claude-opus-5-5",
+        effort: "turbo"
+      })
+    ).toEqual([]);
   });
 });
 

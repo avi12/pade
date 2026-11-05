@@ -126,6 +126,37 @@ export function lowerEffort({ model, effort, ladder = [] }: {
   return found.ladder[found.iEffort - 1];
 }
 
+/** The shortest effort bar, as a share of the tallest; the bars between them
+ *  climb evenly. */
+const SHORTEST_BAR_PERCENT = 35;
+const TALLEST_BAR_PERCENT = 100;
+
+/** An effort level drawn as signal bars: one bar per level of its ladder,
+ *  climbing from short to full height, lit up to and including the level in
+ *  use. Empty for a level no ladder knows, so the caller shows only the word. */
+export function effortBars({ model, effort, ladder = [] }: {
+  model: string;
+  effort: string;
+  ladder?: readonly string[];
+}) {
+  const found = effortOnLadder({
+    model,
+    effort,
+    ladder
+  });
+  if (found === null) {
+    return [];
+  }
+
+  const lastIndex = found.ladder.length - 1;
+  const climb = TALLEST_BAR_PERCENT - SHORTEST_BAR_PERCENT;
+  return found.ladder.map((level, i) => ({
+    level,
+    heightPercent: lastIndex === 0 ? TALLEST_BAR_PERCENT : Math.round(SHORTEST_BAR_PERCENT + i * climb / lastIndex),
+    isLit: i <= found.iEffort
+  }));
+}
+
 /** How many distinct effort colours the theme defines (`--effort-tone-1..5`). */
 const EFFORT_TONES = 5;
 
