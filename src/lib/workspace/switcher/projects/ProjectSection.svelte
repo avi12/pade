@@ -5,9 +5,11 @@
   import { untrack } from "svelte";
 
   // One titled section of the rail's project list (Pinned or Recent): a sticky
-  // head, then one row per item. Nothing renders for an empty section.
+  // head (when it has one), then one row per item. Nothing renders for an
+  // empty section.
   const { heading, items, key, itemAttributes, row, isReorderAnimated = false, followedKey }: {
-    heading: string;
+    /** The sticky label - none where the list is a single section. */
+    heading?: string;
     items: readonly Item[];
     /** Each item's stable identity, keying its row. */
     key: (item: Item) => string;
@@ -51,7 +53,7 @@
 </script>
 
 {#if items.length > 0}
-  <div class="list-head section-label">{heading}</div>
+  <div class="list-head section-label" hidden={heading === undefined}>{heading}</div>
   {#each items as item (key(item))}
     <!-- An item that leaves (a narrowed search, Remove from list) closes up
          while the ones below glide into its place; one that joins opens in,
@@ -87,6 +89,10 @@
     padding-inline: 8px;
     background: var(--surface-1);
     font-size: 0.5625rem;
+
+    &[hidden] {
+      display: none;
+    }
   }
 
   /* Scrolled into view, an item stops below the sticky section label rather

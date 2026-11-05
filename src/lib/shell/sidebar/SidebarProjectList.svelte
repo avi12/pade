@@ -79,6 +79,9 @@
   let pickedProject = $state<string>();
   const followedProject = $derived(pickedProject ?? sections.recent.find(entry => entry.isCurrent)?.project);
   const isEmpty = $derived(sections.pinned.length === 0 && sections.recent.length === 0);
+  // Without pins the list is one run of projects, so neither section needs a
+  // label; with them, Pinned and Recent each wear theirs.
+  const hasSectionHeads = $derived(sections.pinned.length > 0);
   const emptyMessage = $derived.by(() => {
     if (!isEmpty) {
       return null;
@@ -164,7 +167,7 @@
 <!-- Arrow keys move along and between the rail's keyboard lines (each
      `data-sidebar-line`, its controls marked `data-sidebar-item`); Tab stops
      on project headers only, which the markup's tabindex already arranges. -->
-<div class="groups" {@attach sidebarArrowKeys}>
+<div class="groups" class:sectioned={hasSectionHeads} {@attach sidebarArrowKeys}>
   <ProjectSection
     heading="Pinned"
     itemAttributes={entry => ({ [PIN_ID_ATTRIBUTE]: isPinListReorderable ? entry.project : undefined })}
@@ -174,7 +177,7 @@
   />
   <ProjectSection
     followedKey={followedProject}
-    heading="Recent"
+    heading={hasSectionHeads ? "Recent" : undefined}
     isReorderAnimated
     items={sections.recent}
     key={entry => entry.project}
@@ -192,8 +195,9 @@
      the skin's: thin, a primary-tinted thumb over the rail's own surface. */
   .groups {
     /* The sticky Pinned / Recent label's height - each project's header
-       sticks right under it, so both read this one length. */
-    --section-head-block-size: 27px;
+       sticks right under it, so both read this one length. No labels, no
+       offset. */
+    --section-head-block-size: 0px;
 
     display: flex;
     flex: 1;
@@ -207,6 +211,10 @@
     scrollbar-color: color-mix(in sRGB, var(--primary) 45%, transparent) var(--surface-1);
     scrollbar-width: thin;
     scrollbar-gutter: stable;
+
+    &.sectioned {
+      --section-head-block-size: 27px;
+    }
 
     /* Cyberpunk: flat rows close-packed, each project's chats carrying the
        space under it. */
