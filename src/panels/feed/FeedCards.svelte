@@ -77,25 +77,32 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 18px;
+    gap: 12px;
     overflow-y: auto;
     overscroll-behavior: contain;
     min-block-size: 0;
     margin: 0;
-    padding: 10px;
+    padding-block: 12px 18px;
+    padding-inline: 14px;
   }
 
   .group {
     display: flex;
     flex-direction: column;
+    gap: 8px;
   }
 
+  /* A group's cards hang off a thin rail under its header, so which package a
+     card belongs to reads from the indent rather than a box around the group. */
   .grouplist {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin: 0;
-    padding: 0;
+    gap: 10px;
+    margin-block: 0;
+    margin-inline: 8px 0;
+    padding-block: 0;
+    padding-inline: 10px 0;
+    border-inline-start: 1px solid var(--outline);
     list-style: none;
   }
 </style>

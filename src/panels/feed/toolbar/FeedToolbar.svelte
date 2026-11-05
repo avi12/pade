@@ -73,8 +73,8 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    padding-block: 10px 0;
-    padding-inline: 10px;
+    padding-block: 0;
+    padding-inline: 14px;
   }
 
   /* The pressed state + caret flip come from the shared .menu-host/.menu-trigger
@@ -83,7 +83,7 @@
     display: inline-flex;
   }
 
-  /* Both toolbar actions are outlined pills. */
+  /* Both toolbar actions are quiet outlined pills: tools, not content. */
   .typechip,
   .sync {
     display: inline-flex;
@@ -91,18 +91,18 @@
     align-items: center;
     border: 1px solid var(--outline);
     border-radius: var(--radius-full);
-    background: var(--surface-2);
-    color: var(--on-surface);
+    background: transparent;
+    color: var(--on-surface-variant);
     font-family: inherit;
-    font-weight: 600;
-    font-size: 0.75rem;
+    font-weight: 700;
+    font-size: 0.6875rem;
     cursor: pointer;
     transition: background 120ms var(--ease);
   }
 
   .typechip {
     padding-block: 4px;
-    padding-inline: 10px 12px;
+    padding-inline: 10px 8px;
 
     &:hover {
       background: var(--surface-3);
@@ -116,7 +116,8 @@
 
   .sync {
     margin-inline-start: auto;
-    padding: 4px 12px;
+    padding-block: 4px;
+    padding-inline: 8px 10px;
 
     &:disabled {
       color: var(--on-surface-variant);

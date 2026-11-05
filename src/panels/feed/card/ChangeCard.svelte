@@ -148,9 +148,16 @@
   }
 
   .time {
-    margin-left: auto;
+    flex: none;
+    margin-inline-start: auto;
     color: var(--on-surface-variant);
     font-size: 0.6875rem;
+    white-space: nowrap;
+  }
+
+  /* Cyberpunk sets every monospace name in Share Tech Mono, tracked a touch. */
+  :global(:root[data-palette="cyberpunk"]) :is(.name, .path) {
+    letter-spacing: 0.02em;
   }
 
   .summary {

@@ -39,11 +39,13 @@
 
 <header class="group-header">
   <span class="badge {group.role}">{roleLabel}</span>
-  <!-- Ellipsizes in the narrow panel; grows a bubble only while clipped. -->
-  <span class="group-name" {@attach truncationTooltip({ tooltip: group.name })}>{group.name}</span>
-  {#if branch}
-    <span class="group-branch"><Icon name="branch" size={12} />{branch}</span>
-  {/if}
+  <span class="group-title">
+    <!-- Ellipsizes in the narrow panel; grows a bubble only while clipped. -->
+    <span class="group-name" {@attach truncationTooltip({ tooltip: group.name })}>{group.name}</span>
+    {#if branch}
+      <span class="group-branch"><Icon name="branch" size={10} />{branch}</span>
+    {/if}
+  </span>
   <span class="group-statistics">
     <LineCounts added={group.added} removed={group.removed} />
   </span>
@@ -53,73 +55,91 @@
 <style>
   .group-header {
     display: flex;
-    gap: 9px;
+    gap: 8px;
     align-items: center;
-    padding-block: 2px 8px;
-    padding-inline: 6px;
+    padding: 4px;
   }
 
+  /* The role reads as a tinted pill in the role's own colour - the fill a
+     wash of the ink - so APP, LIB and SVC differ by hue, never by weight. */
   .badge {
     flex: none;
-    padding: 2px 6px;
-    border-radius: var(--radius-small);
-    color: #ffffff;
-    font-family: var(--font-monospace);
-    font-weight: 700;
-    font-size: 0.5938rem;
-    letter-spacing: 0.05em;
+    padding-block: 2px;
+    padding-inline: 8px;
+    border-radius: var(--radius-full);
+    font-weight: 800;
+    font-size: 0.625rem;
+    letter-spacing: 0.02em;
 
     &.app {
-      background: #3b6fe0;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
     }
 
     &.lib {
-      background: #12a58a;
+      background: var(--tertiary-wash);
+      color: var(--tertiary);
     }
 
     &.service {
-      background: #c8871a;
+      background: var(--warning-wash);
+      color: var(--warning);
     }
+  }
+
+  /* The name over its branch, one column, so the totals keep the row's end. */
+  .group-title {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+    line-height: 1.2;
   }
 
   .group-name {
     overflow: hidden;
+    font-family: var(--font-monospace);
     font-weight: 700;
     font-size: 0.8125rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  /* Git-branch subtitle beside the group name - leads with the branch glyph, to
+  /* Git-branch subtitle under the group name - leads with the branch glyph, to
      match the switcher's branch chip; muted so the project name stays primary. */
   .group-branch {
     display: inline-flex;
-    flex: none;
     gap: 3px;
     align-items: center;
+    overflow: hidden;
     color: var(--on-surface-variant);
-    font-family: var(--font-monospace);
-    font-size: 0.6875rem;
+    font-size: 0.625rem;
     white-space: nowrap;
   }
 
   .group-statistics {
     display: flex;
-    gap: 8px;
+    flex: none;
+    gap: 7px;
     margin-inline-start: auto;
-    font-family: var(--font-monospace);
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.6875rem;
   }
 
   .group-count {
     flex: none;
-    min-inline-size: 20px;
-    padding: 1px 7px;
+    min-inline-size: 1.25rem;
+    padding-block: 1px;
+    padding-inline: 7px;
     border-radius: var(--radius-full);
-    background: var(--surface-2);
-    color: var(--on-surface-variant);
-    font-size: 0.6563rem;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    font-weight: 700;
+    font-size: 0.6875rem;
     text-align: center;
+  }
+
+  /* Cyberpunk sets every monospace name in Share Tech Mono, tracked a touch. */
+  :global(:root[data-palette="cyberpunk"]) .group-name {
+    letter-spacing: 0.02em;
   }
 </style>
