@@ -10,9 +10,8 @@
   import SessionTab from "@/lib/session/tabs/SessionTab.svelte";
   import { collapseTab } from "@/lib/session/tabs/tab-collapse";
   import { beginTabDrag } from "@/lib/session/tabs/tab-drag";
-  import TabModelMenu from "@/lib/session/tabs/TabModelMenu.svelte";
   import { awaitingChoice } from "@/lib/stores/session/sessionAttention.svelte";
-  import type { Agent, AgentSession, ModelChoice } from "@/lib/types";
+  import type { Agent, AgentSession } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag/drag-reorder";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -32,7 +31,6 @@
     onreorder,
     onsplit,
     ondraghint,
-    onmodelchoice,
     popPaneActive = false
   }: {
     sessions: AgentSession[];
@@ -59,15 +57,7 @@
     }) => void;
     /** Live drag state, so the shell's TerminalPanes can paint the "drop here" overlay. */
     ondraghint?: (hint: DragHint | null) => void;
-    /** A model / effort was picked from a tab's model menu - apply it. */
-    onmodelchoice: (pick: {
-      session: AgentSession;
-      choice: ModelChoice;
-    }) => Promise<void>;
   } = $props();
-
-  let modelMenuSessionId = $state<string | null>(null);
-  const modelMenuSession = $derived(sessions.find(session => session.id === modelMenuSessionId));
 
   // ── Measurement ─────────────────────────────────────────────────────────────
   // The strip is bounded to the width the nav gives it. Pill widths come from
@@ -209,9 +199,7 @@
     isAwaitingChoice={isAwaitingChoice(session.id)}
     isEditing={editingId === session.id}
     {isMirror}
-    isModelMenuTarget={modelMenuSessionId === session.id}
     onclose={() => closeTab(session)}
-    onmodelopen={() => (modelMenuSessionId = session.id)}
     onrename={() => (editingId = session.id)}
     onrenamedone={() => (editingId = null)}
     onselect={() => onselect(session.id)}
@@ -284,8 +272,6 @@
       </div>
     {/each}
   </span>
-
-  <TabModelMenu onchoose={onmodelchoice} session={modelMenuSession} />
 </nav>
 
 <style>

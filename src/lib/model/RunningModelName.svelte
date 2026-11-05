@@ -6,9 +6,7 @@
 
   import Icon from "@/lib/Icon.svelte";
   import EffortTint from "@/lib/model/EffortTint.svelte";
-  import { runningModelLook } from "@/lib/model/running-model";
-  import { sessionModel } from "@/lib/stores/agent/context.svelte";
-  import { modelOption } from "@/lib/stores/model/modelOptions.svelte";
+  import { sessionModelLook } from "@/lib/model/session-model-look";
 
   const { sessionId, command }: {
     sessionId: string;
@@ -17,27 +15,18 @@
     command?: string;
   } = $props();
 
-  const running = $derived(sessionModel(sessionId));
-  const look = $derived.by(() => {
-    if (running === null) {
-      return null;
-    }
-
-    const ladder = command === undefined ? undefined : modelOption({
-      command,
-      model: running.id
-    })?.efforts.map(option => option.id);
-    return runningModelLook({
-      running,
-      ladder
-    });
-  });
+  const look = $derived(
+    sessionModelLook({
+      sessionId,
+      command
+    })
+  );
 </script>
 
-{#if running !== null && look !== null}
+{#if look !== null}
   <EffortTint tone={look.tone}>
-    {running.name}
-    {#if running.isUltracode}
+    {look.running.name}
+    {#if look.running.isUltracode}
       <Icon name="bolt" size={12} />
     {/if}
   </EffortTint>

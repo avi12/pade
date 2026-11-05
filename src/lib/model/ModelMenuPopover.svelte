@@ -1,25 +1,22 @@
-<script lang="ts" module>
-  /** The strip's one model menu - every tab's model tag opens it by this id. */
-  export const MODEL_MENU_ID = "model-menu";
-</script>
-
 <script lang="ts">
-  // One model menu for the whole strip, hung off whichever tab's model tag
-  // opened it.
+  // The window's one model menu, hung off whichever model chip opened it - a
+  // tab's model tag or a pane header's chip (stores/model/modelMenu).
 
   import ModelMenu from "@/lib/model/ModelMenu.svelte";
-  import { MODEL_MENU_ANCHOR } from "@/lib/model/ModelTag.svelte";
+  import { MODEL_MENU_ANCHOR, MODEL_MENU_ID, modelMenuSessionId } from "@/lib/stores/model/modelMenu.svelte";
   import type { AgentSession, ModelChoice } from "@/lib/types";
   import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
 
-  const { session, onchoose }: {
-    /** The session whose model tag last opened the menu. */
-    session: AgentSession | undefined;
+  const { sessions, onchoose }: {
+    /** Every session a chip can open the menu for. */
+    sessions: AgentSession[];
     onchoose: (pick: {
       session: AgentSession;
       choice: ModelChoice;
     }) => Promise<void>;
   } = $props();
+
+  const session = $derived(sessions.find(candidate => candidate.id === modelMenuSessionId()));
 </script>
 
 <div
@@ -42,9 +39,11 @@
 
 <style>
   /* Shell and rows come from the shared .popover-menu and .menu-item; only
-     width and anchor side live here. */
+     width and anchor side live here. It opens rightward from a tab's tag and
+     flips to open leftward from a chip near the window's end, a pane header's. */
   .menu {
     min-inline-size: 220px;
     position-area: bottom span-right;
+    position-try-fallbacks: flip-inline;
   }
 </style>

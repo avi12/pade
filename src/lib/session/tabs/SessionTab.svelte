@@ -6,9 +6,7 @@
   import Icon from "@/lib/Icon.svelte";
   import ModelTag from "@/lib/model/ModelTag.svelte";
   import AgentStatusGlyph from "@/lib/session/AgentStatusGlyph.svelte";
-  import { MODEL_MENU_ID } from "@/lib/session/tabs/TabModelMenu.svelte";
   import TabRenameField from "@/lib/session/tabs/TabRenameField.svelte";
-  import { refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/session/sessionNaming.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
@@ -21,34 +19,24 @@
     isActive,
     isEditing,
     isAwaitingChoice,
-    isModelMenuTarget,
     onselect,
     onrename,
     onrenamedone,
-    onclose,
-    onmodelopen
+    onclose
   }: {
     session: AgentSession;
-    /** The off-layout measuring copy, which must never claim the model menu's
-     *  anchor (two anchors of one name pin the menu to the wrong pill). */
+    /** The off-layout measuring copy, which must never claim an anchor. */
     isMirror: boolean;
     isActive: boolean;
     isEditing: boolean;
     isAwaitingChoice: boolean;
-    /** The strip's one model menu was last opened from this session's tag. */
-    isModelMenuTarget: boolean;
     onselect: () => void;
     /** Click on the active pill - show the inline rename field. */
     onrename: () => void;
     /** The rename was committed or dropped - hide the field again. */
     onrenamedone: () => void;
     onclose: () => void;
-    /** The model tag was clicked - hang the strip's model menu off it. */
-    onmodelopen: () => void;
   } = $props();
-
-  // The model menu hangs off this pill's tag - never the mirror copy's.
-  const isModelMenuAnchored = $derived(!isMirror && isModelMenuTarget);
 
   // `MouseEvent.button` for the wheel button, which closes a pill.
   const MIDDLE_BUTTON = 1;
@@ -95,15 +83,7 @@
     />
     <span class="label">{sessionLabel(session.id) ?? session.agent.label}</span>
   </button>
-  <ModelTag
-    anchored={isModelMenuAnchored}
-    menuId={MODEL_MENU_ID}
-    onopen={async () => {
-      onmodelopen();
-      await refreshModelOptions(session.agent.command);
-    }}
-    {session}
-  />
+  <ModelTag isMeasuring={isMirror} {session} />
   <PacingBadge isMeasuring={isMirror} sessionId={session.id} />
   <span
     class="ai-wrap"

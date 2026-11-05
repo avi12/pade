@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Command, sendMessage } from "@/lib/ipc/messaging";
+  import ModelMenuPopover from "@/lib/model/ModelMenuPopover.svelte";
   import RunnerDock from "@/lib/runners/RunnerDock.svelte";
   import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
   import { paneIdsAfterSplit, sessionsAfterReorder } from "@/lib/session/panes/pane-layout";
@@ -207,7 +208,6 @@
             branch
           });
         }}
-        onmodelchoice={async pick => await automation.requestModel(pick)}
         onreorder={orderedIds => (windowSessions.sessions = sessionsAfterReorder({
           sessions: windowSessions.sessions,
           orderedIds
@@ -279,6 +279,12 @@
 
     <RunnerDock activeSessionId={windowSessions.activeId} {project} />
 
+    <!-- The one model menu every tab's model tag and every pane's model chip
+         opens; a session in any project's pane can open it. -->
+    <ModelMenuPopover
+      onchoose={async pick => await automation.requestModel(pick)}
+      sessions={windowSessions.sessions}
+    />
     <RecoveryNotes note={automation.note} />
     <ShellToast />
     <SendSelectionButton activeId={windowSessions.activeId} />
