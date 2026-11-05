@@ -64,6 +64,13 @@
     box-shadow: 0 16px 40px var(--shadow-color);
     position-area: bottom span-left;
     position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+
+    /* Cyberpunk frames the panel like its menus: in the frame colour, on the
+       skin's small corner. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      border-color: var(--cyber-frame);
+      border-radius: var(--radius-large);
+    }
   }
 
   /* Shared by the panel's sections, at zero specificity (`:where`) so a

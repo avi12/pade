@@ -61,6 +61,15 @@
     font-family: var(--font-monospace);
     font-weight: 800;
     font-size: 0.5625rem;
+
+    /* Cyberpunk writes the kind letter bare, a mono mark in the gutter. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      justify-content: flex-start;
+      min-inline-size: 14px;
+      padding-inline: 0;
+      background: transparent;
+      letter-spacing: 0.02em;
+    }
   }
 
   .limit-track {
@@ -69,6 +78,10 @@
     block-size: 7px;
     border-radius: var(--radius-full);
     background: var(--surface-3);
+
+    :global(:root[data-palette="cyberpunk"]) & {
+      block-size: 6px;
+    }
   }
 
   .limit-fill {

@@ -64,6 +64,14 @@
     &.unknown {
       --severity-color: var(--on-surface-variant);
     }
+
+    /* Cyberpunk keeps every card on the ordinary rule and says the severity
+       with the wash and a coloured bar leading the header instead. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      gap: 7px;
+      padding: 9px 11px;
+      border-color: var(--outline);
+    }
   }
 
   /* Header: agent icon + name, with the plan trailing it, muted. */
@@ -72,6 +80,18 @@
     gap: 7px;
     align-items: center;
     min-inline-size: 0;
+
+    :global(:root[data-palette="cyberpunk"]) & {
+      gap: 8px;
+
+      &::before {
+        content: "";
+        flex: none;
+        block-size: 18px;
+        inline-size: 3px;
+        background: var(--severity-color);
+      }
+    }
   }
 
   .agent-name {
@@ -97,5 +117,11 @@
     grid-template-columns: auto 1fr auto auto;
     gap: 8px 9px;
     align-items: center;
+
+    /* Under Cyberpunk the rows sit in from the bar, tighter, like the design. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      gap: 4px 8px;
+      padding-inline-start: 11px;
+    }
   }
 </style>

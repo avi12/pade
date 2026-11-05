@@ -76,6 +76,19 @@
 
     .eyebrow {
       font-size: 0.5625rem;
+
+      /* The design keeps this one label quiet under Cyberpunk: the muted text
+         colour in the UI face, with no red mark - it captions the reading
+         beside it rather than heading a section. */
+      :global(:root[data-palette="cyberpunk"]) & {
+        color: var(--on-surface-variant);
+        font-family: var(--font-ui);
+        letter-spacing: 0.09em;
+
+        &::before {
+          content: none;
+        }
+      }
     }
 
     .spotlight-title {
