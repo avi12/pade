@@ -96,6 +96,10 @@
       font-family: var(--font-monospace);
       font-weight: 700;
       font-size: 0.875rem;
+
+      :global(:root[data-palette="cyberpunk"]) & {
+        letter-spacing: 0.02em;
+      }
     }
 
     .caret {

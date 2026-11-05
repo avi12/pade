@@ -50,6 +50,13 @@
           animation: var(--cyber-jitter-animation);
         }
       }
+
+      /* The design writes these labels as they are, not shouted and tracked
+         like the skin's other tabs. */
+      :global(:root[data-palette="cyberpunk"]) & {
+        letter-spacing: normal;
+        text-transform: none;
+      }
     }
 
     /* Selected tab - matched by state, not by qualifying the button type. */
