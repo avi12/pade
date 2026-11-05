@@ -1,10 +1,12 @@
 <script lang="ts">
-  // A tab's running model and effort: the model's name, coloured by how high its
-  // effort sits on that model's own ladder (from its agent's catalog), with the
-  // exact words in the tooltip. A button: it opens the window's model menu.
-  // Nothing renders until the agent has reported.
+  // A tab's running model and effort, the design's model badge: the model in
+  // one word ("Opus") and its effort as signal bars on the model's own ladder
+  // (from its agent's catalog), with the full words in the tooltip. A button:
+  // it opens the window's model menu. Nothing renders until the agent has
+  // reported.
 
-  import RunningModelName from "@/lib/model/RunningModelName.svelte";
+  import Icon from "@/lib/Icon.svelte";
+  import EffortBars from "@/lib/model/EffortBars.svelte";
   import { sessionModelLook } from "@/lib/model/session-model-look";
   import { MODEL_MENU_ID, modelMenuAnchor, ModelMenuOpener, openModelMenu } from "@/lib/stores/model/modelMenu.svelte";
   import type { AgentSession } from "@/lib/types";
@@ -16,7 +18,12 @@
     isMeasuring: boolean;
   } = $props();
 
-  const look = $derived(sessionModelLook({ sessionId: session.id }));
+  const look = $derived(
+    sessionModelLook({
+      sessionId: session.id,
+      command: session.agent.command
+    })
+  );
   const anchorName = $derived.by(() => {
     if (isMeasuring) {
       return undefined;
@@ -42,24 +49,36 @@
     })}
     popovertarget={MODEL_MENU_ID}
   >
-    <RunningModelName command={session.agent.command} sessionId={session.id} />
+    <span class="name">
+      {look.shortName}
+      {#if look.running.isUltracode}
+        <Icon name="bolt" size={10} />
+      {/if}
+    </span>
+    <EffortBars --effort-bar-width="2px" --effort-bars-height="10px" bars={look.bars} />
   </button>
 {/if}
 
 <style>
-  /* Reads as part of the pill's label, not as a separate control - until it is
-     hovered. */
+  /* A sunken chip of the ground colour inside the pill, in the pill's ink. */
   .model {
     display: inline-flex;
-    gap: 5px;
+    flex-shrink: 0;
+    gap: 4px;
     align-items: center;
-    padding: 2px 6px;
+    block-size: 20px;
+    margin-block: 0;
+    margin-inline: 2px;
+    padding-block: 0;
+    padding-inline: 6px;
     border: none;
-    border-radius: var(--radius-small);
-    background: transparent;
+    border-radius: 6px;
+    background: var(--surface-1);
     color: inherit;
     font-family: var(--font-monospace);
-    font-size: 0.625rem;
+    font-weight: 700;
+    font-size: 0.59375rem;
+    white-space: nowrap;
     cursor: pointer;
     transition: background-color 120ms var(--ease);
 
@@ -73,23 +92,26 @@
 
     &:hover,
     &:focus-visible {
-      background: color-mix(in sRGB, currentColor 14%, transparent);
+      background: var(--surface-3);
     }
 
-    /* Cyberpunk sets the tag on a sunken chip of the ground colour, the
-       design's model badge, and cuts its top-left and bottom-right corners. */
+    /* Cyberpunk cuts the chip's top-left and bottom-right corners and spaces
+       its mono readout; in the dark the readout is lit in the primary. */
     :global(:root[data-palette="cyberpunk"]) & {
-      block-size: 20px;
-      padding-block: 0;
-      background: var(--surface-1);
-      clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
-      font-weight: 700;
-      font-size: 0.59375rem;
-
-      &:hover,
-      &:focus-visible {
-        background: var(--surface-3);
-      }
+      border-radius: var(--radius-small);
+      clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+      letter-spacing: 0.02em;
     }
+
+    :global(:root[data-palette="cyberpunk"][data-theme="dark"]) & {
+      color: var(--primary);
+    }
+  }
+
+  .name {
+    display: inline-flex;
+    gap: 2px;
+    align-items: center;
+    opacity: 85%;
   }
 </style>

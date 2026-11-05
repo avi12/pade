@@ -1,4 +1,10 @@
-import { effortBars, effortStep, effortTone, modelLabel, shortModelName } from "@/lib/model/model-label";
+import {
+  effortBars,
+  effortStep,
+  effortTone,
+  modelLabel,
+  shortModelName
+} from "@/lib/model/model-label";
 
 /** What a session runs, as its agent last reported it (`sessionModel`). */
 interface RunningModel {
