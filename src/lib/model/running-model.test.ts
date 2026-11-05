@@ -30,6 +30,7 @@ describe("runningModelLook", () => {
       })
     ).toEqual({
       label: "Opus 5.5",
+      shortName: "Opus",
       tone: null,
       bars: []
     });

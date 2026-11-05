@@ -5,7 +5,8 @@ import {
   effortTone,
   lowerEffort,
   modelLabel,
-  modelName
+  modelName,
+  shortModelName
 } from "@/lib/model/model-label";
 import { describe, expect, it } from "vitest";
 
@@ -152,6 +153,33 @@ describe("effortStep", () => {
       step: 5,
       steps: 6
     });
+  });
+});
+
+describe("shortModelName", () => {
+  it("reads a Claude id as its family alone", () => {
+    expect(shortModelName("claude-opus-5-5")).toBe("Opus");
+    expect(shortModelName("anthropic/claude-sonnet-5-5[1m]")).toBe("Sonnet");
+    expect(shortModelName("claude-haiku-4-5-20251001")).toBe("Haiku");
+  });
+
+  it("keeps an OpenAI tier word lowercase, as logged", () => {
+    expect(shortModelName("gpt-5.6-codex")).toBe("codex");
+    expect(shortModelName("openai/gpt-5.6-codex-mini")).toBe("mini");
+  });
+
+  it("capitalizes another vendor's tier word", () => {
+    expect(shortModelName("gemini-2.5-pro")).toBe("Pro");
+    expect(shortModelName("gemini-2.5-flash")).toBe("Flash");
+  });
+
+  it("capitalizes a lone word", () => {
+    expect(shortModelName("auto")).toBe("Auto");
+  });
+
+  it("shows an id with no tier word as logged", () => {
+    expect(shortModelName("gpt-5.6")).toBe("gpt-5.6");
+    expect(shortModelName("composer-1")).toBe("composer-1");
   });
 });
 

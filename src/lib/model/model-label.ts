@@ -40,6 +40,32 @@ export function modelName(model: string) {
   return `${name} ${contextVariant.toUpperCase()}`;
 }
 
+/** OpenAI's ids, whose tier words read lowercase as logged ("codex", "mini"). */
+const OPENAI_PREFIX = "gpt-";
+const ALPHABETIC_PART = /^[a-z]+$/i;
+
+/** The one word a tab's model badge has room for: Claude's family
+ *  (`claude-opus-5-5` reads "Opus"), else the id's last word after its
+ *  family and version (`gpt-5.6-codex` reads "codex", `gemini-2.5-pro` reads
+ *  "Pro"). An id with no such word shows as logged, minus its prefix. */
+export function shortModelName(model: string) {
+  const bareId = bareModel(model);
+  const name = familyName(bareId);
+  if (name !== bareId) {
+    return name.split(" ")[0] ?? name;
+  }
+
+  const parts = bareId.split(ID_PART_SEPARATOR);
+  const words = parts.filter(part => ALPHABETIC_PART.test(part));
+  const isOneWord = parts.length === 1 && words.length === 1;
+  const word = isOneWord ? words[0] : words.slice(1).at(-1);
+  if (word === undefined) {
+    return bareId;
+  }
+
+  return bareId.startsWith(OPENAI_PREFIX) ? word : word.charAt(0).toUpperCase() + word.slice(1);
+}
+
 function familyName(bareId: string) {
   if (!bareId.startsWith(CLAUDE_PREFIX)) {
     return bareId;

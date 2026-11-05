@@ -1,4 +1,4 @@
-import { effortBars, effortStep, effortTone, modelLabel } from "@/lib/model/model-label";
+import { effortBars, effortStep, effortTone, modelLabel, shortModelName } from "@/lib/model/model-label";
 
 /** What a session runs, as its agent last reported it (`sessionModel`). */
 interface RunningModel {
@@ -9,7 +9,8 @@ interface RunningModel {
 }
 
 /** How a running model reads wherever a session shows it: the words ("Opus 5.5 ·
- *  high effort", plus Ultracode when on), the effort tone its name is tinted
+ *  high effort", plus Ultracode when on), the one word a tab's badge has room
+ *  for ("Opus"), the effort tone its name is tinted
  *  in - null for a level no ladder ranks - and its effort as signal bars,
  *  empty when no ladder ranks it. `ladder` is the model's own effort levels
  *  from its agent's catalog, when known. */
@@ -19,9 +20,11 @@ export function runningModelLook({ running, ladder }: {
 }) {
   const modelAndEffort = modelLabel(running);
   const label = running.isUltracode ? `${modelAndEffort} · Ultracode on` : modelAndEffort;
+  const shortName = shortModelName(running.id);
   if (running.effort === null) {
     return {
       label,
+      shortName,
       tone: null,
       bars: []
     };
@@ -35,6 +38,7 @@ export function runningModelLook({ running, ladder }: {
   const step = effortStep(rank);
   return {
     label,
+    shortName,
     tone: step === null ? null : effortTone(step),
     bars: effortBars(rank)
   };
