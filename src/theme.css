@@ -1782,7 +1782,37 @@ textarea {
   }
 
   * {
+    /* Per element, so it reads the mono face the user's font pick binds. */
+    --tooltip-font: var(--font-monospace);
+
+    scrollbar-color: var(--outline) transparent;
     corner-shape: bevel;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--outline);
+  }
+
+  /* A checked box is a red fill, ticked in the tab foreground - red carries
+     the fill, never the mark on it. */
+  .checkbox {
+    .box path {
+      stroke: var(--cyber-tab-foreground);
+    }
+
+    input:checked + .box {
+      border-color: var(--cyber-accent);
+      background: var(--cyber-accent);
+    }
+
+    input:focus-visible + .box {
+      outline-color: var(--cyber-focus);
+      outline-offset: 3px;
+    }
+
+    input:not(:checked):hover + .box {
+      border-color: var(--cyber-accent);
+    }
   }
 
   /* ── The HUD ────────────────────────────────────────────────────────────────
@@ -1891,10 +1921,11 @@ textarea {
   }
 
   /* ── The menus ──────────────────────────────────────────────────────────────
-     A popover is a CONTAINER, so it takes what the skin spends on containers: the
-     12px cut and the two-pixel frame the top bar, the panel seam and every dialog
-     already wear, in place of the shared shell's one-pixel hairline. No menu
-     casts a shadow, in any skin: the frame alone lifts it off the page.
+     A popover is a CONTAINER cut the design's way: a one-pixel red frame, with
+     the 12px chamfer on the top-right and bottom-left corners (the two-value
+     radius below, which `corner-shape: bevel` turns into the cut, so the frame
+     follows the bevel instead of being clipped off it). At night the frame
+     alone lifts it off the page; by day it casts the hard ink offset plate.
 
      What was actually wrong is inside the box. The control-frame rule above
      outlines every `button` in the app, and a menu is a stack of buttons, so each
@@ -1905,10 +1936,11 @@ textarea {
      everywhere at once, which is the same "active means framed" the selected tab
      states. Fields keep theirs - a place to type has to read as one. */
   :is(.popover-menu, .typeahead) {
-    --popover-menu-border-width: 2px;
-    --popover-menu-border-color: var(--hairline);
+    --popover-menu-border-width: 1px;
+    --popover-menu-border-color: var(--cyber-frame);
 
-    border-radius: var(--radius-large);
+    border-radius: 0 var(--chamfer-container);
+    box-shadow: var(--cyber-plate-shadow);
 
     /* A menu draws its border from the tokens in the shell, so one that
        moves its frame onto a layer of its own can still hide the box's. */
@@ -1918,6 +1950,12 @@ textarea {
 
     :is(button, [role="menuitem"]):not(:focus-visible) {
       outline: none;
+    }
+
+    /* A row's focus ring is its own border (the shell's), in the focus
+       colour rather than the value colour, which is red by day. */
+    .menu-item:focus-visible {
+      border-color: var(--cyber-focus);
     }
 
     :is(button:hover, [role="menuitem"]:hover, [role="option"][aria-selected="true"]):not(:focus-visible) {
@@ -1934,12 +1972,12 @@ textarea {
     }
   }
 
-  /* An open menu's trigger wears the menu's own 2px frame, so the two read
-     as one control; the shared open look's border colour is invisible here,
-     where controls draw their edge as an outline. */
+  /* An open menu's trigger wears the menu's own frame, so the two read as one
+     control; the shared open look's border colour is invisible here, where
+     controls draw their edge as an outline. */
   .menu-host:has([popover]:popover-open) .menu-trigger:not([popover] *) {
-    outline: 2px solid var(--hairline);
-    outline-offset: -2px;
+    outline: 1px solid var(--hairline);
+    outline-offset: -1px;
   }
 
   /* A section label is a titled section, so it takes the console's signature: the
@@ -1955,7 +1993,9 @@ textarea {
      the same stub, so every rule inside a menu starts on the accent. The
      switcher's sticky list heads (ProjectSection) wear the same label look.
 
-     Room for the rule the label now carries comes with it. */
+     Room for the rule the label now carries comes with it. The label itself is
+     the design's: amber mono, tracked wider, led by a red `// ` - amber labels,
+     with the red spent on a mark rather than on the words. */
   .menu-separator {
     margin-block: 8px 4px;
     padding-block: 2px 6px;
@@ -1964,7 +2004,14 @@ textarea {
     background-position: bottom left;
     background-size: 100% 4px;
     background-repeat: no-repeat;
+    color: var(--cyber-label);
     font-family: var(--font-monospace);
+    letter-spacing: 0.12em;
+
+    &::before {
+      content: "// ";
+      color: var(--cyber-accent);
+    }
   }
 
   .menu-divider {
@@ -1980,6 +2027,20 @@ textarea {
   }
 }
 
+/* Focus and selection, at the base rules' own weight (`:where()` drops the
+   palette's), so they replace the base look without outranking a component
+   that draws its own focus state (a menu row's border). Focus is the skin's
+   focus colour - cyan at night, ink by day - held 3px off the plate; a
+   selection is the brand yellow, the one place the chrome spends it. */
+:where(:root[data-palette="cyberpunk"]) :focus-visible {
+  outline-color: var(--cyber-focus);
+  outline-offset: 3px;
+}
+
+:where(:root[data-palette="cyberpunk"]) ::selection {
+  background: color-mix(in sRGB, var(--cyber-yellow) 45%, transparent);
+}
+
 /* A field's frame, kept out of the skin block on purpose: `:where()` drops the
    palette's weight, so the bare input inside a `.text-field-plate` - which the
    shared rule strips of its outline - stays one plate instead of a box inside
@@ -1992,7 +2053,7 @@ textarea {
 }
 
 :where(:root[data-palette="cyberpunk"]) :is(:is(:read-write, select):focus-visible, .text-field-plate:focus-within) {
-  outline: 2px solid var(--hairline);
+  outline: 2px solid var(--cyber-focus);
   outline-offset: -2px;
   box-shadow: none;
 }
