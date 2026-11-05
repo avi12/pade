@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import ModelChip from "@/lib/model/ModelChip.svelte";
   import SessionBadge from "@/lib/session/SessionBadge.svelte";
   import type { AgentSession, SessionStatus } from "@/lib/types";
   import { Axis, beginReorder } from "@/lib/ui/drag/drag-reorder";
@@ -63,17 +64,20 @@
   }}
 >
   <SessionBadge {label} {status} />
-  {#if isRemovable}
-    <button
-      class="remove-pane"
-      aria-label="Remove from split"
-      data-noreorder
-      data-tooltip="Remove from split"
-      onclick={() => onremove()}
-    >
-      <Icon name="close" size={16} />
-    </button>
-  {/if}
+  <div class="trailing">
+    <ModelChip {session} />
+    {#if isRemovable}
+      <button
+        class="remove-pane"
+        aria-label="Remove from split"
+        data-noreorder
+        data-tooltip="Remove from split"
+        onclick={() => onremove()}
+      >
+        <Icon name="close" size={16} />
+      </button>
+    {/if}
+  </div>
 </header>
 
 <style>
@@ -113,6 +117,17 @@
     }
   }
 
+  /* The bar's end: the model chip, then the remove-from-split action. It
+     shrinks before the badge does, the chip eliding its model's name. */
+  .trailing {
+    display: flex;
+    flex-shrink: 1;
+    gap: 10px;
+    align-items: center;
+    min-inline-size: 0;
+    margin-inline-start: auto;
+  }
+
   /* Inline remove-from-split action at the end of the bar - transparent until
      hovered, then a soft crit wash (canvas line 276). */
   .remove-pane {
@@ -122,7 +137,6 @@
     align-items: center;
     block-size: 24px;
     inline-size: 24px;
-    margin-inline-start: auto;
     border: none;
     border-radius: var(--radius-full);
     background: transparent;
