@@ -77,7 +77,7 @@
     padding: 8px 10px;
     border: 1px solid var(--outline);
     border-radius: 10px;
-    background: transparent;
+    background: var(--surface-2);
     color: var(--on-surface);
     font: inherit;
     text-align: start;
@@ -87,7 +87,12 @@
       border-color 140ms var(--ease);
 
     &:hover:not(.on) {
-      background: var(--surface-2);
+      background: var(--surface-3);
+    }
+
+    /* The skin's corners are square, like every other plate on it. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      border-radius: var(--radius-small);
     }
 
     &.on {

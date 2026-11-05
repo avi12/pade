@@ -80,7 +80,8 @@
     gap: 10px;
     overflow-y: auto;
     min-block-size: 0;
-    padding: 10px;
+    padding-block: 0 18px;
+    padding-inline: 14px;
     animation: panel-swap 280ms var(--ease);
   }
 </style>

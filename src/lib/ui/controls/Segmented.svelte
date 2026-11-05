@@ -73,4 +73,9 @@
     background: var(--primary-container);
     color: var(--on-primary-container);
   }
+
+  /* The skin's corners are square: the track and its keys alike. */
+  :global(:root[data-palette="cyberpunk"]) :is(.segmented, .option) {
+    border-radius: var(--radius-small);
+  }
 </style>

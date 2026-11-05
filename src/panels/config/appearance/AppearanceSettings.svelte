@@ -60,18 +60,18 @@
 <HandoffThreshold />
 
 <style>
-  /* Four themes: a 2×2 block, and one row once there is room for four labels.
+  /* Four themes: one row once there is room for four labels, else a 2×2 block.
      Both sides are container queries, mutually exclusive, because a plain
      fallback declaration would sit AFTER the nested at-rule and win over it.
      Asked of the card, not the viewport - the side panel is drag-resizable, so a
      media query would answer about the wrong box. */
   .theme-choices {
-    @container (inline-size < 460px) {
+    @container (inline-size < 360px) {
       --segmented-columns: repeat(2, 1fr);
       --segmented-flow: row;
     }
 
-    @container (inline-size >= 460px) {
+    @container (inline-size >= 360px) {
       --segmented-columns: repeat(4, 1fr);
       --segmented-flow: row;
     }

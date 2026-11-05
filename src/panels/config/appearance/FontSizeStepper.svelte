@@ -85,5 +85,13 @@
       font-size: 0.75rem;
       text-align: center;
     }
+
+    /* The skin's corners are square, the stepper's and its keys' alike. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      &,
+      .step {
+        border-radius: var(--radius-small);
+      }
+    }
   }
 </style>
