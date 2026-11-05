@@ -103,7 +103,7 @@
   .dot {
     block-size: 8px;
     inline-size: 8px;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
   }
 
   .dot.agent {
@@ -170,6 +170,10 @@
     font-size: 0.75rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+
+    :global(:root[data-palette="cyberpunk"]) & {
+      letter-spacing: 0.02em;
+    }
   }
 
   /* `flex: none` matters: the panel's `.scroll` column would otherwise shrink

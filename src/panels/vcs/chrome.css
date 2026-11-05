@@ -4,12 +4,18 @@
    once by VcsPanel.svelte - section components rely on it. */
 
 /* Uppercase group headers - the status groups and the commit log share them. */
+.version-control .group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .version-control .group h3 {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-block: 4px 8px;
-  margin-inline: 4px;
+  margin-block: 2px 0;
+  margin-inline: 0;
   color: var(--on-surface-variant);
   font-weight: 700;
   font-size: 0.6875rem;

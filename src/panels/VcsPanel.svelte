@@ -127,10 +127,11 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
     overflow-y: auto;
     min-block-size: 0;
-    padding: 8px 10px;
+    padding-block: 2px 18px;
+    padding-inline: 14px;
   }
 
   /* Shared panel chrome (group headers, sha, author line, empty state) lives
