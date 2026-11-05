@@ -267,7 +267,9 @@ writes.
   subagents spent in the last 20 minutes, priced by list-price ratio,
   `lib/usage/pacing/token-price.ts`), any other agent's is estimated from its
   model, effort, time spent working and subagents.
-  The Config panel's **Usage pacing** card has a **This workspace / Global**
+  Pacing's settings live in one place, the **Usage pacing** card of the
+  top-bar usage panel (`lib/usage/pacing/settings/`, shown even with no agent
+  running); the Config panel has none. The card has a **This workspace / Global**
   scope switch over one block per window (**Session window**, **Weekly
   window**), each with its own settings (`lib/usage/pacing/pacing-scope.ts`): global
   ones in `prefs.pacing` (settings saved before the split read as the session
