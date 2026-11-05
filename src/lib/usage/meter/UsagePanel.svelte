@@ -9,8 +9,8 @@
 
   // The meter's details popover: the summary, usage pacing's settings (the one
   // place they live), the limit closest to its cap, and a card per running
-  // agent under a legend of the kind codes. Pacing shows even with nothing
-  // running, so its settings are always within reach.
+  // agent under a legend of the kind codes. The head and pacing show even with
+  // nothing running, so pacing's settings are always within reach.
   const { agent, project, groups, justReset }: {
     /** The active session's agent id, whose account pacing's live lines read. */
     agent: string;
@@ -31,9 +31,7 @@
   popover
   role="dialog"
 >
-  {#if groups.length > 0}
-    <UsageSummary {groups} />
-  {/if}
+  <UsageSummary {groups} />
 
   <UsagePacingSettings {agent} {project} />
 

@@ -5,7 +5,6 @@
   import DiscordSettings from "@/panels/config/DiscordSettings.svelte";
   import ProjectFiles from "@/panels/config/files/ProjectFiles.svelte";
   import AgentModelDefaults from "@/panels/config/models/AgentModelDefaults.svelte";
-  import UsagePacingSettings from "@/lib/usage/pacing/settings/UsagePacingSettings.svelte";
   import PerformanceSettings from "@/panels/config/PerformanceSettings.svelte";
   import SessionTabsSettings from "@/panels/config/SessionTabsSettings.svelte";
   import SettingsCard from "@/panels/config/SettingsCard.svelte";
@@ -33,10 +32,6 @@
   <div class="scroll">
     <SettingsCard title="Appearance">
       <AppearanceSettings />
-    </SettingsCard>
-
-    <SettingsCard title="Usage pacing">
-      <UsagePacingSettings {agent} {project} />
     </SettingsCard>
 
     <SettingsCard isCompact title="Session tabs">
