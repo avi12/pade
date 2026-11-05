@@ -78,6 +78,12 @@
       font-size: 0.6875rem;
       letter-spacing: 0.07em;
       text-transform: uppercase;
+
+      @media (prefers-reduced-motion: no-preference) {
+        :global(:root[data-palette="cyberpunk"]) .sidebar-head:hover & {
+          animation: var(--cyber-jitter-animation);
+        }
+      }
     }
 
     /* Cyberpunk: a red accent bar leads the head, and the title is a section

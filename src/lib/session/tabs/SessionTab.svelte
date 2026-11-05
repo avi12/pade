@@ -170,6 +170,17 @@
       }
     }
 
+    /* Cyberpunk: pointing at a pill jitters its label. The label, not the
+       pill: the pill owns its spring-in entrance, and an animation swapped onto
+       it on hover would replay that spring the moment the pointer left. */
+    .label {
+      @media (prefers-reduced-motion: no-preference) {
+        :global(:root[data-palette="cyberpunk"]) :global(.tab:hover) & {
+          animation: var(--cyber-jitter-animation);
+        }
+      }
+    }
+
     /* The ✦ AI-name toggle - subdued on every pill, brighter on the one being
        used, and primary while auto-naming is on for the session. The slot is
        reserved on every pill, hovered or not. A slot that

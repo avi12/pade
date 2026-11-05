@@ -284,6 +284,12 @@
       background 150ms var(--ease),
       color 150ms var(--ease);
 
+    @media (prefers-reduced-motion: no-preference) {
+      :root[data-palette="cyberpunk"] &:hover {
+        animation: var(--cyber-jitter-animation);
+      }
+    }
+
     &:hover {
       filter: none;
     }

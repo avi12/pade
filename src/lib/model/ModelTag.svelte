@@ -73,6 +73,12 @@
     cursor: pointer;
     transition: background-color 120ms var(--ease);
 
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-palette="cyberpunk"]) &:hover {
+        animation: var(--cyber-jitter-animation);
+      }
+    }
+
     &:hover,
     &:focus-visible {
       background: color-mix(in sRGB, currentColor 14%, transparent);

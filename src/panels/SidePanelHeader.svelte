@@ -57,6 +57,12 @@
       font-weight: 700;
       font-size: 0.9375rem;
 
+      @media (prefers-reduced-motion: no-preference) {
+        :global(:root[data-palette="cyberpunk"]) &:hover {
+          animation: var(--cyber-jitter-animation);
+        }
+      }
+
       /* Cyberpunk: the title is a tab - an accent fill with its right edge
          slanted off, the words in the tab's own ink, small and uppercase. */
       :global(:root[data-palette="cyberpunk"]) & {

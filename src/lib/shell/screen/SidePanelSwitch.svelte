@@ -44,6 +44,12 @@
       font-size: 0.75rem;
       cursor: pointer;
       transition: background 200ms var(--ease), color 200ms var(--ease);
+
+      @media (prefers-reduced-motion: no-preference) {
+        :global(:root[data-palette="cyberpunk"]) &:hover {
+          animation: var(--cyber-jitter-animation);
+        }
+      }
     }
 
     /* Selected tab - matched by state, not by qualifying the button type. */

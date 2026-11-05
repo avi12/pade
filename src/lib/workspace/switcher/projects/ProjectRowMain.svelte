@@ -125,6 +125,12 @@
     cursor: pointer;
     transition: background 120ms var(--ease), color 120ms var(--ease);
 
+    @media (prefers-reduced-motion: no-preference) {
+      :global(:root[data-palette="cyberpunk"]) &:hover {
+        animation: var(--cyber-jitter-animation);
+      }
+    }
+
     /* The tooltip puts the full name, the path and any note on lines of
        their own. */
     &::after {
