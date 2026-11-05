@@ -45,8 +45,11 @@
       cursor: pointer;
       transition: background 200ms var(--ease), color 200ms var(--ease);
 
+      /* The jitter moves the button's contents, never the button: a translated
+         button would hold its own tooltip's fixed bubble, drawing it over the
+         button instead of below it. */
       @media (prefers-reduced-motion: no-preference) {
-        :global(:root[data-palette="cyberpunk"]) &:hover {
+        :global(:root[data-palette="cyberpunk"]) &:hover > :global(*) {
           animation: var(--cyber-jitter-animation);
         }
       }

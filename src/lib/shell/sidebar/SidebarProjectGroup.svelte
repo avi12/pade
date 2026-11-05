@@ -217,8 +217,10 @@
     cursor: pointer;
     transition: background 120ms var(--ease), color 120ms var(--ease), opacity 120ms var(--ease);
 
+    /* The icon jitters, not the button: a translated button would hold its own
+       tooltip's fixed bubble and draw it over the button. */
     @media (prefers-reduced-motion: no-preference) {
-      :global(:root[data-palette="cyberpunk"]) &:hover {
+      :global(:root[data-palette="cyberpunk"]) &:hover > :global(*) {
         animation: var(--cyber-jitter-animation);
       }
     }

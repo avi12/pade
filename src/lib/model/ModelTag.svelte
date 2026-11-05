@@ -73,8 +73,10 @@
     cursor: pointer;
     transition: background-color 120ms var(--ease);
 
+    /* The contents jitter, not the tag: a translated tag would hold its own
+       tooltip's fixed bubble and draw it over the tag. */
     @media (prefers-reduced-motion: no-preference) {
-      :global(:root[data-palette="cyberpunk"]) &:hover {
+      :global(:root[data-palette="cyberpunk"]) &:hover > :global(*) {
         animation: var(--cyber-jitter-animation);
       }
     }
