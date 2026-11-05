@@ -866,6 +866,7 @@
       onreroot={path => windowSessions.enter(path)}
       onresumeconversation={resumeConversation}
       onselectchat={selectChat}
+      onshowpicker={switchToPicker}
       onstopchat={stopChat}
       onswitch={async () => {
         // "Switch project" - a DELIBERATE leave to the picker. Every project's

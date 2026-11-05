@@ -8,13 +8,15 @@
 
   // The open side panel under its shared header. The Change Feed is the default
   // and loads with the app; the others load the first time they open.
-  const { side, project, agent, agents }: {
+  const { side, project, agent, agents, onshowpicker }: {
     side: Side;
     project: string;
     /** The active session's agent id, so Config shows its files. */
     agent: string;
     /** Installed agents, excluding the shell fallback. */
     agents: Agent[];
+    /** Show the project picker over the running sessions (Config's setup card). */
+    onshowpicker: () => void;
   } = $props();
 
   const title = $derived(SIDE_PANEL_TABS.find(tab => tab.id === side)?.label ?? "");
@@ -48,7 +50,7 @@
     {:else}
       <LazyPanel load={() => import("@/panels/ConfigPanel.svelte")}>
         {#snippet children(ConfigPanel)}
-          <ConfigPanel {agent} {agents} {project} />
+          <ConfigPanel {agent} {agents} {onshowpicker} {project} />
         {/snippet}
       </LazyPanel>
     {/if}

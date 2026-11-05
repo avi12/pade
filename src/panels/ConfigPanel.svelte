@@ -8,15 +8,19 @@
   import PerformanceSettings from "@/panels/config/PerformanceSettings.svelte";
   import SessionTabsSettings from "@/panels/config/SessionTabsSettings.svelte";
   import SettingsCard from "@/panels/config/SettingsCard.svelte";
+  import SetupLink from "@/panels/config/SetupLink.svelte";
   import UpdateSettings from "@/panels/config/UpdateSettings.svelte";
 
   // Only the config files relevant to the active agent are listed. `project` is
   // what scopes the per-project settings below to this window's workspace.
-  const { agent, agents, project }: {
+  const { agent, agents, project, onshowpicker }: {
     agent: string;
     /** The installed agents - the only ones a starting model is offered for. */
     agents: Agent[];
     project: string;
+    /** Show the project picker, where the agent, editor, folder and launch
+     *  settings live - the sessions keep running behind it. */
+    onshowpicker: () => void;
   } = $props();
 
   // Config has no count or refresh - clear those slots in the shared header.
@@ -30,6 +34,8 @@
 
 <div class="configuration">
   <div class="scroll">
+    <SetupLink onopen={onshowpicker} />
+
     <SettingsCard title="Appearance">
       <AppearanceSettings />
     </SettingsCard>

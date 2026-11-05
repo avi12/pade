@@ -57,6 +57,7 @@
     onrenamefolder,
     onreroot,
     onswitch,
+    onshowpicker,
     onselectchat,
     onresumeconversation,
     ondeletechat,
@@ -93,6 +94,8 @@
     /** The saved temp workspace now lives at `path` - the window follows it. */
     onreroot: (path: string) => void;
     onswitch: NonNullable<SidebarProps["onswitch"]>;
+    /** Show the project picker with this window's sessions still running. */
+    onshowpicker: () => void;
     onselectchat: SidebarProps["onselectchat"];
     onresumeconversation: SidebarProps["onresumeconversation"];
     ondeletechat: SidebarProps["ondeletechat"];
@@ -270,7 +273,7 @@
 
       {#if side !== null}
         <SidePanelResizer bind:width={sidePanelWidth} bind:isResizing={isResizingSidePanel} />
-        <SidePanel agent={activeAgent} agents={realAgents} {project} {side} />
+        <SidePanel agent={activeAgent} agents={realAgents} {onshowpicker} {project} {side} />
       {/if}
     </main>
 
