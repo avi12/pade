@@ -1353,6 +1353,29 @@ textarea {
   }
 }
 
+/* Every menu and panel closes the same way, the design's usage panel exit:
+   it lifts a little further and shrinks more than it came in, quickly,
+   accelerating away; Cyberpunk glitches it out instead. A manual popover
+   (the tooltip layer, suggestion lists that come and go as you type) keeps
+   the plain fade. `:where` leaves a component free to choose its own exit,
+   as ConfirmDialog's full-window scrim does. */
+:where([popover]:not([popover="manual"])):not(:popover-open) {
+  transition:
+    opacity 160ms var(--ease-exit),
+    scale 160ms var(--ease-exit),
+    translate 160ms var(--ease-exit),
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+  scale: 0.96;
+  translate: 0 -6px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :where(:root[data-palette="cyberpunk"] [popover]:not([popover="manual"])):not(:popover-open) {
+    animation: var(--cyber-glitch-out-animation);
+  }
+}
+
 /* Shared shell for anchored popover menus (app menu, tab menus, IDE / design
    lists, picker row menus) - the one authoritative home for the menu box.
    Each menu keeps only what genuinely varies: its width, its anchor side
@@ -1510,6 +1533,15 @@ textarea {
   &::-webkit-scrollbar {
     block-size: 0;
     inline-size: 0;
+  }
+}
+
+/* A scroll-faded menu's own animations (above) would replace Cyberpunk's
+   shared exit, so a closing one takes it back; the shorthand also resets the
+   scroll timeline, so the glitch runs on time. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(:root[data-palette="cyberpunk"]) .scroll-fade[popover]:not([popover="manual"], :popover-open) {
+    animation: var(--cyber-glitch-out-animation);
   }
 }
 

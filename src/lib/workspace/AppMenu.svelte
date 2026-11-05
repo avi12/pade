@@ -190,7 +190,6 @@
     inline-size: 352px;
     max-inline-size: 92vw;
     color: var(--on-surface);
-    animation: pop-in 220ms var(--spring);
     position-area: bottom span-right;
   }
 </style>

@@ -75,27 +75,6 @@
     position-area: bottom span-left;
     position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 
-    /* Closing: the panel lifts a little further and shrinks more than a menu
-       does, and quickly, accelerating away. The shared popover transition
-       keeps it on screen (allow-discrete) for the length of the exit. */
-    &:not(:popover-open) {
-      transition:
-        opacity 160ms var(--ease-exit),
-        scale 160ms var(--ease-exit),
-        translate 160ms var(--ease-exit),
-        overlay 200ms allow-discrete,
-        display 200ms allow-discrete;
-      scale: 0.96;
-      translate: 0 -6px;
-
-      /* Cyberpunk glitches it out instead. */
-      @media (prefers-reduced-motion: no-preference) {
-        :global(:root[data-palette="cyberpunk"]) & {
-          animation: var(--cyber-glitch-out-animation);
-        }
-      }
-    }
-
     /* Cyberpunk frames the panel like its menus: in the frame colour, on the
        skin's small corner, and with no soft shadow - the opening flicker's
        red and cyan split would copy that blur twice into a white halo. */
