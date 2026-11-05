@@ -308,15 +308,17 @@
     border-block-end: 1px solid var(--outline);
     background: var(--surface-1);
 
-    /* Under Cyberpunk the chrome's own edges are the HUD's brightest lines:
-       this bar the tabs sit in, the panel header and the side panel's seam.
-       These are the strokes the skin draws at full intensity, and the only
-       ones that get the bloom. Two pixels, like every structural rule in the
-       console - at one they read as a hairline the eye skips, which is exactly
-       what a chassis must not do. */
+    /* Under Cyberpunk the bar the tabs sit in is framed: a two-pixel rule in
+       the frame colour under it, and the same colour washing in faintly from
+       the leading edge and fading out before the middle. */
     :global(:root[data-palette="cyberpunk"]) & {
-      border-block-end: 2px solid var(--hairline);
-      box-shadow: var(--hairline-glow-below);
+      border-block-end: 2px solid var(--cyber-frame);
+      background-image:
+        linear-gradient(
+          to right,
+          color-mix(in sRGB, var(--cyber-frame) 7%, transparent),
+          transparent 40%
+        );
     }
   }
 

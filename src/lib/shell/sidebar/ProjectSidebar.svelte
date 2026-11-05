@@ -304,6 +304,11 @@
     border-inline-end: 1px solid var(--outline);
     background: var(--surface-1);
 
+    /* Cyberpunk frames the rail with a two-pixel rule on its inner edge. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      border-inline-end: 2px solid var(--cyber-frame);
+    }
+
     /* Starting from the picker, the project rail is the same on both screens,
        so it holds still while the rest cross-fades into the workspace. Named
        only for the transition (App's showWorkspace sets the class): a standing

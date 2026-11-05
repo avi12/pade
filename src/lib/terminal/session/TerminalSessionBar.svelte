@@ -89,6 +89,18 @@
     border-block-end: 1px solid var(--outline);
     background: var(--surface-1);
 
+    /* Cyberpunk: a two-pixel frame rule on top and a faint ruler of vertical
+       ticks across the bar, a hairline every seventh pixel. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      border-block-start: 2px solid var(--cyber-frame);
+      background-image:
+        repeating-linear-gradient(
+          to right,
+          transparent 0 6px,
+          color-mix(in sRGB, var(--outline) 22%, transparent) 6px 7px
+        );
+    }
+
     /* In a split, the bar is a drag handle for reordering the panes; a touch-drag
        must grab it, not scroll. A lone pane has nothing to sort, so no affordance. */
     &.reorderable {
