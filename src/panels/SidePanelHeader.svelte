@@ -73,12 +73,12 @@
   }
 
   .panel-count {
-    padding: 2px 9px;
+    padding: 2px 8px;
     border-radius: var(--radius-full);
     background: var(--primary-container);
     color: var(--on-primary-container);
     font-weight: 700;
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
   }
 
   .panel-refresh {
