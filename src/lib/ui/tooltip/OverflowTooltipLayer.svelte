@@ -31,8 +31,8 @@
 >{overflowTooltipState.active?.text ?? ""}</div>
 
 <style>
-  /* The bubble's look is shared with the [data-tooltip] pseudo (theme.css);
-     only its placement lives here. */
+  /* The bubble's look, its frame included, is shared with the [data-tooltip]
+     pseudo (theme.css); only its placement lives here. */
   .overflow-tooltip {
     position: fixed;
 
@@ -44,7 +44,6 @@
     overflow: visible;
     margin-block: var(--tooltip-gap) 0;
     margin-inline: var(--tooltip-edge-gutter);
-    border: 0;
     animation: fadein 120ms var(--ease) both;
 
     /* Flip above the trigger near the viewport bottom - reuses theme.css's
