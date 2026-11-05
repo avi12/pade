@@ -121,7 +121,12 @@ function slideRow({ node, duration }: {
   // An element's own leading margin (an error line's 6px offset) collapses in
   // step too - left at full size it would pop the exact instant the row's
   // height reaches zero.
-  const marginBlockStart = parseFloat(getComputedStyle(node).marginBlockStart) || 0;
+  const style = getComputedStyle(node);
+  const marginBlockStart = parseFloat(style.marginBlockStart) || 0;
+  // Its block padding too: a height of zero still holds the padding open (a
+  // chat list's), so the rows below would stop short and then jump.
+  const paddingBlockStart = parseFloat(style.paddingBlockStart) || 0;
+  const paddingBlockEnd = parseFloat(style.paddingBlockEnd) || 0;
 
   return {
     duration: motionDuration(duration),
@@ -134,6 +139,7 @@ function slideRow({ node, duration }: {
       block-size: ${progress * height}px;
       margin-block-start: ${progress * marginBlockStart}px;
       margin-block-end: ${-gap * remaining}px;
+      padding-block: ${progress * paddingBlockStart}px ${progress * paddingBlockEnd}px;
       opacity: ${progress};
       transform: translateX(${-ROW_SLIDE_DISTANCE * remaining}px) scale(${1 - (ROW_SHRINK * remaining)});
     `
