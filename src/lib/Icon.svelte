@@ -14,14 +14,14 @@
     "batch", "bolt", "branch", "build", "c",
     "caseSensitive", "check", "checks", "chevronDown", "chevronUp", "claude", "clion",
     "clock", "close", "code", "codex", "columns",
-    "copilot", "cplusplus", "csharp", "css", "csv", "cursor", "dart", "docker", "elixir",
+    "copilot", "cplusplus", "csharp", "css", "csv", "cursor", "cyberpunk", "dart", "docker", "elixir",
     "env", "external", "feed", "folder", "folderOpen", "folderPlus", "git", "github", "go", "goland",
     "gradle", "graphql", "grip", "grok", "haskell",
     "history", "html", "idea", "image", "java", "javascript", "json", "kotlin", "laravel",
     "license", "link", "llvm", "lock", "lua", "markdown", "maximize", "minimize", "monitor", "moon", "more", "npm",
     "opencode", "pause", "pencil", "perl", "php", "phpstorm", "plus", "powershell", "prisma", "pycharm", "python", "r", "rails", "react",
     "refresh", "regex", "rider", "ruby", "rubymine", "rust", "rustrover", "scala", "search", "send",
-    "shader", "shell", "sidebar", "sliders", "sparkles", "sql", "star", "stop", "sublime", "sun", "svelte", "swap", "swift",
+    "shader", "shell", "sidebar", "sliders", "spark", "sparkles", "sql", "star", "stop", "sublime", "sun", "svelte", "swap", "swift",
     "terminal", "text", "toml", "trash", "typescript", "visualstudio", "vscode", "vue", "wallet",
     "webstorm", "wholeWord", "window", "windowPlus", "xml", "yaml", "zed", "zig"
   ] as const;

@@ -2,10 +2,9 @@ import {
   adoptedMonospaceFace,
   followsSystemScheme,
   PALETTE_MONOSPACE_FACE,
-  paletteOfMode,
   resolveAppearance
 } from "@/lib/settings/theme-mode";
-import { ThemeMode, ThemePalette } from "@/lib/types";
+import { Settings, ThemeMode, ThemePalette } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
 describe("resolveAppearance", () => {
@@ -13,6 +12,7 @@ describe("resolveAppearance", () => {
     expect(
       resolveAppearance({
         mode: ThemeMode.enum.light,
+        palette: ThemePalette.enum.default,
         systemScheme: "dark"
       })
     ).toEqual({
@@ -22,6 +22,7 @@ describe("resolveAppearance", () => {
     expect(
       resolveAppearance({
         mode: ThemeMode.enum.dark,
+        palette: ThemePalette.enum.default,
         systemScheme: "light"
       })
     ).toEqual({
@@ -34,16 +35,18 @@ describe("resolveAppearance", () => {
     expect(
       resolveAppearance({
         mode: ThemeMode.enum.system,
+        palette: ThemePalette.enum.default,
         systemScheme: "dark"
       }).scheme
     ).toBe("dark");
   });
 
-  it("gives cyberpunk the OS scheme, so the skin has a day and a night face", () => {
+  it("lays every skin over every mode, so Cyberpunk has a day and a night face", () => {
     for (const systemScheme of ["light", "dark"] as const) {
       expect(
         resolveAppearance({
-          mode: ThemeMode.enum.cyberpunk,
+          mode: ThemeMode.enum.system,
+          palette: ThemePalette.enum.cyberpunk,
           systemScheme
         })
       ).toEqual({
@@ -51,13 +54,23 @@ describe("resolveAppearance", () => {
         palette: ThemePalette.enum.cyberpunk
       });
     }
+
+    expect(
+      resolveAppearance({
+        mode: ThemeMode.enum.light,
+        palette: ThemePalette.enum.cyberpunk,
+        systemScheme: "dark"
+      })
+    ).toEqual({
+      scheme: "light",
+      palette: ThemePalette.enum.cyberpunk
+    });
   });
 });
 
 describe("followsSystemScheme", () => {
-  it("covers the two modes that carry no scheme of their own", () => {
+  it("is only Auto - Light and Dark are schemes of their own", () => {
     expect(followsSystemScheme(ThemeMode.enum.system)).toBe(true);
-    expect(followsSystemScheme(ThemeMode.enum.cyberpunk)).toBe(true);
     expect(followsSystemScheme(ThemeMode.enum.light)).toBe(false);
     expect(followsSystemScheme(ThemeMode.enum.dark)).toBe(false);
   });
@@ -77,7 +90,7 @@ describe("adoptedMonospaceFace", () => {
     for (const current of [null, undefined, "", "JetBrains Mono"]) {
       expect(
         adoptedMonospaceFace({
-          mode: ThemeMode.enum.cyberpunk,
+          palette: ThemePalette.enum.cyberpunk,
           current
         })
       ).toBe(cyberpunkFace);
@@ -87,7 +100,7 @@ describe("adoptedMonospaceFace", () => {
   it("releases a face that came from a skin when leaving it", () => {
     expect(
       adoptedMonospaceFace({
-        mode: ThemeMode.enum.light,
+        palette: ThemePalette.enum.default,
         current: cyberpunkFace
       })
     ).toBeNull();
@@ -97,7 +110,7 @@ describe("adoptedMonospaceFace", () => {
     for (const current of ["JetBrains Mono", "", null, undefined]) {
       expect(
         adoptedMonospaceFace({
-          mode: ThemeMode.enum.dark,
+          palette: ThemePalette.enum.default,
           current
         })
       ).toBeUndefined();
@@ -105,11 +118,43 @@ describe("adoptedMonospaceFace", () => {
   });
 });
 
-describe("paletteOfMode", () => {
-  it("is the skin axis alone - only Cyberpunk names one", () => {
-    expect(paletteOfMode(ThemeMode.enum.cyberpunk)).toBe(ThemePalette.enum.cyberpunk);
-    for (const mode of [ThemeMode.enum.light, ThemeMode.enum.dark, ThemeMode.enum.system]) {
-      expect(paletteOfMode(mode)).toBe(ThemePalette.enum.default);
-    }
+describe("stored theme prefs", () => {
+  const SAVED_SETTINGS = {
+    roots: [],
+    defaultAgent: null,
+    projectAgents: {}
+  };
+
+  function loadedPrefs(prefs: Record<string, unknown>) {
+    return Settings.parse({
+      ...SAVED_SETTINGS,
+      prefs
+    }).prefs;
+  }
+
+  it("reads the old Cyberpunk theme mode as Auto wearing the Cyberpunk skin", () => {
+    expect(
+      loadedPrefs({
+        themeMode: ThemePalette.enum.cyberpunk,
+        monoFont: "Share Tech Mono"
+      })
+    ).toEqual({
+      themeMode: ThemeMode.enum.system,
+      themePalette: ThemePalette.enum.cyberpunk,
+      monoFont: "Share Tech Mono"
+    });
+  });
+
+  it("keeps both axes as saved once they are split", () => {
+    expect(
+      loadedPrefs({
+        themeMode: ThemeMode.enum.light,
+        themePalette: ThemePalette.enum.cyberpunk
+      })
+    ).toEqual({
+      themeMode: ThemeMode.enum.light,
+      themePalette: ThemePalette.enum.cyberpunk
+    });
+    expect(loadedPrefs({})).toEqual({});
   });
 });

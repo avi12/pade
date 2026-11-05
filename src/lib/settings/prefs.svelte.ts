@@ -1,6 +1,6 @@
 // Reactive appearance/editor preferences, shared app-wide. Loaded once from the
 // persisted settings, applied to the document root as CSS custom properties and
-// a theme-mode data attribute, and saved back through `set_prefs`.
+// theme data attributes, and saved back through `set_prefs`.
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { SIDE_PANEL_DEFAULT_WIDTH } from "@/lib/settings/prefs-bounds";
@@ -57,6 +57,10 @@ const NO_TERMINAL_SCHEMES: TerminalSchemeChoice = {
 export const effective = {
   get themeMode() {
     return prefs.themeMode ?? ThemeMode.enum.system;
+  },
+  /** The skin over the mode (Default or Cyberpunk), picked apart from it. */
+  get themePalette() {
+    return prefs.themePalette ?? ThemePalette.enum.default;
   },
   get diffStyle() {
     return prefs.diffStyle ?? DiffStyle.enum.unified;
@@ -143,7 +147,7 @@ let systemScheme: Scheme = schemeOf(darkSchemeQuery.matches);
 
 /** What is currently painted - the concrete light/dark scheme and the palette
  *  layered over it - reactive so consumers like the terminal can re-theme when
- *  either moves. `lib/settings/theme-mode` owns the mode → pair rule. */
+ *  either moves. `lib/settings/theme-mode` owns the mode and skin → pair rule. */
 export const appearance = $state<{
   scheme: Scheme;
   palette: ThemePalette;
@@ -216,6 +220,7 @@ function apply() {
   installAppearance(
     resolveAppearance({
       mode: effective.themeMode,
+      palette: effective.themePalette,
       systemScheme
     })
   );
@@ -301,17 +306,32 @@ export async function loadPrefs() {
   await sendSettingsMessage(Command.settingsGet);
 }
 
-/** Adopt a theme, taking its terminal face with it. A skin that ships a font
+/** Pick the light/dark mode. The skin is written beside it, so a legacy
+ *  Cyberpunk mode (read as Auto + the Cyberpunk skin, see `lib/types`) is saved
+ *  in its two-axis shape the first time either axis is picked. */
+export async function chooseThemeMode(mode: ThemeMode) {
+  await updatePrefs({
+    themeMode: mode,
+    themePalette: effective.themePalette
+  });
+}
+
+/** Adopt a skin, taking its terminal face with it. A skin that ships a font
  *  (Cyberpunk) sets it as the font pick rather than quietly outranking one, so
  *  the change shows up in the font grid and stays the user's to change
  *  afterwards; leaving that skin releases the face again. `lib/settings/theme-mode` owns
- *  the rule, including when a pick is the user's own and must be left alone. */
-export async function chooseThemeMode(mode: ThemeMode) {
+ *  the rule, including when a pick is the user's own and must be left alone.
+ *  The mode is written beside it for the same reason `chooseThemeMode` writes
+ *  the skin. */
+export async function chooseThemePalette(palette: ThemePalette) {
   const face = adoptedMonospaceFace({
-    mode,
+    palette,
     current: prefs.monoFont
   });
-  const patch: Partial<Prefs> = { themeMode: mode };
+  const patch: Partial<Prefs> = {
+    themeMode: effective.themeMode,
+    themePalette: palette
+  };
   if (face !== undefined) {
     patch.monoFont = face;
   }

@@ -522,7 +522,10 @@ writes.
 - R2.1 **Performance** - native core (Rust); web build reuses logic as WASM,
   renders via WebGPU. Small binary (`opt-level=s`, LTO, strip).
 - R2.2 **Theming** - Material 3 Expressive, light/dark graded, follows OS. Tokens
-  only; alternate skins (🔭) swap the token set.
+  only. Config picks two things apart: the **Theme** (Light / Dark / Auto, which
+  follows the OS) and the **Skin** (Default / Cyberpunk), a token set laid over
+  whichever theme is on. Settings saved when Cyberpunk was a fourth theme read
+  as Auto with the Cyberpunk skin. Further skins (🔭) swap the token set.
 - R2.3 **Fonts** - JetBrains Mono (code/terminal), **Figtree** (expressive UI sans),
   both **self-hosted** `woff2` (no runtime CDN); configurable.
 - R2.4 **UI** - simple by default (terminal + feed); other panels summon-on-demand;

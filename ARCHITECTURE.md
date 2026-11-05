@@ -863,7 +863,7 @@ flowchart LR
 | `src/lib/settings/prefs.svelte.ts` | Effective preference defaults and browser appearance application; preference writes are queued field patches through `sendSettingsMessage` and every adopted settings response triggers appearance reapplication | `App`, panels, `settings.svelte` |
 | `src/lib/settings/prefs-bounds.ts` | The one home for preference numeric bounds (side-panel width min/max/default/max-fraction, UI-scale min/max/step). A plain leaf module so the `Prefs` zod schema (`types`), the Config stepper, and the side-panel clamp all validate against the same numbers instead of re-spelling them | `types`, `prefs.svelte`, `ui-scale`, `config/appearance/FontSizeStepper` |
 | `src/lib/settings/ui-scale.ts` | `steppedUiScale`: one A− / A+ step of the UI scale within its bounds, kept on a hundredths grid (1.05, never 1.0500000000000003) | `prefs-bounds`, `config/appearance/FontSizeStepper` |
-| `src/lib/settings/theme-mode.ts` | Pure resolution of the theme the user picked into the two things the document root wears: the light/dark `scheme` (`data-theme`) and the token set over it (`data-palette`). "Light"/"Dark" name a scheme, "Auto" takes the OS's, and "Cyberpunk" names a palette and takes its scheme from the OS too - which is why the picker's four options are not four schemes | `prefs.svelte` |
+| `src/lib/settings/theme-mode.ts` | Pure resolution of the two picks - the theme mode and the skin - into the two things the document root wears: the light/dark `scheme` (`data-theme`) and the token set over it (`data-palette`). "Light"/"Dark" name a scheme and "Auto" takes the OS's; the skin (Default or Cyberpunk) lays over any of them, and a skin that ships a terminal face adopts it. A legacy `themeMode: "cyberpunk"` is read at the `Settings` schema (`lib/types`) as Auto with the Cyberpunk skin | `prefs.svelte`, `types` |
 
 ### UI primitives (`src/lib/ui/`)
 
@@ -1016,7 +1016,7 @@ Shared rune state, grouped like the modules that read it.
 | `PerformanceSettings.svelte` | Software rendering, persisted through the shared prefs store, with an explicit restart beside it because WebView2's `--disable-gpu` switch is launch-only |
 | `DiscordSettings.svelte` | Rich-presence opt-in, and the project-name row it gates (disabled until the first is on) |
 | `UpdateSettings.svelte` | PADE's version, the **Check for updates** switch (`prefs.autoUpdate`) and **Check now** / **Restart to update** (`stores/update/appUpdate`); a development build says it never updates itself |
-| `appearance/AppearanceSettings.svelte` | The Appearance card's fields: theme mode (the four-option picker `theme-mode` resolves), terminal font and colours, UI zoom and the handoff threshold, each bound to a persisted pref via `updatePrefs` |
+| `appearance/AppearanceSettings.svelte` | The Appearance card's fields: the Theme (Light / Dark / Auto) and Skin (Default / Cyberpunk) pickers `theme-mode` resolves together, terminal font and colours, UI zoom and the handoff threshold, each bound to a persisted pref via `updatePrefs` |
 | `appearance/FontSizeStepper.svelte` | The UI + terminal zoom, stepped A− / A+ within its persisted bounds (`ui-scale`, `prefs-bounds`) |
 | `appearance/HandoffThreshold.svelte` | The context fill that hands a session off to a fresh agent: a slider and a validated number box over the one pref |
 | `appearance/TerminalFontPicker.svelte` | The terminal font, picked from two-column cards that each preview their face |

@@ -1,16 +1,17 @@
 <script lang="ts">
   import type { IconName } from "@/lib/Icon.svelte";
-  import { chooseThemeMode, effective } from "@/lib/settings/prefs.svelte";
-  import { ThemeMode } from "@/lib/types";
+  import { chooseThemeMode, chooseThemePalette, effective } from "@/lib/settings/prefs.svelte";
+  import { ThemeMode, ThemePalette } from "@/lib/types";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import FontSizeStepper from "@/panels/config/appearance/FontSizeStepper.svelte";
   import HandoffThreshold from "@/panels/config/appearance/HandoffThreshold.svelte";
   import TerminalColours from "@/panels/config/appearance/TerminalColours.svelte";
   import TerminalFontPicker from "@/panels/config/appearance/TerminalFontPicker.svelte";
 
-  // The Appearance card's fields: theme mode, terminal font and colours, UI zoom
-  // and the handoff threshold - each bound to a persisted pref via updatePrefs
-  // (merge → apply → save through the shared store).
+  // The Appearance card's fields: the light/dark mode and the skin over it,
+  // terminal font and colours, UI zoom and the handoff threshold - each bound to
+  // a persisted pref via updatePrefs (merge → apply → save through the shared
+  // store).
   const themeOptions = [
     {
       value: ThemeMode.enum.light,
@@ -26,14 +27,26 @@
       value: ThemeMode.enum.system,
       label: "Auto",
       icon: "monitor"
-    },
-    {
-      value: ThemeMode.enum.cyberpunk,
-      label: "Cyberpunk",
-      icon: "bolt"
     }
   ] as const satisfies readonly {
     value: ThemeMode;
+    label: string;
+    icon: IconName;
+  }[];
+
+  const skinOptions = [
+    {
+      value: ThemePalette.enum.default,
+      label: "Default",
+      icon: "spark"
+    },
+    {
+      value: ThemePalette.enum.cyberpunk,
+      label: "Cyberpunk",
+      icon: "cyberpunk"
+    }
+  ] as const satisfies readonly {
+    value: ThemePalette;
     label: string;
     icon: IconName;
   }[];
@@ -41,14 +54,23 @@
 
 <div class="field">
   <span class="field-label">Theme</span>
-  <div class="theme-choices">
-    <Segmented
-      chosen={effective.themeMode}
-      label="Theme"
-      onchoose={chooseThemeMode}
-      options={themeOptions}
-    />
-  </div>
+  <Segmented
+    chosen={effective.themeMode}
+    label="Theme"
+    onchoose={chooseThemeMode}
+    options={themeOptions}
+  />
+</div>
+
+<div class="field">
+  <span class="field-label">Skin</span>
+  <Segmented
+    chosen={effective.themePalette}
+    label="Skin"
+    onchoose={chooseThemePalette}
+    options={skinOptions}
+  />
+  <span class="skin-hint">Works with Light, Dark and Auto</span>
 </div>
 
 <TerminalFontPicker />
@@ -60,20 +82,9 @@
 <HandoffThreshold />
 
 <style>
-  /* Four themes: one row once there is room for four labels, else a 2×2 block.
-     Both sides are container queries, mutually exclusive, because a plain
-     fallback declaration would sit AFTER the nested at-rule and win over it.
-     Asked of the card, not the viewport - the side panel is drag-resizable, so a
-     media query would answer about the wrong box. */
-  .theme-choices {
-    @container (inline-size < 360px) {
-      --segmented-columns: repeat(2, 1fr);
-      --segmented-flow: row;
-    }
-
-    @container (inline-size >= 360px) {
-      --segmented-columns: repeat(4, 1fr);
-      --segmented-flow: row;
-    }
+  /* The design sets this one hint a size up from the card's `.field-hint`. */
+  .skin-hint {
+    color: var(--on-surface-variant);
+    font-size: 0.6875rem;
   }
 </style>

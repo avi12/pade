@@ -479,15 +479,15 @@ export const UpdateStatus = z.object({
 });
 export type UpdateStatus = z.infer<typeof UpdateStatus>;
 
-/** The theme the user picks, as one list of four. Three of them name a
- *  light/dark scheme ("system" = whatever the OS is showing); `cyberpunk` names
- *  a {@link ThemePalette} instead and takes its scheme from the OS like
- *  "system" does. `lib/settings/theme-mode` resolves a mode into that pair. */
-export const ThemeMode = z.enum(["system", "light", "dark", "cyberpunk"]);
+/** The light/dark mode the user picks: a scheme of its own, or "system" -
+ *  whatever the OS is showing. The skin over it is a separate pick, a
+ *  {@link ThemePalette}; `lib/settings/theme-mode` resolves the two together. */
+export const ThemeMode = z.enum(["system", "light", "dark"]);
 export type ThemeMode = z.infer<typeof ThemeMode>;
 
-/** The token set painting the app - the skin axis, worn by the document root as
- *  `data-palette` and layered over the light/dark tokens in theme.css. */
+/** The token set painting the app - the skin axis, picked apart from the mode,
+ *  worn by the document root as `data-palette` and layered over the light/dark
+ *  tokens in theme.css. */
 export const ThemePalette = z.enum(["default", "cyberpunk"]);
 export type ThemePalette = z.infer<typeof ThemePalette>;
 
@@ -581,6 +581,8 @@ const Prefs = z.object({
   uiFont: z.string().nullish(),
   monoFont: z.string().nullish(),
   themeMode: ThemeMode.nullish(),
+  /** The skin over the mode. Absent = the default palette. */
+  themePalette: ThemePalette.nullish(),
   /** Windows Terminal colour schemes to paint the terminal with, one per app
    *  scheme. Absent on a side = that scheme uses the app theme's own palette. */
   terminalSchemes: TerminalSchemeChoice.nullish(),
@@ -644,6 +646,25 @@ const Prefs = z.object({
 });
 export type Prefs = z.infer<typeof Prefs>;
 
+/** Settings saved while Cyberpunk was a fourth theme mode carry it as
+ *  `themeMode: "cyberpunk"`. It took its light/dark from the OS, so it reads as
+ *  Auto wearing the Cyberpunk skin. */
+const LegacyCyberpunkMode = z.looseObject({ themeMode: z.literal(ThemePalette.enum.cyberpunk) });
+
+/** Prefs as stored, with a legacy Cyberpunk mode read in its two-axis shape. */
+const StoredPrefs = z.preprocess(raw => {
+  const parsed = LegacyCyberpunkMode.safeParse(raw);
+  if (!parsed.success) {
+    return raw;
+  }
+
+  return {
+    ...parsed.data,
+    themeMode: ThemeMode.enum.system,
+    themePalette: ThemePalette.enum.cyberpunk
+  };
+}, Prefs);
+
 export const Settings = z.object({
   roots: z.array(z.string()),
   defaultAgent: z.string().nullable(),
@@ -658,7 +679,7 @@ export const Settings = z.object({
   /** When each project was last opened or left (Unix ms), keyed by canonical
    *  path - the switcher's "last accessed" time. */
   workspaceLastUsed: z.record(z.string(), z.number()).default({}),
-  prefs: Prefs.default({})
+  prefs: StoredPrefs.default({})
 });
 export type Settings = z.infer<typeof Settings>;
 
