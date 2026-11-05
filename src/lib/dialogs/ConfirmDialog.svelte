@@ -227,6 +227,12 @@
       translate: none;
     }
 
+    /* Nor does it take Cyberpunk's menu flicker (theme.css): the window-sized
+       scrim only fades, while the card on it glitches in. */
+    :global(:root[data-palette="cyberpunk"]) &:popover-open {
+      animation: fadein 160ms var(--ease);
+    }
+
     .dialog {
       margin: 0;
     }
