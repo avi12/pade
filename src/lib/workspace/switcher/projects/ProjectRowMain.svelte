@@ -14,13 +14,27 @@
   // its chats wait on you and how many are working, and a window mark on one
   // another window has open. Its tooltip carries the path, and the full name
   // while the row cuts it short.
-  const { project, labels, isCurrent, isOpenElsewhere, needsYouCount, workingCount, now, onpick, oncontextmenu }: {
+  const {
+    project,
+    labels,
+    isCurrent,
+    isOpenElsewhere,
+    isExpanded,
+    needsYouCount,
+    workingCount,
+    now,
+    onpick,
+    oncontextmenu
+  }: {
     project: string;
     labels: Record<string, string>;
     /** This window's own project - wears the primary rail. */
     isCurrent: boolean;
     /** Another window has this project open - picking it focuses that window. */
     isOpenElsewhere: boolean;
+    /** Where a click opens and closes the project's chats (the rail), whether
+     *  they are showing; left out where a click picks the project. */
+    isExpanded?: boolean;
     /** How many of its chats wait on the user. */
     needsYouCount: number;
     /** How many of its chats are working. */
@@ -67,6 +81,7 @@
   {@attach observeProjectBranch({ path: project })}
   {@attach rowTruncationTooltip}
   aria-current={isCurrent}
+  aria-expanded={isExpanded}
   data-sidebar-item
   onclick={onpick}
   {oncontextmenu}

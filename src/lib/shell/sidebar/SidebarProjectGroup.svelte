@@ -17,6 +17,7 @@
   import { activityCounts, chatActivity, chatStatus } from "@/lib/shell/sidebar/chat-activity";
   import ProjectChatList from "@/lib/shell/sidebar/ProjectChatList.svelte";
   import { displayName } from "@/lib/util/paths";
+  import { isNewWindowClick } from "@/lib/workspace/open-windows";
   import ProjectRowMain from "@/lib/workspace/switcher/projects/ProjectRowMain.svelte";
   import ProjectRowMenu from "@/lib/workspace/switcher/projects/ProjectRowMenu.svelte";
   import ReorderGrip from "@/lib/workspace/switcher/ReorderGrip.svelte";
@@ -31,9 +32,10 @@
     "onnewchat" | "onselectchat" | "onresumeconversation" | "ondeletechat" | "onstopchat"
   >;
 
-  // One project in the left rail: its header row (a caret that opens and
-  // closes it, the switcher's row with its needs-you and working counts, a
-  // new-chat button, and the options menu on hover or right-click), then,
+  // One project in the left rail: its header row (the switcher's row with its
+  // needs-you and working counts, which opens and closes the project like its
+  // caret does - a new-window click still opens the project in a new window -
+  // a new-chat button, and the options menu on hover or right-click), then,
   // while open, its chats indented under it. A pinned project leads with a
   // drag grip while the pins can be reordered.
   const {
@@ -125,6 +127,7 @@
     />
     <ProjectRowMain
       isCurrent={group.isCurrent}
+      {isExpanded}
       {isOpenElsewhere}
       {labels}
       needsYouCount={counts.needsYou}
@@ -133,7 +136,14 @@
         e.preventDefault();
         rowMenu?.open();
       }}
-      {onpick}
+      onpick={e => {
+        if (isNewWindowClick(e)) {
+          onpick(e);
+          return;
+        }
+
+        expandedByUser.set(group.project, !isExpanded);
+      }}
       project={group.project}
       workingCount={counts.working}
     />
