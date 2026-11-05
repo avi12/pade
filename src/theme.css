@@ -310,6 +310,10 @@
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --spring: cubic-bezier(0.34, 1.4, 0.5, 1);
 
+  /* A fast-out, long-settle curve with no overshoot, for a box that should
+     arrive without bouncing (popover menus). */
+  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+
   /* The one authoritative home for the font stacks. lib/settings/prefs composes a chosen
      UI/mono font on top of these via `var(--font-*-base)` - never re-spelling the
      fallback list - and App binds the result onto --font-ui/--font-monospace. */
@@ -1230,7 +1234,7 @@ textarea {
   }
 
   50% {
-    opacity: 35%;
+    opacity: 30%;
   }
 }
 
@@ -1334,20 +1338,22 @@ textarea {
   }
 }
 
-/* Native popovers (menus) reveal with a spring; light-dismiss is handled by the
-   platform. `@starting-style` gives the enter transition its from-state, and
-   `allow-discrete` animates display/overlay so the exit plays too. */
+/* Native popovers (menus) settle in with a short lift and a barely-there
+   scale (the design's entrance - a menu answers a click, it does not bounce);
+   light-dismiss is handled by the platform. `@starting-style` gives the enter
+   transition its from-state, and `allow-discrete` animates display/overlay so
+   the exit plays too. */
 [popover] {
   margin: 0;
   opacity: 0%;
   transition:
-    opacity 160ms var(--ease),
-    scale 200ms var(--spring),
-    translate 200ms var(--spring),
+    opacity 140ms var(--ease),
+    scale 180ms var(--ease-settle),
+    translate 180ms var(--ease-settle),
     overlay 200ms allow-discrete,
     display 200ms allow-discrete;
-  scale: 0.95;
-  translate: 0 -10px;
+  scale: 0.985;
+  translate: 0 -4px;
 
   &:popover-open {
     opacity: 100%;
@@ -1359,8 +1365,8 @@ textarea {
 @starting-style {
   [popover]:popover-open {
     opacity: 0%;
-    scale: 0.95;
-    translate: 0 -10px;
+    scale: 0.985;
+    translate: 0 -4px;
   }
 }
 

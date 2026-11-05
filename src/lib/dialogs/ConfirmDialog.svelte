@@ -192,7 +192,7 @@
      the card only while shown.
 
      It opts out of the shared `[popover]` entrance (theme.css). That entrance
-     lifts and scales a menu in - `scale: 0.95 → 1`, `translate: 0 -10px → 0` -
+     lifts and scales a menu in - `scale: 0.985 → 1`, `translate: 0 -4px → 0` -
      which is right for a box anchored to its trigger and wrong for a box that IS
      the window: scaling a full-viewport scrim grows the dim out of the centre
      and leaves a lit margin all round while it runs (measured: the bottom band
