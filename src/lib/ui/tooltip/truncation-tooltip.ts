@@ -13,7 +13,8 @@ function resolve(text: TooltipText) {
 let nextAnchorId = 0;
 
 const ANCHOR_NAME_PROPERTY = "anchor-name";
-const NESTED_TOOLTIP_SELECTOR = "[data-tooltip]";
+const TRIGGER_ATTRIBUTE = "data-overflow-tooltip";
+const NESTED_TOOLTIP_SELECTOR = `[data-tooltip], [${TRIGGER_ATTRIBUTE}]`;
 interface Bubble {
   text: string;
   fontFamily?: string;
@@ -21,7 +22,8 @@ interface Bubble {
 
 const NO_BUBBLE: Bubble = { text: "" };
 
-/** A descendant with its own `[data-tooltip]` (a chat row's pause mark) speaks
+/** A descendant with its own tooltip - a `[data-tooltip]` (a chat row's pause
+ *  mark) or a trigger of this same bubble (a language bar segment) - speaks
  *  for itself, so over it the trigger's bubble steps aside and the two never
  *  stack. theme.css's `:has()` rule can't do this for the shared bubble: it
  *  lives in the top layer, outside the trigger, so only a document-wide
@@ -53,6 +55,7 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
   return (elTrigger: HTMLElement) => {
     const anchorName = `--overflow-tooltip-${nextAnchorId++}`;
     elTrigger.style.setProperty(ANCHOR_NAME_PROPERTY, anchorName);
+    elTrigger.toggleAttribute(TRIGGER_ATTRIBUTE, true);
 
     function activate(e?: Event) {
       const { text, fontFamily } = isOverNestedTooltip({
@@ -108,6 +111,7 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
       elTrigger.removeEventListener("focusin", activateOnVisibleFocus);
       elTrigger.removeEventListener("focusout", deactivate);
       elTrigger.style.removeProperty(ANCHOR_NAME_PROPERTY);
+      elTrigger.removeAttribute(TRIGGER_ATTRIBUTE);
     };
   };
 }
