@@ -79,6 +79,32 @@
       letter-spacing: 0.07em;
       text-transform: uppercase;
     }
+
+    /* Cyberpunk: a red accent bar leads the head, and the title is a section
+       label - amber mono, wider tracking, behind a red `//`. The title takes
+       the free space so the bar stays at the edge and the menu at the end. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      &::before {
+        content: "";
+        flex: none;
+        align-self: stretch;
+        inline-size: 0.3125rem;
+        margin-inline-end: 0.25rem;
+        background: var(--cyber-accent);
+      }
+
+      h2 {
+        flex: 1;
+        color: var(--cyber-label);
+        font-family: var(--font-monospace);
+        letter-spacing: 0.12em;
+
+        &::before {
+          content: "// ";
+          color: var(--cyber-accent);
+        }
+      }
+    }
   }
 
   .actions-trigger {

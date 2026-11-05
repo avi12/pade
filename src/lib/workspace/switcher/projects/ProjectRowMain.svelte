@@ -134,6 +134,11 @@
     /* The current project keeps a primary rail on its leading edge. */
     &.current {
       box-shadow: inset 3px 0 0 0 var(--primary);
+
+      /* Cyberpunk: the rail is the frame's red accent - it marks, never writes. */
+      :global(:root[data-palette="cyberpunk"]) & {
+        box-shadow: inset 3px 0 0 0 var(--cyber-accent);
+      }
     }
 
     &:hover,
