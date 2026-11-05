@@ -66,6 +66,11 @@
 
     &.working .state {
       color: var(--primary);
+
+      /* Cyberpunk at night: a lit value glows. */
+      :global(:root[data-palette="cyberpunk"][data-theme="dark"]) & {
+        text-shadow: var(--cyber-glow);
+      }
     }
 
     &.ready .dot {

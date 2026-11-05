@@ -262,6 +262,21 @@
     padding-block: 12px 8px;
     padding-inline: 14px 8px;
     background: var(--code-background);
+
+    /* Cyberpunk at night lays faint cyan scanlines over the whole pane - an
+       overlay that takes no pointer, so the xterm grid under it is untouched. */
+    :global(:root[data-palette="cyberpunk"][data-theme="dark"]) &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          color-mix(in sRGB, var(--primary) 3.5%, transparent) 0 1px,
+          transparent 1px 3px
+        );
+      pointer-events: none;
+    }
   }
 
   /* Full-size measuring frame: fitToPane reads its client size for the cols/rows and

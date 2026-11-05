@@ -327,6 +327,10 @@
       font-size: 0.625rem;
       white-space: nowrap;
 
+      :global(:root[data-palette="cyberpunk"][data-theme="dark"]) & {
+        text-shadow: var(--cyber-glow);
+      }
+
       .tab-strip:not(.drop-target) & {
         display: none;
       }
