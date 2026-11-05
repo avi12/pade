@@ -263,17 +263,17 @@
   --syntax-function: hsl(210deg 80% 46%);
   --syntax-property: hsl(190deg 65% 36%);
 
-  /* A neon bloom around whatever holds keyboard focus. Off by default - the
-     base theme states focus with its outline alone; a palette that wants a
-     glow (cyberpunk) turns it on by redefining this one token. */
+  /* A bloom around whatever holds keyboard focus. Off - every palette states
+     focus with its outline alone (Cyberpunk's design draws no glow on it
+     either); a palette that wants one redefines this one token. */
   --focus-glow: none;
 
   /* M3 shape scale. `--radius-full` is the pill - the fully-rounded end every
      chip, badge and segmented control in the app wears. It is a token and not a
      literal `999px` for the same reason the other four are: a palette has to be
-     able to re-point the whole scale, and a skin whose controls are cut rather
-     than rounded (cyberpunk) cannot do that if two thirds of the app spells its
-     corner out by hand. */
+     able to re-point the whole scale, and a skin whose corners are all square
+     (cyberpunk) cannot do that if two thirds of the app spells its corner out
+     by hand. */
   --radius-small: 8px;
   --radius-medium: 14px;
   --radius-large: 20px;
@@ -418,8 +418,8 @@
    RED FRAMES, CYAN VALUES, AMBER LABELS, and red never carries text.
 
    - Frames are red. The chrome's lit edges (`--hairline`: the top bar, the
-     side panel's seam, every menu's frame), the header stub, a checked box and
-     the side panel's heading tab all spend `--cyber-frame` / `--cyber-accent`.
+     rail's seam, a pane's head, every menu's frame), a checked box and the
+     side panel's heading tab all spend `--cyber-frame` / `--cyber-accent`.
      A red fill writes in `--cyber-tab-foreground`, never red on red.
    - Values are cyan. `--primary` is the lit colour of anything that reports a
      number or a state, and at night it carries `--cyber-glow`.
@@ -430,9 +430,9 @@
      under AA on the raised surfaces, which is why it never writes.
 
    The day face is ink plus a red accent, not the night one dimmed: ink-navy
-   writes and frames, red is the one accent, the ground is a pale cool concrete,
-   and depth comes from a hard ink offset plate (`--cyber-plate-shadow`) where
-   the night face would glow.
+   writes and frames, red is the one accent, and the ground is a pale cool
+   concrete. Neither face builds depth out of shadows: the skin is flat, and
+   structure comes from fills, coloured bars and the red frame rules.
 
    Every text token is measured against every surface of its face (and the
    selected-tab plate), and nothing ships below 4.5:1. Where a design value fell
@@ -476,21 +476,10 @@
   --on-surface-variant: #7cb8ba;
 
   /* Ordinary rules are teal; the lit edges are the red frame (`--hairline`,
-     set once for both faces in the chassis block). A control's own edge is a
-     cyan tint, so a row of buttons reads as instrument plates, not as frames. */
+     set once for both faces in the skin block). */
   --outline: #0b5f60;
-  --control-edge: rgb(86 254 255 / 35%);
-  --hairline-glow: 0 0 12px rgb(247 41 68 / 30%);
-
-  /* The same bloom thrown below a bar only: pulled down and pulled in by the
-     blur, so the bar's ends never light the edge of what sits beside it (the
-     left rail beside the top bar). */
-  --hairline-glow-below: 0 10px 14px -10px rgb(247 41 68 / 30%);
   --shadow-color: rgb(0 0 0 / 76%);
   --primary-shadow: rgb(86 254 255 / 40%);
-  --focus-glow: 0 0 0 1px rgb(86 254 255 / 50%), 0 0 14px rgb(86 254 255 / 45%);
-  --scanline: rgb(86 254 255 / 3.5%);
-  --grid-line: rgb(86 254 255 / 2.5%);
   --code-background: #010304;
   --code-foreground: #bdf7f8;
 
@@ -502,7 +491,6 @@
   --cyber-focus: #56feff;
   --cyber-glow: 0 0 6px rgb(86 254 255 / 55%);
   --cyber-tab-foreground: #000000;
-  --cyber-plate-shadow: none;
   --tooltip-background: rgb(0 0 0 / 92%);
   --tooltip-foreground: var(--primary);
   --cyber-glitch-1: #f72944;
@@ -581,20 +569,10 @@
   --on-surface: #06182b;
   --on-surface-variant: #3b5262;
 
-  /* Ordinary rules are a cool grey; ink is the frame (`--hairline`) and the
-     edge of every control, so a button still reads as a plate on paper. */
+  /* Ordinary rules are a cool grey; ink is the frame (`--hairline`). */
   --outline: #7d929c;
-  --control-edge: #06182b;
-
-  /* Every glow off, and depth from a hard ink offset plate instead - the
-     printed register, where a bloom would only smudge. */
-  --hairline-glow: none;
-  --hairline-glow-below: none;
-  --focus-glow: none;
   --shadow-color: rgb(6 24 43 / 18%);
   --primary-shadow: rgb(6 24 43 / 26%);
-  --scanline: rgb(6 24 43 / 4%);
-  --grid-line: rgb(6 24 43 / 4%);
   --code-background: #f8fbfa;
   --code-foreground: #06182b;
 
@@ -606,7 +584,6 @@
   --cyber-focus: #06182b;
   --cyber-glow: none;
   --cyber-tab-foreground: #ffffff;
-  --cyber-plate-shadow: 4px 4px 0 rgb(6 24 43 / 20%);
   --tooltip-background: var(--on-surface);
   --tooltip-foreground: #ffffff;
   --cyber-glitch-1: #c8102e;
@@ -1550,59 +1527,43 @@ textarea {
   }
 }
 
-/* Cyberpunk's shape language: corners are CUT, not rounded. `corner-shape:
-   bevel` reinterprets every radius in the app as a chamfer. A container runs
-   the cut down one diagonal - `<size> 0` is the two-value border-radius form,
-   so its TOP-LEFT and BOTTOM-RIGHT corners are chamfered - while a control
-   (anything you click) cuts its BOTTOM-RIGHT corner alone.
+/* Cyberpunk's shape language is FLAT - the design file's cyber skin. Every
+   corner is the same small 2px radius, on controls and containers alike, and
+   no control wears a frame, plate, bevel or shadow of its own. Structure comes
+   from fills (a selected tab is a cyan-tinted slab), coloured bars (a feed
+   card's left bar, the current project's red bar) and the red frame rules the
+   chrome draws along its own edges (the top bar's foot, the rail's seam, a
+   pane's head) - each of those drawn by its component.
 
-   That diagonal is the admin console's, and it used to be the other one here.
-   The direction is not arbitrary decoration: the skin cuts the corner the eye
-   arrives at and the corner it leaves by, so a row of controls reads as one
-   machined strip rather than as a set of independently-slanted tiles. Getting
-   it backwards is the difference between wearing the chassis and merely
-   quoting it.
+   What the skin does draw globally is in this block and the few rules after
+   it: a menu's red frame and cut corners, the tooltip readout, the focus ring,
+   the selection, the checked box and the section-label writing.
 
-   Two sizes, not four steps - "corners come from chamfers, not radii", so the
-   scale collapses onto the skin's own pair: 7px on anything you click, 12px on
-   anything that holds content. The token names stay because every card, button,
-   menu and field in the app already resolves its corner through them.
-
-   `--radius-full` is the one that matters most and was the one getting it
-   wrong. The console zeroes `--shape-full` outright, so a pill under that skin
-   is a RECTANGLE with two corners cut. Left at 999px here it met
-   `corner-shape: bevel` and became a hexagon - a bevel that big cuts the whole
-   end off - which is a different shape language wearing the same colours, and
-   it is what every chip, tab and badge in the app was drawn as. It takes the
-   control chamfer now, like every other thing you click.
+   The scale collapses onto that one corner. The token names stay because every
+   card, button, menu and field in the app already resolves its corner through
+   them, and `--radius-full` collapses with the rest: the design squares every
+   pill, so a chip, a badge or a segmented control is a 2px rectangle here.
 
    Both faces share all of it - shape is not light or dark. */
 :root[data-palette="cyberpunk"] {
-  /* The two lengths the whole chassis is cut from, so a rule that needs the
-     chamfer on ONE corner (a segmented control's cap, below) and the shorthand
-     that cuts a diagonal both read the same number. */
-  --chamfer-control: 7px;
+  /* The one corner that is not 2px: a menu's cut, on its top-right and
+     bottom-left corners (`.popover-menu`, below). */
   --chamfer-container: 12px;
 
   /* Red frames, on both faces: the chrome's lit edges are the skin's frame
-     colour, and the accent stub under a titled header is its accent. */
+     colour. */
   --hairline: var(--cyber-frame);
-  --stripe: var(--cyber-accent);
 
   /* A tooltip is an instrument readout: a square plate in the mono face,
      framed in the accent red (each face sets its plate and ink). */
   --tooltip-border-color: var(--cyber-accent);
   --tooltip-radius: 0;
   --tooltip-letter-spacing: 0.03em;
-
-  /* Anything you click cuts one corner only, the bottom-right - the corner a
-     row of controls leaves by - so a button reads as a key, not a tile.
-     Containers keep the diagonal (top-left and bottom-right) below. */
-  --radius-small: 0 0 var(--chamfer-control) 0;
-  --radius-medium: 0 0 var(--chamfer-control) 0;
-  --radius-large: var(--chamfer-container) 0;
-  --radius-extra-large: var(--chamfer-container) 0;
-  --radius-full: 0 0 var(--chamfer-control) 0;
+  --radius-small: 2px;
+  --radius-medium: 2px;
+  --radius-large: 2px;
+  --radius-extra-large: 2px;
+  --radius-full: 2px;
 
   /* Motion snaps rather than eases. The skin's own curve and its short end of
      the duration scale: a HUD acknowledges an input, it does not glide. */
@@ -1620,179 +1581,15 @@ textarea {
   --font-digits: "Oxanium Digits";
   --font-ui-base: var(--font-digits), "Chakra Petch", "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
 
-  /* The active tab's corner ticks: how long each L-bracket's arms are, and how
-     far the whole mark floats off the frame. The structural stroke they are cut
-     from is NOT declared here - each face states its own alongside its colours,
-     because on paper the bloom is precisely what has to go. */
-  --crop-mark-length: 6px;
-  --crop-mark-inset: 3px;
-
-  /* The accent stub riding the rule under a titled header - fixed length, so it
-     reads as a mark rather than a progress bar however wide the header is. One
-     home for it: the panel header, the cards inside it, the switcher's list
-     heads and the menus' section labels draw the same stub, and only the
-     rule's weight separates the levels. */
-  --header-stub-length: 44px;
-  --header-stub-weight: 4px;
-  --header-stub: linear-gradient(90deg, var(--stripe) 0 var(--header-stub-length), transparent var(--header-stub-length));
-
-  /* Cyberpunk's controls are framed plates, not tinted pills - which is what the
-     colours and the chamfer alone still left underneath. An `outline` drawn one
-     pixel inside gives every control that frame without a border's layout cost,
-     and without touching `box-shadow`, which components use for their own
-     selected-row markers. Focused controls are excluded outright so the focus
-     ring is never the thing this overrides.
-
-     `.tab` joins the list because the session tab is a DIV wrapping three
-     buttons, so the frame was landing on the three parts instead of the whole -
-     three flush boxes with no chamfer between them, which is what the control
-     looked like rather than one cut plate. The container carries the frame now
-     and its parts carry none: the console draws one chamfered shape per control,
-     never boxes inside boxes.
-
-     One pixel, not two. Two is the CARD weight - what the console spends on
-     panels, dialogs and the top bar - and putting it on every control turned
-     a tab into a stack of heavy tiles. Its own buttons carry no border
-     at all; its segmented tabs carry one pixel.
-
-     The session tab, a DIV wrapping three buttons, wears the same frame on the
-     pill itself (SessionTabs), so the frame never lands on its three parts.
-
-     The panel tabs also take the game's uppercase-with-tracking treatment. Only
-     those: every other label in the app is a project, file or session name, and
-     shouting someone's data back at them is not a theme. */
-  :is(button, [role="tab"]):not(:focus-visible) {
-    outline: 1px solid var(--control-edge);
-    outline-offset: -1px;
-  }
-
-  [role="tab"] {
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  /* A place to type and a place to click wore the same 1px frame, so neither
-     read as what it was. Fields now behave like the game's (and Arwes') input
-     plates: the caret is the terminal's own block colour, a placeholder is the
-     instrument's mono writing, and focus draws an accent line in along the foot
-     while the frame lights - the ring sits ON the cut plate rather than
-     floating 2px outside it, so it follows the bevel. On paper there is no
-     glow, so that line is what says "focused" there. `:read-write` is every
-     field you type into and none of the checkboxes, radios or sliders; a
-     `.text-field-plate` takes all of it in place of the bare input it holds,
-     so the line runs under the whole plate. The frame itself is set apart,
-     below this block. */
-  :is(:read-write, select, .text-field-plate) {
-    background-image: linear-gradient(var(--stripe) 0 0);
-    background-position: left bottom;
-    background-size: 0 2px;
-    background-repeat: no-repeat;
-    caret-color: var(--terminal-cursor);
-    transition: background-size 160ms var(--ease);
-
-    &:dir(rtl) {
-      background-position: right bottom;
-    }
-
-    &::placeholder {
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      letter-spacing: 0.04em;
-    }
-
-    &:focus-within {
-      background-size: 100% 2px;
-    }
-  }
-
-  /* `:user-invalid` waits for the user to have touched the field, so a form
-     never opens already red. */
-  :is(:user-invalid, [aria-invalid="true"], .text-field-plate:has(:user-invalid, [aria-invalid="true"])) {
-    background-color: var(--critical-wash);
-    background-image: linear-gradient(var(--critical) 0 0);
-    background-size: 100% 2px;
-    outline-color: var(--critical);
-  }
-
-  /* The shared field look's edge is an outline here, like every control's, so
-     its border only keeps the box the same size. Inside a plate the plate is
-     the field: the input drops the line and the wash above, and the plate's
-     buttons drop their own frames - one cut plate, never boxes inside it. */
+  /* A field is the design's plain box: one pixel of the ordinary line colour
+     on the rail's fill, lit in the focus colour (cyan at night, ink by day)
+     while you type in it. The shared field look supplies the rest. */
   :is(.text-field, .text-field-plate) {
-    border-color: transparent;
+    background-color: var(--surface-1);
   }
 
-  .text-field-plate {
-    :read-write {
-      &,
-      &:focus {
-        background: none;
-      }
-    }
-
-    button:not(:focus-visible) {
-      outline: none;
-    }
-  }
-
-  /* Buttons acknowledge the pointer the way the HUD does: the frame lights on
-     hover and snaps one step inward while pressed - a plate being pushed, drawn
-     without moving the button, so nothing that positions one is disturbed. */
-  :is(button, [role="tab"]):not(:disabled, :focus-visible) {
-    &:hover {
-      outline-color: var(--hairline);
-    }
-
-    &:active {
-      outline-width: 2px;
-      outline-offset: -3px;
-    }
-  }
-
-  /* On paper the frame is already the ink it would light to, so hover takes
-     the card weight instead. */
-  &[data-theme="light"] :is(button, [role="tab"]):hover:not(:disabled, :focus-visible, :active) {
-    outline-width: 2px;
-    outline-offset: -2px;
-  }
-
-  /* Disabled is "offline", not faded: a dashed frame over a hatched plate, read
-     at full strength so its label stays legible. */
-  :disabled:not(fieldset, optgroup, option) {
-    background-color: var(--surface-2) !important;
-    background-image:
-      repeating-linear-gradient(
-        -45deg,
-        color-mix(in sRGB, var(--outline) 22%, transparent) 0 2px,
-        transparent 2px 6px
-      );
-    color: var(--on-surface-variant);
-    outline: 1px dashed var(--outline);
-    outline-offset: -1px;
-    opacity: 100%;
-    cursor: not-allowed;
-  }
-
-  /* Atmosphere: a CRT sweep over a faint survey grid, both in one inert fixed
-     overlay. The scanline is a single-pixel band every third row; the grid is a
-     72px column rule behind it, which is what stops a large empty pane reading as
-     a flat fill. Both sit at an alpha low enough to be texture and never dimming,
-     below the top layer so menus and dialogs stay clean, and take no pointer
-     events, so nothing under them changes behaviour.
-
-     Fainter than the dashboard draws it, because the two layers are not in the
-     same place: there the grid sits on `body` BEHIND the cards, here the overlay
-     is above everything, so the same alpha would rule lines straight through
-     live code. */
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 1;
-    background:
-      repeating-linear-gradient(to bottom, var(--scanline) 0 1px, transparent 1px 3px),
-      repeating-linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px 72px);
-    pointer-events: none;
+  :is(.text-field:focus-visible, .text-field-plate:focus-within) {
+    border-color: var(--cyber-focus);
   }
 
   * {
@@ -1800,7 +1597,6 @@ textarea {
     --tooltip-font: var(--font-monospace);
 
     scrollbar-color: var(--outline) transparent;
-    corner-shape: bevel;
   }
 
   ::-webkit-scrollbar-thumb {
@@ -1829,141 +1625,24 @@ textarea {
     }
   }
 
-  /* ── The HUD ────────────────────────────────────────────────────────────────
-     Everything from here down is the game's shard/journal screen rather than a
-     dark theme with neon in it. Three things carry that read: cyan hairlines
-     doing the structure, the active thing FRAMED rather than filled, and a bloom
-     on the cyan so a 1px line reads as emitted light.
-
-     A fourth was tried and removed - the amber bezel the game draws around every
-     full-screen panel, worn here at the viewport edge. It is the most
-     recognisable thing on that screen and it still did not belong: the game's
-     frame surrounds one panel you open and close, while this one surrounded the
-     whole editor permanently, which is a very loud thing to sit inside all day.
-     The palette keeps the HUD's structure and spends nothing on its furniture.
-
-     The chrome's own edges - the top bar, the panel header and the side panel's
-     seam - are the HUD's brightest lines, and each component draws its own. */
-
-  /* The console's signature: a short accent stub riding the rule under every
-     panel header (SidePanelHeader draws the panel's), always 44px whatever the
-     header is wide. It is the one mark that says "this is a titled section"
-     without spending a colour on the title itself, which on this skin is ink.
-     Drawn as a background layer on the existing rule rather than a
-     pseudo-element, so it cannot collide with the header's own content.
-
-     This is the same mark one level down, on the label of every card inside a
-     panel - a shared hook, worn by the Config cards' SectionLabel and the
-     dashboard's ProjectCard title alike. The console groups controls by drawing
-     the group, not by spacing it: a titled block with a rule under its name
-     reads as one unit of settings, where four unlabelled stacks of rows read as
-     a list of twelve controls. The panel header keeps its 4px rule; a card's is
-     2px, so the hierarchy is in the weight of the rule rather than in a second
-     colour. The rule is the ordinary line colour, so the red stub reads on it. */
-  .card-label {
-    --header-stub-weight: 2px;
-
-    padding-block-end: 7px;
-    border-block-end: 2px solid var(--outline);
-    background-image: var(--header-stub);
-    background-position: bottom left;
-    background-size: 100% var(--header-stub-weight);
-    background-repeat: no-repeat;
-  }
-
-  /* Active means FRAMED, not filled. The app's selected tab is a solid slab of
-     accent; the HUD's is a dark plate with the frame and the label brightened
-     around it. Both of the app's tab kinds - the side panel's `[role="tab"]` and
-     the session strip's pill (`data-selected-tab`) - take it from one rule, so
-     "selected" can never mean two different things. `:not(:focus-visible)` keeps
-     this out of the focus ring's way, exactly as the control-frame rule above
-     does.
-
-     This re-points the TOKEN PAIR rather than setting `background-color` and
-     `color`, and the difference is not cosmetic. Every component that draws a
-     selected thing - this tab, the side tabs, the overflow menu's rows - reads
-     `--primary-container` for its plate and `--on-primary-container` for the ink
-     on that plate, as a pair. Overriding only the plate from out here flipped the
-     background dark while each component's own descendant rule kept painting the
-     label in the near-black meant for a bright cyan fill, and the active tab's
-     name went unreadable. Re-pointing both halves keeps the pair honest, reaches
-     descendants no theme selector should have to know about, and carries any
-     consumer added later along with it.
-
-     Night face only - the one HUD rule that is. Framing works because the plate
-     behind it is near-black: the frame is the brightest thing in the cell, and
-     the corner ticks read as light against it. On paper there is no near-black to
-     frame against, so the same treatment collapses into a hairline box around
-     pale ink. The day face fills instead, in the same cyan, so "selected" is one
-     colour on both faces even though it is drawn two ways. */
-  &[data-theme="dark"] :is([role="tab"][aria-selected="true"], [data-selected-tab="true"]):not(:focus-visible) {
-    --primary-container: color-mix(in sRGB, var(--primary) 12%, var(--surface-1));
-    --on-primary-container: var(--primary);
-
-    /* The corner ticks. The HUD crops the active tab with short L-brackets
-       floating just inside its frame, and that mark - not a fill - is how the row
-       says which card you are on.
-
-       TWO brackets, not four, and specifically the two on the corners this
-       palette leaves SQUARE. The chamfer cuts top-left and bottom-right, so a
-       tick aimed at either of those lands on the diagonal and comes out sliced -
-       the mark and the shape competing for the same corner. Top-right and
-       bottom-left have a corner to sit in, so the ticks go there. The two
-       diagonals end up complementary rather than fighting: the chamfer takes one,
-       the brackets take the other.
-
-       Four background layers make the two brackets, each a 1px horizontal and a
-       1px vertical stroke meeting in one corner, held far enough off the outline
-       to read as a separate mark rather than as a thicker border. */
-    background-image:
-      linear-gradient(var(--primary) 0 0),
-      linear-gradient(var(--primary) 0 0),
-      linear-gradient(var(--primary) 0 0),
-      linear-gradient(var(--primary) 0 0);
-    background-position:
-      right var(--crop-mark-inset) top var(--crop-mark-inset),
-      right var(--crop-mark-inset) top var(--crop-mark-inset),
-      left var(--crop-mark-inset) bottom var(--crop-mark-inset),
-      left var(--crop-mark-inset) bottom var(--crop-mark-inset);
-    background-size:
-      var(--crop-mark-length) 1px,
-      1px var(--crop-mark-length),
-      var(--crop-mark-length) 1px,
-      1px var(--crop-mark-length);
-    background-repeat: no-repeat;
-    outline-color: var(--primary);
-  }
-
   /* ── The menus ──────────────────────────────────────────────────────────────
-     A popover is a CONTAINER cut the design's way: a one-pixel red frame, with
-     the 12px chamfer on the top-right and bottom-left corners (the two-value
-     radius below, which `corner-shape: bevel` turns into the cut, so the frame
-     follows the bevel instead of being clipped off it). At night the frame
-     alone lifts it off the page; by day it casts the hard ink offset plate.
-
-     What was actually wrong is inside the box. The control-frame rule above
-     outlines every `button` in the app, and a menu is a stack of buttons, so each
-     row arrived wearing its own frame inside the menu's frame - the boxes inside
-     boxes the console never draws, and exactly what `.tab` was fixed for. The
-     frame belongs to the plate. Rows carry nothing until the cursor is on one,
-     and then that row takes it: the frame moves with you rather than being
-     everywhere at once, which is the same "active means framed" the selected tab
-     states. Fields keep theirs - a place to type has to read as one. */
+     A popover menu is the one box the skin frames: a one-pixel red frame (ink
+     by day), with the 12px cut on the top-right and bottom-left corners - the
+     two-value radius below, which `corner-shape: bevel` turns into the cut, so
+     the frame follows the bevel instead of being clipped off it. It casts no
+     shadow on either face; the frame alone lifts it off the page. Its rows are
+     flat like every other control: no frame at rest or under the cursor, only
+     the shell's fill. */
   :is(.popover-menu, .typeahead) {
-    --popover-menu-border-width: 1px;
     --popover-menu-border-color: var(--cyber-frame);
 
     border-radius: 0 var(--chamfer-container);
-    box-shadow: var(--cyber-plate-shadow);
+    corner-shape: bevel;
 
     /* A menu draws its border from the tokens in the shell, so one that
        moves its frame onto a layer of its own can still hide the box's. */
     &.typeahead {
-      border: var(--popover-menu-border-width) solid var(--popover-menu-border-color);
-    }
-
-    :is(button, [role="menuitem"]):not(:focus-visible) {
-      outline: none;
+      border: var(--popover-menu-border-width, 1px) solid var(--popover-menu-border-color);
     }
 
     /* A row's focus ring is its own border (the shell's), in the focus
@@ -1972,45 +1651,18 @@ textarea {
       border-color: var(--cyber-focus);
     }
 
-    :is(button:hover, [role="menuitem"]:hover, [role="option"][aria-selected="true"]):not(:focus-visible) {
-      outline: 1px solid var(--hairline);
-      outline-offset: -1px;
-    }
-
     /* Menu rows switch, they do not ease. Every other palette cross-fades a
-       row's colour and fill over 120ms, which reads as soft on a HUD: this
-       screen snaps between states, and a row that fades in under the cursor
-       is the one place that softness is most visible. */
+       row's colour and fill over 120ms, which reads as soft on this skin,
+       where states snap. */
     :is(button, a, [role="menuitem"]) {
       transition: none;
     }
   }
 
-  /* An open menu's trigger wears the menu's own frame, so the two read as one
-     control; the shared open look's border colour is invisible here, where
-     controls draw their edge as an outline. */
-  .menu-host:has([popover]:popover-open) .menu-trigger:not([popover] *) {
-    outline: 1px solid var(--hairline);
-    outline-offset: -1px;
-  }
-
-  /* A section label is a titled section, so it takes the console's signature: the
-     44px accent stub riding a rule under the title, the same mark `.panel-head`
-     carries. It is set in the skin's mono face - a label naming a group is the
-     instrument's own writing, not someone's project or file name, which is the
-     line this palette draws about shouting text back at people.
-
-     That leaves the rule above it redundant: a divider immediately followed by a
-     label is one statement said twice, and the label is the half that says which
-     group starts here. The divider stays wherever it separates without naming -
-     the actions under a list - and there it goes full-bleed to the frame, led by
-     the same stub, so every rule inside a menu starts on the accent. The
-     switcher's sticky list heads (ProjectSection) wear the same label look.
-
-     Room for the rule the label now carries comes with it. The label itself is
-     the design's, on every section label in the app: amber mono, tracked
-     wider, led by a red `// ` - amber labels, with the red spent on a mark
-     rather than on the words. The mark keeps its space inside a flex label. */
+  /* A section label is the instrument's own writing, the design's on every
+     section label in the app: amber mono, tracked wider, led by a red `// ` -
+     amber labels, with the red spent on a mark rather than on the words. No
+     rule runs under it. The mark keeps its space inside a flex label. */
   :is(.menu-separator, .section-label) {
     color: var(--cyber-label);
     font-family: var(--font-monospace);
@@ -2022,34 +1674,12 @@ textarea {
       white-space: pre;
     }
   }
-
-  .menu-separator {
-    margin-block: 8px 4px;
-    padding-block: 2px 6px;
-    border-block-end: 2px solid var(--outline);
-    background-image: var(--header-stub);
-    background-position: bottom left;
-    background-size: 100% 4px;
-    background-repeat: no-repeat;
-  }
-
-  .menu-divider {
-    block-size: 2px;
-
-    /* Out to the frame: the shell's own 6px of padding, cancelled. */
-    margin-inline: -6px;
-    background: linear-gradient(90deg, var(--stripe) 0 var(--header-stub-length), var(--outline) var(--header-stub-length));
-  }
-
-  .menu-divider:has(+ .menu-separator) {
-    display: none;
-  }
 }
 
 /* Focus and selection, at the base rules' own weight (`:where()` drops the
    palette's), so they replace the base look without outranking a component
    that draws its own focus state (a menu row's border). Focus is the skin's
-   focus colour - cyan at night, ink by day - held 3px off the plate; a
+   focus colour - cyan at night, ink by day - held 3px off the box; a
    selection is the brand yellow, the one place the chrome spends it. */
 :where(:root[data-palette="cyberpunk"]) :focus-visible {
   outline-color: var(--cyber-focus);
@@ -2058,23 +1688,6 @@ textarea {
 
 :where(:root[data-palette="cyberpunk"]) ::selection {
   background: color-mix(in sRGB, var(--cyber-yellow) 45%, transparent);
-}
-
-/* A field's frame, kept out of the skin block on purpose: `:where()` drops the
-   palette's weight, so the bare input inside a `.text-field-plate` - which the
-   shared rule strips of its outline - stays one plate instead of a box inside
-   a box. A standalone field and a plate wear the same frame, and focus lights
-   it ON the cut plate rather than floating a glowing ring around it - the
-   accent line drawn along its foot already says where the caret is. */
-:where(:root[data-palette="cyberpunk"]) :is(:read-write, select, .text-field-plate) {
-  outline: 1px solid var(--control-edge);
-  outline-offset: -1px;
-}
-
-:where(:root[data-palette="cyberpunk"]) :is(:is(:read-write, select):focus-visible, .text-field-plate:focus-within) {
-  outline: 2px solid var(--cyber-focus);
-  outline-offset: -2px;
-  box-shadow: none;
 }
 
 /* ── Cyberpunk glitch motion ──────────────────────────────────────────────────
@@ -2130,7 +1743,7 @@ textarea {
 /* A box arriving (a dialog, a toast, the rail, a pane, the side panel): sliced
    in from nothing, split, then settled. It settles on `clip-path: none`, not a
    full inset: an inset still clips to the border box, cutting off what the box
-   draws past it (a dialog card's shadow plate round its chamfer), which then
+   draws past it (a shadow, a focus ring), which then
    snapped back the instant the animation ended. */
 @keyframes cyber-glitch-in {
   0% {
