@@ -44,19 +44,6 @@
     align-items: center;
     padding-block: 12px 10px;
     padding-inline: 16px;
-
-    /* Cyberpunk: one of the HUD's brightest lines (with the top bar and the
-       side panel's seam), led by the console's signature 44px accent stub -
-       the mark that says "this is a titled section" without spending a colour
-       on the title itself. */
-    :global(:root[data-palette="cyberpunk"]) & {
-      border-block-end: 2px solid var(--hairline);
-      background-image: var(--header-stub);
-      background-position: bottom left;
-      background-size: 100% var(--header-stub-weight);
-      background-repeat: no-repeat;
-      box-shadow: var(--hairline-glow-below);
-    }
   }
 
   .panel-title {
@@ -69,6 +56,19 @@
       margin: 0;
       font-weight: 700;
       font-size: 0.9375rem;
+
+      /* Cyberpunk: the title is a tab - an accent fill with its right edge
+         slanted off, the words in the tab's own ink, small and uppercase. */
+      :global(:root[data-palette="cyberpunk"]) & {
+        padding-block: 0.125rem;
+        padding-inline: 0.625rem 1.125rem;
+        background: var(--cyber-accent);
+        color: var(--cyber-tab-foreground);
+        clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
     }
   }
 
