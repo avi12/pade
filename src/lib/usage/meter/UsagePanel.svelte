@@ -66,10 +66,12 @@
     position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 
     /* Cyberpunk frames the panel like its menus: in the frame colour, on the
-       skin's small corner. */
+       skin's small corner, and with no soft shadow - the opening flicker's
+       red and cyan split would copy that blur twice into a white halo. */
     :global(:root[data-palette="cyberpunk"]) & {
       border-color: var(--cyber-frame);
       border-radius: var(--radius-large);
+      box-shadow: none;
     }
   }
 
