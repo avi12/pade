@@ -77,5 +77,10 @@
     &:focus-visible {
       background: color-mix(in sRGB, currentColor 14%, transparent);
     }
+
+    /* Cyberpunk cuts the chip's top-left and bottom-right corners. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+    }
   }
 </style>
