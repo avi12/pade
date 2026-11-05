@@ -2,26 +2,31 @@
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import { runningModelLook } from "@/lib/model/running-model";
-  import RunningModelName from "@/lib/model/RunningModelName.svelte";
   import AgentStatusGlyph from "@/lib/session/AgentStatusGlyph.svelte";
   import type { SidebarChat } from "@/lib/session/chats/chat-registry";
+  import { ChatActivity, chatActivity, chatStatus, NEEDS_YOU } from "@/lib/shell/sidebar/chat-activity";
   import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
   import { sessionModel } from "@/lib/stores/agent/context.svelte";
-  import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
   import type { RecordedConversation } from "@/lib/types";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { spokenTime } from "@/lib/usage/pacing/pacing-policy";
+  import { formatAge } from "@/lib/util/format";
   import { isNewWindowClick } from "@/lib/workspace/open-windows";
 
-  // One chat row in the left rail, with its right-click menu. A live chat
-  // carries a stop button beside the row's own button, never inside it, so
-  // stopping never also opens the chat. A row another PADE window runs wears
-  // that window's mark, and only that window can stop it. Ctrl, Cmd or Shift
-  // asks for the chat in a new window, as on a project row.
-  const { chat, isActive, onselect, onresume, ondelete, onnew, onstop }: {
+  // One chat row in the left rail, on one line: a status dot (waiting on you,
+  // working or idle), the title, what it is doing in words (or how long ago an
+  // idle one last moved), then the agent's mark. The model it runs is in the
+  // row's tooltip. A live chat carries a stop button beside the row's own
+  // button, never inside it, so stopping never also opens the chat. A row
+  // another PADE window runs wears that window's mark, and only that window
+  // can stop it. Ctrl, Cmd or Shift asks for the chat in a new window, as on
+  // a project row.
+  const { chat, isActive, now, onselect, onresume, ondelete, onnew, onstop }: {
     chat: SidebarChat;
     isActive: boolean;
+    /** The instant an idle chat's age is measured against. */
+    now: number;
     /** Bring up a PADE chat - here, or in a new window. */
     onselect: (opensNewWindow: boolean) => void;
     /** Reopen a recorded conversation on its own transcript. */
@@ -43,8 +48,7 @@
   const STEP_FINISHING_NOTE = "finishing its step first";
   const isElsewhere = $derived(chat.windowLabel !== undefined);
   const pacing = $derived(pacingStatus(chat.id));
-  // The model and effort in words - the mark under the label shows only the
-  // model, tinted by its effort.
+  // The model and effort in words, for the tooltip.
   const modelNote = $derived.by(() => {
     const running = sessionModel(chat.id);
     if (running === null) {
@@ -76,7 +80,38 @@
     return `${PAUSED_NOTE} - continues around ${pausedUntil}`;
   });
   const isStoppable = $derived(chat.isLive && !isElsewhere);
-  const status = $derived(chat.status ?? sessionStatus(chat.id));
+  const status = $derived(chatStatus(chat));
+  const activity = $derived(
+    chatActivity({
+      isLive: chat.isLive,
+      status
+    })
+  );
+  // What the row says it is doing: a chat waiting on you says so, an idle one
+  // how long ago it last moved (when that is known), a working one nothing -
+  // its dot says it.
+  const idleAge = $derived.by(() => {
+    const updatedAt = chat.resume?.updatedAt;
+    if (updatedAt === undefined) {
+      return "";
+    }
+
+    return formatAge({
+      stamp: updatedAt,
+      now
+    });
+  });
+  const statusText = $derived.by(() => {
+    if (activity === ChatActivity.NeedsYou) {
+      return NEEDS_YOU;
+    }
+
+    if (activity === ChatActivity.Idle) {
+      return idleAge;
+    }
+
+    return "";
+  });
 
   // Shared by the row's click and its menu's "Open chat".
   function open(e: MouseEvent) {
@@ -93,10 +128,11 @@
   }
   let menu = $state<ProjectChatMenu | null>(null);
 
-  // The full title, only while the row ellipsizes it.
+  // The model it runs at rest; the full title leads while the row ellipsizes it.
   function labelTruncationTooltip(element: HTMLElement) {
     return truncationTooltip({
-      tooltip: () => chat.label,
+      tooltip: () => [chat.label, modelNote].filter(line => line !== undefined).join("\n"),
+      restingTooltip: () => modelNote ?? "",
       measureSelector: ".chat-label"
     })(element);
   }
@@ -121,17 +157,8 @@
     tabindex="-1"
     type="button"
   >
-    {#if chat.isLive}
-      <!-- Measured here only when this window runs it; another window's chat
-           still breathes with its reported status. -->
-      <AgentStatusGlyph agentId={chat.agentId} sessionId={isElsewhere ? null : chat.id} {status} />
-    {:else}
-      <span class="agent-icon"><Icon name={agentIconName(chat.agentId)} size={14} /></span>
-    {/if}
-    <span class="chat-text">
-      <span class="chat-label" dir="auto">{chat.label}</span>
-      <span class="model" data-tooltip={modelNote}><RunningModelName sessionId={chat.id} /></span>
-    </span>
+    <span class="status-dot {activity}" aria-hidden="true"></span>
+    <span class="chat-label" dir="auto">{chat.label}</span>
     <span class="paused" data-tooltip={pausedNote} hidden={!isPaused}>
       <Icon name="pause" size={12} />
       <span class="paused-until">{pausedUntil}</span>
@@ -141,6 +168,14 @@
       <Icon name="external" size={12} />
       <span class="spoken">{ELSEWHERE_NOTE}</span>
     </span>
+    <span class="status-text {activity}" hidden={statusText === ""}>{statusText}</span>
+    {#if chat.isLive}
+      <!-- Measured here only when this window runs it; another window's chat
+           still breathes with its reported status. -->
+      <AgentStatusGlyph agentId={chat.agentId} sessionId={isElsewhere ? null : chat.id} {status} />
+    {:else}
+      <span class="agent-icon"><Icon name={agentIconName(chat.agentId)} size={12} /></span>
+    {/if}
   </button>
   {#if isStoppable}
     <button
@@ -184,17 +219,30 @@
       font-weight: 600;
     }
 
-    /* Calm until wanted: the stop button shows on the row's hover or focus,
-       and always on the active row - the chat most likely to be stopped. It
-       only fades, so Tab still reaches it. */
+    /* Calm until wanted: the stop button opens out on the row's hover or
+       focus, and always on the active row - the chat most likely to be
+       stopped. It keeps no width at rest, so the agent mark ends the row like
+       the design, yet the arrows still reach it. */
     &:hover,
     &:focus-within,
     &.active {
-      --stop-opacity: 100%;
+      --stop-inline-size: 1.375rem;
     }
 
-    :global(:root[data-palette="cyberpunk"]) &:hover:not(.active) {
-      background: var(--surface-3);
+    /* Cyberpunk: a flat line - pointing at it raises the fill a step, and the
+       chat in front wears only a subtle fill, its ink unchanged. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      color: var(--on-surface);
+
+      &:hover:not(.active) {
+        background: var(--surface-3);
+      }
+
+      &.active {
+        background: var(--surface-2);
+        color: var(--on-surface);
+        font-weight: inherit;
+      }
     }
   }
 
@@ -214,9 +262,15 @@
     text-align: start;
     cursor: pointer;
 
+    /* The tooltip puts the title and the model on lines of their own. */
+    &::after {
+      white-space: pre-line;
+    }
+
     /* Cyberpunk: a session name is mono writing, set a size under its
        project's. */
     :global(:root[data-palette="cyberpunk"]) & {
+      gap: 0.4375rem;
       padding-block: 0.3125rem;
       padding-inline: 0.4375rem;
       font-family: var(--font-monospace);
@@ -228,6 +282,7 @@
     .agent-icon {
       display: inline-flex;
       flex: none;
+      color: var(--on-surface-variant);
     }
 
     .chat-label {
@@ -244,27 +299,6 @@
       color: var(--on-surface-variant);
 
       &[hidden] {
-        display: none;
-      }
-    }
-
-    /* The label over what the session runs, so the label keeps the row's
-       whole width. */
-    .chat-text {
-      display: flex;
-      flex: 1;
-      flex-direction: column;
-      min-inline-size: 0;
-    }
-
-    /* Empty for a chat this window isn't running. */
-    .model {
-      display: inline-flex;
-      align-self: start;
-      font-family: var(--font-monospace);
-      font-size: 0.6875rem;
-
-      &:empty {
         display: none;
       }
     }
@@ -294,22 +328,70 @@
     }
   }
 
+  /* What the chat is doing, in words - a chat waiting on you in the warning
+     ink, an idle one's age quiet. */
+  .status-text {
+    flex: none;
+    color: var(--on-surface-variant);
+    font-weight: 600;
+    font-size: 0.625rem;
+    white-space: nowrap;
+
+    &.needs-you {
+      color: var(--warning);
+    }
+
+    &[hidden] {
+      display: none;
+    }
+
+    :global(:root[data-palette="cyberpunk"]) & {
+      font-family: var(--font-ui);
+      font-size: 0.5938rem;
+      letter-spacing: normal;
+    }
+  }
+
+  /* The status dot: waiting on you in the warning ink with a soft halo,
+     working in the primary, idle a quiet outline-coloured mark. */
+  .status-dot {
+    flex: none;
+    block-size: 0.4375rem;
+    inline-size: 0.4375rem;
+    border-radius: 50%;
+    background: var(--outline);
+
+    &.working {
+      background: var(--primary);
+    }
+
+    &.needs-you {
+      background: var(--warning);
+      box-shadow: 0 0 0 0.125rem var(--warning-wash);
+    }
+
+    /* Cyberpunk: a square chip, like the design. */
+    :global(:root[data-palette="cyberpunk"]) & {
+      border-radius: 0;
+    }
+  }
+
   .stop {
     display: inline-flex;
     flex: none;
     justify-content: center;
     align-items: center;
-    block-size: 22px;
-    inline-size: 22px;
+    overflow: hidden;
+    block-size: 1.375rem;
+    inline-size: var(--stop-inline-size, 0);
     margin-inline-end: 3px;
     padding: 0;
     border: none;
     border-radius: var(--radius-small);
     background: transparent;
     color: inherit;
-    opacity: var(--stop-opacity, 0%);
     cursor: pointer;
-    transition: background 120ms var(--ease), color 120ms var(--ease), opacity 120ms var(--ease);
+    transition: inline-size 120ms var(--ease), background 120ms var(--ease), color 120ms var(--ease);
 
     @media (prefers-reduced-motion: reduce) {
       transition: none;

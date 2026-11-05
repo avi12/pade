@@ -44,8 +44,12 @@
     display: inline-grid;
     flex: 0 0 auto;
     place-items: center;
-    block-size: 20px;
-    inline-size: 20px;
+
+    /* A host row may draw it smaller (the rail under Cyberpunk); the glyph
+       is sized by the box's font. */
+    block-size: var(--project-kind-icon-size, 20px);
+    inline-size: var(--project-kind-icon-size, 20px);
     color: var(--brand-color, var(--on-surface-variant));
+    font-size: var(--project-kind-icon-size, inherit);
   }
 </style>

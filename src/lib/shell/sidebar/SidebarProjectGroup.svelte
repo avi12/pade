@@ -1,15 +1,21 @@
 <script lang="ts" module>
+  import { SvelteMap } from "svelte/reactivity";
+
   /** The attribute naming a pinned project to drag-to-reorder, on the
    *  list's wrapper around each project. */
   export const PIN_ID_ATTRIBUTE = "data-pin-id";
+
+  // The projects the user opened or closed by their caret. Shared by every
+  // group in the window, so a project moving between Pinned and Recent (which
+  // remounts it) keeps it; it lasts until the window reloads.
+  const expandedByUser = new SvelteMap<string, boolean>();
 </script>
 
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { SidebarChat, SidebarProject } from "@/lib/session/chats/chat-registry";
-  import InactiveChatsFold from "@/lib/shell/sidebar/InactiveChatsFold.svelte";
-  import ProjectChatRow from "@/lib/shell/sidebar/ProjectChatRow.svelte";
-  import { collapseRow, expandRow } from "@/lib/ui/motion";
+  import type { SidebarProject } from "@/lib/session/chats/chat-registry";
+  import { activityCounts, chatActivity, chatStatus } from "@/lib/shell/sidebar/chat-activity";
+  import ProjectChatList from "@/lib/shell/sidebar/ProjectChatList.svelte";
   import { displayName } from "@/lib/util/paths";
   import ProjectRowMain from "@/lib/workspace/switcher/projects/ProjectRowMain.svelte";
   import ProjectRowMenu from "@/lib/workspace/switcher/projects/ProjectRowMenu.svelte";
@@ -20,11 +26,16 @@
     ComponentProps<typeof ProjectRowMenu>,
     "isRenamable" | "ondelete" | "onrelabel" | "onremove" | "onrenamefolder" | "ontogglepin"
   >;
+  type ChatListActions = Pick<
+    ComponentProps<typeof ProjectChatList>,
+    "onnewchat" | "onselectchat" | "onresumeconversation" | "ondeletechat" | "onstopchat"
+  >;
 
-  // One project in the left rail: its rich header row (the switcher's row, with
-  // the chat count, a new-chat button and the options kebab riding it), then its
-  // chats and recorded conversations indented under it. A pinned project leads
-  // with a drag grip while the pins can be reordered.
+  // One project in the left rail: its header row (a caret that opens and
+  // closes it, the switcher's row with its needs-you and working counts, a
+  // new-chat button, and the options menu on hover or right-click), then,
+  // while open, its chats indented under it. A pinned project leads with a
+  // drag grip while the pins can be reordered.
   const {
     group,
     labels,
@@ -41,7 +52,7 @@
     onresumeconversation,
     ondeletechat,
     onstopchat
-  }: {
+  }: ChatListActions & {
     group: SidebarProject;
     labels: Record<string, string>;
     isPinned: boolean;
@@ -51,24 +62,17 @@
     now: number;
     /** This window's focused session - its chat row reads as active. */
     activeId: string | null;
-    /** What the row's options kebab offers. */
+    /** What the row's options menu offers. */
     menu: RowMenuActions;
     onpick: (e: MouseEvent) => void;
     onreorderpins: (paths: string[]) => void;
-    onnewchat: () => void;
-    onselectchat: (target: {
-      chatId: string;
-      opensNewWindow: boolean;
-    }) => void;
-    onresumeconversation: (target: {
-      conversation: NonNullable<SidebarChat["resume"]>;
-      opensNewWindow: boolean;
-    }) => void;
-    ondeletechat: (chatId: string) => void;
-    onstopchat: (chatId: string) => void;
   } = $props();
 
   const NEW_CHAT = "New chat";
+  const EXPAND = "Show chats";
+  const COLLAPSE = "Hide chats";
+
+  let rowMenu = $state<ProjectRowMenu | null>(null);
 
   const name = $derived(
     displayName({
@@ -85,39 +89,33 @@
 
     return null;
   });
-  // Live chats always show; the inactive ones (stopped chats and recorded
-  // conversations) sit in a fold under them.
-  const liveChats = $derived(group.chats.filter(chat => chat.isLive));
-  const inactiveChats = $derived(group.chats.filter(chat => !chat.isLive));
-  const hasNoChats = $derived(group.chats.length === 0);
-</script>
+  const hasLiveChats = $derived(group.chats.some(chat => chat.isLive));
+  // Open until the user says otherwise when it is in front or runs anything;
+  // a project with nothing running starts closed.
+  const isExpanded = $derived(expandedByUser.get(group.project) ?? (group.isCurrent || hasLiveChats));
+  const counts = $derived(
+    activityCounts(
+      group.chats.map(chat => chatActivity({
+        isLive: chat.isLive,
+        status: chatStatus(chat)
+      }))
+    )
+  );
+  const caretLabel = $derived.by(() => {
+    if (isExpanded) {
+      return COLLAPSE;
+    }
 
-{#snippet chatRow(chat: SidebarChat)}
-  <!-- A conversation that turns up while the rail is open (a new chat, a
-       handoff's successor, a transcript an agent just wrote) glides in, and
-       one that goes glides out; the rows already there on first paint
-       don't animate. -->
-  <li in:expandRow out:collapseRow>
-    <ProjectChatRow
-      {chat}
-      isActive={chat.id === activeChatId}
-      ondelete={() => ondeletechat(chat.id)}
-      onnew={onnewchat}
-      onresume={onresumeconversation}
-      onselect={opensNewWindow => onselectchat({
-        chatId: chat.id,
-        opensNewWindow
-      })}
-      onstop={() => onstopchat(chat.id)}
-    />
-  </li>
-{/snippet}
+    return EXPAND;
+  });
+</script>
 
 <!-- Opening in and closing up, and the pin id drag-to-reorder moves by, sit
      on the list's wrapper around it (ProjectSection), the pins' siblings. -->
 <section class="group">
   <!-- One keyboard line: the header is the project's only tab stop, and the
-       arrows reach its buttons (sidebar-keyboard). -->
+       arrows reach its buttons (sidebar-keyboard) - the caret after the
+       project's own button, though it is drawn before it. -->
   <div class="project-row" class:current={group.isCurrent} data-sidebar-line>
     <ReorderGrip
       idAttribute={PIN_ID_ATTRIBUTE}
@@ -126,14 +124,29 @@
       oncommit={onreorderpins}
     />
     <ProjectRowMain
-      chatCount={group.chats.length}
       isCurrent={group.isCurrent}
       {isOpenElsewhere}
       {labels}
+      needsYouCount={counts.needsYou}
       {now}
+      oncontextmenu={e => {
+        e.preventDefault();
+        rowMenu?.open();
+      }}
       {onpick}
       project={group.project}
+      workingCount={counts.working}
     />
+    <button
+      class="caret"
+      class:expanded={isExpanded}
+      aria-expanded={isExpanded}
+      aria-label="{caretLabel}: {name}"
+      data-sidebar-item
+      onclick={() => expandedByUser.set(group.project, !isExpanded)}
+      tabindex="-1"
+      type="button"
+    ><Icon name="chevronDown" size={12} /></button>
     <button
       class="new-chat"
       aria-label="{NEW_CHAT} in {name}"
@@ -143,27 +156,22 @@
       tabindex="-1"
       type="button"
     ><Icon name="plus" size={14} /></button>
-    <ProjectRowMenu {...menu} {isPinned} {labels} project={group.project} />
+    <ProjectRowMenu bind:this={rowMenu} {...menu} {isPinned} {labels} project={group.project} />
   </div>
 
-  <ul class="chats">
-    {#each liveChats as chat (chat.id)}
-      {@render chatRow(chat)}
-    {/each}
-    <!-- Closes as the first chat opens, so the group grows by the difference
-         instead of shrinking and then growing back. -->
-    {#if hasNoChats}
-      <li class="no-chats" in:expandRow out:collapseRow>No chats yet</li>
-    {/if}
-  </ul>
-
-  <InactiveChatsFold count={inactiveChats.length} hasLiveChats={liveChats.length > 0} project={group.project}>
-    <ul class="chats">
-      {#each inactiveChats as chat (chat.id)}
-        {@render chatRow(chat)}
-      {/each}
-    </ul>
-  </InactiveChatsFold>
+  {#if isExpanded}
+    <ProjectChatList
+      {activeChatId}
+      chats={group.chats}
+      {now}
+      {ondeletechat}
+      {onnewchat}
+      {onresumeconversation}
+      {onselectchat}
+      {onstopchat}
+      project={group.project}
+    />
+  {/if}
 </section>
 
 <style>
@@ -174,11 +182,13 @@
     min-inline-size: 0;
   }
 
-  /* Project header - the switch target, with the new-chat button and the
-     options kebab riding it. Both reveal fully on hover or focus. It sticks
-     under the section label while its own chats scroll beneath it, and lets
-     go when the next project's header pushes it out. */
+  /* Project header - the switch target, with the caret before it and the
+     new-chat button and options menu riding it. The menu opens out on hover
+     or focus. It sticks under the section label while its own chats scroll
+     beneath it, and lets go when the next project's header pushes it out. */
   .project-row {
+    --row-kebab-inline-size: 0px;
+
     position: sticky;
     inset-block-start: var(--section-head-block-size, 0);
     z-index: 1;
@@ -191,6 +201,7 @@
     &:hover,
     &:focus-within {
       --row-kebab-opacity: 100%;
+      --row-kebab-inline-size: 1.5rem;
     }
 
     /* Cyberpunk: the project in front is one flat lit strip - a raised fill
@@ -201,69 +212,78 @@
     }
   }
 
+  .caret,
   .new-chat {
     display: inline-flex;
     flex: none;
     justify-content: center;
     align-items: center;
-    block-size: 26px;
-    inline-size: 24px;
     padding: 0;
     border: none;
     border-radius: var(--radius-small);
     background: transparent;
     color: var(--on-surface-variant);
-    opacity: var(--row-kebab-opacity, 55%);
     cursor: pointer;
     transition: background 120ms var(--ease), color 120ms var(--ease), opacity 120ms var(--ease);
-
-    /* The icon jitters, not the button: a translated button would hold its own
-       tooltip's fixed bubble and draw it over the button. */
-    @media (prefers-reduced-motion: no-preference) {
-      :global(:root[data-palette="cyberpunk"]) &:hover > :global(*) {
-        animation: var(--cyber-jitter-animation);
-      }
-    }
 
     &:hover {
       background: var(--surface-3);
       color: var(--on-surface);
     }
+  }
 
-    /* Cyberpunk: a square hit target, lit cyan on hover like the design. */
+  /* Drawn first, though it follows the project's button for the arrows. It
+     points right while the project is closed and down while open. A bare
+     glyph: pointing at it only brightens it, no box of its own, and it says
+     what it does to a screen reader rather than in a bubble. */
+  .caret {
+    order: -1;
+    block-size: 1.5rem;
+    inline-size: 1.125rem;
+    margin-inline-start: 0.25rem;
+    font-size: 0.625rem;
+
+    &:hover {
+      background: transparent;
+    }
+
+    > :global(svg) {
+      transition: rotate 200ms var(--ease);
+      rotate: -90deg;
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
+    }
+
+    &.expanded > :global(svg) {
+      rotate: 0deg;
+    }
+  }
+
+  .new-chat {
+    block-size: 26px;
+    inline-size: 24px;
+    opacity: var(--row-kebab-opacity, 55%);
+
+    /* Cyberpunk: a square hit target, lit cyan on hover like the design. The
+       icon jitters, not the button: a translated button would hold its own
+       tooltip's fixed bubble and draw it over the button. */
     :global(:root[data-palette="cyberpunk"]) & {
       block-size: 1.5rem;
       inline-size: 1.5rem;
+      font-size: 0.75rem;
+
+      @media (prefers-reduced-motion: no-preference) {
+        &:hover > :global(*) {
+          animation: var(--cyber-jitter-animation);
+        }
+      }
 
       &:hover {
         background: var(--primary-container);
         color: var(--on-primary-container);
       }
     }
-  }
-
-  /* Chats indent under their project - the grouping reads from position
-     alone, no extra chrome per row. */
-  .chats {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    min-inline-size: 0;
-    margin: 0;
-    padding: 0;
-    padding-inline-start: 18px;
-    list-style: none;
-
-    :global(:root[data-palette="cyberpunk"]) & {
-      padding-block: 0.125rem 0.375rem;
-    }
-  }
-
-  .no-chats {
-    margin: 0;
-    padding-block: 4px;
-    padding-inline: 8px;
-    color: var(--on-surface-variant);
-    font-size: 0.75rem;
   }
 </style>

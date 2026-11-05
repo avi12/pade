@@ -34,9 +34,17 @@
   } = $props();
 
   const menuId = $derived(rowMenuId(project));
+  let elKebab = $state<HTMLButtonElement>();
+
+  /** Open the options from elsewhere on the row (a right-click), hung off
+   *  the kebab as a click on it would. */
+  export function open() {
+    document.getElementById(menuId)?.showPopover({ source: elKebab });
+  }
 </script>
 
 <button
+  bind:this={elKebab}
   class="project-row-kebab"
   aria-haspopup="menu"
   aria-label={`Options for ${displayName({
@@ -122,14 +130,17 @@
 
 <style>
   /* Row kebab - the ⋮ button opening the per-row options popover. The row it
-     sits in reveals it on hover/focus through --row-kebab-opacity. */
+     sits in reveals it on hover/focus through --row-kebab-opacity, and may
+     keep it out of the layout at rest through --row-kebab-inline-size (the
+     rail, where a right-click opens the same menu). */
   .project-row-kebab {
     display: inline-flex;
     flex: none;
     justify-content: center;
     align-items: center;
+    overflow: hidden;
     block-size: 28px;
-    inline-size: 28px;
+    inline-size: var(--row-kebab-inline-size, 28px);
     padding: 0;
     border: none;
     border-radius: var(--radius-small);
@@ -137,7 +148,15 @@
     color: var(--on-surface-variant);
     opacity: var(--row-kebab-opacity, 55%);
     cursor: pointer;
-    transition: color 120ms var(--ease), background 120ms var(--ease), opacity 120ms var(--ease);
+    transition:
+      color 120ms var(--ease),
+      background 120ms var(--ease),
+      opacity 120ms var(--ease),
+      inline-size 120ms var(--ease);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
 
     @media (prefers-reduced-motion: no-preference) {
       :global(:root[data-palette="cyberpunk"]) &:hover {
