@@ -155,18 +155,17 @@
       white-space: nowrap;
       cursor: pointer;
 
-      /* Each cap follows the pill's cut, not its own (`.close-button` too).
-         The 999px caps above round BOTH corners on their side so a child never
-         squares off a corner the parent shaped. Rounding is the right instinct
-         and the wrong amount under Cyberpunk: that palette cuts a control's
-         bottom-right corner only, so a cap that cuts both corners on its side
-         puts a bevel where the pill has none - and at 999px that bevel
-         collapses to half the control's height. A 26px tab came out a
-         parallelogram. Each cap takes the chamfer on the corner the pill
-         actually cuts, and nothing on the other. */
+      /* Each cap follows the pill's corner, not its own (`.close-button` too):
+         Cyberpunk squares the pill to the skin's small radius, so a 999px cap
+         would round a corner the pill does not. An idle label writes in the
+         full text colour there, the active one a step heavier, both tracked
+         like the design's mono names. */
       :global(:root[data-palette="cyberpunk"]) & {
-        border-end-start-radius: 0;
-        border-start-start-radius: 0;
+        border-end-start-radius: var(--radius-full);
+        border-start-start-radius: var(--radius-full);
+        color: var(--on-surface);
+        font-weight: 500;
+        letter-spacing: 0.02em;
       }
     }
 
@@ -260,6 +259,19 @@
       :global(.tab.active) .ai-wrap.on & {
         color: var(--on-primary-container);
       }
+
+      /* Cyberpunk draws no plate: the on state is the accent colour itself,
+         which the flat slab leaves room for (cyan at night, red by day), lit by
+         the skin's glow at night. */
+      :global(:root[data-palette="cyberpunk"]) .ai-wrap.on &,
+      :global(:root[data-palette="cyberpunk"]) :global(.tab.active) .ai-wrap.on & {
+        background: transparent;
+        color: var(--primary);
+      }
+
+      :global(:root[data-palette="cyberpunk"][data-theme="dark"]) .ai-wrap.on & {
+        filter: drop-shadow(var(--cyber-glow));
+      }
     }
 
     .close-button {
@@ -288,8 +300,8 @@
       }
 
       :global(:root[data-palette="cyberpunk"]) & {
-        border-end-end-radius: var(--chamfer-control);
-        border-start-end-radius: 0;
+        border-end-end-radius: var(--radius-full);
+        border-start-end-radius: var(--radius-full);
       }
     }
 
@@ -297,6 +309,11 @@
       .pick {
         color: var(--on-primary-container);
         font-weight: 600;
+
+        :global(:root[data-palette="cyberpunk"]) & {
+          color: var(--on-primary-container);
+          font-weight: 700;
+        }
       }
 
       /* The active pill's label reads with a text caret - a single click there

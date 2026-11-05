@@ -392,38 +392,11 @@
     }
   }
 
-  /* Cyberpunk frames every control with an outline drawn one pixel inside.
-     The pill is a DIV wrapping three buttons, so the frame goes on the pill and
-     its parts carry none (below) - the console draws one chamfered shape per
-     control, never boxes inside boxes. Hover lights the frame and a press snaps
-     it one step inward, like any button's. `:where` keeps all three weaker than
-     the selected-tab look (theme.css, `data-selected-tab`), which re-colours the
-     active pill's frame. */
-  :global(:root[data-palette="cyberpunk"]) :where(.tab):not(:focus-visible) {
-    outline: 1px solid var(--control-edge);
-    outline-offset: -1px;
-
-    &:hover {
-      outline-color: var(--hairline);
-    }
-
-    &:active {
-      outline-width: 2px;
-      outline-offset: -3px;
-    }
-  }
-
-  /* On paper the frame is already the ink it would light to, so hover takes
-     the card weight instead. */
-  :global(:root[data-palette="cyberpunk"][data-theme="light"]) :where(.tab):hover:not(:focus-visible, :active) {
-    outline-width: 2px;
-    outline-offset: -2px;
-  }
-
-  /* The pill carries the frame, so the buttons inside it (SessionTab's, the
-     model tag's, the pacing badge's - child components with no hook for it)
-     carry none. Kept outside `.tabs` so it stays weaker than an open menu
-     trigger's frame and a menu row's hover frame. */
+  /* Cyberpunk's tabs are flat fills, the design's: a pill is one slab, so the
+     buttons inside it (SessionTab's, the model tag's, the pacing badge's -
+     child components with no hook for it) never draw a frame of their own.
+     Kept outside `.tabs` so it stays weaker than an open menu trigger's frame
+     and a menu row's hover frame. */
   :global(:root[data-palette="cyberpunk"]) .tab :global(button:not(:focus-visible)) {
     outline: none;
   }

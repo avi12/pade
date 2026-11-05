@@ -89,6 +89,12 @@
       cursor: pointer;
       transition: color 150ms var(--ease), background 150ms var(--ease);
 
+      /* Cyberpunk writes the count bare, in the full text colour. */
+      :global(:root[data-palette="cyberpunk"]) & {
+        background: transparent;
+        color: var(--on-surface);
+      }
+
       &.active {
         background: var(--primary-container);
         color: var(--on-primary-container);

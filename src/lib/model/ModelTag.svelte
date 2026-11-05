@@ -84,9 +84,20 @@
       background: color-mix(in sRGB, currentColor 14%, transparent);
     }
 
-    /* Cyberpunk cuts the chip's top-left and bottom-right corners. */
+    /* Cyberpunk sets the tag on a sunken chip of the ground colour, the
+       design's model badge, and cuts its top-left and bottom-right corners. */
     :global(:root[data-palette="cyberpunk"]) & {
-      clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+      block-size: 20px;
+      padding-block: 0;
+      background: var(--surface-1);
+      clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+      font-weight: 700;
+      font-size: 0.59375rem;
+
+      &:hover,
+      &:focus-visible {
+        background: var(--surface-3);
+      }
     }
   }
 </style>
