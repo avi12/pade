@@ -541,6 +541,11 @@ writes.
   ✅ Also published to **winget** (`avi12.PADE`, a portable package); a winget
   install updates itself through `winget upgrade` once winget lists a newer
   version, so winget's own record stays true.
+  ✅ Every release also attaches a **signed MSIX** (`PADE-<version>.msix`,
+  `PADE.msix`), the public `PADE.cer` that trusts it, and a `PADE.appinstaller`
+  feed: an MSIX install is updated by Windows on each start (PADE's own updater
+  stands down), declares "Open in PADE" in its manifest, and shares the
+  unpackaged copy's settings and agent config (write virtualization off).
 - R2.7 **Open source** - Apache-2.0; TS plugin SDK (🔭); public RFCs.
 
 ## 3. Architecture (SoC map)

@@ -59,8 +59,9 @@ These are non-negotiable for all work in this repo.
    `docs/releasing.md`): bump the patch version by default (minor for a feature
    users would notice); the notes file holds the **changelog highlights** -
    plain sentences for users, no file names - and the script appends the link to
-   the full commit range, attaches the portable `PADE-<version>.exe` and the
-   `PADE-<version>-setup.msi` installer, and
+   the full commit range, attaches the portable `PADE-<version>.exe`, the
+   `PADE-<version>-setup.msi` installer, the signed `PADE-<version>.msix`
+   (also as `PADE.msix`) with its `PADE.cer` and `PADE.appinstaller` feed, and
    publishes the update manifest installed copies poll. A push of docs-only or
    tooling-only commits with nothing a user would see still gets a release, its
    highlights saying so in one line.
@@ -390,7 +391,7 @@ clippy `-D warnings` finding needs an idiomatic fix rather than an `#[allow]`.
 ## Building
 
 Stack: Tauri 2 + Rust core, Svelte 5 + Vite frontend. Windows is the shipping
-platform (a portable exe and an MSI installer); Tauri builds for the host OS
+platform (a portable exe, an MSI installer and a signed MSIX); Tauri builds for the host OS
 only.
 
 ### Prerequisites
@@ -457,6 +458,13 @@ The exe and the Config panel read it from there. Do not bump it for a local
 build, and expect a local build to carry whatever uncommitted changes are in
 the working tree.
 
+To also pack and sign the MSIX from that build (needs the Windows SDK's
+`makeappx`/`signtool` and the signing certificate; touches only `release/`):
+
+```powershell
+node scripts/release.mjs --msix-only <major.minor.patch>
+```
+
 ### Quality gates
 
 Run these before calling work done (see `package.json` for the scripts):
@@ -474,8 +482,9 @@ Note: `pnpm lint:rust` runs `cargo fmt`, which rewrites files. Check
 
 `pnpm release <major.minor.patch> <notes-file>` is NOT a build command. It
 bumps the version, builds as above, commits `chore(release): <version>`, tags,
-pushes, creates the GitHub release with `PADE-<version>.exe` and
-`PADE-<version>-setup.msi`, pushes the update manifest `docs/updates.json`, and
+pushes, creates the GitHub release with `PADE-<version>.exe`,
+`PADE-<version>-setup.msi`, `PADE-<version>.msix`, `PADE.msix`, `PADE.cer` and
+`PADE.appinstaller`, pushes the update manifest `docs/updates.json`, and
 submits a winget PR (pass `--no-winget` after the notes file to skip winget). It
 refuses to run on a dirty tracked tree or with a version that is not newer than
 the current one, and it needs `gh` authenticated. Full details:

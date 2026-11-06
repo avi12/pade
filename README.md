@@ -95,6 +95,9 @@ Every [release](https://github.com/avi12/pade/releases) has a portable
 `PADE-<version>.exe` to run from anywhere, and a `PADE-<version>-setup.msi`
 installer that can add desktop and Start menu shortcuts. You can also
 `winget install avi12.PADE`. Every way keeps itself up to date (Config → Updates).
+Or install the signed MSIX through `PADE.appinstaller`, after trusting
+`PADE.cer` (see [docs/releasing.md](docs/releasing.md)); Windows then keeps it
+up to date.
 
 ```bash
 pnpm app:build                 # tauri build --no-bundle → src-tauri/target/release/pade.exe
