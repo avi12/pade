@@ -223,9 +223,12 @@
 
      Severity color: the level class sets --severity-color (and a faint
      --severity-wash tint for warn/crit) once, and every bar / number / row just
-     reads it. --severity-wash stays unset at "normal" - there is no primary wash. */
+     reads it. A normal level reads in the context gauge's "fine" colour, not
+     the primary: a palette's primary can be its alarm red (Cyberpunk by day),
+     and a reading with room to spare must never look like danger.
+     --severity-wash stays unset at "normal" - there is no wash for fine. */
   :where(.usage-wrap) :global(.severity) {
-    --severity-color: var(--primary);
+    --severity-color: var(--context-ok);
   }
 
   :where(.usage-wrap) :global(.severity.warning) {
