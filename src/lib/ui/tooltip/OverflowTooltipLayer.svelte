@@ -8,7 +8,7 @@
   // it) - and is never clipped by a scroll/`content-visibility` ancestor. It
   // stays in the DOM and toggles open as a trigger claims/releases it; the
   // anchor just moves, so no open/close churn when hovering row to row.
-  let elBubble = $state<HTMLDivElement>();
+  let elBubble = $state<HTMLParagraphElement>();
 
   $effect(() => {
     const isClaimed = overflowTooltipState.active !== null;
@@ -21,14 +21,14 @@
   });
 </script>
 
-<div
+<p
   bind:this={elBubble}
   style:position-anchor={overflowTooltipState.active?.anchorName ?? "none"}
   style:font-family={overflowTooltipState.active?.fontFamily}
   class="overflow-tooltip"
   popover="manual"
   role="tooltip"
->{overflowTooltipState.active?.text ?? ""}</div>
+>{overflowTooltipState.active?.text ?? ""}</p>
 
 <style>
   /* The bubble's look, its frame included, is shared with the [data-tooltip]
@@ -50,6 +50,14 @@
        shared try, and its gap/gutter tokens above, so this bubble and the
        [data-tooltip] pseudo are placed identically. */
     position-try-fallbacks: --tooltip-flip-up;
+
+    /* The moment its trigger lets go, the bubble loses its text and anchor
+       while the shared popover exit would still be fading it; unanchored it
+       dropped to the window's corner as an empty framed box, so a closing
+       bubble is simply not drawn. */
+    &:not(:popover-open) {
+      visibility: hidden;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
