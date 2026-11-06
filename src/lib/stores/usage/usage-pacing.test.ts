@@ -1,4 +1,4 @@
-import { pacingNote } from "@/lib/stores/usage/usagePacing.svelte";
+import { isStoppingMidTurn, pacingNote } from "@/lib/stores/usage/usagePacing.svelte";
 import { UsageWindowKind } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -84,5 +84,18 @@ describe("pacingNote", () => {
         now: NOW
       })
     ).toBe(`Claude is finishing its step, then rests for 15 minutes (until ${clock.format(NOW + 15 * MINUTE_MS)} at the earliest) to slow its session usage (72%)`);
+  });
+});
+
+describe("isStoppingMidTurn", () => {
+  it("holds the stop while the session is still finishing, mid-turn", () => {
+    expect(isStoppingMidTurn({ phase: "pausing" })).toBe(true);
+  });
+
+  it("lets go once it has stopped, once the user took it over, and for an unpaced session", () => {
+    expect(isStoppingMidTurn({ phase: "paused" })).toBe(false);
+    expect(isStoppingMidTurn({ phase: "ready" })).toBe(false);
+    expect(isStoppingMidTurn({ phase: "overridden" })).toBe(false);
+    expect(isStoppingMidTurn(undefined)).toBe(false);
   });
 });

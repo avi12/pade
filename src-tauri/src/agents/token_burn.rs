@@ -5,7 +5,9 @@
 //! Claude Code logs every reply's exact `usage` in the session's transcript, and
 //! each subagent's replies in a transcript of its own beside it
 //! (`<conversation>/subagents/agent-<id>.jsonl`), so the session's whole spend is
-//! the sum over both. Two things keep that sum honest and cheap:
+//! the sum over both. Each subagent's share is kept apart, under the id its
+//! hooks report, so usage pacing can hold back one subagent on its own. Two
+//! things keep the sum honest and cheap:
 //!
 //!   * Claude writes one line per content block of a reply, each repeating the
 //!     reply's usage, so a reply counts once by its message id and request id
@@ -38,6 +40,11 @@ use super::session_context::{claude_session_log, LogLine, TokenUsage, SYNTHETIC_
 /// The folder beside a transcript (named by its conversation) that holds its
 /// subagents' transcripts.
 const SUBAGENTS_DIRECTORY: &str = "subagents";
+/// A subagent transcript is `agent-<id>.jsonl`, `<id>` being the `agent_id`
+/// Claude's hooks report for the subagent's tool calls.
+const SUBAGENT_TRANSCRIPT_PREFIX: &str = "agent-";
+/// The metadata beside a subagent transcript: `agent-<id>.meta.json`.
+const SUBAGENT_META_EXTENSION: &str = "meta.json";
 const NEWLINE: u8 = b'\n';
 const CARRIAGE_RETURN: u8 = b'\r';
 
@@ -86,39 +93,108 @@ impl ModelTokenUsage {
     }
 }
 
+/// What a session spent lately, split by who spent it: the session's own
+/// replies, and each subagent's - so usage pacing can hold back one subagent
+/// without counting it twice in the session's share.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionTokenUsage {
+    own: Vec<ModelTokenUsage>,
+    subagents: Vec<SubagentTokenUsage>,
+}
+
+/// One subagent's recent spend, under the id the agent's hooks name it by.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubagentTokenUsage {
+    id: String,
+    /// The task it was given, as its spawn described it, when recorded.
+    description: Option<String>,
+    /// When its transcript was last written (milliseconds since the epoch) -
+    /// how recently it worked.
+    written_at: u64,
+    usage: Vec<ModelTokenUsage>,
+}
+
 /// The tokens `conversation_id`'s session - and every subagent it ran - spent
-/// since `since` (milliseconds since the epoch), one entry per model. Empty for
-/// an agent that keeps no readable log, or a session with no reply yet. Off the
-/// UI thread: it reads files.
+/// since `since` (milliseconds since the epoch), one entry per model, the
+/// session's own apart from each subagent's. Empty for an agent that keeps no
+/// readable log, or a session with no reply yet. Off the UI thread: it reads
+/// files.
 #[tauri::command]
 pub async fn session_token_usage(
     command: String,
     conversation_id: Option<String>,
     since: u64,
-) -> Result<Vec<ModelTokenUsage>, String> {
+) -> Result<SessionTokenUsage, String> {
     tauri::async_runtime::spawn_blocking(move || {
         claude_session_log(&command, conversation_id.as_deref())
-            .map(|log| usage_since(&transcripts_of(&log, since), since))
+            .map(|log| session_usage(&log, since))
             .unwrap_or_default()
     })
     .await
     .map_err(|error| error.to_string())
 }
 
-/// A session's transcripts written to since `since`: its own, and its
-/// subagents' in the folder named after it.
-fn transcripts_of(log: &Path, since: u64) -> Vec<PathBuf> {
-    let mut transcripts = vec![log.to_path_buf()];
-    let subagents = log.with_extension("").join(SUBAGENTS_DIRECTORY);
-    // A session that never ran a subagent has no folder for them.
-    if let Ok(entries) = std::fs::read_dir(subagents) {
-        transcripts.extend(entries.flatten().map(|entry| entry.path()).filter(|path| {
+/// Every reply the session's transcripts logged since `since`, each counted
+/// once, summed per model - its own transcript, then each subagent's that was
+/// written in the window.
+fn session_usage(log: &Path, since: u64) -> SessionTokenUsage {
+    let mut tally = Tally::default();
+    let own = if is_written_since(log, since) {
+        tally.count(transcript_replies(log, since))
+    } else {
+        Vec::new()
+    };
+    let subagents = subagent_transcripts(log)
+        .into_iter()
+        .filter_map(|(id, transcript)| {
+            let written_at = modified_milliseconds(&transcript);
+            if written_at.is_some_and(|written_at| written_at < since) {
+                return None;
+            }
+            let usage = tally.count(transcript_replies(&transcript, since));
+            (!usage.is_empty()).then(|| SubagentTokenUsage {
+                description: subagent_description(&transcript),
+                written_at: written_at.unwrap_or(since),
+                id,
+                usage,
+            })
+        })
+        .collect();
+    SessionTokenUsage { own, subagents }
+}
+
+/// Each subagent transcript in the folder named after the session's, with the
+/// subagent id its name carries (`agent-<id>.jsonl`). A session that never ran
+/// a subagent has no folder for them.
+fn subagent_transcripts(log: &Path) -> Vec<(String, PathBuf)> {
+    let Ok(entries) = std::fs::read_dir(log.with_extension("").join(SUBAGENTS_DIRECTORY)) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
             path.extension()
                 .is_some_and(|extension| extension == TRANSCRIPT_EXTENSION)
-        }));
-    }
-    transcripts.retain(|transcript| is_written_since(transcript, since));
-    transcripts
+        })
+        .filter_map(|path| {
+            let stem = path.file_stem()?.to_str()?;
+            let id = stem.strip_prefix(SUBAGENT_TRANSCRIPT_PREFIX)?.to_string();
+            Some((id, path))
+        })
+        .collect()
+}
+
+/// What the subagent was asked to do, from the metadata Claude keeps beside
+/// its transcript (`agent-<id>.meta.json`): the spawn's description, else its
+/// agent type.
+fn subagent_description(transcript: &Path) -> Option<String> {
+    let meta = crate::util::read_json(&transcript.with_extension(SUBAGENT_META_EXTENSION))?;
+    ["description", "agentType"]
+        .into_iter()
+        .find_map(|key| meta.get(key)?.as_str().map(str::to_string))
 }
 
 /// Whether a transcript may hold an entry from `since` on. One whose write time
@@ -127,31 +203,26 @@ fn is_written_since(transcript: &Path, since: u64) -> bool {
     modified_milliseconds(transcript).is_none_or(|modified| modified >= since)
 }
 
-/// Every reply the transcripts logged since `since`, each counted once, summed
-/// per model.
-fn usage_since(transcripts: &[PathBuf], since: u64) -> Vec<ModelTokenUsage> {
-    let mut tally = Tally::default();
-    for transcript in transcripts {
-        // A transcript gone between listing and opening holds nothing to count.
-        let Ok(file) = File::open(transcript) else {
-            continue;
-        };
-        tally.count(replies_since(file, since, READ_LIMITS));
-    }
-    tally.into_usage()
+/// The replies one transcript logged since `since`; none for a transcript gone
+/// between listing and opening.
+fn transcript_replies(transcript: &Path, since: u64) -> Vec<Reply> {
+    File::open(transcript)
+        .map(|file| replies_since(file, since, READ_LIMITS))
+        .unwrap_or_default()
 }
 
-/// Replies summed per model, each reply once however many lines repeat it -
-/// across transcripts too. Fed newest first, so the line it keeps is a reply's
-/// last, the one with its final output count.
+/// Counts replies once however many lines repeat them - across transcripts
+/// too. Fed newest first, so the line it keeps is a reply's last, the one with
+/// its final output count.
 #[derive(Debug, Default)]
 struct Tally {
     counted: HashSet<(String, String)>,
-    by_model: BTreeMap<String, ModelTokenUsage>,
 }
 
 impl Tally {
-    fn count(&mut self, replies: Vec<Reply>) {
+    /// The replies not counted before, summed per model.
+    fn count(&mut self, replies: Vec<Reply>) -> Vec<ModelTokenUsage> {
+        let mut by_model = BTreeMap::<String, ModelTokenUsage>::new();
         for reply in replies {
             let is_repeat = reply
                 .identity
@@ -159,15 +230,12 @@ impl Tally {
             if is_repeat {
                 continue;
             }
-            self.by_model
+            by_model
                 .entry(reply.model)
                 .or_insert_with_key(|model| ModelTokenUsage::named(model))
                 .add(&reply.usage);
         }
-    }
-
-    fn into_usage(self) -> Vec<ModelTokenUsage> {
-        self.by_model.into_values().collect()
+        by_model.into_values().collect()
     }
 }
 
@@ -341,13 +409,11 @@ mod tests {
     }
 
     fn totals(lines: &[String]) -> Vec<ModelTokenUsage> {
-        let mut tally = Tally::default();
-        tally.count(replies_since(
+        Tally::default().count(replies_since(
             Cursor::new(lines.join("\n")),
             window_start(),
             READ_LIMITS,
-        ));
-        tally.into_usage()
+        ))
     }
 
     fn usage(model: &str, replies: u64) -> ModelTokenUsage {
@@ -460,7 +526,7 @@ mod tests {
     }
 
     #[test]
-    fn a_session_counts_its_subagents_transcripts_too() {
+    fn a_session_counts_each_subagents_transcript_apart_from_its_own() {
         let folder = std::env::temp_dir().join(format!("pade-token-burn-{}", std::process::id()));
         let subagents = folder.join("conversation").join(SUBAGENTS_DIRECTORY);
         std::fs::create_dir_all(&subagents).expect("a scratch folder");
@@ -479,25 +545,37 @@ mod tests {
             .join("\n"),
         )
         .expect("a subagent's transcript");
-        std::fs::write(subagents.join("agent-a.meta.json"), "{}").expect("its metadata");
+        std::fs::write(
+            subagents.join("agent-a.meta.json"),
+            r#"{"agentType":"general-purpose","description":"Find the bug"}"#,
+        )
+        .expect("its metadata");
+        // A repeat of the session's own reply counts once, where it came first.
+        std::fs::write(
+            subagents.join("agent-b.jsonl"),
+            reply(NOW, "claude-opus-5-5", "message-1", "request-1"),
+        )
+        .expect("a repeating transcript");
 
         // The scratch files are written now, not on the fixtures' date, so the
         // window opens at the epoch to keep the write-time filter out of it.
-        let found = usage_since(&transcripts_of(&log, 0), 0);
-        let untouched_since_the_future = transcripts_of(&log, u64::MAX);
+        let found = session_usage(&log, 0);
+        let untouched_since_the_future = session_usage(&log, u64::MAX);
         std::fs::remove_dir_all(&folder).expect("cleanup");
-        crate::test_support::assert_empty(&untouched_since_the_future);
-        assert_eq!(
-            found,
-            vec![usage("claude-haiku-5-5", 2), usage("claude-opus-5-5", 1)]
-        );
+        assert_eq!(untouched_since_the_future, SessionTokenUsage::default());
+        assert_eq!(found.own, vec![usage("claude-opus-5-5", 1)]);
+        assert_eq!(found.subagents.len(), 1);
+        let subagent = &found.subagents[0];
+        assert_eq!(subagent.id, "a");
+        assert_eq!(subagent.description.as_deref(), Some("Find the bug"));
+        assert_eq!(subagent.usage, vec![usage("claude-haiku-5-5", 2)]);
     }
 
     #[test]
     fn an_agent_without_a_readable_log_measures_nothing() {
         assert_eq!(
-            usage_since(&[PathBuf::from("no/such/transcript.jsonl")], 0),
-            Vec::new()
+            session_usage(&PathBuf::from("no/such/transcript.jsonl"), 0),
+            SessionTokenUsage::default()
         );
     }
 }

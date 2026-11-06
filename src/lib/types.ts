@@ -899,7 +899,7 @@ export type SessionContext = z.infer<typeof SessionContext>;
 
 /** One model's share of what a session and its subagents spent over a recent
  *  window, by token type, as the agent's own transcripts account for it. */
-export const ModelTokenUsage = z.object({
+const ModelTokenUsage = z.object({
   model: z.string(),
   inputTokens: z.number(),
   outputTokens: z.number(),
@@ -908,6 +908,45 @@ export const ModelTokenUsage = z.object({
   cacheWriteOneHourTokens: z.number()
 });
 export type ModelTokenUsage = z.infer<typeof ModelTokenUsage>;
+
+/** What a session spent lately, its own replies apart from each subagent's -
+ *  the subagent `id` is the one the agent's hooks name its tool calls by. */
+export const SessionTokenUsage = z.object({
+  own: z.array(ModelTokenUsage),
+  subagents: z.array(
+    z.object({
+      id: z.string(),
+      description: z.string().nullable(),
+      /** When it last wrote to its transcript, epoch ms. */
+      writtenAt: z.number(),
+      usage: z.array(ModelTokenUsage)
+    })
+  )
+});
+export type SessionTokenUsage = z.infer<typeof SessionTokenUsage>;
+
+/** One running subagent's pacing step, as the agent's hook reads it
+ *  (agents/running_model/pacing_control): held before each tool call, or told
+ *  to finish now. */
+export const SubagentStepKind = z.enum(["gate", "wrapUp"]);
+export const SubagentStep = z.discriminatedUnion("step", [
+  z.object({
+    step: z.literal(SubagentStepKind.enum.gate),
+    holdSeconds: z.number().int().positive()
+  }),
+  z.object({ step: z.literal(SubagentStepKind.enum.wrapUp) })
+]);
+export type SubagentStep = z.infer<typeof SubagentStep>;
+
+/** The account-wide pacing round's part of one session's pacing control. */
+const PacingThrottle = z.object({
+  isBlockingSpawns: z.boolean(),
+  subagents: z.record(z.string(), SubagentStep)
+});
+export type PacingThrottle = z.infer<typeof PacingThrottle>;
+
+/** The parts of a session's pacing control, each written by its own owner. */
+export const PacingControlPartKind = z.enum(["cap", "stop", "throttle"]);
 
 /** One conversation an agent recorded for a project - what its own `/resume`
  *  picker lists. `resumeArguments` reopen it for an agent PADE can't pin by

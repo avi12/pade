@@ -267,6 +267,34 @@ writes.
   subagents spent in the last 20 minutes, priced by list-price ratio,
   `lib/usage/pacing/token-price.ts`), any other agent's is estimated from its
   model, effort, time spent working and subagents.
+  **One decision per account, across every window**: every live session in
+  every PADE window counts, the background ones and other projects' alike.
+  Each window reports its working sessions each scan; one window (the first
+  label among those reporting) plans the account's round over all of them and
+  every window takes the steps that fall to its own sessions
+  (`lib/stores/usage/usageAccountRound.svelte.ts`).
+  **Each running subagent is paced on its own**: its spend is measured from its
+  own transcript (written in the last 3 minutes = running) and taken out of its
+  session's share, and it is a candidate of its own, ranked with the sessions'
+  steps by the share of the account it saves. Its steps, cheapest first: **held
+  N seconds before each of its tool calls** (N sized to the account's shed,
+  doubling each further step up to 45 s), then **wrap up** - its next tool call
+  is refused with "finish now with what you have and report back". While the
+  account must shed 30% or more, **no new subagents** start on it (the spawn is
+  refused with a reason the parent can act on). As room comes back on every
+  session of the account, each hold halves until it lifts
+  (`lib/usage/pacing/subagent-steps.ts`, `account-round.ts`). A session pacing
+  is **stopping** (stop or rest, until it has stopped) has every tool call -
+  its own and every subagent's - refused except the ones that stop work, so the
+  stop lands mid-turn. All of it reaches the agent through one pacing control
+  file per session, read by the agent's `PreToolUse` hook on every tool call
+  (`agents/running_model/pacing_control.rs`; with no file the hook exits at
+  once, about 17 ms). Claude gets all of it (hook input names the subagent in
+  `agent_id`, Claude Code 2.1.69 and later); OpenCode gets the stop and the
+  spawn block through its plugin; Codex and Copilot sessions are paced whole,
+  between turns. A session launched before this keeps the hooks it launched
+  with (spawn calls only). The usage panel's pacing card lists each paced
+  subagent with its step (held Ns, wrapping up, spawns blocked).
   Pacing's settings live in one place, the **Usage pacing** card of the
   top-bar usage panel (`lib/usage/pacing/settings/`, shown even with no agent
   running); the Config panel has none. The card has a **This workspace / Global**

@@ -186,7 +186,7 @@ pub fn run() {
             agents::running_model::agent_running_model,
             agents::running_model::agent_model_options,
             agents::running_model::agent_apply_model,
-            agents::running_model::subagent_cap::agent_set_subagent_cap,
+            agents::running_model::pacing_control::agent_set_pacing_control,
             terminal::runner::runner_start,
             terminal::runner::runner_stop,
             terminal::runner::runner_list,

@@ -35,7 +35,7 @@ mod codex;
 mod copilot;
 pub(crate) use copilot::session_root as copilot_session_root;
 mod opencode;
-pub mod subagent_cap;
+pub mod pacing_control;
 
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
@@ -430,8 +430,8 @@ fn record_hook_report() -> Result<(), String> {
             answer_model_switch_request(&conversation_id);
             return Ok(());
         }
-        Some(subagent_cap::PRE_TOOL_USE) => {
-            subagent_cap::answer_spawn(&conversation_id, &report);
+        Some(pacing_control::PRE_TOOL_USE) => {
+            pacing_control::answer_tool_use(&conversation_id, &report);
             return Ok(());
         }
         _ => {}

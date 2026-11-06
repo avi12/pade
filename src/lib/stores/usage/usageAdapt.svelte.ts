@@ -7,18 +7,19 @@
 // pacing touches a session again only while it still runs what pacing set.
 // While a session is stepped down its subagents are capped at what it runs, so
 // one that names a dearer model of its own can't spend past the step (the
-// agent reads the cap at every spawn - agents/running_model/subagent_cap).
+// agent reads the cap at every spawn - agents/running_model/pacing_control,
+// through lib/stores/usage/pacingControl).
 // This module owns the steps and their memory; lib/stores/usage/usagePacing
 // decides when to take them, and the app shell supplies the switch itself.
 
-import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
 import { cheaperModelChoice, lowerEffortChoice, subagentCap } from "@/lib/model/model-cost";
 import { bareModel, modelLabel, modelName } from "@/lib/model/model-label";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { sessionModel } from "@/lib/stores/agent/context.svelte";
 import { ensureModelOptions, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
-import { ModelChoice, PacingStep } from "@/lib/types";
+import { setControlPart } from "@/lib/stores/usage/pacingControl.svelte";
+import { ModelChoice, PacingControlPartKind, PacingStep } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { SvelteMap } from "svelte/reactivity";
@@ -129,24 +130,20 @@ async function capSubagents({ session, model }: {
   session: AgentSession;
   model: string | null;
 }) {
-  const conversationId = session.conversationId;
-  if (conversationId === undefined) {
-    return;
-  }
-
   const command = session.agent.command;
-  try {
-    await sendMessage(Command.agentSetSubagentCap, {
+  await setControlPart({
+    target: {
       command,
-      conversationId,
-      cap: model === null ? null : subagentCap({
+      conversationId: session.conversationId
+    },
+    part: {
+      part: PacingControlPartKind.enum.cap,
+      value: model === null ? null : subagentCap({
         model,
         options: modelOptions(command)
       })
-    });
-  } catch (error) {
-    console.warn("pade: could not cap the session's subagents", error);
-  }
+    }
+  });
 }
 
 function describe(choice: ModelChoice) {

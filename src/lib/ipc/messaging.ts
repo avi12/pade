@@ -28,7 +28,6 @@ import {
   LimitResetOutcome,
   McpChange,
   ModelOption,
-  ModelTokenUsage,
   PathProbe,
   ProjectEntry,
   PtyChunk,
@@ -48,6 +47,7 @@ import {
   SaveMigration,
   Scheme,
   SessionContext,
+  SessionTokenUsage,
   Settings,
   StatusEntry,
   SwitchOutcome,
@@ -64,6 +64,8 @@ import {
 import type {
   LabelSource,
   ModelChoice,
+  PacingControlPartKind,
+  PacingThrottle,
   Prefs,
   WindowDirection,
   WindowMode
@@ -78,7 +80,7 @@ export enum Command {
   agentThemePublish = "agent_theme_publish",
   agentModelOptions = "agent_model_options",
   agentApplyModel = "agent_apply_model",
-  agentSetSubagentCap = "agent_set_subagent_cap",
+  agentSetPacingControl = "agent_set_pacing_control",
   agentResumeArgs = "agent_resume_args",
   agentConversations = "agent_conversations",
   agentSessionContext = "agent_session_context",
@@ -278,15 +280,26 @@ export interface CommandProtocolMap {
     conversationId: string;
     choice: ModelChoice;
   }) => SwitchOutcome;
-  /** Cap the models a paced session's subagents may run, read by the agent at
-   *  every spawn; `cap: null` lifts it. */
-  [Command.agentSetSubagentCap]: (data: {
+  /** Replace one part of a paced session's control, read by the agent's hook
+   *  on every tool call: the model its subagents may spawn on (`cap`, null
+   *  lifts it), whether it is being stopped (`stop`), or the account-wide
+   *  round's per-subagent steps and spawn block (`throttle`). */
+  [Command.agentSetPacingControl]: (data: {
     command: string;
     conversationId: string;
-    cap: {
-      model: string;
-      allowedModels: string[];
-    } | null;
+    part: {
+      part: typeof PacingControlPartKind.enum.cap;
+      value: {
+        model: string;
+        allowedModels: string[];
+      } | null;
+    } | {
+      part: typeof PacingControlPartKind.enum.stop;
+      value: boolean;
+    } | {
+      part: typeof PacingControlPartKind.enum.throttle;
+      value: PacingThrottle;
+    };
   }) => void;
   /** Launch args that reopen the agent's recorded conversation for `cwd`
    *  (`["resume", "<uuid>"]` for Codex), empty when the agent has no such
@@ -306,14 +319,14 @@ export interface CommandProtocolMap {
     command: string;
     conversationId?: string;
   }) => SessionContext | null;
-  /** What the session and its subagents spent since `since` (epoch ms), one
-   *  entry per model, read from the agent's own transcripts; empty for an
-   *  agent that keeps none. */
+  /** What the session and each of its subagents spent since `since` (epoch
+   *  ms), one entry per model, read from the agent's own transcripts; empty
+   *  for an agent that keeps none. */
   [Command.sessionTokenUsage]: (data: {
     command: string;
     conversationId?: string;
     since: number;
-  }) => ModelTokenUsage[];
+  }) => SessionTokenUsage;
   /** The model and effort the session runs, as the agent itself reported it
    *  (hooks, its session log, a plugin - never its terminal). */
   [Command.agentRunningModel]: (data: {
@@ -738,11 +751,11 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.agentThemePublish]: NO_REPLY,
   [Command.agentModelOptions]: z.array(ModelOption),
   [Command.agentApplyModel]: SwitchOutcome,
-  [Command.agentSetSubagentCap]: NO_REPLY,
+  [Command.agentSetPacingControl]: NO_REPLY,
   [Command.agentResumeArgs]: z.array(z.string()),
   [Command.agentConversations]: z.array(RecordedConversation),
   [Command.agentSessionContext]: SessionContext.nullable(),
-  [Command.sessionTokenUsage]: z.array(ModelTokenUsage),
+  [Command.sessionTokenUsage]: SessionTokenUsage,
   [Command.agentRunningModel]: RunningModel.nullable(),
   [Command.projectAutoname]: z.string().nullable(),
   [Command.sessionGenerateName]: z.string().nullable(),

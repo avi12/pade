@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use super::{
-    hook_command, newer, read_session_state, record_choice, state_directory, subagent_cap,
+    hook_command, newer, pacing_control, read_session_state, record_choice, state_directory,
     timestamp_milliseconds, EffortOption, HookShell, ModelChoice, ModelOption, RunningModel, Saved,
     SessionState,
 };
@@ -308,12 +308,18 @@ fn hook_settings() -> Option<serde_json::Map<String, serde_json::Value>> {
         events.insert(event.to_string(), handler(true));
     }
     events.insert(PRE_MODEL_SWITCH.to_string(), handler(false));
-    // In step, because its answer is the spawn's model (`subagent_cap`).
+    // In step and on every tool, because its answer is usage pacing's say over
+    // the call - held, refused, or a spawn moved onto the cap
+    // (`pacing_control`). Hooks are fixed at launch, so it is always there;
+    // the sink says nothing while the session isn't paced.
     events.insert(
-        subagent_cap::PRE_TOOL_USE.to_string(),
+        pacing_control::PRE_TOOL_USE.to_string(),
         serde_json::json!([{
-            "matcher": subagent_cap::CLAUDE_SPAWN_TOOLS,
-            "hooks": [{ "type": "command", "command": command }]
+            "hooks": [{
+                "type": "command",
+                "command": command,
+                "timeout": pacing_control::PRE_TOOL_USE_TIMEOUT_SECONDS
+            }]
         }]),
     );
 

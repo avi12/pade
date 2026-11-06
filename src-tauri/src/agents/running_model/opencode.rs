@@ -6,8 +6,11 @@
 //! list - their config is never touched - and `PADE_MODEL_STATE_FILE` so the
 //! plugin knows where to write. The plugin records the model and reasoning
 //! variant on `chat.message` (every prompt) and `session.updated`. It also
-//! moves a subagent's first message onto the paced cap (`subagent_cap`), read
-//! from `PADE_SUBAGENT_CAP_FILE` at that moment.
+//! reads usage pacing's control (`pacing_control`) from
+//! `PADE_PACING_CONTROL_FILE` when it is needed: it moves a subagent's first
+//! message onto the paced cap, and on `tool.execute.before` refuses every tool
+//! while pacing stops the session and the `task` spawn while it blocks new
+//! subagents.
 //!
 //! A model picked in the TUI stays inside the TUI until the next prompt is
 //! sent, so that is when the tab follows; before the first prompt the
@@ -16,13 +19,13 @@
 use std::path::{Path, PathBuf};
 
 use super::{
-    read_session_state, state_file, subagent_cap, EffortOption, ModelOption, RunningModel,
+    pacing_control, read_session_state, state_file, EffortOption, ModelOption, RunningModel,
 };
 use crate::util::read_json;
 
 const CONFIG_CONTENT_VARIABLE: &str = "OPENCODE_CONFIG_CONTENT";
 const STATE_FILE_VARIABLE: &str = "PADE_MODEL_STATE_FILE";
-const CAP_FILE_VARIABLE: &str = "PADE_SUBAGENT_CAP_FILE";
+const CONTROL_FILE_VARIABLE: &str = "PADE_PACING_CONTROL_FILE";
 const PLUGIN_FILE: &str = "pade-model.js";
 const CONFIG_FILE: &str = "opencode.json";
 /// The reasoning-option kind whose values are effort levels.
@@ -33,26 +36,31 @@ const PICKER_LISTS: [&str; 2] = ["favorite", "recent"];
 
 /// Records the session's model and variant in PADE's state-file shape.
 /// `default` is the "no variant chosen" value.
-const PLUGIN_SOURCE: &str = r#"// PADE: records this session's model and reasoning variant for its tab, and
-// keeps its subagents within the model usage pacing caps it at.
+const PLUGIN_SOURCE: &str = r#"// PADE: records this session's model and reasoning variant for its tab, keeps
+// its subagents within the model usage pacing caps it at, and refuses tools
+// while pacing stops the session or blocks new subagents.
 import { readFileSync, writeFileSync } from "node:fs";
+
+const SPAWN_TOOL = "task";
+const STOP_REASON = "PADE usage pacing: the usage limit is close, so this session is stopping now. End your turn with a short note of where you left off.";
+const SPAWN_REASON = "PADE usage pacing: the usage limit is close, so no new subagents can start right now. Do this work yourself.";
 
 export const PadeModel = async () => {
   const file = process.env.PADE_MODEL_STATE_FILE;
-  const capFile = process.env.PADE_SUBAGENT_CAP_FILE;
+  const controlFile = process.env.PADE_PACING_CONTROL_FILE;
   const subagentSessions = new Set();
   let current = null;
-  // No file means the session isn't paced: its subagents run as asked.
-  const readCap = () => {
-    if (!capFile) return null;
+  // No file means the session isn't paced: everything runs as asked.
+  const readControl = () => {
+    if (!controlFile) return null;
     try {
-      return JSON.parse(readFileSync(capFile, "utf8"));
+      return JSON.parse(readFileSync(controlFile, "utf8"));
     } catch {
       return null;
     }
   };
   const capSubagent = (input, output) => {
-    const cap = readCap();
+    const cap = readControl()?.cap;
     const asked = output.message?.model ?? input.model;
     if (!cap || !output.message || !asked) return;
     if (cap.allowed.includes(`${asked.providerID}/${asked.modelID}`)) return;
@@ -71,6 +79,12 @@ export const PadeModel = async () => {
     }
   };
   return {
+    "tool.execute.before": async (input) => {
+      const control = readControl();
+      if (!control) return;
+      if (control.isStopped) throw new Error(STOP_REASON);
+      if (input.tool === SPAWN_TOOL && control.throttle?.isBlockingSpawns) throw new Error(SPAWN_REASON);
+    },
     "chat.message": async (input, output) => {
       if (subagentSessions.has(input.sessionID)) {
         capSubagent(input, output);
@@ -95,18 +109,18 @@ export const PadeModel = async () => {
 
 /// The environment that loads the plugin and tells it where to write.
 pub(super) fn attach(conversation_id: &str) -> Vec<(String, String)> {
-    let (Some(plugin), Some(state), Some(cap)) = (
+    let (Some(plugin), Some(state), Some(control)) = (
         materialize_plugin(),
         state_file(conversation_id),
-        subagent_cap::cap_file(conversation_id),
+        pacing_control::control_file(conversation_id),
     ) else {
         return Vec::new();
     };
     let inherited = std::env::var(CONFIG_CONTENT_VARIABLE).ok();
     vec![
         (
-            CAP_FILE_VARIABLE.to_string(),
-            cap.to_string_lossy().into_owned(),
+            CONTROL_FILE_VARIABLE.to_string(),
+            control.to_string_lossy().into_owned(),
         ),
         (
             CONFIG_CONTENT_VARIABLE.to_string(),

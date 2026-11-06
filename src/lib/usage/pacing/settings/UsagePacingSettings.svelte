@@ -4,6 +4,7 @@
   import { prefs } from "@/lib/settings/settings.svelte";
   import type { AccountUsage, PacedWindowKind, PacingSettings } from "@/lib/types";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";
+  import PacedSubagents from "@/lib/usage/pacing/PacedSubagents.svelte";
   import {
     globalPacing,
     projectWindowPacing,
@@ -160,6 +161,8 @@
       settings={shown[kind]}
     />
   {/each}
+
+  <PacedSubagents />
 
   <p class="field-hint">Every step undoes itself as room comes back, and everything reverts when the window resets</p>
 </section>
