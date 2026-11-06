@@ -292,9 +292,26 @@ writes.
   once, about 17 ms). Claude gets all of it (hook input names the subagent in
   `agent_id`, Claude Code 2.1.69 and later); OpenCode gets the stop and the
   spawn block through its plugin; Codex and Copilot sessions are paced whole,
-  between turns. A session launched before this keeps the hooks it launched
-  with (spawn calls only). The usage panel's pacing card lists each paced
-  subagent with its step (held Ns, wrapping up, spawns blocked).
+  between turns. A session keeps the hooks it launched with, so every hook
+  runs a **stable hook sink** the app refreshes to its current build at start
+  (`agents/running_model/hook_sink.rs`): a session launched once runs the
+  newest sink logic for life, whichever PTY host launched it. A session whose
+  hook can't take the stop - it predates the hook, or the hook answers no call
+  within 10 seconds of the stop (Codex and Copilot have none) - is **stopped
+  through its terminal** (`lib/stores/usage/pacingInterrupt.svelte.ts`): with
+  a subagent running (its transcript written lately, or the screen listing
+  background agents) the agent's **stop-all-agents** action is pressed first,
+  since Esc ends only the foreground turn, then its interrupt; with none, the
+  interrupt alone. Each agent's keys live in one table
+  (`lib/agent/interrupt-keys.ts`): Claude Esc and `chat:killAgents`
+  (ctrl+x ctrl+k pressed twice within 3 s, or the user's own chord from
+  `~/.claude/keybindings.json`, read and never written), OpenCode Esc twice,
+  Codex and Copilot Esc, no stop-all for any but Claude. 15 seconds later the
+  subagents' transcripts are read again: one still writing gets one more press
+  and is then listed in the pacing card ("couldn't stop <task>: stop it in its
+  pane") instead of being pressed in a loop. The usage panel's pacing card
+  lists each paced subagent with its step (held Ns, wrapping up, spawns
+  blocked).
   Pacing's settings live in one place, the **Usage pacing** card of the
   top-bar usage panel (`lib/usage/pacing/settings/`, shown even with no agent
   running); the Config panel has none. The card has a **This workspace / Global**

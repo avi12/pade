@@ -18,7 +18,7 @@ import { weightedTokens } from "@/lib/usage/pacing/token-price";
 const MEASURED_BURN_WINDOW_MINUTES = 20;
 /** A subagent whose transcript was written this recently is still running -
  *  a long tool call can keep one quiet this long, no longer. */
-const RUNNING_SUBAGENT_MS = 3 * MILLISECONDS_PER_MINUTE;
+export const RUNNING_SUBAGENT_MS = 3 * MILLISECONDS_PER_MINUTE;
 
 /** A session's measured burn, split into its own share and each running
  *  subagent's, in priced tokens per minute over the window - null when nothing
@@ -57,6 +57,32 @@ export function splitBurn({ usage, now }: {
 }
 
 export type MeasuredBurn = NonNullable<ReturnType<typeof splitBurn>>;
+
+/** The session's subagents that wrote to their transcripts since `since`
+ *  (epoch ms), each with when it last did - empty for an agent that keeps no
+ *  transcripts. Never rejects: a failed read finds none. */
+export async function subagentsWrittenSince({ session, since }: {
+  session: AgentSession;
+  since: number;
+}) {
+  try {
+    const usage = await sendMessage(Command.sessionTokenUsage, {
+      command: session.agent.command,
+      conversationId: session.conversationId,
+      since
+    });
+    return usage.subagents
+      .filter(subagent => subagent.writtenAt >= since)
+      .map(({ id, description, writtenAt }) => ({
+        id,
+        description,
+        writtenAt
+      }));
+  } catch (error) {
+    console.warn("pade: could not read the session's subagent activity", error);
+    return [];
+  }
+}
 
 /** The session's measured burn, or null when nothing was measured. Never
  *  rejects: a failed read is a missing measurement. */

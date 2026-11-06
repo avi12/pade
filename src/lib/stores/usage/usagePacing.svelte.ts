@@ -33,8 +33,8 @@
 // (lib/stores/usage/pacingControl), which the agent's hook reads on every tool
 // call; a stop is written there too, so it lands mid-turn, not only at its end.
 
+import { hasStopAllAction } from "@/lib/agent/interrupt-keys";
 import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
-import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
 import { cheaperModelChoice, lowerEffortChoice } from "@/lib/model/model-cost";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
@@ -46,11 +46,11 @@ import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { setStopPart } from "@/lib/stores/usage/pacingControl.svelte";
 import type { ControlTarget } from "@/lib/stores/usage/pacingControl.svelte";
+import { forgetTerminalStop, stopThroughTerminal } from "@/lib/stores/usage/pacingInterrupt.svelte";
 import { createAccountRound } from "@/lib/stores/usage/usageAccountRound.svelte";
 import { adaptedChoice, adaptedSteps, createUsageAdapter } from "@/lib/stores/usage/usageAdapt.svelte";
 import type { AdaptHost } from "@/lib/stores/usage/usageAdapt.svelte";
 import { hasUsageLimit, readAccount } from "@/lib/stores/usage/usageResume.svelte";
-import { ESCAPE } from "@/lib/terminal/input/terminal-sequences";
 import { PacedWindowKind, PacingStep, PacingStopThen, SessionStatus } from "@/lib/types";
 import type { AccountUsage, AgentSession, PacingByWindow, UsageWindow } from "@/lib/types";
 import type { RoundPlan, SessionReport } from "@/lib/usage/pacing/account-round";
@@ -281,6 +281,7 @@ function record({ id, text }: {
 registerSessionState(SessionStateKey.enum.usagePacing, {
   forget(id) {
     forgetPace(id);
+    forgetTerminalStop(id);
     verdicts.delete(id);
     histories.delete(id);
     skippedUntil.delete(id);
@@ -710,6 +711,7 @@ export function createUsagePacing(host: PacingHost) {
       now
     }) : null;
     const isInterrupting = isTurnRunningOnScreen(session.id);
+    const isStoppedByKeys = isInterrupting || hasStopAllAction(session.agent.command);
     setPace({
       id: session.id,
       state: {
@@ -725,7 +727,7 @@ export function createUsagePacing(host: PacingHost) {
         },
         restUntil,
         restMs: restUntil === null ? null : restUntil - now,
-        hasSentPauseRequest: !isInterrupting
+        hasSentPauseRequest: !isStoppedByKeys
       }
     });
     record({
@@ -736,12 +738,17 @@ export function createUsagePacing(host: PacingHost) {
       })}`
     });
     await syncStops();
+    // The hook takes the stop on the session's next tool call; the terminal
+    // stop presses the agent's keys when it doesn't (`pacingInterrupt`).
+    stopThroughTerminal({
+      session,
+      stopWrittenAt: now,
+      isStillStopping: () => isStoppingMidTurn(paced.get(session.id)),
+      isWorking: () => isWorking(session.id),
+      hasBackgroundAgents: () => backgroundAgentCount(session.id) > 0
+    });
 
-    if (isInterrupting) {
-      await sendMessage(Command.ptyWrite, {
-        id: session.id,
-        data: ESCAPE
-      });
+    if (isStoppedByKeys) {
       return;
     }
 
@@ -752,8 +759,9 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
-  // The pause request: one extra turn, spent only where Esc can't stop the work -
-  // background agents, workflows and teammates outlive the turn Esc ends.
+  // The pause request: one extra turn, spent only where no key can stop the
+  // work - background agents, workflows and teammates outlive the turn Esc
+  // ends, and only an agent with a stop-all action can end them by key.
   async function askToStop({ id, window, isSlowing }: {
     id: string;
     window: UsageWindow;
@@ -819,6 +827,7 @@ export function createUsagePacing(host: PacingHost) {
     }
 
     forgetPace(id);
+    forgetTerminalStop(id);
     await syncStops();
     workingSince.set(id, Date.now());
     record({

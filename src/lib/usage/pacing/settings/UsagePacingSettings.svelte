@@ -13,6 +13,7 @@
     withProjectWindowPacing
   } from "@/lib/usage/pacing/pacing-scope";
   import PacingWindowSettings from "@/lib/usage/pacing/settings/PacingWindowSettings.svelte";
+  import UnstoppedSubagents from "@/lib/usage/pacing/UnstoppedSubagents.svelte";
   import { reportedPacedKinds } from "@/lib/usage/pacing/usage-pace";
   import { settledValue } from "@/lib/util/async/settled";
   import { untrack } from "svelte";
@@ -163,6 +164,7 @@
   {/each}
 
   <PacedSubagents />
+  <UnstoppedSubagents />
 
   <p class="field-hint">Every step undoes itself as room comes back, and everything reverts when the window resets</p>
 </section>
