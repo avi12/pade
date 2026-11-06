@@ -19,7 +19,9 @@
 //! A copy installed through winget updates through winget instead (`winget`
 //! submodule), so winget's own record of what it installed stays true. A copy
 //! installed by PADE's MSI downloads the release's MSI the same checked way and
-//! runs it once PADE has closed (`installer` submodule).
+//! runs it once PADE has closed (`installer` submodule). A copy installed from
+//! the release's `.msix` is Windows' to update, through the package's
+//! `.appinstaller` feed, so the watch never starts there at all.
 
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -231,22 +233,59 @@ impl UpdateState {
     }
 }
 
-/// What the frontend shows: the running version, a ready newer one, and whether
-/// this copy updates itself at all.
+/// Who keeps this copy up to date.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+enum Updater {
+    /// PADE itself: a published portable, MSI or winget copy.
+    Pade,
+    /// Windows, through the package's `.appinstaller` feed - an MSIX install,
+    /// whose read-only folder PADE could not swap an exe in anyway.
+    Windows,
+    /// Nobody: a development build.
+    None,
+}
+
+impl Updater {
+    fn of(is_packaged: bool, is_published: bool) -> Self {
+        if is_packaged {
+            return Self::Windows;
+        }
+        if is_published {
+            return Self::Pade;
+        }
+        Self::None
+    }
+
+    fn running() -> Self {
+        Self::of(
+            crate::platform::package::is_packaged(),
+            is_published_executable(),
+        )
+    }
+}
+
+/// What the frontend shows: the running version, a ready newer one, and who
+/// updates this copy.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateStatus {
     current: String,
     ready: Option<String>,
-    is_supported: bool,
+    updater: Updater,
 }
 
 fn status(state: &UpdateState) -> UpdateStatus {
     UpdateStatus {
         current: env!("CARGO_PKG_VERSION").to_string(),
         ready: state.ready().map(|ready| ready.version.to_string()),
-        is_supported: is_published_executable(),
+        updater: Updater::running(),
     }
+}
+
+/// Whether PADE checks for, downloads and installs its own releases.
+fn is_self_updating() -> bool {
+    Updater::running() == Updater::Pade
 }
 
 fn running_executable() -> Option<PathBuf> {
@@ -512,7 +551,7 @@ pub fn apply_pending(app: &AppHandle) -> Result<(), String> {
 pub fn init(app: &AppHandle) {
     let state = Arc::new(UpdateState::default());
     app.manage(Arc::clone(&state));
-    if !is_published_executable() {
+    if !is_self_updating() {
         return;
     }
     if let Some(running) = running_executable() {
@@ -556,7 +595,7 @@ pub fn update_status(state: State<'_, Arc<UpdateState>>) -> UpdateStatus {
 #[tauri::command]
 pub async fn update_check(app: AppHandle) -> Result<UpdateStatus, String> {
     let state = Arc::clone(app.state::<Arc<UpdateState>>().inner());
-    if !is_published_executable() {
+    if !is_self_updating() {
         return Ok(status(&state));
     }
     tauri::async_runtime::spawn_blocking(move || {
@@ -592,8 +631,8 @@ pub async fn update_restart(app: AppHandle) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        delete_leftovers, install, offer_from, suffixed, Offer, Package, Version, RETIRED_MARKER,
-        STAGED_SUFFIX,
+        delete_leftovers, install, offer_from, suffixed, Offer, Package, Updater, Version,
+        RETIRED_MARKER, STAGED_SUFFIX,
     };
     use std::path::PathBuf;
 
@@ -630,6 +669,14 @@ mod tests {
         assert!(Version::parse("1.2").is_none());
         assert!(Version::parse("1.2.3.4").is_none());
         assert_eq!(parsed("1.2.3").to_string(), "1.2.3");
+    }
+
+    #[test]
+    fn a_packaged_copy_is_updated_by_windows_whatever_its_build() {
+        assert_eq!(Updater::of(true, true), Updater::Windows);
+        assert_eq!(Updater::of(true, false), Updater::Windows);
+        assert_eq!(Updater::of(false, true), Updater::Pade);
+        assert_eq!(Updater::of(false, false), Updater::None);
     }
 
     #[test]

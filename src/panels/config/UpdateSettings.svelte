@@ -1,29 +1,17 @@
 <script lang="ts">
   // PADE's self-update (`stores/update/appUpdate`): the running version, the
   // switch that lets it check GitHub, and - once a newer release is downloaded -
-  // the way to restart into it now rather than on the next close.
+  // the way to restart into it now rather than on the next close. An MSIX
+  // install is Windows' to update, so the switch and Check now stay disabled.
   import { effective, updatePrefs } from "@/lib/settings/prefs.svelte";
   import { appUpdate, checkForUpdate, restartToUpdate } from "@/lib/stores/update/appUpdate.svelte";
+  import { Updater } from "@/lib/types";
   import Checkbox from "@/lib/ui/controls/Checkbox.svelte";
+  import { updateStatusLine } from "@/lib/update/status-line";
 
   const status = $derived(appUpdate.status);
-  const isUpdatable = $derived(status?.isSupported === true);
+  const isUpdatable = $derived(status?.updater === Updater.enum.pade);
   const ready = $derived(status?.ready ?? null);
-  const statusLine = $derived.by(() => {
-    if (!status) {
-      return "Reading the version…";
-    }
-
-    if (!isUpdatable) {
-      return `PADE ${status.current} · a development build, which never updates itself`;
-    }
-
-    if (ready) {
-      return `PADE ${status.current} · ${ready} is ready and installs when PADE closes`;
-    }
-
-    return `PADE ${status.current} · up to date`;
-  });
 </script>
 
 <div class="field-row">
@@ -50,7 +38,7 @@
   {/if}
 </div>
 
-<p class="field-hint">{statusLine}</p>
+<p class="field-hint">{updateStatusLine(status)}</p>
 
 <style>
   p {
