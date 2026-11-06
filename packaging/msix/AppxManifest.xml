@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PADE's full MSIX package manifest - the `.msix` every GitHub release attaches.
+
+  This is a TEMPLATE: `scripts/release.mjs` fills {{PACKAGE_NAME}} (avi12.PADE),
+  {{VERSION}} (the release as major.minor.patch.0) and {{PUBLISHER}} (the
+  signing certificate's subject, which Windows requires Publisher to equal
+  exactly) - the same values it writes into PADE.appinstaller beside it - then
+  packs it with
+  pade.exe, contextmenu_handler.dll and the Assets\ logos (copied from
+  src-tauri/icons) and signs the result.
+
+  Write virtualization is OFF for both the file system and the registry, so
+  the packaged PADE reads and writes the same %APPDATA%\pade,
+  %LOCALAPPDATA%\pade, ~\.claude (and every other agent's config) and
+  HKCU\Software\PADE as an unpackaged copy - one set of settings, one PTY host
+  folder, whichever way PADE was installed.
+
+  The Explorer "Open in PADE" verb is declared here rather than registered at
+  run time (src-tauri/src/platform/contextmenu.rs stands its sparse package
+  down when PADE runs packaged). CLSID {C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC}
+  is authoritative in src-tauri/contextmenu-handler/src/lib.rs and written
+  without braces, exactly as in the sparse manifest
+  (src-tauri/contextmenu-handler/AppxManifest.xml).
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
+  xmlns:desktop5="http://schemas.microsoft.com/appx/manifest/desktop/windows10/5"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  IgnorableNamespaces="uap rescap desktop4 desktop5 desktop6 com">
+
+  <Identity
+    Name="{{PACKAGE_NAME}}"
+    Publisher="{{PUBLISHER}}"
+    Version="{{VERSION}}"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>PADE</DisplayName>
+    <PublisherDisplayName>avi12</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+  </Properties>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+  </Capabilities>
+
+  <Applications>
+    <Application
+      Id="PADE"
+      Executable="pade.exe"
+      EntryPoint="Windows.FullTrustApplication">
+
+      <uap:VisualElements
+        DisplayName="PADE"
+        Description="PADE - Power ADE, an Agentic Development Environment"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Square71x71Logo="Assets\Square71x71Logo.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- contextmenu_handler.dll as a packaged COM server. -->
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:SurrogateServer DisplayName="PADE Explorer integration">
+              <com:Class
+                Id="C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC"
+                Path="contextmenu_handler.dll"
+                ThreadingModel="STA" />
+            </com:SurrogateServer>
+          </com:ComServer>
+        </com:Extension>
+
+        <!-- The folder and folder-background verbs. The label comes from
+             IExplorerCommand::GetTitle, and the handler hides itself while
+             HKCU\Software\PADE\ContextMenu is 0 (the project picker's toggle). -->
+        <desktop4:Extension Category="windows.fileExplorerContextMenus">
+          <desktop4:FileExplorerContextMenus>
+            <desktop5:ItemType Type="Directory">
+              <desktop5:Verb Id="OpenInPade" Clsid="C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC" />
+            </desktop5:ItemType>
+            <desktop5:ItemType Type="Directory\Background">
+              <desktop5:Verb Id="OpenInPade" Clsid="C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC" />
+            </desktop5:ItemType>
+          </desktop4:FileExplorerContextMenus>
+        </desktop4:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+</Package>

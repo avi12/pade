@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The update feed of an MSIX-installed PADE. A TEMPLATE `scripts/release.mjs`
+  fills and attaches to every release as PADE.appinstaller. Both addresses use
+  GitHub's /releases/latest/download/ redirect, so an install made from any
+  release's feed keeps finding the newest one; Windows checks it each time PADE
+  starts and installs a newer package in the background.
+-->
+<AppInstaller
+  xmlns="http://schemas.microsoft.com/appx/appinstaller/2018"
+  Version="{{VERSION}}"
+  Uri="{{APPINSTALLER_URL}}">
+
+  <MainPackage
+    Name="{{PACKAGE_NAME}}"
+    Publisher="{{PUBLISHER}}"
+    Version="{{VERSION}}"
+    ProcessorArchitecture="x64"
+    Uri="{{PACKAGE_URL}}" />
+
+  <UpdateSettings>
+    <OnLaunch HoursBetweenUpdateChecks="0" />
+  </UpdateSettings>
+</AppInstaller>
