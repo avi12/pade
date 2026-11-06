@@ -34,6 +34,7 @@ mod claude;
 mod codex;
 mod copilot;
 pub(crate) use copilot::session_root as copilot_session_root;
+mod hook_sink;
 mod opencode;
 pub mod pacing_control;
 
@@ -314,6 +315,7 @@ pub fn run_hook_sink_if_requested() -> bool {
 /// windows the moment one may have moved. Best-effort: without the watch a tab
 /// still catches up when its session next goes idle.
 pub fn init(app: &AppHandle) {
+    std::thread::spawn(hook_sink::refresh);
     let Some(states) = state_directory() else {
         return;
     };
@@ -518,11 +520,12 @@ enum HookShell {
     PowerShell,
 }
 
-/// The command a hook runs to reach the sink, written for `shell`. Forward
-/// slashes, because Git Bash reads a backslash as an escape and every shell
-/// accepts them.
+/// The command a hook runs to reach the sink, written for `shell`: the stable
+/// sink the app keeps current (`hook_sink`), never the PTY host's own frozen
+/// copy. Forward slashes, because Git Bash reads a backslash as an escape and
+/// every shell accepts them.
 fn hook_command(shell: HookShell) -> Option<String> {
-    let executable = std::env::current_exe().ok()?;
+    let executable = hook_sink::executable()?;
     let path = executable.to_string_lossy().replace('\\', "/");
     Some(match shell {
         HookShell::Posix => format!("\"{path}\" {HOOK_SINK_FLAG}"),
