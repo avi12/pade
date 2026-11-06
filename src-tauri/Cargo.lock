@@ -2809,10 +2809,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "package-identity"
+version = "0.0.1"
+dependencies = [
+ "windows",
+]
+
+[[package]]
 name = "pade"
 version = "0.11.1"
 dependencies = [
  "notify",
+ "package-identity",
  "png 0.18.1",
  "portable-pty",
  "process-job",

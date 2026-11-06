@@ -1,0 +1,31 @@
+# PADE package-identity shim.
+#
+# Whether the running process has MSIX package identity (installed from the
+# release's `.msix`) is only answerable through an unsafe system call
+# (`GetCurrentPackageFullName`), and the main `pade` crate forbids unsafe code,
+# so this workspace member owns that FFI boundary (the same split as
+# `process-priority`). It pins the `windows` crate to the version already in the
+# tree through wry, so it adds no new supply-chain surface.
+[package]
+name = "package-identity"
+version = "0.0.1"
+description = "Safe answer to whether PADE runs from an MSIX package"
+authors = ["Avi"]
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[target."cfg(windows)".dependencies]
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Storage_Packaging_Appx"] }
+
+[lints.rust]
+unused_qualifications = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+unwrap_used = "deny"
+expect_used = "allow"
