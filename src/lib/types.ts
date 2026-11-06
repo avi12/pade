@@ -948,6 +948,18 @@ export type PacingThrottle = z.infer<typeof PacingThrottle>;
 /** The parts of a session's pacing control, each written by its own owner. */
 export const PacingControlPartKind = z.enum(["cap", "stop", "throttle"]);
 
+/** The user's own Claude Code shortcuts (`~/.claude/keybindings.json`): blocks
+ *  of chord → action per context, a null action unbinding the chord. */
+export const ClaudeKeybindings = z.object({
+  bindings: z.array(
+    z.object({
+      context: z.string(),
+      bindings: z.record(z.string(), z.string().nullable())
+    })
+  )
+});
+export type ClaudeKeybindings = z.infer<typeof ClaudeKeybindings>;
+
 /** One conversation an agent recorded for a project - what its own `/resume`
  *  picker lists. `resumeArguments` reopen it for an agent PADE can't pin by
  *  `conversationId` at spawn (Codex). */

@@ -268,7 +268,7 @@ pub(super) fn options() -> Vec<ModelOption> {
 }
 
 pub(super) fn settings_directory() -> Option<PathBuf> {
-    Some(crate::util::home_directory()?.join(".claude"))
+    crate::agents::claude_directory()
 }
 
 pub(super) fn is_settings_file(name: &str) -> bool {

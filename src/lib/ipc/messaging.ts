@@ -11,6 +11,7 @@ import {
   AddRootOutcome,
   Agent,
   ChangeEvent,
+  ClaudeKeybindings,
   Commit,
   CommitDetail,
   ConfigFile,
@@ -81,6 +82,8 @@ export enum Command {
   agentModelOptions = "agent_model_options",
   agentApplyModel = "agent_apply_model",
   agentSetPacingControl = "agent_set_pacing_control",
+  agentPacingStopSeen = "agent_pacing_stop_seen",
+  claudeKeybindings = "claude_keybindings",
   agentResumeArgs = "agent_resume_args",
   agentConversations = "agent_conversations",
   agentSessionContext = "agent_session_context",
@@ -301,6 +304,11 @@ export interface CommandProtocolMap {
       value: PacingThrottle;
     };
   }) => void;
+  /** When the session's hook last answered a call while pacing was stopping
+   *  it (epoch ms), null when it hasn't since the stop was written. */
+  [Command.agentPacingStopSeen]: (data: { conversationId: string }) => number | null;
+  /** The user's Claude Code keybindings as written, null when none. */
+  [Command.claudeKeybindings]: () => ClaudeKeybindings | null;
   /** Launch args that reopen the agent's recorded conversation for `cwd`
    *  (`["resume", "<uuid>"]` for Codex), empty when the agent has no such
    *  mechanism or no recording. `conversationId`: when the agent reported its
@@ -752,6 +760,8 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.agentModelOptions]: z.array(ModelOption),
   [Command.agentApplyModel]: SwitchOutcome,
   [Command.agentSetPacingControl]: NO_REPLY,
+  [Command.agentPacingStopSeen]: z.number().nullable(),
+  [Command.claudeKeybindings]: ClaudeKeybindings.nullable(),
   [Command.agentResumeArgs]: z.array(z.string()),
   [Command.agentConversations]: z.array(RecordedConversation),
   [Command.agentSessionContext]: SessionContext.nullable(),

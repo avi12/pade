@@ -41,12 +41,17 @@ use std::time::Duration;
 
 use super::{is_plain_id, write_json};
 use crate::agents::{ID_CLAUDE, ID_OPENCODE};
+use crate::util::now_milliseconds;
 
 /// PADE's data subfolder holding one control file per paced session. A new
 /// name: an `OpenCode` session launched before the file grew its parts still
 /// reads the old cap folder, and must not misread this shape.
 const CONTROL_DIRECTORY_NAME: &str = "pacing-control";
 const CONTROL_FILE_EXTENSION: &str = "json";
+/// Beside a control file: when the session's hook last answered a call while
+/// it was being stopped (epoch ms) - how PADE tells a hook that takes the stop
+/// from a session that predates it, or one that hasn't called a tool since.
+const STOP_SEEN_EXTENSION: &str = "stop-seen";
 /// Claude's spawn tool, by its current name and the one it had before.
 const CLAUDE_SPAWN_TOOLS: [&str; 2] = ["Agent", "Task"];
 /// The tools a stopped session may still run: the ones that stop work.
@@ -177,6 +182,9 @@ pub async fn agent_set_pacing_control(
         let next = read_control(&conversation_id)
             .unwrap_or_default()
             .with_part(&command, part);
+        if !next.is_stopped {
+            forget_stop_seen(&conversation_id);
+        }
         if next.is_empty() {
             return match std::fs::remove_file(&path) {
                 Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
@@ -224,6 +232,9 @@ pub(super) fn answer_tool_use(conversation_id: &str, report: &serde_json::Value)
         return;
     };
     let decision = decide(&control, report);
+    if control.is_stopped {
+        stamp_stop_seen(conversation_id);
+    }
     if let Some(hold) = decision.hold {
         std::thread::sleep(hold);
     }
@@ -239,6 +250,53 @@ pub(super) fn control_file(conversation_id: &str) -> Option<PathBuf> {
             .join(CONTROL_DIRECTORY_NAME)
             .join(format!("{conversation_id}.{CONTROL_FILE_EXTENSION}")),
     )
+}
+
+/// When the session's hook last answered a call while it was being stopped
+/// (epoch ms), or `None` when it hasn't since the stop was written - usage
+/// pacing's cue to stop the session through its terminal instead. Off the UI
+/// thread: it reads a file.
+#[tauri::command]
+pub async fn agent_pacing_stop_seen(conversation_id: String) -> Option<u64> {
+    if !is_plain_id(&conversation_id) {
+        return None;
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        std::fs::read_to_string(stop_seen_file(&conversation_id)?)
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+fn stop_seen_file(conversation_id: &str) -> Option<PathBuf> {
+    Some(control_file(conversation_id)?.with_extension(STOP_SEEN_EXTENSION))
+}
+
+/// Best-effort: a missed stamp only means PADE also stops the session through
+/// its terminal, which the hook's own refusal already made harmless.
+fn stamp_stop_seen(conversation_id: &str) {
+    let Some(path) = stop_seen_file(conversation_id) else {
+        return;
+    };
+    if let Err(error) = std::fs::write(path, now_milliseconds().to_string()) {
+        eprintln!("pade: could not note the hook took the stop: {error}");
+    }
+}
+
+fn forget_stop_seen(conversation_id: &str) {
+    let Some(path) = stop_seen_file(conversation_id) else {
+        return;
+    };
+    if let Err(error) = std::fs::remove_file(path) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            eprintln!("pade: could not clear the hook's stop note: {error}");
+        }
+    }
 }
 
 fn read_control(conversation_id: &str) -> Option<PacingControl> {

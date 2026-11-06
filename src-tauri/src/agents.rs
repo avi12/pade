@@ -13,6 +13,7 @@
 pub(crate) mod conversation_watch;
 pub(crate) mod conversations;
 pub(crate) mod copilot;
+pub(crate) mod keybindings;
 pub(crate) mod naming;
 pub(crate) mod parsed_files;
 pub(crate) mod resume;
@@ -60,11 +61,13 @@ pub(crate) fn codex_home() -> Option<PathBuf> {
 /// project (named by `encode_project`). The one lookup every module reading
 /// Claude's transcripts goes through.
 pub(crate) fn claude_projects_directory() -> Option<PathBuf> {
-    Some(
-        crate::util::home_directory()?
-            .join(".claude")
-            .join("projects"),
-    )
+    Some(claude_directory()?.join("projects"))
+}
+
+/// `~/.claude`, Claude Code's per-user folder (settings, keybindings,
+/// transcripts) - the one place its location is spelled.
+pub(crate) fn claude_directory() -> Option<PathBuf> {
+    Some(crate::util::home_directory()?.join(".claude"))
 }
 
 /// The resolution rule behind [`codex_home`], over its two inputs.
