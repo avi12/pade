@@ -15,8 +15,12 @@
 //! registered once and thereafter shown/hidden via a flag it reads on every menu build
 //! (no Explorer restart, à la `PowerToys`); on Windows 10 the legacy keys are added and
 //! removed directly. Registering the modern package can fail (Developer Mode off),
-//! which is surfaced to the UI. Windows-only; other platforms get inert stubs so
-//! `lib.rs` compiles everywhere.
+//! which is surfaced to the UI.
+//!
+//! A copy installed from the release's `.msix` registers nothing: its package
+//! manifest (`packaging/msix/AppxManifest.xml`) declares the same handler on
+//! Windows 10 and 11 alike, so there the toggle only flips the show/hide flag.
+//! Windows-only; other platforms get inert stubs so `lib.rs` compiles everywhere.
 
 #[cfg(windows)]
 mod modern;
@@ -174,11 +178,44 @@ pub async fn context_menu_register() -> Result<(), String> {
         .map_err(|error| error.to_string())?
 }
 
+/// Which machinery puts "Open in PADE" into Explorer for this copy.
+#[cfg(windows)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MenuHost {
+    /// An MSIX install: its package manifest declares the verb (on Windows 10
+    /// and 11 alike), so only the show/hide flag is PADE's to set.
+    Package,
+    /// Windows 11 unpackaged: the sparse package PADE registers itself.
+    SparsePackage,
+    /// Windows 10 and older unpackaged: the legacy registry keys.
+    Legacy,
+}
+
+#[cfg(windows)]
+impl MenuHost {
+    /// Packaged is asked first: it needs no `reg` run for the Windows build.
+    fn running() -> Self {
+        if crate::platform::package::is_packaged() {
+            return Self::Package;
+        }
+        if is_windows_11() {
+            return Self::SparsePackage;
+        }
+        Self::Legacy
+    }
+}
+
 #[cfg(windows)]
 fn register_menu() -> Result<(), String> {
-    if !is_windows_11() {
-        return register_legacy();
+    match MenuHost::running() {
+        MenuHost::Package => set_menu_shown(true),
+        MenuHost::SparsePackage => register_sparse_package(),
+        MenuHost::Legacy => register_legacy(),
     }
+}
+
+#[cfg(windows)]
+fn register_sparse_package() -> Result<(), String> {
     // Best-effort: a leftover legacy entry only duplicates the verb.
     let _ = unregister_legacy();
     if !modern::is_registered() {
@@ -206,10 +243,10 @@ pub async fn context_menu_unregister() -> Result<(), String> {
 
 #[cfg(windows)]
 fn unregister_menu() -> Result<(), String> {
-    if !is_windows_11() {
-        return unregister_legacy();
+    match MenuHost::running() {
+        MenuHost::Package | MenuHost::SparsePackage => set_menu_shown(false),
+        MenuHost::Legacy => unregister_legacy(),
     }
-    set_menu_shown(false)
 }
 
 /// Whether "Open in PADE" is currently on.
@@ -228,10 +265,11 @@ pub async fn context_menu_status() -> bool {
 
 #[cfg(windows)]
 fn is_menu_on() -> bool {
-    if !is_windows_11() {
-        return is_legacy_registered();
+    match MenuHost::running() {
+        MenuHost::Package => is_menu_shown(),
+        MenuHost::SparsePackage => modern::is_registered() && is_menu_shown(),
+        MenuHost::Legacy => is_legacy_registered(),
     }
-    modern::is_registered() && is_menu_shown()
 }
 
 #[cfg(not(windows))]
