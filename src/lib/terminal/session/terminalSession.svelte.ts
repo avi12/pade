@@ -6,6 +6,7 @@
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { appearance } from "@/lib/settings/prefs.svelte";
 import { observeTurnOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
+import { dismissApiError } from "@/lib/stores/agent/apiErrorRetry.svelte";
 import { observeContextScreen } from "@/lib/stores/agent/context.svelte";
 import { clearPendingPrompt, pendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
@@ -16,7 +17,7 @@ import { listenForFileDrops } from "@/lib/terminal/input/file-drop";
 import { createInitialPromptDelivery } from "@/lib/terminal/input/initial-prompt-delivery";
 import { pathsAsPromptText } from "@/lib/terminal/input/terminal-input";
 import { attachKeyOverrides, attachWheelForwarding } from "@/lib/terminal/input/terminal-keys";
-import { ENTER_ALTERNATE_SCREEN, isFocusReport } from "@/lib/terminal/input/terminal-sequences";
+import { ENTER, ENTER_ALTERNATE_SCREEN, isFocusReport } from "@/lib/terminal/input/terminal-sequences";
 import { observeAgentOutput, observeReplayedOutput } from "@/lib/terminal/output/agent-output";
 import { createScreenSampler, viewportRows } from "@/lib/terminal/output/screen-sampler";
 import { createTerminalOutputScheduler } from "@/lib/terminal/output/terminal-output-scheduler";
@@ -255,6 +256,10 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
     grid.onData(data => {
       if (isFocusReport(data)) {
         return;
+      }
+
+      if (data === ENTER) {
+        dismissApiError(session().id);
       }
 
       activity.noteInput(data);

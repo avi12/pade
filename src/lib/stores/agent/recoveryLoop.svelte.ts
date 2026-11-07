@@ -93,7 +93,8 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
     );
   }
 
-  // Start the loop of each freshly flagged session; forget sessions whose tab is gone.
+  // Start the loop of each freshly flagged session; forget sessions whose tab is
+  // gone, and a pending step whose hit was dismissed from outside the loop.
   function check() {
     if (host.isOptedOut()) {
       return;
@@ -101,7 +102,8 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
 
     const alive = new SvelteSet(host.sessions().map(session => session.id));
     for (const id of [...hits.keys(), ...timers.keys()]) {
-      if (!alive.has(id)) {
+      const isDismissed = !hits.has(id);
+      if (!alive.has(id) || isDismissed) {
         forget(id);
       }
     }

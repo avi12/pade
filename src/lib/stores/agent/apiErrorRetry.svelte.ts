@@ -5,7 +5,8 @@
 // while its context window still has room; once the window is nearly full another
 // retry would only stall again, so we hand off to a fresh successor agent (the
 // auto-handoff flow) and stop. The loop ends the moment the session is working
-// again (the nudge took, or it self-recovered), its tab is gone, or the stop
+// again (the nudge took, or it self-recovered), the user submits a prompt of
+// their own (`dismissApiError`), its tab is gone, or the stop
 // turns out to be a usage limit - Claude Code reports that as "an API error"
 // too, and nudging a limited session only hits the limit again, so waiting it
 // out belongs to lib/stores/usage/usageResume. Opt-out rides the same prefs.autoResume
@@ -78,6 +79,13 @@ export function observeApiError({ id, chunk }: {
   if (parseApiError({ text: chunk })) {
     hits.set(id, { isScheduled: false });
   }
+}
+
+/** The user submitted something of their own - a new prompt, a `/new` - so the
+ *  session is theirs again and must never be nudged to "continue" behind it.
+ *  Also clears a false detection, which nothing else would ever end. */
+export function dismissApiError(id: string) {
+  hits.delete(id);
 }
 
 /** The auto-retry machinery, scoped to one app shell. The shell calls `check()`

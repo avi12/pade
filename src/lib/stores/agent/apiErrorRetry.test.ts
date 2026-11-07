@@ -1,5 +1,70 @@
-import { parseApiError } from "@/lib/stores/agent/apiErrorRetry.svelte";
-import { describe, expect, it } from "vitest";
+import { Command } from "@/lib/ipc/messaging";
+import {
+  createApiErrorRetry,
+  dismissApiError,
+  observeApiError,
+  parseApiError
+} from "@/lib/stores/agent/apiErrorRetry.svelte";
+import type { AgentSession } from "@/lib/types";
+import {
+  afterEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  sendMessage: vi.fn<(command: Command, data?: unknown) => Promise<unknown>>()
+}));
+
+vi.mock("@/lib/ipc/messaging", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  sendMessage: mocks.sendMessage
+}));
+
+/** Well past the first retry, so a nudge that was still scheduled would be sent. */
+const PAST_FIRST_RETRY_MS = 60_000;
+
+const stoppedSession: AgentSession = {
+  id: "api-error-session",
+  agent: {
+    id: "claude",
+    label: "Claude Code",
+    command: "claude",
+    reordersBidi: true
+  },
+  cwd: "C:/repositories/pade",
+  project: "C:/repositories/pade"
+};
+
+afterEach(() => vi.useRealTimers());
+
+describe("createApiErrorRetry", () => {
+  it("stops nudging once the user submits a prompt of their own", async () => {
+    vi.useFakeTimers();
+    const retry = createApiErrorRetry({
+      sessions: () => [stoppedSession],
+      isOptedOut: () => false,
+      thresholdPercentage: () => 90,
+      forceHandoff() {}
+    });
+    observeApiError({
+      id: stoppedSession.id,
+      chunk: "API Error: 500"
+    });
+    retry.check();
+    expect(retry.note).not.toBe("");
+
+    dismissApiError(stoppedSession.id);
+    retry.check();
+    await vi.advanceTimersByTimeAsync(PAST_FIRST_RETRY_MS);
+
+    expect(retry.note).toBe("");
+    expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.ptyWrite, expect.anything());
+    retry.dispose();
+  });
+});
 
 describe("parseApiError", () => {
   describe("detects an API-side stop", () => {
