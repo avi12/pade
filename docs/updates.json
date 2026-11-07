@@ -1,9 +1,9 @@
 {
-  "version": "0.12.1",
-  "url": "https://github.com/avi12/pade/releases/download/v0.12.1/PADE-0.12.1.exe",
-  "sha256": "54ea63e86d62dc1a6df700ec7299adb71eaf416b4d7d11ba811806832df2fd31",
+  "version": "0.12.2",
+  "url": "https://github.com/avi12/pade/releases/download/v0.12.2/PADE-0.12.2.exe",
+  "sha256": "ac29045e1086f092f36a5847699660395b8b44657c459ccefdd182fcd86774be",
   "installer": {
-    "url": "https://github.com/avi12/pade/releases/download/v0.12.1/PADE-0.12.1-setup.msi",
-    "sha256": "3c6e7f7753709f6d997b75ac41b4136e215ca521b84f4402a00934a1ad9662e2"
+    "url": "https://github.com/avi12/pade/releases/download/v0.12.2/PADE-0.12.2-setup.msi",
+    "sha256": "0bca5f6ea69bbfa8920d4cb428e57e23405da49517cb0e8266b546c77b272484"
   }
 }
