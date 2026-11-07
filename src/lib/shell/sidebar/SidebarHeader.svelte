@@ -200,8 +200,14 @@
     font-weight: 700;
     font-size: 0.7188rem;
 
-    &:hover {
+    &:hover,
+    &:has(+ .actions-menu:popover-open) {
       background: color-mix(in sRGB, var(--primary) 22%, var(--primary-container));
+    }
+
+    /* Its hover tooltip must not peek out over its own open menu. */
+    &:has(+ .actions-menu:popover-open)::after {
+      display: none;
     }
 
     > :global(svg) {
