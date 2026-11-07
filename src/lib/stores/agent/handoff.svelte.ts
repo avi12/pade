@@ -456,8 +456,15 @@ export function createAutoHandoff(host: HandoffHost) {
       const target = name.toLowerCase();
 
       // Authoritative fallback: stat the doc on disk on a slow tick, so a doc the
-      // watcher never reports (ignored path) is still caught within a poll.
+      // watcher never reports (ignored path) is still caught within a poll. A
+      // session closed meanwhile ends the wait, rather than leaving its status
+      // line up for the whole timeout.
       async function pollDisk() {
+        if (!isStillOpen(session.id)) {
+          finish(false);
+          return;
+        }
+
         if (await isFileOnDisk(docPath)) {
           finish(true);
           return;
@@ -642,6 +649,11 @@ export function createAutoHandoff(host: HandoffHost) {
       reason
     })) {
       return true;
+    }
+
+    if (!isStillOpen(session.id)) {
+      abandonHandoff(session.id);
+      return false;
     }
 
     const attempts = (handoffAttempts.get(session.id) ?? 0) + 1;

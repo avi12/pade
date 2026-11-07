@@ -707,7 +707,46 @@ describe("createAutoHandoff", () => {
     vi.mocked(measuredContextPercentage).mockReturnValue(100);
     vi.mocked(compactionHeadroom).mockReturnValue(null);
   });
+
+  it("clears its status line as soon as the session it waits on is closed", async () => {
+    mocks.sendMessage.mockImplementation(async command => {
+      if (command === Command.workspaceProbePath) {
+        return { isFile: false };
+      }
+
+      return await answerMessage(command);
+    });
+    vi.mocked(sessionStatus)
+      .mockReturnValueOnce(SessionStatus.enum.ready)
+      .mockReturnValue(SessionStatus.enum.working);
+    let sessions = [scannedSession];
+    const handoff = createAutoHandoff({
+      ...scanHost(scannedSession),
+      sessions: () => sessions
+    });
+
+    vi.useFakeTimers();
+
+    handoff.check();
+    await vi.advanceTimersByTimeAsync(REQUEST_SUBMITTED_MS);
+    expect(handoff.note).toContain("handing off to a fresh agent");
+    sessions = [];
+    await vi.advanceTimersByTimeAsync(CLOSED_SESSION_NOTICED_MS);
+
+    expect(handoff.note).toBe("");
+    expect(handoff.isHandingOff(scannedSession.id)).toBe(false);
+    expect(mocks.kill).not.toHaveBeenCalled();
+    handoff.dispose();
+    vi.useRealTimers();
+    forgetSession(scannedSession.id);
+    vi.mocked(sessionStatus).mockReturnValue(SessionStatus.enum.ready);
+  });
 });
+
+/** Past the request's paste-settle and submit check, into the wait for its doc. */
+const REQUEST_SUBMITTED_MS = 10_000;
+/** A couple of the doc wait's disk polls - far short of its own timeout. */
+const CLOSED_SESSION_NOTICED_MS = 3_000;
 
 const WAITING_NOTE =
   "Claude Code context at 100% - handing off once its running work finishes, or just before it auto-compacts…";
