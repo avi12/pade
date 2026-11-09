@@ -2,6 +2,7 @@
 // names it: a grant lists the limit windows it clears, and that set decides
 // whether it is a 5-hour, weekly, Fable or full reset.
 
+import type { LimitReset } from "@/lib/types";
 import { formatCount } from "@/lib/util/format";
 
 /** The limit windows a grant can list in its `clears`. */
@@ -88,4 +89,43 @@ export function limitResetKind(clears: readonly string[]) {
   }
 
   return UNKNOWN_RESET;
+}
+
+/** How many of a kind are left and until when ("3 left · use by Mar 9"). */
+export function limitResetSummary(offer: LimitReset) {
+  const left = `${formatCount(offer.resetsLeft)} left`;
+  if (!offer.endsAt) {
+    return left;
+  }
+
+  const date = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric"
+  }).format(Date.parse(offer.endsAt));
+  return `${left} · use by ${date}`;
+}
+
+/** The meter chip's face for the offers: one kind is named outright ("Fable
+ *  reset", its hint saying what it frees up); several are counted ("4
+ *  resets", the hint listing each kind) and the click lets the user pick. */
+export function limitResetChip(offers: readonly LimitReset[]) {
+  const [only] = offers;
+  if (offers.length === 1 && only) {
+    const { title, effect } = limitResetKind(only.clears);
+    return {
+      label: title,
+      hint: `${effect} · ${limitResetSummary(only)}`
+    };
+  }
+
+  let total = 0;
+  for (const offer of offers) {
+    total += offer.resetsLeft;
+  }
+
+  const lines = offers.map(offer => `${limitResetKind(offer.clears).title}: ${limitResetSummary(offer)}`);
+  return {
+    label: `${formatCount(total)} resets`,
+    hint: [...lines, "Click to pick which one to use"].join("\n")
+  };
 }

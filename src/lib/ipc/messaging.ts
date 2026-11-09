@@ -174,7 +174,7 @@ export enum Command {
   tasksList = "tasks_list",
   usageGet = "usage_get",
   usageAccountAgent = "usage_account_agent",
-  limitResetOffer = "limit_reset_offer",
+  limitResetOffers = "limit_reset_offers",
   limitResetClaim = "limit_reset_claim",
   configList = "config_list",
   configRead = "config_read",
@@ -618,9 +618,10 @@ export interface CommandProtocolMap {
     agent: string;
     forceRefresh: boolean;
   }) => AccountReading;
-  /** The free usage-limit reset Claude's account can spend now, or `null`. */
-  [Command.limitResetOffer]: () => LimitReset | null;
-  /** Spend that reset: clears the account's usage limits. Cannot be undone. */
+  /** The free usage-limit resets Claude's account can spend now, one per
+   *  kind (the server's next kind first) - empty when it holds none. */
+  [Command.limitResetOffers]: () => LimitReset[];
+  /** Spend one grant's reset: clears the limits it covers. Cannot be undone. */
   [Command.limitResetClaim]: (data: { grantId: string }) => LimitResetOutcome;
   /** The agent CLI's own config files - read, never shadowed. */
   [Command.configList]: (data: { agent: string }) => ConfigFile[];
@@ -852,7 +853,7 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.tasksList]: z.array(TaskGroup),
   [Command.usageGet]: Usage.nullable(),
   [Command.usageAccountAgent]: AccountReading,
-  [Command.limitResetOffer]: LimitReset.nullable(),
+  [Command.limitResetOffers]: z.array(LimitReset),
   [Command.limitResetClaim]: LimitResetOutcome,
   [Command.configList]: z.array(ConfigFile),
   [Command.configRead]: z.string(),

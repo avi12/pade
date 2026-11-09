@@ -424,14 +424,17 @@ export const AccountReading = z.object({
 });
 export type AccountReading = z.infer<typeof AccountReading>;
 
-/** A free usage-limit reset Claude's account can spend now - a grant (a launch
- *  promotion) that clears its limits once, on demand. */
+/** One kind of free usage-limit reset Claude's account can spend now - the
+ *  grants (launch promotions) that clear the same limits, once each, on
+ *  demand. */
 export const LimitReset = z.object({
+  /** The grant a claim of this kind spends. */
   grantId: z.string(),
-  /** The grant's own description. */
+  /** That grant's own description. */
   label: z.string(),
+  /** Every reset of this kind the account holds, across its grants. */
   resetsLeft: z.number(),
-  /** When the grant expires, ISO-8601. */
+  /** When the first of them expires, ISO-8601. */
   endsAt: z.string().nullish(),
   /** The window keys a reset clears (`five_hour`, `seven_day`, …). */
   clears: z.array(z.string())

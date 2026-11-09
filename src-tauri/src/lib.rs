@@ -230,7 +230,7 @@ pub fn run() {
             terminal::schemes::terminal_schemes,
             usage::usage_get,
             usage::usage_account_agent,
-            usage::limit_reset::limit_reset_offer,
+            usage::limit_reset::limit_reset_offers,
             usage::limit_reset::limit_reset_claim,
             agents::naming::project_autoname,
             agents::naming::session_generate_name,

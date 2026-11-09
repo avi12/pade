@@ -2,15 +2,10 @@
   import { AgentId } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import {
-    askToResetLimits,
-    limitResetOffer,
-    limitResetSummary,
-    refreshLimitResetOffer
-  } from "@/lib/stores/usage/limitReset.svelte";
+  import { askToResetLimits, limitResetOffers, refreshLimitResetOffers } from "@/lib/stores/usage/limitReset.svelte";
   import type { AccountUsage, AgentSession, NoReading } from "@/lib/types";
   import { growInline } from "@/lib/ui/motion";
-  import { limitResetKind } from "@/lib/usage/limit-reset/limit-reset-kind";
+  import { limitResetChip } from "@/lib/usage/limit-reset/limit-reset-kind";
   import LimitResetConfirm from "@/lib/usage/limit-reset/LimitResetConfirm.svelte";
   import {
     hasClaudePill,
@@ -100,11 +95,11 @@
     return read.accounts;
   }
 
-  const resetOffer = $derived(limitResetOffer());
-  const resetKind = $derived(limitResetKind(resetOffer?.clears ?? []));
+  const resetOffers = $derived(limitResetOffers());
+  const resetChip = $derived(limitResetChip(resetOffers));
   // The chip sits in Claude's pill, so it shows only while that pill does (not
   // folded into the "+N" overflow).
-  const showsResetInPill = $derived(resetOffer !== null && hasClaudePill(groups));
+  const showsResetInPill = $derived(resetOffers.length > 0 && hasClaudePill(groups));
 
   // Each new Claude usage reading re-checks the free reset, so the offer follows
   // the meter's own refresh instead of keeping a timer of its own.
@@ -114,7 +109,7 @@
       return;
     }
 
-    untrack(refreshLimitResetOffer);
+    untrack(refreshLimitResetOffers);
   });
 
   // Limits that just started over - on schedule or by a spent free reset - so
@@ -195,9 +190,9 @@
   {#if showsResetInPill}
     <button
       class="reset-face reset-chip"
-      aria-label="{resetKind.title} -{resetKind.effect} - {limitResetSummary()}"
-      data-tooltip="{resetKind.effect} · {limitResetSummary()}"
-      onclick={askToResetLimits}
+      aria-label="{resetChip.label} - {resetChip.hint}"
+      data-tooltip={resetChip.hint}
+      onclick={() => askToResetLimits()}
       type="button"
       transition:growInline
     >{@render resetLabel()}</button>
@@ -211,7 +206,7 @@
 </span>
 
 {#snippet resetLabel()}
-  <Icon name="refresh" size={11} />{resetKind.title}
+  <Icon name="refresh" size={11} />{resetChip.label}
 {/snippet}
 
 <style>

@@ -3,11 +3,11 @@ import { showToast, toastText } from "@/lib/stores/ui/toast.svelte";
 import {
   askToResetLimits,
   cancelLimitReset,
+  chooseLimitReset,
   confirmLimitReset,
   limitResetConfirmation,
-  limitResetOffer,
-  limitResetSummary,
-  refreshLimitResetOffer
+  limitResetOffers,
+  refreshLimitResetOffers
 } from "@/lib/stores/usage/limitReset.svelte";
 import type { LimitReset } from "@/lib/types";
 import {
@@ -20,7 +20,7 @@ import {
 
 const mocks = vi.hoisted(() => ({
   sendMessage: vi.fn<(command: string, data?: unknown) => Promise<unknown>>(),
-  limitResetOffer: vi.fn<() => Promise<LimitReset | null>>(),
+  limitResetOffers: vi.fn<() => Promise<LimitReset[]>>(),
   claimLimitReset: vi.fn<() => Promise<{
     reset: boolean;
     result: string;
@@ -34,8 +34,8 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => ({
 }));
 
 function routeMessage(command: string) {
-  if (command === Command.limitResetOffer) {
-    return mocks.limitResetOffer();
+  if (command === Command.limitResetOffers) {
+    return mocks.limitResetOffers();
   }
 
   if (command === Command.limitResetClaim) {
@@ -56,15 +56,14 @@ const launchReset: LimitReset = {
 beforeEach(async () => {
   vi.clearAllMocks();
   mocks.sendMessage.mockImplementation(routeMessage);
-  mocks.limitResetOffer.mockResolvedValue(launchReset);
-  await refreshLimitResetOffer();
+  mocks.limitResetOffers.mockResolvedValue([launchReset]);
+  await refreshLimitResetOffers();
   cancelLimitReset();
 });
 
 describe("the free limit reset", () => {
   it("offers the account's reset with how many are left", () => {
-    expect(limitResetOffer()?.grantId).toBe(launchReset.grantId);
-    expect(limitResetSummary()).toContain("1 left");
+    expect(limitResetOffers().map(offer => offer.grantId)).toEqual([launchReset.grantId]);
   });
 
   it("only asks, never spends, when the reset is requested", () => {
@@ -79,7 +78,7 @@ describe("the free limit reset", () => {
       reset: true,
       result: "reset"
     });
-    mocks.limitResetOffer.mockResolvedValue(null);
+    mocks.limitResetOffers.mockResolvedValue([]);
     const onreset = vi.fn(async () => {});
     askToResetLimits();
 
@@ -88,7 +87,7 @@ describe("the free limit reset", () => {
     expect(mocks.sendMessage).toHaveBeenCalledWith(Command.limitResetClaim, { grantId: launchReset.grantId });
     expect(onreset).toHaveBeenCalled();
     expect(limitResetConfirmation().isOpen).toBe(false);
-    expect(limitResetOffer()).toBeNull();
+    expect(limitResetOffers()).toEqual([]);
   });
 
   it("stays open with the reason when the server refuses", async () => {
@@ -101,7 +100,7 @@ describe("the free limit reset", () => {
 
     await confirmLimitReset(vi.fn(async () => {}));
 
-    expect(limitResetConfirmation()).toEqual({
+    expect(limitResetConfirmation()).toMatchObject({
       isOpen: true,
       isClaiming: false,
       failure: "Not reset: not_limited"
@@ -125,13 +124,50 @@ describe("announcing a free limit reset", () => {
       ...launchReset,
       grantId: "another-launch-grant"
     };
-    mocks.limitResetOffer.mockResolvedValue(freshReset);
+    mocks.limitResetOffers.mockResolvedValue([freshReset]);
 
-    await refreshLimitResetOffer();
-    expect(toastText()).toContain("free usage-limit reset is available");
+    await refreshLimitResetOffers();
+    expect(toastText()).toContain("full reset is available");
 
     showToast("");
-    await refreshLimitResetOffer();
+    await refreshLimitResetOffers();
     expect(toastText()).toBe("");
+  });
+});
+
+describe("choosing between kinds of reset", () => {
+  const fableReset: LimitReset = {
+    grantId: "launch-2610-fable",
+    label: "New model launch: one Fable reset",
+    resetsLeft: 3,
+    endsAt: "2027-03-09T07:59:00+00:00",
+    clears: ["seven_day_overage_included"]
+  };
+
+  beforeEach(async () => {
+    mocks.limitResetOffers.mockResolvedValue([fableReset, launchReset]);
+    await refreshLimitResetOffers();
+  });
+
+  it("opens on the first kind, or on the one a menu row asked for", () => {
+    askToResetLimits();
+    expect(limitResetConfirmation().chosen?.grantId).toBe(fableReset.grantId);
+
+    cancelLimitReset();
+    askToResetLimits(launchReset.grantId);
+    expect(limitResetConfirmation().chosen?.grantId).toBe(launchReset.grantId);
+  });
+
+  it("spends the kind picked in the confirmation", async () => {
+    mocks.claimLimitReset.mockResolvedValue({
+      reset: true,
+      result: "reset"
+    });
+    askToResetLimits();
+    chooseLimitReset(launchReset.grantId);
+
+    await confirmLimitReset(vi.fn(async () => {}));
+
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.limitResetClaim, { grantId: launchReset.grantId });
   });
 });

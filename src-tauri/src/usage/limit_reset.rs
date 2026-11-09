@@ -76,14 +76,13 @@ struct Grant {
     is_usable_now: bool,
 }
 
-/// The reset the account can spend now, or `None` when it has none (or Claude
-/// isn't signed in, or the endpoint can't be reached).
+/// The resets the account can spend now, one per kind - empty when it has
+/// none (or Claude isn't signed in, or the endpoint can't be reached).
 #[tauri::command]
-pub async fn limit_reset_offer() -> Option<LimitReset> {
-    tauri::async_runtime::spawn_blocking(fetch_offer)
+pub async fn limit_reset_offers() -> Vec<LimitReset> {
+    tauri::async_runtime::spawn_blocking(fetch_offers)
         .await
-        .ok()
-        .flatten()
+        .unwrap_or_default()
 }
 
 /// Spend `grant_id` to reset the account's usage limits.
@@ -94,30 +93,30 @@ pub async fn limit_reset_claim(grant_id: String) -> Result<LimitResetOutcome, St
         .map_err(|error| error.to_string())?
 }
 
-/// The last offer the endpoint answered, and when. Cached as long as a meter
-/// reading ([`USAGE_CACHE_TTL`]): the offer comes off the same rate-limited
+/// The last offers the endpoint answered, and when. Cached as long as a meter
+/// reading ([`USAGE_CACHE_TTL`]): the offers come off the same rate-limited
 /// usage endpoint, and asking on every reading as well got the endpoint
 /// refusing both.
-static OFFER_CACHE: Mutex<Option<(Instant, Option<LimitReset>)>> = Mutex::new(None);
+static OFFER_CACHE: Mutex<Option<(Instant, Vec<LimitReset>)>> = Mutex::new(None);
 
-/// The offer, from the cache while it is fresh. A failed request (offline, or
-/// the endpoint refusing a burst) keeps the last answer rather than hiding an
-/// offer the account still holds.
-fn fetch_offer() -> Option<LimitReset> {
+/// The offers, from the cache while it is fresh. A failed request (offline, or
+/// the endpoint refusing a burst) keeps the last answer rather than hiding
+/// resets the account still holds.
+fn fetch_offers() -> Vec<LimitReset> {
     let cached = OFFER_CACHE.lock().ok().and_then(|guard| guard.clone());
-    if let Some((read_at, offer)) = &cached {
+    if let Some((read_at, offers)) = &cached {
         if read_at.elapsed() < USAGE_CACHE_TTL {
-            return offer.clone();
+            return offers.clone();
         }
     }
 
-    let Ok(offer) = request_offer() else {
-        return cached.and_then(|(_, offer)| offer);
+    let Ok(offers) = request_offers() else {
+        return cached.map(|(_, offers)| offers).unwrap_or_default();
     };
     if let Ok(mut guard) = OFFER_CACHE.lock() {
-        *guard = Some((Instant::now(), offer.clone()));
+        *guard = Some((Instant::now(), offers.clone()));
     }
-    offer
+    offers
 }
 
 /// Forget the cached offer, so the next read asks again - after a claim.
@@ -131,9 +130,9 @@ fn forget_offer() {
 #[derive(Debug)]
 struct OfferUnanswered;
 
-/// Ask the endpoint for the offer - `Ok(None)` when it answered that there is
+/// Ask the endpoint for the offers - empty when it answered that there is
 /// nothing to spend.
-fn request_offer() -> Result<Option<LimitReset>, OfferUnanswered> {
+fn request_offers() -> Result<Vec<LimitReset>, OfferUnanswered> {
     let url = format!("{}?{RESET_PROGRAM}=1&skip_spend=1", claude_usage_url());
     let body = curl_claude_oauth(&ClaudeOauthRequest {
         url: &url,
@@ -151,7 +150,8 @@ fn request_offer() -> Result<Option<LimitReset>, OfferUnanswered> {
     Ok(response
         .get(RESET_PROGRAM)
         .and_then(|status| ResetStatus::deserialize(status).ok())
-        .and_then(offered_reset))
+        .map(offered_resets)
+        .unwrap_or_default())
 }
 
 fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
@@ -200,33 +200,69 @@ impl Grant {
     }
 }
 
-/// The grant the server names as next, while the account may spend it now.
-/// Its count is every reset of the same kind the account holds: one launch
-/// can hand out several grants that clear the same limits (a base grant plus
-/// tenure bonuses), and claude.ai counts them together ("Fable reset · 3").
-fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
+/// The limits a grant clears, order-free, so two grants of one kind compare
+/// equal however the server lists them.
+fn kind_of(grant: &Grant) -> Vec<&str> {
+    let mut clears: Vec<&str> = grant.clears.iter().map(String::as_str).collect();
+    clears.sort_unstable();
+    clears
+}
+
+/// One offer per kind of reset the account can spend now - a kind being the
+/// set of limits its grants clear. One launch can hand out several grants of
+/// a kind (a base grant plus tenure bonuses), and claude.ai counts them
+/// together ("Fable reset · 3"); different kinds (a Fable reset beside an
+/// all-models one) stay apart so the user picks which to spend.
+///
+/// Each offer spends the grant that runs out first in its kind - the server's
+/// `next_grant_id` when it is one of them - and the server's next kind leads.
+fn offered_resets(status: ResetStatus) -> Vec<LimitReset> {
     if !status.is_eligible {
-        return None;
+        return Vec::new();
     }
 
-    let next_grant_id = status.next_grant_id?;
-    let grant = status
-        .grants
+    // One pass: each spendable grant joins its kind's group, its kind worked
+    // out once. Groups keep the server's order (a handful of grants, so a
+    // linear lookup beats hashing).
+    let mut groups: Vec<(Vec<&str>, Vec<&Grant>)> = Vec::new();
+    for grant in status.grants.iter().filter(|grant| grant.is_spendable()) {
+        let kind = kind_of(grant);
+        if let Some((_, grants)) = groups.iter_mut().find(|(existing, _)| *existing == kind) {
+            grants.push(grant);
+        } else {
+            groups.push((kind, vec![grant]));
+        }
+    }
+
+    let next_grant_id = status.next_grant_id.as_deref();
+    groups.sort_by_key(|(_, grants)| !grants.iter().any(|grant| is_grant(grant, next_grant_id)));
+    groups
         .iter()
-        .find(|grant| grant.id == next_grant_id)
-        .filter(|grant| grant.is_spendable())?;
-    let resets_left = status
-        .grants
+        .filter_map(|(_, grants)| offer_for_kind(grants, next_grant_id))
+        .collect()
+}
+
+fn is_grant(grant: &Grant, grant_id: Option<&str>) -> bool {
+    Some(grant.id.as_str()) == grant_id
+}
+
+/// One kind's offer: every reset its grants hold, the earliest expiry, and
+/// the grant a claim spends - the server's next when it is of this kind, or
+/// else the one that runs out first.
+fn offer_for_kind(grants: &[&Grant], next_grant_id: Option<&str>) -> Option<LimitReset> {
+    let first_expiring = grants
         .iter()
-        .filter(|other| other.is_spendable() && other.clears == grant.clears)
-        .map(|other| other.resets_left)
-        .sum();
+        .min_by_key(|grant| (grant.ends_at.is_none(), grant.ends_at.as_deref()))?;
+    let spent_first = grants
+        .iter()
+        .find(|grant| is_grant(grant, next_grant_id))
+        .unwrap_or(first_expiring);
     Some(LimitReset {
-        grant_id: grant.id.clone(),
-        label: grant.label.clone(),
-        resets_left,
-        ends_at: grant.ends_at.clone(),
-        clears: grant.clears.clone(),
+        grant_id: spent_first.id.clone(),
+        label: spent_first.label.clone(),
+        resets_left: grants.iter().map(|grant| grant.resets_left).sum(),
+        ends_at: first_expiring.ends_at.clone(),
+        clears: spent_first.clears.clone(),
     })
 }
 
@@ -252,7 +288,7 @@ fn claude_cli_user_agent(profile: &ClaudeProfile) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_grant_id, offered_reset, LimitReset, LimitResetOutcome, ResetStatus};
+    use super::{is_grant_id, offered_resets, LimitReset, LimitResetOutcome, ResetStatus};
 
     fn status(json: &serde_json::Value) -> ResetStatus {
         serde_json::from_value(json.clone()).expect("a status")
@@ -261,7 +297,7 @@ mod tests {
     #[test]
     fn offers_the_next_grant_while_it_is_usable() {
         // The real shape, probed live from a Max account.
-        let offer = offered_reset(status(&serde_json::json!({
+        let offers = offered_resets(status(&serde_json::json!({
             "eligible": true,
             "at_limit": true,
             "grants": [{
@@ -277,8 +313,8 @@ mod tests {
         })));
 
         assert_eq!(
-            offer,
-            Some(LimitReset {
+            offers,
+            vec![LimitReset {
                 grant_id: "opus55-launch-promax-20260921".to_string(),
                 label: "Claude Opus 5.5 launch: one usage-limit reset for Pro and Max".to_string(),
                 resets_left: 1,
@@ -288,45 +324,76 @@ mod tests {
                     "seven_day".to_string(),
                     "seven_day_overage_included".to_string()
                 ],
-            })
+            }]
         );
     }
+
+    fn grant(id: &str, resets_left: u32, ends_at: &str, clears: &[&str]) -> serde_json::Value {
+        serde_json::json!({
+            "id": id,
+            "label": id,
+            "resets_left": resets_left,
+            "ends_at": ends_at,
+            "clears": clears,
+            "usable_now": true
+        })
+    }
+
+    const FABLE: &[&str] = &["seven_day_overage_included"];
+    const ALL_MODELS: &[&str] = &["five_hour", "seven_day"];
 
     #[test]
     fn counts_every_held_grant_of_the_same_kind() {
         // The real shape, probed live: a launch grant plus two tenure bonuses,
-        // all clearing Fable's week, beside one of another kind and a spent one.
-        let fable_grant = |id: &str, resets_left: u32| {
-            serde_json::json!({
-                "id": id,
-                "label": id,
-                "resets_left": resets_left,
-                "ends_at": "2027-03-09T09:59:00+02:00",
-                "clears": ["seven_day_overage_included"],
-                "usable_now": true
-            })
-        };
-        let offer = offered_reset(status(&serde_json::json!({
+        // all clearing Fable's week, beside a spent one.
+        let expiry = "2027-03-09T09:59:00+02:00";
+        let offers = offered_resets(status(&serde_json::json!({
             "eligible": true,
             "grants": [
-                fable_grant("launch-2610-fable", 1),
-                fable_grant("launch-2610-fable-12mo", 1),
-                fable_grant("launch-2610-fable-6mo", 1),
-                fable_grant("launch-2610-fable-spent", 0),
-                {
-                    "id": "session-only",
-                    "label": "session-only",
-                    "resets_left": 2,
-                    "clears": ["five_hour"],
-                    "usable_now": true
-                }
+                grant("launch-2610-fable", 1, expiry, FABLE),
+                grant("launch-2610-fable-12mo", 1, expiry, FABLE),
+                grant("launch-2610-fable-6mo", 1, expiry, FABLE),
+                grant("launch-2610-fable-spent", 0, expiry, FABLE)
             ],
             "next_grant_id": "launch-2610-fable"
-        })))
-        .expect("an offer");
+        })));
 
-        assert_eq!(offer.grant_id, "launch-2610-fable");
-        assert_eq!(offer.resets_left, 3);
+        assert_eq!(offers.len(), 1);
+        assert_eq!(offers[0].grant_id, "launch-2610-fable");
+        assert_eq!(offers[0].resets_left, 3);
+    }
+
+    #[test]
+    fn offers_each_kind_apart_with_the_servers_next_kind_first() {
+        let offers = offered_resets(status(&serde_json::json!({
+            "eligible": true,
+            "grants": [
+                grant("all-late", 1, "2027-05-01T00:00:00+00:00", &["seven_day", "five_hour"]),
+                grant("fable", 1, "2027-03-09T00:00:00+00:00", FABLE),
+                grant("all-early", 1, "2027-04-01T00:00:00+00:00", ALL_MODELS)
+            ],
+            "next_grant_id": "fable"
+        })));
+
+        let summary: Vec<(&str, u32, Option<&str>)> = offers
+            .iter()
+            .map(|offer| {
+                (
+                    offer.grant_id.as_str(),
+                    offer.resets_left,
+                    offer.ends_at.as_deref(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            summary,
+            vec![
+                ("fable", 1, Some("2027-03-09T00:00:00+00:00")),
+                // Clears listed in any order are one kind; the earliest-expiring
+                // grant of it is spent first.
+                ("all-early", 2, Some("2027-04-01T00:00:00+00:00"))
+            ]
+        );
     }
 
     #[test]
@@ -343,8 +410,8 @@ mod tests {
             "next_grant_id": "g"
         }));
 
-        assert_eq!(offered_reset(ineligible), None);
-        assert_eq!(offered_reset(spent), None);
+        assert_eq!(offered_resets(ineligible), Vec::new());
+        assert_eq!(offered_resets(spent), Vec::new());
     }
 
     #[test]

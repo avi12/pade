@@ -1,4 +1,4 @@
-import { limitResetKind, spentResetPhrase } from "@/lib/usage/limit-reset/limit-reset-kind";
+import { limitResetChip, limitResetKind, spentResetPhrase } from "@/lib/usage/limit-reset/limit-reset-kind";
 import { describe, expect, it } from "vitest";
 
 describe("limitResetKind", () => {
@@ -43,5 +43,36 @@ describe("spentResetPhrase", () => {
         resetsLeft: 3
       })
     ).toBe("one of your 3 weekly resets");
+  });
+});
+
+describe("limitResetChip", () => {
+  const fable = {
+    grantId: "fable",
+    label: "fable",
+    resetsLeft: 3,
+    endsAt: null,
+    clears: ["seven_day_overage_included"]
+  };
+  const full = {
+    grantId: "full",
+    label: "full",
+    resetsLeft: 1,
+    endsAt: null,
+    clears: ["five_hour", "seven_day"]
+  };
+
+  it("names a single kind and says what it frees up", () => {
+    expect(limitResetChip([fable])).toEqual({
+      label: "Fable reset",
+      hint: "Resets your Fable limit, and takes this week's Fable use off your weekly limit · 3 left"
+    });
+  });
+
+  it("counts several kinds and lists each in the hint", () => {
+    expect(limitResetChip([fable, full])).toEqual({
+      label: "4 resets",
+      hint: "Fable reset: 3 left\nFull reset: 1 left\nClick to pick which one to use"
+    });
   });
 });
