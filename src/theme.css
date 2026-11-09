@@ -1057,9 +1057,10 @@ textarea {
     rotate: 180deg;
   }
 
-  /* The trigger's own hover tooltip must not peek out from behind the open menu
-     (both live in the top layer). */
-  &[data-tooltip]::after {
+  /* The trigger's hover tooltips - its own and any inside it (the usage pill's
+     limits) - must not peek out from behind the open menu. */
+  &[data-tooltip]::after,
+  [data-tooltip]::after {
     display: none;
   }
 }

@@ -13,20 +13,40 @@
   // One agent's limits as compact stacks - the mono kind letter over its
   // percent, coloured by how close it is - or a dash with no reading. Shared by
   // the top bar's agent pill and the composer's LLM menu, so they read alike.
-  const { group, justReset = new Set() }: {
+  const { group, justReset = new Set(), isInMenu = false }: {
     group: AgentGroup;
     /** Limits that just started over, whose numbers flash. */
     justReset?: ReadonlySet<string>;
+    /** Inside a scrolling [popover] menu a `data-tooltip` pseudo would be
+     *  trapped and widen the list, so the hint takes the shared top-layer
+     *  bubble there. Elsewhere it stays the CSS pseudo, which theme.css hides
+     *  while the enclosing trigger's own menu is open. */
+    isInMenu?: boolean;
   } = $props();
 
   const face = $derived(noReadingFace(group));
+
+  function pseudoHint(text: string) {
+    if (isInMenu) {
+      return undefined;
+    }
+
+    return text;
+  }
+
+  function menuHint(text: () => string) {
+    if (!isInMenu) {
+      return undefined;
+    }
+
+    return tooltip(text);
+  }
 </script>
 
 {#if group.limits.length > 0}
   <span class="limits">
     {#each group.limits as limit (limit.label)}
-      <!-- The letter alone doesn't say which limit it is: the shared top-layer
-           bubble names it (a data-tooltip pseudo would widen a scrolling list). -->
+      <!-- The letter alone doesn't say which limit it is: the hint names it. -->
       <span
         class={["limit severity", severityClass(limit.level)]}
         class:just-reset={isJustReset({
@@ -34,7 +54,8 @@
           agentId: group.id,
           limit
         })}
-        {@attach tooltip(() => limitTooltip(limit))}
+        {@attach menuHint(() => limitTooltip(limit))}
+        data-tooltip={pseudoHint(limitTooltip(limit))}
         transition:growInline
       >
         <span class="kind">{limit.kindShort}</span>
@@ -43,12 +64,12 @@
     {/each}
   </span>
 {:else if face}
-  <!-- Why there is no reading, and the fix on hover (top-layer, like the
-       limits above, since this sits in scrolling menus). -->
+  <!-- Why there is no reading, and the fix on hover. -->
   <span
     class="dash"
     class:state={face.isState}
-    {@attach tooltip(() => face.hint)}
+    {@attach menuHint(() => face.hint)}
+    data-tooltip={pseudoHint(face.hint)}
   >{face.label}</span>
 {:else}
   <span class="dash">{NO_READING}</span>

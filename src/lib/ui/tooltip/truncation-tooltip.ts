@@ -107,16 +107,12 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
     // so the bubble steps aside over a nested tooltip and comes back after.
     elTrigger.addEventListener("pointerover", activate);
     elTrigger.addEventListener("pointerleave", deactivate);
-    // A press dismisses it, as a native tooltip does: a click that opens a
-    // menu would otherwise leave the bubble showing underneath that menu.
-    elTrigger.addEventListener("pointerdown", deactivate);
     elTrigger.addEventListener("focusin", activateOnVisibleFocus);
     elTrigger.addEventListener("focusout", deactivate);
     return () => {
       deactivate();
       elTrigger.removeEventListener("pointerover", activate);
       elTrigger.removeEventListener("pointerleave", deactivate);
-      elTrigger.removeEventListener("pointerdown", deactivate);
       elTrigger.removeEventListener("focusin", activateOnVisibleFocus);
       elTrigger.removeEventListener("focusout", deactivate);
       elTrigger.style.removeProperty(ANCHOR_NAME_PROPERTY);
