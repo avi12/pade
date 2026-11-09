@@ -194,7 +194,16 @@ fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
     serde_json::from_str(&response).map_err(|error| error.to_string())
 }
 
+impl Grant {
+    fn is_spendable(&self) -> bool {
+        self.is_usable_now && self.resets_left > 0
+    }
+}
+
 /// The grant the server names as next, while the account may spend it now.
+/// Its count is every reset of the same kind the account holds: one launch
+/// can hand out several grants that clear the same limits (a base grant plus
+/// tenure bonuses), and claude.ai counts them together ("Fable reset · 3").
 fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
     if !status.is_eligible {
         return None;
@@ -203,15 +212,21 @@ fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
     let next_grant_id = status.next_grant_id?;
     let grant = status
         .grants
-        .into_iter()
-        .find(|grant| grant.id == next_grant_id)?;
-    let is_spendable = grant.is_usable_now && grant.resets_left > 0;
-    is_spendable.then_some(LimitReset {
-        grant_id: grant.id,
-        label: grant.label,
-        resets_left: grant.resets_left,
-        ends_at: grant.ends_at,
-        clears: grant.clears,
+        .iter()
+        .find(|grant| grant.id == next_grant_id)
+        .filter(|grant| grant.is_spendable())?;
+    let resets_left = status
+        .grants
+        .iter()
+        .filter(|other| other.is_spendable() && other.clears == grant.clears)
+        .map(|other| other.resets_left)
+        .sum();
+    Some(LimitReset {
+        grant_id: grant.id.clone(),
+        label: grant.label.clone(),
+        resets_left,
+        ends_at: grant.ends_at.clone(),
+        clears: grant.clears.clone(),
     })
 }
 
@@ -275,6 +290,43 @@ mod tests {
                 ],
             })
         );
+    }
+
+    #[test]
+    fn counts_every_held_grant_of_the_same_kind() {
+        // The real shape, probed live: a launch grant plus two tenure bonuses,
+        // all clearing Fable's week, beside one of another kind and a spent one.
+        let fable_grant = |id: &str, resets_left: u32| {
+            serde_json::json!({
+                "id": id,
+                "label": id,
+                "resets_left": resets_left,
+                "ends_at": "2027-03-09T09:59:00+02:00",
+                "clears": ["seven_day_overage_included"],
+                "usable_now": true
+            })
+        };
+        let offer = offered_reset(status(&serde_json::json!({
+            "eligible": true,
+            "grants": [
+                fable_grant("launch-2610-fable", 1),
+                fable_grant("launch-2610-fable-12mo", 1),
+                fable_grant("launch-2610-fable-6mo", 1),
+                fable_grant("launch-2610-fable-spent", 0),
+                {
+                    "id": "session-only",
+                    "label": "session-only",
+                    "resets_left": 2,
+                    "clears": ["five_hour"],
+                    "usable_now": true
+                }
+            ],
+            "next_grant_id": "launch-2610-fable"
+        })))
+        .expect("an offer");
+
+        assert_eq!(offer.grant_id, "launch-2610-fable");
+        assert_eq!(offer.resets_left, 3);
     }
 
     #[test]
