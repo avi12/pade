@@ -176,7 +176,8 @@
     project: string;
     opensNewWindow: boolean;
   }) {
-    // The search found what it was for; the full rail comes back.
+    // The search found what it was for; the full rail comes back (as it does
+    // after picking a chat or starting a new one below).
     filter = "";
     const openWindow = otherWindowWith({
       windowRows,
@@ -271,7 +272,10 @@
       ondeleteproject={target => {
         deleteTarget = target;
       }}
-      {onnewchat}
+      onnewchat={target => {
+        filter = "";
+        onnewchat(target);
+      }}
       onpick={async ({ project: picked, event }) => await pickProject({
         project: picked,
         opensNewWindow: isNewWindowClick(event)
@@ -288,8 +292,14 @@
       onreorderpins={async paths => {
         await sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths });
       }}
-      {onresumeconversation}
-      {onselectchat}
+      onresumeconversation={target => {
+        filter = "";
+        onresumeconversation(target);
+      }}
+      onselectchat={target => {
+        filter = "";
+        onselectchat(target);
+      }}
       {onstopchat}
       ontogglepin={async target => {
         await sendSettingsMessage(Command.workspaceSetPinned, target);
