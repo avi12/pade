@@ -10,6 +10,7 @@
   } from "@/lib/stores/usage/limitReset.svelte";
   import type { AccountUsage, AgentSession, NoReading } from "@/lib/types";
   import { growInline } from "@/lib/ui/motion";
+  import { limitResetKind } from "@/lib/usage/limit-reset/limit-reset-kind";
   import LimitResetConfirm from "@/lib/usage/limit-reset/LimitResetConfirm.svelte";
   import {
     hasClaudePill,
@@ -100,6 +101,7 @@
   }
 
   const resetOffer = $derived(limitResetOffer());
+  const resetKind = $derived(limitResetKind(resetOffer?.clears ?? []));
   // The chip sits in Claude's pill, so it shows only while that pill does (not
   // folded into the "+N" overflow).
   const showsResetInPill = $derived(resetOffer !== null && hasClaudePill(groups));
@@ -193,8 +195,8 @@
   {#if showsResetInPill}
     <button
       class="reset-face reset-chip"
-      aria-label="Free limit reset available - {limitResetSummary()}"
-      data-tooltip="Free limit reset available · {limitResetSummary()}"
+      aria-label="{resetKind.title} -{resetKind.effect} - {limitResetSummary()}"
+      data-tooltip="{resetKind.effect} · {limitResetSummary()}"
       onclick={askToResetLimits}
       type="button"
       transition:growInline
@@ -209,7 +211,7 @@
 </span>
 
 {#snippet resetLabel()}
-  <Icon name="refresh" size={11} />Reset
+  <Icon name="refresh" size={11} />{resetKind.title}
 {/snippet}
 
 <style>

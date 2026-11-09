@@ -5,18 +5,20 @@
   import Icon from "@/lib/Icon.svelte";
   import { askToResetLimits, limitResetOffer, limitResetSummary } from "@/lib/stores/usage/limitReset.svelte";
   import { revealBlock } from "@/lib/ui/motion";
+  import { limitResetKind } from "@/lib/usage/limit-reset/limit-reset-kind";
 
   const offer = $derived(limitResetOffer());
+  const kind = $derived(limitResetKind(offer?.clears ?? []));
 </script>
 
 {#if offer}
-  <div class="limit-reset-offer" data-tooltip={offer.label} transition:revealBlock>
+  <div class="limit-reset-offer" data-tooltip={kind.effect} transition:revealBlock>
     <Icon name="refresh" />
     <span class="offer-text">
-      Free limit reset
+      {kind.title}
       <span class="offer-meta">{limitResetSummary()}</span>
     </span>
-    <button class="offer-button" onclick={askToResetLimits} type="button">Reset for free</button>
+    <button class="offer-button" onclick={askToResetLimits} type="button">Use it</button>
   </div>
 {/if}
 

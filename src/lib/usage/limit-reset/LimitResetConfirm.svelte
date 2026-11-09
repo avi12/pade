@@ -9,6 +9,7 @@
     limitResetConfirmation,
     limitResetOffer
   } from "@/lib/stores/usage/limitReset.svelte";
+  import { limitResetKind, spentResetPhrase } from "@/lib/usage/limit-reset/limit-reset-kind";
 
   const { onreset }: {
     /** Re-read the account once its limits were reset. */
@@ -16,13 +17,14 @@
   } = $props();
 
   const confirmation = $derived(limitResetConfirmation());
-  const spentReset = $derived.by(() => {
-    if (limitResetOffer()?.resetsLeft === 1) {
-      return "your one free reset";
-    }
-
-    return "one of your free resets";
-  });
+  const offer = $derived(limitResetOffer());
+  const kind = $derived(limitResetKind(offer?.clears ?? []));
+  const spentReset = $derived(
+    spentResetPhrase({
+      name: kind.name,
+      resetsLeft: offer?.resetsLeft ?? 0
+    })
+  );
 </script>
 
 {#if confirmation.isOpen}
@@ -35,11 +37,11 @@
     nested
     oncancel={cancelLimitReset}
     onconfirm={() => confirmLimitReset(onreset)}
-    title="Reset your usage limits?"
+    title="Use your {kind.name}?"
   >
     <p>
-      Clears Claude's usage limits right now. This spends {spentReset}, and it can't be
-      undone. Your weekly limit still resets on its usual day.
+      {kind.effect}, right now. This spends {spentReset}, and it can't be undone. Your
+      weekly limit still resets on its usual day.
     </p>
   </ConfirmDialog>
 {/if}
