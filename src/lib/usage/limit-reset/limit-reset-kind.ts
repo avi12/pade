@@ -91,7 +91,8 @@ export function limitResetKind(clears: readonly string[]) {
   return UNKNOWN_RESET;
 }
 
-/** How many of a kind are left and until when ("3 left · use by Mar 9"). */
+/** How many of a kind are left and until when, in local time ("3 left · use
+ *  by Mar 9, 9:59 AM GMT+2"). */
 export function limitResetSummary(offer: LimitReset) {
   const left = `${formatCount(offer.resetsLeft)} left`;
   if (!offer.endsAt) {
@@ -100,7 +101,10 @@ export function limitResetSummary(offer: LimitReset) {
 
   const date = new Intl.DateTimeFormat(undefined, {
     month: "short",
-    day: "numeric"
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short"
   }).format(Date.parse(offer.endsAt));
   return `${left} · use by ${date}`;
 }
