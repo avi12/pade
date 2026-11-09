@@ -1046,22 +1046,26 @@ textarea {
    `.menu-host` bounds the :has() so it never becomes a document-wide selector
    (see the tooltip PERF note above); `:not([popover] *)` stops a menu's own inner
    trigger (a submenu) from lighting up the outer one. */
-.menu-host:has([popover]:popover-open) .menu-trigger:not([popover] *) {
-  border-color: var(--primary);
-  background: var(--surface-3);
+.menu-host:has([popover]:popover-open) {
+  .menu-trigger:not([popover] *) {
+    border-color: var(--primary);
+    background: var(--surface-3);
 
-  /* A caret in the trigger flips to point at the open menu - not one of a
-     select nested inside it (the new project's root chip) whose own menu is
-     closed. */
-  .caret:not(.menu-host:not(:has([popover]:popover-open)) *) {
-    rotate: 180deg;
-  }
+    /* A caret in the trigger flips to point at the open menu - not one of a
+       select nested inside it (the new project's root chip) whose own menu is
+       closed. */
+    .caret:not(.menu-host:not(:has([popover]:popover-open)) *) {
+      rotate: 180deg;
+    }
 
-  /* The trigger's hover tooltips - its own and any inside it (the usage pill's
-     limits) - must not peek out from behind the open menu. */
-  &[data-tooltip]::after,
-  [data-tooltip]::after {
-    display: none;
+    /* The trigger's hover tooltips - its own and any inside it (the usage
+       pill's limits) - must not peek out from behind the open menu. */
+    &,
+    [data-tooltip] {
+      &[data-tooltip]::after {
+        display: none;
+      }
+    }
   }
 }
 
