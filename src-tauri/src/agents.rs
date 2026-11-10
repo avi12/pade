@@ -19,6 +19,7 @@ pub(crate) mod parsed_files;
 pub(crate) mod resume;
 pub(crate) mod running_model;
 pub(crate) mod session_context;
+pub(crate) mod storage;
 pub(crate) mod summary;
 pub(crate) mod token_burn;
 

@@ -88,6 +88,12 @@ pub(super) fn first_line(path: &Path) -> Option<String> {
     Some(line)
 }
 
+/// Where any rollout's session ran, oneshot or interactive, as its
+/// `session_meta` line records it.
+pub(super) fn rollout_cwd(metadata_line: &str) -> Option<String> {
+    Some(json_string_field(metadata_line, CWD_FIELD)?.replace("\\\\", "\\"))
+}
+
 /// An interactive session as its rollout's `session_meta` line records it: where
 /// it ran and its id. Field extraction over full JSON parsing: the meta line
 /// drags in the entire base-instructions prompt, and two string fields don't
@@ -110,7 +116,7 @@ impl InteractiveSession {
         }
 
         Some(Self {
-            cwd: json_string_field(metadata_line, CWD_FIELD)?.replace("\\\\", "\\"),
+            cwd: rollout_cwd(metadata_line)?,
             session_id: json_string_field(metadata_line, SESSION_ID_FIELD)?,
         })
     }

@@ -136,6 +136,14 @@ pub struct Prefs {
     /// absent keeps every temp workspace until the user removes it.
     #[serde(default)]
     pub temp_cleanup_days: Option<u32>,
+    /// Delete an agent chat once it grows past this many megabytes; absent
+    /// keeps chats of any size (`agents::storage`).
+    #[serde(default)]
+    pub chat_size_limit_megabytes: Option<u32>,
+    /// Keep every agent chat together under this many megabytes, deleting the
+    /// oldest of each project first; absent sets no total (`agents::storage`).
+    #[serde(default)]
+    pub chat_storage_limit_megabytes: Option<u32>,
     /// Frontend-owned preferences Rust never acts on, kept verbatim so they
     /// survive a load/save round-trip. `flatten` captures every key not named
     /// above; the TS zod schema is their single source of truth.

@@ -576,6 +576,13 @@ export type StartMode = z.infer<typeof StartMode>;
  *  `null` is the "Off" choice: temp workspaces stay until removed by hand. */
 export const TEMP_CLEANUP_DAY_CHOICES = [null, 7, 30, 90] as const;
 
+/** The size caps offered for one agent chat, in megabytes. `null` is "Off". */
+export const CHAT_SIZE_LIMIT_CHOICES = [null, 100, 200, 500] as const;
+
+/** The caps offered for all agent chats together, in megabytes (1, 2, 5 and
+ *  10 GB). `null` is "Off". */
+export const CHAT_STORAGE_LIMIT_CHOICES = [null, 1024, 2048, 5120, 10_240] as const;
+
 /** A model and/or reasoning effort picked for one session, or as a workspace's
  *  default for one agent. */
 export const ModelChoice = z.object({
@@ -601,6 +608,12 @@ const Prefs = z.object({
   /** Delete a temp workspace once it has gone unused this many days. Absent =
    *  off. Read by the backend's picker-refresh sweep (`workspace_prune`). */
   tempCleanupDays: z.number().int().positive().nullish(),
+  /** Delete an agent chat once it grows past this many megabytes. Absent =
+   *  off. Read by the backend's chat-storage sweep (`agents::storage`). */
+  chatSizeLimitMegabytes: z.number().int().positive().nullish(),
+  /** Keep all agent chats together under this many megabytes, deleting each
+   *  project's oldest first. Absent = off. Read by `agents::storage` too. */
+  chatStorageLimitMegabytes: z.number().int().positive().nullish(),
   /** Name session tabs with AI from what the agent is doing - the global default
    *  for every window. Opt-in: off unless explicitly true. */
   aiSessionNaming: z.boolean().nullish(),
@@ -982,6 +995,20 @@ export const RecordedConversationsChanged = z.object({
   project: z.string().nullable()
 });
 export type RecordedConversationsChanged = z.infer<typeof RecordedConversationsChanged>;
+
+/** Some chats' disk use: all of them, or what a cleanup removes. */
+const ChatBytes = z.object({
+  bytes: z.number().nonnegative(),
+  chatCount: z.number().int().nonnegative()
+});
+
+/** The disk the agents' recorded chats take, per agent, and what the limits
+ *  asked about would delete (`cleanup`). */
+export const ChatStorage = ChatBytes.extend({
+  agents: z.array(ChatBytes.extend({ agentId: z.string() })),
+  cleanup: ChatBytes
+});
+export type ChatStorage = z.infer<typeof ChatStorage>;
 
 /** One model an agent offers to switch to, as its own local catalog describes
  *  it - effort levels lowest first (with the agent's labels), empty for a

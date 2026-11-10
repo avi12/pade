@@ -10,6 +10,7 @@
   import { isTemporaryWorkspace } from "@/lib/util/paths";
   import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
+  import ChatStorageSection from "@/panels/picker/ChatStorageSection.svelte";
   import "@/panels/picker/chrome.css";
   import { createEditorCatalog } from "@/panels/picker/editorCatalog.svelte";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
@@ -215,6 +216,8 @@
           }}
           prefs={settings.prefs}
         />
+
+        <ChatStorageSection {agents} prefs={settings.prefs} />
 
         <RecentSection
           ides={editors.ides}

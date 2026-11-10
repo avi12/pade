@@ -136,6 +136,7 @@ pub fn run() {
             workspace::watcher::init(handle);
             agents::running_model::init(handle);
             agents::conversation_watch::init(handle);
+            agents::storage::init();
             update::init(handle);
             app.manage(platform::window::WindowProjects::default());
             app.manage(platform::discord::DiscordState::default());
@@ -200,6 +201,8 @@ pub fn run() {
             terminal::theming::agent_theme_publish,
             agents::resume::agent_resume_args,
             agents::conversations::agent_conversations,
+            agents::storage::chat_storage,
+            agents::storage::chat_storage_clean,
             agents::session_context::agent_session_context,
             agents::token_burn::session_token_usage,
             agents::running_model::agent_running_model,

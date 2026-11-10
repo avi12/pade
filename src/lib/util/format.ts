@@ -22,6 +22,35 @@ export function formatQuantity({ count, noun, plural = `${noun}s` }: {
   return `${formatCount(count)} ${count === SINGULAR_COUNT ? noun : plural}`;
 }
 
+export const BYTES_PER_MEGABYTE = 1024 * 1024;
+const MEGABYTES_PER_GIGABYTE = 1024;
+
+const MEGABYTES = new Intl.NumberFormat(undefined, {
+  style: "unit",
+  unit: "megabyte",
+  maximumFractionDigits: 0
+});
+
+const GIGABYTES = new Intl.NumberFormat(undefined, {
+  style: "unit",
+  unit: "gigabyte",
+  maximumFractionDigits: 1
+});
+
+/** A size on disk in megabytes, as gigabytes from 1 GB up - "350 MB", "12.7 GB". */
+export function formatMegabytes(megabytes: number) {
+  if (megabytes < MEGABYTES_PER_GIGABYTE) {
+    return MEGABYTES.format(megabytes);
+  }
+
+  return GIGABYTES.format(megabytes / MEGABYTES_PER_GIGABYTE);
+}
+
+/** A byte count the way `formatMegabytes` prints it. */
+export function formatBytes(bytes: number) {
+  return formatMegabytes(bytes / BYTES_PER_MEGABYTE);
+}
+
 /** A rounded whole percent - 30.4 → "30%". */
 export function formatPercent(value: number) {
   return `${INTEGER.format(value)}%`;

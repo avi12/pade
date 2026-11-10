@@ -11,6 +11,7 @@ import {
   AddRootOutcome,
   Agent,
   ChangeEvent,
+  ChatStorage,
   ClaudeKeybindings,
   Commit,
   CommitDetail,
@@ -86,6 +87,8 @@ export enum Command {
   claudeKeybindings = "claude_keybindings",
   agentResumeArgs = "agent_resume_args",
   agentConversations = "agent_conversations",
+  chatStorage = "chat_storage",
+  chatStorageClean = "chat_storage_clean",
   agentSessionContext = "agent_session_context",
   sessionTokenUsage = "session_token_usage",
   agentRunningModel = "agent_running_model",
@@ -321,6 +324,14 @@ export interface CommandProtocolMap {
   /** Every conversation the agents recorded for `project`, newest first -
    *  the sidebar's take on each CLI's `/resume` list. */
   [Command.agentConversations]: (data: { project: string }) => RecordedConversation[];
+  /** The disk every agent's chats take, and what these limits would delete
+   *  (a project's newest chat and last week's chats are never deleted). */
+  [Command.chatStorage]: (data: {
+    sizeLimitMegabytes: number | null;
+    storageLimitMegabytes: number | null;
+  }) => ChatStorage;
+  /** Delete what the saved limits allow, then measure again. */
+  [Command.chatStorageClean]: () => ChatStorage;
   /** How full the session's context window is, read from the agent's own
    *  session log; `null` for an agent that keeps no readable log. */
   [Command.agentSessionContext]: (data: {
@@ -765,6 +776,8 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.claudeKeybindings]: ClaudeKeybindings.nullable(),
   [Command.agentResumeArgs]: z.array(z.string()),
   [Command.agentConversations]: z.array(RecordedConversation),
+  [Command.chatStorage]: ChatStorage,
+  [Command.chatStorageClean]: ChatStorage,
   [Command.agentSessionContext]: SessionContext.nullable(),
   [Command.sessionTokenUsage]: SessionTokenUsage,
   [Command.agentRunningModel]: RunningModel.nullable(),
