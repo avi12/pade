@@ -4,7 +4,9 @@
   // would delete chats right away asks first, saying how many and how much.
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
-  import type { Agent, ChatStorage, Prefs } from "@/lib/types";
+  import { prefs } from "@/lib/settings/settings.svelte";
+  import type { Agent, ChatStorage } from "@/lib/types";
+  import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import { settledValue } from "@/lib/util/async/settled";
   import {
     agentShares,
@@ -12,15 +14,14 @@
     CHAT_STORAGE_CHOICES,
     keptAboveLimit,
     storageSummary
-  } from "@/panels/picker/chat-storage";
-  import type { ChatStorageLimits } from "@/panels/picker/chat-storage";
-  import ChatStorageConfirm from "@/panels/picker/ChatStorageConfirm.svelte";
-  import ChoiceRow from "@/panels/picker/ChoiceRow.svelte";
+  } from "@/panels/config/chat-storage";
+  import type { ChatStorageLimits } from "@/panels/config/chat-storage";
+  import ChatStorageConfirm from "@/panels/config/ChatStorageConfirm.svelte";
   import { onMount } from "svelte";
 
-  const { agents, prefs }: {
+  const { agents }: {
+    /** The installed agents, for the names each share is listed under. */
     agents: Agent[];
-    prefs: Prefs;
   } = $props();
 
   const saved = $derived<ChatStorageLimits>({
@@ -34,6 +35,7 @@
     limits: ChatStorageLimits;
     preview: ChatStorage;
   } | null>(null);
+
   const summary = $derived.by(() => {
     if (!storage) {
       return "Measuring…";
@@ -107,40 +109,55 @@
   });
 </script>
 
-<section class="chat-storage">
-  <div class="storage-head">
-    <h2>Chat storage</h2>
-    <output class="storage-total">{summary}</output>
-  </div>
+<div class="field">
+  <span class="field-label">{summary}</span>
   {#if shares}
-    <p class="storage-shares">{shares}</p>
+    <span class="field-hint shares">{shares}</span>
   {/if}
-  <ChoiceRow
-    caption="Delete a chat bigger than"
-    choices={CHAT_SIZE_CHOICES}
-    onpick={async size => await propose({
-      ...saved,
-      sizeLimitMegabytes: size
-    })}
-    selected={saved.sizeLimitMegabytes}
-  />
-  <ChoiceRow
-    caption="Keep all chats under"
-    choices={CHAT_STORAGE_CHOICES}
-    onpick={async total => await propose({
-      ...saved,
-      storageLimitMegabytes: total
-    })}
-    selected={saved.storageLimitMegabytes}
-  />
-  <p class="storage-hint">
-    Deletes the oldest chat of each project in turn. A project's newest chat and anything used in the last
-    week are always kept
-  </p>
-  {#if keptNote}
-    <p class="storage-hint">{keptNote}</p>
-  {/if}
-</section>
+</div>
+
+<div class="limit-row">
+  <span class="field-text">
+    <span class="field-label">Largest chat</span>
+    <span class="field-hint">A bigger chat is deleted</span>
+  </span>
+  <div class="limit-choice">
+    <Segmented
+      chosen={saved.sizeLimitMegabytes}
+      label="Largest chat"
+      onchoose={async size => await propose({
+        ...saved,
+        sizeLimitMegabytes: size
+      })}
+      options={CHAT_SIZE_CHOICES}
+    />
+  </div>
+</div>
+
+<div class="limit-row">
+  <span class="field-text">
+    <span class="field-label">All chats</span>
+    <span class="field-hint">Over this, each project's oldest chat goes first</span>
+  </span>
+  <div class="limit-choice">
+    <Segmented
+      chosen={saved.storageLimitMegabytes}
+      label="All chats"
+      onchoose={async total => await propose({
+        ...saved,
+        storageLimitMegabytes: total
+      })}
+      options={CHAT_STORAGE_CHOICES}
+    />
+  </div>
+</div>
+
+<p class="field-hint">
+  A project's newest chat and anything used in the last week are always kept. Applies to every project
+</p>
+{#if keptNote}
+  <p class="field-hint">{keptNote}</p>
+{/if}
 
 {#if pending}
   <ChatStorageConfirm
@@ -152,30 +169,30 @@
 {/if}
 
 <style>
-  .chat-storage {
-    gap: 10px;
-  }
-
-  .storage-head {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: baseline;
-  }
-
-  .storage-total {
-    color: var(--on-surface-variant);
-    font-size: 0.6875rem;
-  }
-
-  .storage-shares,
-  .storage-hint {
+  p {
     margin: 0;
-    color: var(--on-surface-variant);
-    font-size: 0.75rem;
   }
 
-  .storage-shares {
+  .shares {
     font-family: var(--font-monospace);
+  }
+
+  .limit-row {
+    /* Label beside the options while the panel is wide; stacked once the drag
+       handle takes that room away. Asked of the card, never the viewport. */
+    @container (inline-size < 420px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .limit-choice {
+    flex: none;
+    min-inline-size: 230px;
   }
 </style>

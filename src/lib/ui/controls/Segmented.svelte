@@ -1,4 +1,4 @@
-<script generics="Value extends string | boolean | undefined" lang="ts">
+<script generics="Value extends string | number | boolean | null | undefined" lang="ts">
   import Icon, { type IconName } from "@/lib/Icon.svelte";
 
   // A single-select row of options (buttons + aria-pressed). One row of equal

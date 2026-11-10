@@ -7,7 +7,7 @@ import {
   cleanupSummary,
   keptAboveLimit,
   storageSummary
-} from "@/panels/picker/chat-storage";
+} from "@/panels/config/chat-storage";
 import { describe, expect, it } from "vitest";
 
 const MEGABYTE = 1024 * 1024;

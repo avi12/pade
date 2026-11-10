@@ -1,12 +1,11 @@
-// The chat-storage limits the picker offers, each with the label its pill
-// prints, and the words for what a limit would delete.
+// The chat-storage limits the Config panel offers, each with the label its
+// option prints, and the words for what a limit would delete.
 
 import { CHAT_SIZE_LIMIT_CHOICES, CHAT_STORAGE_LIMIT_CHOICES } from "@/lib/types";
 import type { Agent, ChatStorage } from "@/lib/types";
 import { BYTES_PER_MEGABYTE, formatBytes, formatMegabytes, formatQuantity } from "@/lib/util/format";
-import type { LabelledChoice } from "@/panels/picker/on-launch";
 
-function limitChoices(megabytes: readonly (number | null)[]): readonly LabelledChoice<number | null>[] {
+function limitChoices(megabytes: readonly (number | null)[]) {
   return megabytes.map(value => ({
     value,
     label: value === null ? "Off" : formatMegabytes(value)

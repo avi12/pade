@@ -5,7 +5,7 @@
   import ConfirmDialog from "@/lib/dialogs/ConfirmDialog.svelte";
   import type { ChatStorage } from "@/lib/types";
   import { errorMessage } from "@/lib/util/errors/errors";
-  import { cleanupSummary, keptAboveLimit } from "@/panels/picker/chat-storage";
+  import { cleanupSummary, keptAboveLimit } from "@/panels/config/chat-storage";
 
   const { preview, storageLimitMegabytes, onapply, oncancel }: {
     /** The chats measured against the proposed limits. */

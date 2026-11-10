@@ -2,6 +2,7 @@
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import type { Agent } from "@/lib/types";
   import AppearanceSettings from "@/panels/config/appearance/AppearanceSettings.svelte";
+  import ChatStorageSettings from "@/panels/config/ChatStorageSettings.svelte";
   import DiscordSettings from "@/panels/config/DiscordSettings.svelte";
   import ProjectFiles from "@/panels/config/files/ProjectFiles.svelte";
   import AgentModelDefaults from "@/panels/config/models/AgentModelDefaults.svelte";
@@ -49,6 +50,10 @@
         New sessions in this workspace start on these - each tab can still switch from its model tag
       </p>
       <AgentModelDefaults {agents} {project} />
+    </SettingsCard>
+
+    <SettingsCard title="Chat storage">
+      <ChatStorageSettings {agents} />
     </SettingsCard>
 
     <SettingsCard title="Performance">
