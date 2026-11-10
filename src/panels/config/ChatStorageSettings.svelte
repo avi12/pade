@@ -161,6 +161,7 @@
 
 {#if pending}
   <ChatStorageConfirm
+    {agents}
     onapply={applyPending}
     oncancel={() => (pending = null)}
     preview={pending.preview}

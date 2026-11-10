@@ -156,7 +156,7 @@ fn listed_modified_time(entry: &DirEntry) -> Option<SystemTime> {
 
 /// The list title a Claude transcript earns, `None` for one that isn't a
 /// conversation to resume (see [`first_typed_prompt`]).
-fn claude_transcript_title(path: &Path) -> Option<String> {
+pub(super) fn claude_transcript_title(path: &Path) -> Option<String> {
     let first_prompt = first_typed_prompt(path)?;
     Some(transcript_title(path).unwrap_or(first_prompt))
 }
@@ -379,6 +379,13 @@ pub(super) fn codex_rollout_cwd(path: &Path) -> Option<String> {
     Some(codex_session(path, modified_time(path)?)?.cwd().to_string())
 }
 
+/// The summary Copilot titled a workspace's session with.
+pub(super) fn copilot_workspace_summary(path: &Path) -> Option<String> {
+    let workspace =
+        COPILOT_WORKSPACES.get_or_parse(path, modified_time(path)?, copilot_workspace)?;
+    workspace.summary
+}
+
 /// Where a Copilot workspace's session ran - how a change to it names its
 /// project.
 pub(super) fn copilot_workspace_cwd(path: &Path) -> Option<String> {
@@ -408,7 +415,7 @@ fn codex_conversations(project: &str) -> Vec<RecordedConversation> {
 }
 
 /// Codex's thread names by session id; a later line renames an earlier one.
-fn codex_titles(index: &Path) -> HashMap<String, String> {
+pub(super) fn codex_titles(index: &Path) -> HashMap<String, String> {
     let Ok(file) = File::open(index) else {
         return HashMap::new();
     };

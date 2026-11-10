@@ -19,20 +19,24 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ffi::OsString;
 use std::fs::DirEntry;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use serde::Serialize;
 
 use crate::agents::conversations::{
-    copilot_workspace_cwd, COPILOT_WORKSPACE_FILE, TRANSCRIPT_EXTENSION,
+    claude_transcript_title, codex_titles, copilot_workspace_cwd, copilot_workspace_summary,
+    CODEX_SESSION_INDEX, COPILOT_WORKSPACE_FILE, TRANSCRIPT_EXTENSION,
 };
-use crate::agents::resume::{first_line, rollout_cwd, rollout_files, CODEX_SESSIONS_DIRECTORY};
+use crate::agents::resume::{first_line, recorded_cwd, rollout_files, CODEX_SESSIONS_DIRECTORY};
 use crate::agents::running_model::copilot_session_root;
 use crate::agents::{
     claude_directory, claude_projects_directory, codex_home, ID_CLAUDE, ID_CODEX, ID_COPILOT,
 };
-use crate::util::{encode_project, milliseconds_since_unix_epoch, now_milliseconds};
+use crate::util::{
+    encode_project, json_string_field, milliseconds_since_unix_epoch, now_milliseconds,
+};
 
 const BYTES_PER_MEGABYTE: u64 = 1024 * 1024;
 const MILLISECONDS_PER_DAY: u64 = 24 * 60 * 60 * 1000;
@@ -46,6 +50,12 @@ const CLAUDE_PER_CHAT_FOLDERS: [&str; 2] = ["file-history", "session-env"];
 const COPILOT_EVENT_LOG: &str = "events.jsonl";
 /// The project key of a chat whose project couldn't be read.
 const UNKNOWN_PROJECT: &str = "";
+/// How many of the chats a cleanup deletes are named, largest first.
+const LISTED_CHATS: usize = 100;
+/// How much of a Claude transcript's start is read for the folder it ran in.
+const TRANSCRIPT_HEAD_BYTES: u64 = 64 * 1024;
+/// The field of a Codex rollout's first line naming its session.
+const SESSION_ID_FIELD: &str = "session_id";
 
 /// One recorded conversation, as storage sees it.
 #[derive(Debug, Clone)]
@@ -93,12 +103,27 @@ pub struct AgentStorage {
     chat_count: usize,
 }
 
-/// What a cleanup removes, or would.
-#[derive(Debug, Clone, Copy, Default, Serialize, PartialEq, Eq)]
+/// One chat a cleanup removes, as the confirmation names it.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeletedChat {
+    agent_id: &'static str,
+    /// The agent's own title for it, when it gave one.
+    title: Option<String>,
+    /// The folder it ran in, when its files say.
+    project: Option<String>,
+    bytes: u64,
+    /// Milliseconds since the Unix epoch.
+    updated_at: u64,
+}
+
+/// What a cleanup removes, or would: the totals, and the largest chats by name.
+#[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Cleanup {
     bytes: u64,
     chat_count: usize,
+    chats: Vec<DeletedChat>,
 }
 
 /// The chats' disk use, and what the given limits would delete from it.
@@ -203,7 +228,75 @@ fn storage_of(chats: &[Chat], deleted: &[usize]) -> ChatStorage {
         cleanup: Cleanup {
             bytes: deleted.iter().map(|&index| chats[index].bytes).sum(),
             chat_count: deleted.len(),
+            chats: named_chats(chats, deleted),
         },
+    }
+}
+
+/// The largest of the `deleted` chats, by name - reading each one's title
+/// and folder off its files, so only the [`LISTED_CHATS`] shown are read.
+fn named_chats(chats: &[Chat], deleted: &[usize]) -> Vec<DeletedChat> {
+    let mut largest: Vec<&Chat> = deleted.iter().map(|&index| &chats[index]).collect();
+    largest.sort_by_key(|chat| std::cmp::Reverse(chat.bytes));
+    largest.truncate(LISTED_CHATS);
+    let codex_titles = codex_home()
+        .map(|home| codex_titles(&home.join(CODEX_SESSION_INDEX)))
+        .unwrap_or_default();
+
+    largest
+        .into_iter()
+        .map(|chat| {
+            let (title, project) = chat
+                .paths
+                .first()
+                .map(|path| title_and_project(chat.agent_id, path, &codex_titles))
+                .unwrap_or_default();
+            DeletedChat {
+                agent_id: chat.agent_id,
+                title,
+                project,
+                bytes: chat.bytes,
+                updated_at: chat.updated_at,
+            }
+        })
+        .collect()
+}
+
+/// A chat's title and folder, off its first file: a Claude transcript, a
+/// Codex rollout or a Copilot session folder.
+fn title_and_project(
+    agent_id: &str,
+    path: &Path,
+    codex_titles: &HashMap<String, String>,
+) -> (Option<String>, Option<String>) {
+    match agent_id {
+        ID_CLAUDE => {
+            let head = std::fs::File::open(path).ok().and_then(|file| {
+                let mut head = String::new();
+                file.take(TRANSCRIPT_HEAD_BYTES)
+                    .read_to_string(&mut head)
+                    .ok()?;
+                Some(head)
+            });
+            (
+                claude_transcript_title(path),
+                head.and_then(|head| recorded_cwd(&head)),
+            )
+        }
+        ID_CODEX => {
+            let line = first_line(path).unwrap_or_default();
+            let title = json_string_field(&line, SESSION_ID_FIELD)
+                .and_then(|id| codex_titles.get(&id).cloned());
+            (title, recorded_cwd(&line))
+        }
+        ID_COPILOT => {
+            let workspace = path.join(COPILOT_WORKSPACE_FILE);
+            (
+                copilot_workspace_summary(&workspace),
+                copilot_workspace_cwd(&workspace),
+            )
+        }
+        _ => (None, None),
     }
 }
 
@@ -397,7 +490,7 @@ fn codex_chats() -> Vec<Chat> {
         .into_iter()
         .map(|(modified, path)| {
             let project = first_line(&path)
-                .and_then(|line| rollout_cwd(&line))
+                .and_then(|line| recorded_cwd(&line))
                 .map_or_else(|| UNKNOWN_PROJECT.to_string(), |cwd| project_key(&cwd));
             Chat {
                 agent_id: ID_CODEX,

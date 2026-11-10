@@ -5,8 +5,10 @@ import {
   CHAT_SIZE_CHOICES,
   CHAT_STORAGE_CHOICES,
   cleanupSummary,
+  deletedChatRow,
   keptAboveLimit,
-  storageSummary
+  storageSummary,
+  unlistedChats
 } from "@/panels/config/chat-storage";
 import { describe, expect, it } from "vitest";
 
@@ -30,9 +32,84 @@ const STORAGE: ChatStorage = {
   ],
   cleanup: {
     bytes: 10.8 * GIGABYTE,
-    chatCount: 412
+    chatCount: 412,
+    chats: []
   }
 };
+
+const DAY = 24 * 60 * 60 * 1000;
+const NOW = 100 * DAY;
+
+const CLAUDE = {
+  id: "claude",
+  label: "Claude Code",
+  command: "claude",
+  reordersBidi: true
+};
+
+describe("the deleted chats list", () => {
+  it("names a chat by title, agent, folder, size and age", () => {
+    expect(
+      deletedChatRow({
+        chat: {
+          agentId: "claude",
+          title: "Fix the build",
+          project: String.raw`C:\repositories\avi\edge-plus`,
+          bytes: 206 * MEGABYTE,
+          updatedAt: NOW - 10 * DAY
+        },
+        agents: [CLAUDE],
+        now: NOW
+      })
+    ).toEqual({
+      title: "Fix the build",
+      details: "Claude Code · edge-plus · 206 MB · 10d ago"
+    });
+  });
+
+  it("lists an untitled chat from an unknown folder without gaps", () => {
+    expect(
+      deletedChatRow({
+        chat: {
+          agentId: "codex",
+          title: null,
+          project: null,
+          bytes: 3 * MEGABYTE,
+          updatedAt: NOW - 2 * DAY
+        },
+        agents: [CLAUDE],
+        now: NOW
+      })
+    ).toEqual({
+      title: "Untitled chat",
+      details: "codex · 3 MB · 2d ago"
+    });
+  });
+
+  it("counts the chats it leaves out, only when it leaves some out", () => {
+    const listed = {
+      agentId: "claude",
+      title: null,
+      project: null,
+      bytes: 1,
+      updatedAt: 0
+    };
+    expect(
+      unlistedChats({
+        bytes: 3,
+        chatCount: 3,
+        chats: [listed]
+      })
+    ).toBe("And 2 smaller chats");
+    expect(
+      unlistedChats({
+        bytes: 1,
+        chatCount: 1,
+        chats: [listed]
+      })
+    ).toBeNull();
+  });
+});
 
 describe("chat storage choices", () => {
   it("offers every limit, Off first, in megabytes or gigabytes", () => {

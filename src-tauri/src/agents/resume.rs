@@ -88,9 +88,10 @@ pub(super) fn first_line(path: &Path) -> Option<String> {
     Some(line)
 }
 
-/// Where any rollout's session ran, oneshot or interactive, as its
-/// `session_meta` line records it.
-pub(super) fn rollout_cwd(metadata_line: &str) -> Option<String> {
+/// The working directory a JSON record names in its `cwd` field - where any
+/// Codex rollout ran (oneshot or interactive, off its `session_meta` line), or
+/// a Claude transcript (off any of its records).
+pub(super) fn recorded_cwd(metadata_line: &str) -> Option<String> {
     Some(json_string_field(metadata_line, CWD_FIELD)?.replace("\\\\", "\\"))
 }
 
@@ -116,7 +117,7 @@ impl InteractiveSession {
         }
 
         Some(Self {
-            cwd: rollout_cwd(metadata_line)?,
+            cwd: recorded_cwd(metadata_line)?,
             session_id: json_string_field(metadata_line, SESSION_ID_FIELD)?,
         })
     }

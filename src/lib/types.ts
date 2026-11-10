@@ -1002,11 +1002,24 @@ const ChatBytes = z.object({
   chatCount: z.number().int().nonnegative()
 });
 
+/** One chat a cleanup removes, as the confirmation names it. */
+const DeletedChat = z.object({
+  agentId: z.string(),
+  /** The agent's own title for it, when it gave one. */
+  title: z.string().nullable(),
+  /** The folder it ran in, when its files say. */
+  project: z.string().nullable(),
+  bytes: z.number().nonnegative(),
+  /** Milliseconds since the Unix epoch. */
+  updatedAt: z.number()
+});
+export type DeletedChat = z.infer<typeof DeletedChat>;
+
 /** The disk the agents' recorded chats take, per agent, and what the limits
- *  asked about would delete (`cleanup`). */
+ *  asked about would delete (`cleanup`), its largest chats by name. */
 export const ChatStorage = ChatBytes.extend({
   agents: z.array(ChatBytes.extend({ agentId: z.string() })),
-  cleanup: ChatBytes
+  cleanup: ChatBytes.extend({ chats: z.array(DeletedChat) })
 });
 export type ChatStorage = z.infer<typeof ChatStorage>;
 
