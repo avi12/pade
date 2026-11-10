@@ -12,6 +12,7 @@ import {
 
 const PROMPT = "summarise the repository layout";
 const GATE_ON_NO = [" ❯ No, exit", "   Yes, I trust this folder"];
+const REPL = [" ❯  Try \"write a test for <filepath>\"", " ⏵⏵ bypass permissions on"];
 
 function deliveryFor({ prompt = PROMPT, isWorking = false }: {
   prompt?: string;
@@ -63,6 +64,30 @@ describe("createInitialPromptDelivery", () => {
     const { delivery, written } = deliveryFor();
     await delivery.answerTrustGate(GATE_ON_NO);
     await delivery.deliverIfReady();
+    expect(written).toEqual([CURSOR_DOWN]);
+  });
+
+  it("delivers once the gate leaves the screen, even after the agent already fell quiet", async () => {
+    const { delivery, written } = deliveryFor();
+    await delivery.answerTrustGate(GATE_ON_NO);
+    // The agent fell quiet while the last sample still showed the gate.
+    await delivery.deliverIfReady();
+    expect(written).toEqual([CURSOR_DOWN]);
+
+    // A later sample - drawn late - finds the gate gone: deliver now, since no
+    // further quiet moment is coming to do it.
+    delivery.watchOutput("repaint");
+    const delivering = delivery.answerTrustGate(REPL);
+    await vi.advanceTimersByTimeAsync(1_200);
+    await delivering;
+    expect(written).toEqual([CURSOR_DOWN, pastedText(PROMPT), ENTER]);
+  });
+
+  it("leaves a still-working agent's prompt to its own quiet moment", async () => {
+    const { delivery, written } = deliveryFor({ isWorking: true });
+    await delivery.answerTrustGate(GATE_ON_NO);
+    delivery.watchOutput("repaint");
+    await delivery.answerTrustGate(REPL);
     expect(written).toEqual([CURSOR_DOWN]);
   });
 

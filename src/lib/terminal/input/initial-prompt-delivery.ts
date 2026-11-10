@@ -173,7 +173,20 @@ export function createInitialPromptDelivery({ prompt, write, isWorking, settle }
       }
 
       const key = trustGateKey(rows);
+      const wasTrustGateOnScreen = isTrustGateOnScreen;
       isTrustGateOnScreen = key !== null;
+      // Delivery otherwise starts only when the agent falls quiet - but the
+      // screen is sampled after xterm draws, and a hidden pane or an unfocused
+      // window can draw later than that. Then the quiet moment still saw the
+      // gate, held the prompt, and nothing came to re-run it: the gate was
+      // answered and the prompt never sent. So the sample that first sees the
+      // gate gone delivers itself, when the agent is already quiet.
+      const isTrustGateJustCleared = wasTrustGateOnScreen && !isTrustGateOnScreen;
+      if (isTrustGateJustCleared && !isWorking()) {
+        await deliverIfReady();
+        return;
+      }
+
       const mayPressKey = isTrustGateOnScreen && !isTrustGateAwaitingRepaint
         && trustGateKeysSent < TRUST_GATE_MAXIMUM_KEYS;
       if (!key || !mayPressKey) {
