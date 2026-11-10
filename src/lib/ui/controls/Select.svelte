@@ -59,7 +59,6 @@
        even with room below. `normal` keeps it below and flips only when the
        list doesn't fit there. */
     &::picker(select) {
-      position-try-order: normal;
       appearance: base-select;
       padding: 4px;
       border: 1px solid var(--outline);
@@ -67,6 +66,7 @@
       background: var(--surface-3);
       color: var(--on-surface);
       box-shadow: 0 10px 30px var(--shadow-color);
+      position-try-order: normal;
     }
   }
 
