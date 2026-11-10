@@ -330,8 +330,9 @@ export interface CommandProtocolMap {
     sizeLimitMegabytes: number | null;
     storageLimitMegabytes: number | null;
   }) => ChatStorage;
-  /** Delete what the saved limits allow, then measure again. */
-  [Command.chatStorageClean]: () => ChatStorage;
+  /** Delete what the saved limits allow except the chats in `keep` (the ones
+   *  unticked in the confirmation), then measure again. */
+  [Command.chatStorageClean]: (data: { keep: string[] }) => ChatStorage;
   /** How full the session's context window is, read from the agent's own
    *  session log; `null` for an agent that keeps no readable log. */
   [Command.agentSessionContext]: (data: {

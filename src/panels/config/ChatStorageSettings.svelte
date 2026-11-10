@@ -73,19 +73,31 @@
     });
   }
 
-  async function apply(limits: ChatStorageLimits) {
+  /** Save `limits`, delete what they allow except `keep` (the chats unticked
+   *  in the confirmation), and remember those as kept for good. */
+  async function apply({ limits, keep }: {
+    limits: ChatStorageLimits;
+    keep: string[];
+  }) {
     await updatePrefs({
       chatSizeLimitMegabytes: limits.sizeLimitMegabytes,
       chatStorageLimitMegabytes: limits.storageLimitMegabytes
     });
-    storage = await sendMessage(Command.chatStorageClean);
+    storage = await sendMessage(Command.chatStorageClean, { keep });
+
+    if (keep.length > 0) {
+      await updatePrefs({ chatStorageKept: [...prefs.chatStorageKept ?? [], ...keep] });
+    }
   }
 
   async function propose(limits: ChatStorageLimits) {
     const preview = await measure(limits);
     const deletesNothing = preview === null || preview.cleanup.chatCount === 0;
     if (deletesNothing) {
-      await apply(limits);
+      await apply({
+        limits,
+        keep: []
+      });
       return;
     }
 
@@ -95,12 +107,15 @@
     };
   }
 
-  async function applyPending() {
+  async function applyPending(keep: string[]) {
     if (!pending) {
       return;
     }
 
-    await apply(pending.limits);
+    await apply({
+      limits: pending.limits,
+      keep
+    });
     pending = null;
   }
 

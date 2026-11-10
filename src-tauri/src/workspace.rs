@@ -144,6 +144,10 @@ pub struct Prefs {
     /// oldest of each project first; absent sets no total (`agents::storage`).
     #[serde(default)]
     pub chat_storage_limit_megabytes: Option<u32>,
+    /// Chats the user unticked when a limit asked to delete them, by their
+    /// first file's path - kept for good, whatever the limits say.
+    #[serde(default)]
+    pub chat_storage_kept: Vec<String>,
     /// Frontend-owned preferences Rust never acts on, kept verbatim so they
     /// survive a load/save round-trip. `flatten` captures every key not named
     /// above; the TS zod schema is their single source of truth.

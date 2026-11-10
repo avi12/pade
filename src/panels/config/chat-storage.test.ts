@@ -7,6 +7,7 @@ import {
   cleanupSummary,
   deletedChatRow,
   keptAboveLimit,
+  selectedCleanup,
   storageSummary,
   unlistedChats
 } from "@/panels/config/chat-storage";
@@ -47,11 +48,21 @@ const CLAUDE = {
   reordersBidi: true
 };
 
+const listed = {
+  id: "listed",
+  agentId: "claude",
+  title: null,
+  project: null,
+  bytes: 1,
+  updatedAt: 0
+};
+
 describe("the deleted chats list", () => {
   it("names a chat by title, agent, folder, size and age", () => {
     expect(
       deletedChatRow({
         chat: {
+          id: "fix-the-build",
           agentId: "claude",
           title: "Fix the build",
           project: String.raw`C:\repositories\avi\edge-plus`,
@@ -71,6 +82,7 @@ describe("the deleted chats list", () => {
     expect(
       deletedChatRow({
         chat: {
+          id: "untitled",
           agentId: "codex",
           title: null,
           project: null,
@@ -86,21 +98,50 @@ describe("the deleted chats list", () => {
     });
   });
 
-  it("counts the chats it leaves out, only when it leaves some out", () => {
-    const listed = {
-      agentId: "claude",
-      title: null,
-      project: null,
-      bytes: 1,
-      updatedAt: 0
+  it("takes the unticked chats out of what is deleted", () => {
+    const cleanup = {
+      bytes: 10 * MEGABYTE,
+      chatCount: 5,
+      chats: [
+        {
+          ...listed,
+          id: "a",
+          bytes: 4 * MEGABYTE
+        },
+        {
+          ...listed,
+          id: "b",
+          bytes: 3 * MEGABYTE
+        }
+      ]
     };
+    expect(
+      selectedCleanup({
+        cleanup,
+        kept: new Set(["a"])
+      })
+    ).toEqual({
+      bytes: 6 * MEGABYTE,
+      chatCount: 4
+    });
+    expect(
+      cleanupSummary(
+        selectedCleanup({
+          cleanup,
+          kept: new Set()
+        })
+      )
+    ).toBe("5 chats, 10 MB");
+  });
+
+  it("counts the chats it leaves out, only when it leaves some out", () => {
     expect(
       unlistedChats({
         bytes: 3,
         chatCount: 3,
         chats: [listed]
       })
-    ).toBe("And 2 smaller chats");
+    ).toBe("And 2 more chats, newer or smaller");
     expect(
       unlistedChats({
         bytes: 1,

@@ -109,9 +109,9 @@ export function deletedChatRow({ chat, agents, now }: {
   };
 }
 
-/** The deleted chats the list leaves out - it names the largest - when it
- *  can't name them all ("And 22,914 smaller chats"). `null` when every one
- *  is listed. */
+/** The deleted chats the list leaves out - it names the old, heavy ones first
+ *  - when it can't name them all ("And 22,909 more chats, newer or
+ *  smaller"). `null` when every one is listed. */
 export function unlistedChats(cleanup: ChatStorage["cleanup"]) {
   const unlisted = cleanup.chatCount - cleanup.chats.length;
   if (unlisted <= 0) {
@@ -120,12 +120,30 @@ export function unlistedChats(cleanup: ChatStorage["cleanup"]) {
 
   return `And ${formatQuantity({
     count: unlisted,
-    noun: "smaller chat"
-  })}`;
+    noun: "more chat"
+  })}, newer or smaller`;
+}
+
+/** What a cleanup deletes once the unticked chats (`kept`) are taken out. */
+export function selectedCleanup({ cleanup, kept }: {
+  cleanup: ChatStorage["cleanup"];
+  kept: ReadonlySet<string>;
+}) {
+  let bytes = cleanup.bytes;
+  for (const chat of cleanup.chats) {
+    if (kept.has(chat.id)) {
+      bytes -= chat.bytes;
+    }
+  }
+
+  return {
+    bytes,
+    chatCount: cleanup.chatCount - kept.size
+  };
 }
 
 /** What confirming a limit deletes right away ("412 chats, 10.8 GB"). */
-export function cleanupSummary(cleanup: ChatStorage["cleanup"]) {
+export function cleanupSummary(cleanup: Pick<ChatStorage["cleanup"], "bytes" | "chatCount">) {
   return `${formatQuantity({
     count: cleanup.chatCount,
     noun: "chat"
