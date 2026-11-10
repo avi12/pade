@@ -54,7 +54,12 @@
       color: var(--on-surface-variant);
     }
 
+    /* The browser's own rule (`most-block-size`) opens the list toward
+       whichever side has more room, so a select low in a card opened upward
+       even with room below. `normal` keeps it below and flips only when the
+       list doesn't fit there. */
     &::picker(select) {
+      position-try-order: normal;
       appearance: base-select;
       padding: 4px;
       border: 1px solid var(--outline);
