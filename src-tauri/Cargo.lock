@@ -2817,7 +2817,7 @@ dependencies = [
 
 [[package]]
 name = "pade"
-version = "0.15.4"
+version = "0.15.5"
 dependencies = [
  "notify",
  "package-identity",
