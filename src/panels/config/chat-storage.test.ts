@@ -7,8 +7,8 @@ import {
   cleanupSummary,
   deletedChatRow,
   keptAboveLimit,
-  selectedCleanup,
   storageSummary,
+  tickedCleanup,
   unlistedChats
 } from "@/panels/config/chat-storage";
 import { describe, expect, it } from "vitest";
@@ -98,7 +98,7 @@ describe("the deleted chats list", () => {
     });
   });
 
-  it("takes the unticked chats out of what is deleted", () => {
+  it("deletes only the ticked chats", () => {
     const cleanup = {
       bytes: 10 * MEGABYTE,
       chatCount: 5,
@@ -116,22 +116,31 @@ describe("the deleted chats list", () => {
       ]
     };
     expect(
-      selectedCleanup({
+      tickedCleanup({
         cleanup,
-        kept: new Set(["a"])
+        ticked: new Set(["a"])
       })
     ).toEqual({
-      bytes: 6 * MEGABYTE,
-      chatCount: 4
+      bytes: 4 * MEGABYTE,
+      chatCount: 1
     });
     expect(
       cleanupSummary(
-        selectedCleanup({
+        tickedCleanup({
           cleanup,
-          kept: new Set()
+          ticked: new Set(["a", "b"])
         })
       )
-    ).toBe("5 chats, 10 MB");
+    ).toBe("2 chats, 7 MB");
+    expect(
+      tickedCleanup({
+        cleanup,
+        ticked: new Set()
+      })
+    ).toEqual({
+      bytes: 0,
+      chatCount: 0
+    });
   });
 
   it("counts the chats it leaves out, only when it leaves some out", () => {
@@ -141,7 +150,7 @@ describe("the deleted chats list", () => {
         chatCount: 3,
         chats: [listed]
       })
-    ).toBe("And 2 more chats, newer or smaller");
+    ).toBe("And 2 more over the limit, newer or smaller");
     expect(
       unlistedChats({
         bytes: 1,

@@ -7,6 +7,7 @@ import {
   BYTES_PER_MEGABYTE,
   formatAge,
   formatBytes,
+  formatCount,
   formatMegabytes,
   formatQuantity
 } from "@/lib/util/format";
@@ -109,8 +110,8 @@ export function deletedChatRow({ chat, agents, now }: {
   };
 }
 
-/** The deleted chats the list leaves out - it names the old, heavy ones first
- *  - when it can't name them all ("And 22,909 more chats, newer or
+/** The flagged chats the list leaves out - it names the old, heavy ones first
+ *  - when it can't name them all ("And 22,909 more over the limit, newer or
  *  smaller"). `null` when every one is listed. */
 export function unlistedChats(cleanup: ChatStorage["cleanup"]) {
   const unlisted = cleanup.chatCount - cleanup.chats.length;
@@ -118,27 +119,24 @@ export function unlistedChats(cleanup: ChatStorage["cleanup"]) {
     return null;
   }
 
-  return `And ${formatQuantity({
-    count: unlisted,
-    noun: "more chat"
-  })}, newer or smaller`;
+  return `And ${formatCount(unlisted)} more over the limit, newer or smaller`;
 }
 
-/** What a cleanup deletes once the unticked chats (`kept`) are taken out. */
-export function selectedCleanup({ cleanup, kept }: {
+/** What the ticked chats add up to - all that confirming deletes. */
+export function tickedCleanup({ cleanup, ticked }: {
   cleanup: ChatStorage["cleanup"];
-  kept: ReadonlySet<string>;
+  ticked: ReadonlySet<string>;
 }) {
-  let bytes = cleanup.bytes;
+  let bytes = 0;
   for (const chat of cleanup.chats) {
-    if (kept.has(chat.id)) {
-      bytes -= chat.bytes;
+    if (ticked.has(chat.id)) {
+      bytes += chat.bytes;
     }
   }
 
   return {
     bytes,
-    chatCount: cleanup.chatCount - kept.size
+    chatCount: ticked.size
   };
 }
 

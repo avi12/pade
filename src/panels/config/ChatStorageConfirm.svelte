@@ -1,35 +1,35 @@
 <script lang="ts">
-  // The go-ahead for a chat-storage limit that deletes chats right away: which
-  // ones (each can be unticked to keep it for good), how many and how much,
-  // that it can't be undone, and - when the protected chats alone are over the
-  // total - why the total stays above it.
+  // The review of the chats a storage limit flags: which ones, none ticked to
+  // start, and only the ticked ones deleted - with how many and how much, that
+  // it can't be undone, and, when the protected chats alone are over the
+  // total, why the total stays above it.
   import ConfirmDialog from "@/lib/dialogs/ConfirmDialog.svelte";
   import type { Agent, ChatStorage } from "@/lib/types";
   import { errorMessage } from "@/lib/util/errors/errors";
-  import { cleanupSummary, keptAboveLimit, selectedCleanup } from "@/panels/config/chat-storage";
+  import { cleanupSummary, keptAboveLimit, tickedCleanup } from "@/panels/config/chat-storage";
   import DeletedChatList from "@/panels/config/DeletedChatList.svelte";
   import { SvelteSet } from "svelte/reactivity";
 
-  const { preview, agents, storageLimitMegabytes, onapply, oncancel }: {
-    /** The chats measured against the proposed limits. */
+  const { preview, agents, storageLimitMegabytes, ondelete, oncancel }: {
+    /** The chats measured against the saved limits. */
     preview: ChatStorage;
     /** The installed agents, for the names the list shows. */
     agents: readonly Agent[];
     storageLimitMegabytes: number | null;
-    /** Save the limits and delete all but `keep`; rejects when that fails. */
-    onapply: (keep: string[]) => Promise<void>;
+    /** Delete the ticked chats; rejects when that fails. */
+    ondelete: (ids: string[]) => Promise<void>;
     oncancel: () => void;
   } = $props();
 
-  let isApplying = $state(false);
+  let isDeleting = $state(false);
   let failure = $state<string | null>(null);
-  /** The listed chats unticked - every one starts ticked, to be deleted. */
-  const kept = new SvelteSet<string>();
+  /** The chats ticked to delete - none until the user ticks them. */
+  const ticked = new SvelteSet<string>();
 
   const selected = $derived(
-    selectedCleanup({
+    tickedCleanup({
       cleanup: preview.cleanup,
-      kept
+      ticked
     })
   );
   const keptNote = $derived(
@@ -40,66 +40,62 @@
   );
   const confirmLabel = $derived.by(() => {
     if (selected.chatCount === 0) {
-      return "Keep them all";
+      return "Tick chats to delete";
     }
 
-    return "Delete chats";
-  });
-  const title = $derived.by(() => {
-    if (selected.chatCount === 0) {
-      return "Keep every chat?";
-    }
-
-    return `Delete ${cleanupSummary(selected)}?`;
+    return `Delete ${cleanupSummary(selected)}`;
   });
 </script>
 
 <ConfirmDialog
-  busy={isApplying}
+  busy={isDeleting}
   busyLabel="Deleting…"
   {confirmLabel}
-  danger={selected.chatCount > 0}
+  danger
   error={failure}
   icon="trash"
   oncancel={() => {
-    if (!isApplying) {
+    if (!isDeleting) {
       oncancel();
     }
   }}
   onconfirm={async () => {
-    isApplying = true;
+    if (selected.chatCount === 0) {
+      return;
+    }
+
+    isDeleting = true;
     failure = null;
     try {
-      await onapply([...kept]);
+      await ondelete([...ticked]);
     } catch (error) {
       failure = errorMessage({
         error,
         fallback: "Couldn't delete the chats"
       });
     } finally {
-      isApplying = false;
+      isDeleting = false;
     }
   }}
-  {title}
+  title="{cleanupSummary(preview.cleanup)} over the limit"
 >
   <DeletedChatList
     {agents}
     cleanup={preview.cleanup}
-    isLocked={isApplying}
-    {kept}
-    ontoggle={({ ids, isKept }) => {
+    isLocked={isDeleting}
+    ontoggle={({ ids, isTicked }) => {
       for (const id of ids) {
-        if (isKept) {
-          kept.add(id);
+        if (isTicked) {
+          ticked.add(id);
         } else {
-          kept.delete(id);
+          ticked.delete(id);
         }
       }
     }}
+    {ticked}
   />
   <p>
-    This limit deletes the ticked chats now and keeps deleting as chats grow. An unticked chat is kept for
-    good. A deleted chat can't be resumed, by PADE or by its agent
+    Only the chats you tick are deleted. A deleted chat can't be resumed, by PADE or by its agent
   </p>
   {#if keptNote}
     <p>{keptNote}</p>

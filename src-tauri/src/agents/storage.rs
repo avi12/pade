@@ -11,17 +11,18 @@
 //!   * Copilot - one `session-state/<id>/` folder.
 //!
 //! Two limits, both off until the user sets them: one chat's size, and all
-//! chats together. Deleting takes the oldest chat of each project in turn, so
-//! one old project is never wiped out before a busy one gives anything up. A
-//! project's newest chat and every chat used in the last week are never
-//! deleted, which also keeps a running agent's conversation safe.
+//! chats together. A limit never deletes by itself: it picks the chats over
+//! it - the oldest chat of each project in turn, so one old project is never
+//! wiped out before a busy one gives anything up - and the user ticks which
+//! of those go. A project's newest chat and every chat used in the last week
+//! are never picked, which also keeps a running agent's conversation safe.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ffi::OsString;
 use std::fs::DirEntry;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use serde::Serialize;
 
@@ -40,10 +41,8 @@ use crate::util::{
 
 const BYTES_PER_MEGABYTE: u64 = 1024 * 1024;
 const MILLISECONDS_PER_DAY: u64 = 24 * 60 * 60 * 1000;
-/// A chat used this recently is never deleted, whatever the limits say.
+/// A chat used this recently is never picked, whatever the limits say.
 const PROTECTED_DAYS: u64 = 7;
-/// How often a long-running app re-applies the limits, after the sweep at start.
-const SWEEP_INTERVAL: Duration = Duration::from_hours(24);
 /// The folders under `~/.claude` that hold one sub-folder per conversation id.
 const CLAUDE_PER_CHAT_FOLDERS: [&str; 2] = ["file-history", "session-env"];
 /// Copilot's event log, rewritten on every turn - the best "last used" stamp.
@@ -71,7 +70,7 @@ struct Chat {
 
 impl Chat {
     /// The chat's identity across calls: its first file's path, the one the
-    /// confirmation hands back for a chat the user chose to keep.
+    /// confirmation hands back for a chat the user ticked to delete.
     fn id(&self) -> String {
         self.paths
             .first()
@@ -80,13 +79,11 @@ impl Chat {
     }
 }
 
-/// The user's caps, in bytes (`None` is no cap), and the chats they chose to
-/// keep whatever the caps say.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// The user's caps, in bytes. `None` is no cap.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 struct Limits {
     per_chat: Option<u64>,
     total: Option<u64>,
-    kept: HashSet<String>,
 }
 
 impl Limits {
@@ -95,7 +92,6 @@ impl Limits {
         Self {
             per_chat: per_chat.map(to_bytes),
             total: total.map(to_bytes),
-            kept: saved_kept_chats(),
         }
     }
 
@@ -106,18 +102,6 @@ impl Limits {
             prefs.chat_storage_limit_megabytes,
         )
     }
-
-    fn is_unlimited(&self) -> bool {
-        self.per_chat.is_none() && self.total.is_none()
-    }
-}
-
-fn saved_kept_chats() -> HashSet<String> {
-    crate::workspace::load()
-        .prefs
-        .chat_storage_kept
-        .into_iter()
-        .collect()
 }
 
 /// One agent's share of the disk.
@@ -129,11 +113,11 @@ pub struct AgentStorage {
     chat_count: usize,
 }
 
-/// One chat a cleanup removes, as the confirmation names it.
+/// One chat over the limits, as the confirmation names it.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct DeletedChat {
-    /// What the confirmation hands back to keep this chat.
+    /// What the confirmation hands back to delete this chat.
     id: String,
     agent_id: &'static str,
     /// The agent's own title for it, when it gave one.
@@ -145,7 +129,8 @@ pub struct DeletedChat {
     updated_at: u64,
 }
 
-/// What a cleanup removes, or would: the totals, and the largest chats by name.
+/// The chats over the limits, which a cleanup could remove: the totals, and
+/// the ones most worth deleting by name.
 #[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Cleanup {
@@ -164,8 +149,9 @@ pub struct ChatStorage {
     cleanup: Cleanup,
 }
 
-/// Every chat's disk use, and what `sizeLimitMegabytes` / `storageLimitMegabytes`
-/// would delete - the settings page shows both before a limit is saved.
+/// Every chat's disk use, and which chats `sizeLimitMegabytes` /
+/// `storageLimitMegabytes` put over the limits - the settings card shows both
+/// before a limit is saved.
 // `async` plus `spawn_blocking`: it walks tens of thousands of files.
 #[tauri::command]
 pub async fn chat_storage(
@@ -173,61 +159,46 @@ pub async fn chat_storage(
     storage_limit_megabytes: Option<u32>,
 ) -> Result<ChatStorage, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let limits = Limits::from_megabytes(size_limit_megabytes, storage_limit_megabytes);
-        measure(&limits)
+        measure(Limits::from_megabytes(
+            size_limit_megabytes,
+            storage_limit_megabytes,
+        ))
     })
     .await
     .map_err(|error| error.to_string())
 }
 
-/// Delete what the saved limits allow, except the chats in `keep` - the ones
-/// the user unticked in the confirmation - then measure again. Deleting the
-/// rest of what the confirmation listed, never a chat it didn't: keeping one
-/// doesn't pull in another to make up the total.
+/// Delete the chats the user ticked (`ids`), then measure again against the
+/// saved limits. Only a chat the saved limits put over them can go: an id is
+/// matched against that plan, never taken as a path to delete, so nothing
+/// else on disk is reachable through this command.
 #[tauri::command]
-pub async fn chat_storage_clean(keep: Vec<String>) -> Result<ChatStorage, String> {
+pub async fn chat_storage_delete(ids: Vec<String>) -> Result<ChatStorage, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let mut limits = Limits::saved();
-        clean(&limits, &keep.iter().cloned().collect());
-        limits.kept.extend(keep);
-        measure(&limits)
+        let limits = Limits::saved();
+        let ticked: HashSet<String> = ids.into_iter().collect();
+        let chats = recorded_chats();
+        for index in chats_to_delete(&chats, limits, now_milliseconds()) {
+            if ticked.contains(&chats[index].id()) {
+                delete_chat(&chats[index]);
+            }
+        }
+        measure(limits)
     })
     .await
     .map_err(|error| error.to_string())
 }
 
-fn measure(limits: &Limits) -> ChatStorage {
+fn measure(limits: Limits) -> ChatStorage {
     let chats = recorded_chats();
     let now = now_milliseconds();
     let deleted = chats_to_delete(&chats, limits, now);
     storage_of(&chats, &deleted, now)
 }
 
-/// Apply the saved limits now and then once a day, on a thread of its own.
-pub fn init() {
-    std::thread::spawn(|| loop {
-        clean(&Limits::saved(), &HashSet::new());
-        std::thread::sleep(SWEEP_INTERVAL);
-    });
-}
-
-fn clean(limits: &Limits, keep: &HashSet<String>) {
-    if limits.is_unlimited() {
-        return;
-    }
-
-    let chats = recorded_chats();
-    for index in chats_to_delete(&chats, limits, now_milliseconds()) {
-        if keep.contains(&chats[index].id()) {
-            continue;
-        }
-        delete_chat(&chats[index]);
-    }
-}
-
 /// Remove every file and folder of `chat`. One that is already gone is fine;
-/// one that can't be removed (still held open) is reported and left for the
-/// next sweep.
+/// one that can't be removed (still held open) is reported and stays over the
+/// limit, to be ticked again.
 fn delete_chat(chat: &Chat) {
     for path in &chat.paths {
         let Ok(metadata) = std::fs::symlink_metadata(path) else {
@@ -349,10 +320,9 @@ fn title_and_project(
 /// Which chats the limits delete, as indices into `chats`, in the order they
 /// go. First every chat over the size cap; then, while all chats together are
 /// over the total, round after round of each project's oldest remaining chat,
-/// the oldest of a round first. Protected chats (a project's newest, one used
-/// in the last [`PROTECTED_DAYS`], or one the user chose to keep) are never
-/// chosen.
-fn chats_to_delete(chats: &[Chat], limits: &Limits, now: u64) -> Vec<usize> {
+/// the oldest of a round first. Protected chats (a project's newest, or one
+/// used in the last [`PROTECTED_DAYS`]) are never chosen.
+fn chats_to_delete(chats: &[Chat], limits: Limits, now: u64) -> Vec<usize> {
     let protected_since = now.saturating_sub(PROTECTED_DAYS * MILLISECONDS_PER_DAY);
     let mut by_project: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
     for (index, chat) in chats.iter().enumerate() {
@@ -363,10 +333,7 @@ fn chats_to_delete(chats: &[Chat], limits: &Limits, now: u64) -> Vec<usize> {
         .map(|mut indices| {
             indices.sort_by_key(|&index| chats[index].updated_at);
             indices.pop();
-            indices.retain(|&index| {
-                chats[index].updated_at < protected_since
-                    && !limits.kept.contains(&chats[index].id())
-            });
+            indices.retain(|&index| chats[index].updated_at < protected_since);
             indices
         })
         .collect();
@@ -578,7 +545,6 @@ fn copilot_chats() -> Vec<Chat> {
 #[cfg(test)]
 mod tests {
     use super::{chats_to_delete, storage_of, Chat, Limits, MILLISECONDS_PER_DAY};
-    use std::collections::HashSet;
     use std::path::PathBuf;
 
     const NOW: u64 = 1000 * MILLISECONDS_PER_DAY;
@@ -594,18 +560,14 @@ mod tests {
     }
 
     fn limits(per_chat: Option<u64>, total: Option<u64>) -> Limits {
-        Limits {
-            per_chat,
-            total,
-            kept: HashSet::new(),
-        }
+        Limits { per_chat, total }
     }
 
     #[test]
     fn no_limits_delete_nothing() {
         let chats = [chat("a", 90, 500), chat("a", 60, 500), chat("a", 1, 500)];
         assert_eq!(
-            chats_to_delete(&chats, &Limits::default(), NOW),
+            chats_to_delete(&chats, Limits::default(), NOW),
             Vec::<usize>::new()
         );
     }
@@ -614,7 +576,7 @@ mod tests {
     fn a_chat_over_the_size_cap_goes() {
         let chats = [chat("a", 90, 300), chat("a", 60, 100), chat("a", 30, 10)];
         assert_eq!(
-            chats_to_delete(&chats, &limits(Some(200), None), NOW),
+            chats_to_delete(&chats, limits(Some(200), None), NOW),
             vec![0]
         );
     }
@@ -623,7 +585,7 @@ mod tests {
     fn a_projects_newest_chat_and_last_weeks_chats_stay() {
         let chats = [chat("a", 3, 900), chat("a", 60, 900), chat("b", 90, 900)];
         assert_eq!(
-            chats_to_delete(&chats, &limits(Some(1), Some(0)), NOW),
+            chats_to_delete(&chats, limits(Some(1), Some(0)), NOW),
             vec![1]
         );
     }
@@ -642,7 +604,7 @@ mod tests {
             chat("busy", 10, 100),
         ];
         assert_eq!(
-            chats_to_delete(&chats, &limits(None, Some(400)), NOW),
+            chats_to_delete(&chats, limits(None, Some(400)), NOW),
             vec![0, 4, 1]
         );
     }
@@ -651,11 +613,11 @@ mod tests {
     fn the_total_stops_once_under_the_cap() {
         let chats = [chat("a", 90, 100), chat("a", 60, 100), chat("a", 30, 100)];
         assert_eq!(
-            chats_to_delete(&chats, &limits(None, Some(250)), NOW),
+            chats_to_delete(&chats, limits(None, Some(250)), NOW),
             vec![0]
         );
         assert_eq!(
-            chats_to_delete(&chats, &limits(None, Some(300)), NOW),
+            chats_to_delete(&chats, limits(None, Some(300)), NOW),
             Vec::<usize>::new()
         );
     }
@@ -664,7 +626,7 @@ mod tests {
     fn oversized_chats_count_toward_the_total() {
         let chats = [chat("a", 90, 100), chat("a", 60, 500), chat("a", 30, 100)];
         assert_eq!(
-            chats_to_delete(&chats, &limits(Some(200), Some(200)), NOW),
+            chats_to_delete(&chats, limits(Some(200), Some(200)), NOW),
             vec![1]
         );
     }
@@ -681,14 +643,6 @@ mod tests {
         assert_eq!(storage.agents[0].bytes, 310);
         assert_eq!(storage.cleanup.bytes, 300);
         assert_eq!(storage.cleanup.chat_count, 1);
-    }
-
-    #[test]
-    fn a_kept_chat_is_never_chosen() {
-        let chats = [chat("a", 90, 300), chat("a", 60, 300), chat("a", 30, 10)];
-        let mut keeping = limits(Some(200), None);
-        keeping.kept.insert(chats[0].id());
-        assert_eq!(chats_to_delete(&chats, &keeping, NOW), vec![1]);
     }
 
     #[test]

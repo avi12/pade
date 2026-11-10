@@ -608,15 +608,12 @@ const Prefs = z.object({
   /** Delete a temp workspace once it has gone unused this many days. Absent =
    *  off. Read by the backend's picker-refresh sweep (`workspace_prune`). */
   tempCleanupDays: z.number().int().positive().nullish(),
-  /** Delete an agent chat once it grows past this many megabytes. Absent =
-   *  off. Read by the backend's chat-storage sweep (`agents::storage`). */
+  /** Flag an agent chat once it grows past this many megabytes, for the user
+   *  to tick for deletion. Absent = off. Read by `agents::storage`. */
   chatSizeLimitMegabytes: z.number().int().positive().nullish(),
-  /** Keep all agent chats together under this many megabytes, deleting each
-   *  project's oldest first. Absent = off. Read by `agents::storage` too. */
+  /** Flag each project's oldest chats in turn once all agent chats together
+   *  pass this many megabytes. Absent = off. Read by `agents::storage` too. */
   chatStorageLimitMegabytes: z.number().int().positive().nullish(),
-  /** Chats unticked when a limit asked to delete them, by the id the backend
-   *  gave them - kept for good, whatever the limits say. */
-  chatStorageKept: z.array(z.string()).nullish(),
   /** Name session tabs with AI from what the agent is doing - the global default
    *  for every window. Opt-in: off unless explicitly true. */
   aiSessionNaming: z.boolean().nullish(),
@@ -1007,7 +1004,7 @@ const ChatBytes = z.object({
 
 /** One chat a cleanup removes, as the confirmation names it. */
 const DeletedChat = z.object({
-  /** What the confirmation hands back to keep this chat. */
+  /** What the confirmation hands back to delete this chat. */
   id: z.string(),
   agentId: z.string(),
   /** The agent's own title for it, when it gave one. */

@@ -1,12 +1,12 @@
 <script lang="ts">
   // How much disk the agents' recorded chats take, and the two limits that
-  // keep it in check: one chat's size and all chats together. A limit that
-  // would delete chats right away asks first, saying how many and how much.
+  // keep it in check: one chat's size and all chats together. A limit never
+  // deletes by itself: it flags the chats over it, and the review lets the
+  // user tick which go - none are ticked until they do.
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
   import type { Agent, ChatStorage } from "@/lib/types";
-  import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import { settledValue } from "@/lib/util/async/settled";
   import {
     agentShares,
@@ -16,7 +16,8 @@
     storageSummary
   } from "@/panels/config/chat-storage";
   import type { ChatStorageLimits } from "@/panels/config/chat-storage";
-  import ChatStorageConfirm from "@/panels/config/ChatStorageConfirm.svelte";
+  import ChatLimitRow from "@/panels/config/ChatLimitRow.svelte";
+  import ChatStorageReview from "@/panels/config/ChatStorageReview.svelte";
   import { onMount } from "svelte";
 
   const { agents }: {
@@ -29,12 +30,9 @@
     storageLimitMegabytes: prefs.chatStorageLimitMegabytes ?? null
   });
 
+  /** The chats measured against the saved limits. */
   let storage = $state<ChatStorage | null>(null);
-  /** A limit waiting on the user's go-ahead, measured against it. */
-  let pending = $state<{
-    limits: ChatStorageLimits;
-    preview: ChatStorage;
-  } | null>(null);
+  let isReviewing = $state(false);
 
   const summary = $derived.by(() => {
     if (!storage) {
@@ -73,50 +71,19 @@
     });
   }
 
-  /** Save `limits`, delete what they allow except `keep` (the chats unticked
-   *  in the confirmation), and remember those as kept for good. */
-  async function apply({ limits, keep }: {
-    limits: ChatStorageLimits;
-    keep: string[];
-  }) {
+  /** Save a limit - it deletes nothing by itself - and, when it flags chats,
+   *  open the review so the user can tick which go. */
+  async function chooseLimits(limits: ChatStorageLimits) {
     await updatePrefs({
       chatSizeLimitMegabytes: limits.sizeLimitMegabytes,
       chatStorageLimitMegabytes: limits.storageLimitMegabytes
     });
-    storage = await sendMessage(Command.chatStorageClean, { keep });
-
-    if (keep.length > 0) {
-      await updatePrefs({ chatStorageKept: [...prefs.chatStorageKept ?? [], ...keep] });
-    }
+    storage = await measure(limits);
+    isReviewing = (storage?.cleanup.chatCount ?? 0) > 0;
   }
 
-  async function propose(limits: ChatStorageLimits) {
-    const preview = await measure(limits);
-    const deletesNothing = preview === null || preview.cleanup.chatCount === 0;
-    if (deletesNothing) {
-      await apply({
-        limits,
-        keep: []
-      });
-      return;
-    }
-
-    pending = {
-      limits,
-      preview
-    };
-  }
-
-  async function applyPending(keep: string[]) {
-    if (!pending) {
-      return;
-    }
-
-    await apply({
-      limits: pending.limits,
-      keep
-    });
-    pending = null;
+  async function deleteTicked(ids: string[]) {
+    storage = await sendMessage(Command.chatStorageDelete, { ids });
   }
 
   onMount(async () => {
@@ -131,57 +98,44 @@
   {/if}
 </div>
 
-<div class="limit-row">
-  <span class="field-text">
-    <span class="field-label">Largest chat</span>
-    <span class="field-hint">A bigger chat is deleted</span>
-  </span>
-  <div class="limit-choice">
-    <Segmented
-      chosen={saved.sizeLimitMegabytes}
-      label="Largest chat"
-      onchoose={async size => await propose({
-        ...saved,
-        sizeLimitMegabytes: size
-      })}
-      options={CHAT_SIZE_CHOICES}
-    />
-  </div>
-</div>
+<ChatLimitRow
+  chosen={saved.sizeLimitMegabytes}
+  hint="A bigger chat is flagged"
+  label="Largest chat"
+  onchoose={async size => await chooseLimits({
+    ...saved,
+    sizeLimitMegabytes: size
+  })}
+  options={CHAT_SIZE_CHOICES}
+/>
 
-<div class="limit-row">
-  <span class="field-text">
-    <span class="field-label">All chats</span>
-    <span class="field-hint">Over this, each project's oldest chat goes first</span>
-  </span>
-  <div class="limit-choice">
-    <Segmented
-      chosen={saved.storageLimitMegabytes}
-      label="All chats"
-      onchoose={async total => await propose({
-        ...saved,
-        storageLimitMegabytes: total
-      })}
-      options={CHAT_STORAGE_CHOICES}
-    />
-  </div>
-</div>
+<ChatLimitRow
+  chosen={saved.storageLimitMegabytes}
+  hint="Over this, each project's oldest chats are flagged first"
+  label="All chats"
+  onchoose={async total => await chooseLimits({
+    ...saved,
+    storageLimitMegabytes: total
+  })}
+  options={CHAT_STORAGE_CHOICES}
+/>
+
+{#if storage}
+  <ChatStorageReview
+    {agents}
+    ondelete={deleteTicked}
+    {storage}
+    storageLimitMegabytes={saved.storageLimitMegabytes}
+    bind:isOpen={isReviewing}
+  />
+{/if}
 
 <p class="field-hint">
-  A project's newest chat and anything used in the last week are always kept. Applies to every project
+  Nothing is deleted until you tick it. A project's newest chat and anything used in the last week are
+  never flagged. Applies to every project
 </p>
 {#if keptNote}
   <p class="field-hint">{keptNote}</p>
-{/if}
-
-{#if pending}
-  <ChatStorageConfirm
-    {agents}
-    onapply={applyPending}
-    oncancel={() => (pending = null)}
-    preview={pending.preview}
-    storageLimitMegabytes={pending.limits.storageLimitMegabytes}
-  />
 {/if}
 
 <style>
@@ -191,24 +145,5 @@
 
   .shares {
     font-family: var(--font-monospace);
-  }
-
-  .limit-row {
-    /* Label beside the options while the panel is wide; stacked once the drag
-       handle takes that room away. Asked of the card, never the viewport. */
-    @container (inline-size < 420px) {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    display: flex;
-    gap: 12px;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .limit-choice {
-    flex: none;
-    min-inline-size: 230px;
   }
 </style>

@@ -1,29 +1,29 @@
 <script lang="ts">
-  // Which chats a chat-storage limit deletes, old heavy ones first, each by its
+  // The chats a chat-storage limit flags, old heavy ones first, each by its
   // agent's title with its agent, folder, size and last use - each with a tick
-  // to keep it instead, and one to tick or untick them all - and how many
-  // more the list leaves out.
+  // to delete it, none ticked to start, and one to tick or untick them all -
+  // and how many more the list leaves out.
   import type { Agent, ChatStorage } from "@/lib/types";
   import Checkbox from "@/lib/ui/controls/Checkbox.svelte";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { deletedChatRow, unlistedChats } from "@/panels/config/chat-storage";
 
-  const { cleanup, agents, kept, isLocked, ontoggle }: {
+  const { cleanup, agents, ticked, isLocked, ontoggle }: {
     cleanup: ChatStorage["cleanup"];
     agents: readonly Agent[];
-    /** The listed chats unticked, to keep. */
-    kept: ReadonlySet<string>;
+    /** The listed chats ticked to delete. */
+    ticked: ReadonlySet<string>;
     /** While the deletion runs the ticks can't change. */
     isLocked: boolean;
     ontoggle: (change: {
       ids: readonly string[];
-      isKept: boolean;
+      isTicked: boolean;
     }) => void;
   } = $props();
 
   const now = Date.now();
   const unlisted = $derived(unlistedChats(cleanup));
-  const isAllTicked = $derived(kept.size === 0);
+  const isAllTicked = $derived(cleanup.chats.length > 0 && ticked.size === cleanup.chats.length);
 
   function titleTooltip(title: string) {
     return truncationTooltip({ tooltip: () => title });
@@ -36,10 +36,10 @@
     disabled={isLocked}
     onchange={checked => ontoggle({
       ids: cleanup.chats.map(chat => chat.id),
-      isKept: !checked
+      isTicked: checked
     })}
   />
-  <span>Delete all listed</span>
+  <span>Select all listed</span>
 </label>
 <ul class="deleted-chats">
   {#each cleanup.chats as chat (chat.id)}
@@ -49,13 +49,13 @@
       now
     })}
     <li>
-      <label class="chat" class:kept={kept.has(chat.id)}>
+      <label class="chat">
         <Checkbox
-          checked={!kept.has(chat.id)}
+          checked={ticked.has(chat.id)}
           disabled={isLocked}
           onchange={checked => ontoggle({
             ids: [chat.id],
-            isKept: !checked
+            isTicked: checked
           })}
         />
         <span class="chat-text">
@@ -113,12 +113,6 @@
     display: grid;
     gap: 1px;
     min-inline-size: 0;
-
-    /* An unticked chat is kept: it fades back so the ticked ones read as what
-       goes. */
-    .kept & {
-      opacity: 55%;
-    }
   }
 
   .chat-title {
