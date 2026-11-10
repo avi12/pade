@@ -63,7 +63,8 @@ export function createSessionAutomation({ windowSessions, availableAgents, proje
         project: predecessor?.project,
         cwd,
         initialPrompt,
-        modelChoice: predecessor !== undefined && isSameAgent ? choiceForSuccessor(predecessor) : undefined
+        modelChoice: predecessor !== undefined && isSameAgent ? choiceForSuccessor(predecessor) : undefined,
+        replacing: predecessorId
       });
       // Carry the ✦ auto-naming toggle to the successor so a handed-off session
       // keeps it on; the successor's own agent command names it (it may differ on

@@ -48,6 +48,10 @@ interface LaunchOptions {
   /** The conversation to carry on - a session resumed after its folder
    *  moved; a new one otherwise. */
   conversationId?: string;
+  /** The session this one takes over from - a handoff successor. It steps
+   *  into that tab's place, pane and focus as they are, so a handoff of a tab
+   *  in the background stays in the background. */
+  replacing?: string;
 }
 
 /** A fresh session for `project`, launched as `options` say. */
@@ -189,7 +193,14 @@ export function createWindowSessions(host: WindowSessionsHost) {
       options,
       project: options.project ?? activeProject
     });
-    sessions.push(session);
+    const iReplaced = sessions.findIndex(candidate => candidate.id === options.replacing);
+    const isReplacing = iReplaced !== -1;
+    if (isReplacing) {
+      sessions.splice(iReplaced + 1, 0, session);
+    } else {
+      sessions.push(session);
+    }
+
     setPendingPrompt({
       id: session.id,
       prompt: options.initialPrompt
@@ -202,6 +213,17 @@ export function createWindowSessions(host: WindowSessionsHost) {
       isOn: namesWithAi(session.project)
     });
     sessionLaunchedAt.set(session.id, Date.now());
+
+    if (isReplacing) {
+      paneIds = paneIds.map(paneId => paneId === options.replacing ? session.id : paneId);
+
+      if (activeId === options.replacing) {
+        activeId = session.id;
+      }
+
+      return session.id;
+    }
+
     activeId = session.id;
     paneIds = options.split ? [...paneIds, session.id] : [session.id];
 
