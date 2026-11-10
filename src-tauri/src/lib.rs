@@ -21,6 +21,19 @@ fn is_switch_on(variable: &str) -> bool {
     std::env::var(variable).is_ok_and(|value| value == SWITCH_ON)
 }
 
+/// The user's Windows regional format ("Region > Regional format"), as a
+/// BCP 47 tag such as `en-IL`. Only a well-formed tag is passed on, since it
+/// lands on a browser command line.
+#[cfg(windows)]
+fn regional_format() -> Option<String> {
+    let locale = util::registry_string(r"HKCU\Control Panel\International", "LocaleName")?;
+    let is_well_formed = !locale.is_empty()
+        && locale
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '-');
+    is_well_formed.then_some(locale)
+}
+
 /// The `WebView2` browser switches and user-data folder, set as environment
 /// before any window (and thus any `WebView2` environment) is created.
 #[cfg(windows)]
@@ -30,7 +43,7 @@ fn configure_webview2_environment() {
     // privileged webview, so a normal debug build must not expose it.
     #[cfg(debug_assertions)]
     if is_switch_on("PADE_ENABLE_CDP") {
-        browser_arguments.push("--remote-debugging-port=9222 --remote-allow-origins=*");
+        browser_arguments.push("--remote-debugging-port=9222 --remote-allow-origins=*".to_string());
     }
     // Opt-in software rendering: when another process saturates the GPU (a
     // game), the webview's composited frames queue behind it and every UI
@@ -40,7 +53,13 @@ fn configure_webview2_environment() {
     let is_software_render_preferred = workspace::load().prefs.passthrough.get("softwareRender")
         == Some(&serde_json::Value::Bool(true));
     if is_software_render_preferred || is_switch_on("PADE_SOFTWARE_RENDER") {
-        browser_arguments.push("--disable-gpu");
+        browser_arguments.push("--disable-gpu".to_string());
+    }
+    // WebView2 takes its locale - and so every `Intl` date, time and number -
+    // from the Windows display language, not the regional format the user
+    // picked (English UI with Israeli dates and a 24-hour clock is en-IL).
+    if let Some(locale) = regional_format() {
+        browser_arguments.push(format!("--lang={locale}"));
     }
     if !browser_arguments.is_empty() {
         std::env::set_var(
