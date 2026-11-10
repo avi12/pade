@@ -5,12 +5,15 @@
   import Icon from "@/lib/Icon.svelte";
   import { askToResetLimits, limitResetOffers } from "@/lib/stores/usage/limitReset.svelte";
   import { revealBlock } from "@/lib/ui/motion";
+  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { limitResetKind, limitResetSummary } from "@/lib/usage/limit-reset/limit-reset-kind";
 </script>
 
+<!-- The row sits in the usage menu's scrolling popover, where a `data-tooltip`
+     pseudo is clipped: the hint takes the shared top-layer bubble. -->
 {#each limitResetOffers() as offer (offer.grantId)}
   {@const kind = limitResetKind(offer.clears)}
-  <div class="limit-reset-offer" data-tooltip={kind.effect} transition:revealBlock>
+  <div class="limit-reset-offer" {@attach tooltip(() => kind.effect)} transition:revealBlock>
     <Icon name="refresh" />
     <span class="offer-text">
       {kind.title}
