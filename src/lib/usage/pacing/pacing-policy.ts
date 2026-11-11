@@ -71,10 +71,75 @@ export function spokenTime({ time, now }: {
   return isToday ? CLOCK.format(time) : DAY_AND_CLOCK.format(time);
 }
 
+/** One line pacing says about a session, with the time it ends on kept apart,
+ *  so the popover can read that time either way (`pacingWhen`). */
+interface PacingFact {
+  text: string;
+  time: number | null;
+}
+
+/** A time as a fact ends on: "at 2:49 PM", or as a countdown, "in 6h 59m". */
+export function pacingWhen({ time, now, isCountdown }: {
+  time: number;
+  now: number;
+  isCountdown: boolean;
+}) {
+  const countdown = resetCountdown({
+    iso: new Date(time).toISOString(),
+    now
+  });
+  if (isCountdown && countdown !== "") {
+    return countdown;
+  }
+
+  return `at ${spokenTime({
+    time,
+    now
+  })}`;
+}
+
+/** A fact as one plain line, its time as a clock time - for the tab badge's hint. */
+export function pacingFactText({ fact, now }: {
+  fact: PacingFact;
+  now: number;
+}) {
+  if (fact.time === null) {
+    return fact.text;
+  }
+
+  return `${fact.text} ${pacingWhen({
+    time: fact.time,
+    now,
+    isCountdown: false
+  })}`;
+}
+
+/** When a held session is back to normal - its tab badge's hint and its
+ *  popover both say it. A paused session continues; a slowed one goes back to
+ *  its own model and effort. */
+export function pacingResume({ isStopped, resumesAt, original }: {
+  isStopped: boolean;
+  resumesAt: number | null;
+  original: string | null;
+}) {
+  const resume = isStopped ? "Continues" : `Back to ${original ?? "its usual model and effort"}`;
+  if (resumesAt === null) {
+    return {
+      text: `${resume} once usage is back on pace`,
+      time: null
+    };
+  }
+
+  return {
+    text: resume,
+    time: resumesAt
+  };
+}
+
 /** The facts a paced session's popover lists: why it is held (its window and
- *  when it would run out), what it runs instead of its own choice, how long it
- *  rests, and when it all reverts. */
-export function pacingFacts({ verdict, choice, restUntil, revertsAt, now }: {
+ *  when it would run out), what it runs instead of its own choice, and when it
+ *  is back to normal (`pacingResume`). */
+export function pacingFacts({ verdict, choice, resume }: {
   verdict: {
     windowKind: UsageWindowKind;
     utilization: number;
@@ -85,74 +150,39 @@ export function pacingFacts({ verdict, choice, restUntil, revertsAt, now }: {
     current: string;
     original: string;
   } | null;
-  restUntil: number | null;
-  revertsAt: number | null;
-  now: number;
+  resume: PacingFact;
 }) {
-  const facts: string[] = [];
+  const facts: PacingFact[] = [];
   if (verdict !== null) {
-    facts.push(
-      verdictText({
-        verdict,
-        now
-      })
-    );
+    facts.push(verdictFact(verdict));
   }
 
   if (choice !== null) {
-    facts.push(`Runs ${choice.current} - normally ${choice.original}`);
+    facts.push({
+      text: `Runs ${choice.current} - normally ${choice.original}`,
+      time: null
+    });
   }
 
-  if (restUntil !== null) {
-    facts.push(
-      `Resting until ${spokenTime({
-        time: restUntil,
-        now
-      })}`
-    );
-  }
-
-  if (revertsAt !== null) {
-    facts.push(
-      `Reverts at ${spokenTime({
-        time: revertsAt,
-        now
-      })}`
-    );
-  }
-
+  facts.push(resume);
   return facts;
 }
 
 /** Why a window holds a session: a session window runs out before its reset;
  *  a weekly one spends ahead of an even week. */
-function verdictText({ verdict, now }: {
-  verdict: NonNullable<Parameters<typeof pacingFacts>[0]["verdict"]>;
-  now: number;
-}) {
+function verdictFact(verdict: NonNullable<Parameters<typeof pacingFacts>[0]["verdict"]>) {
   const spent = `${windowName(verdict.windowKind)} window at ${formatPercent(verdict.utilization)}`;
   if (verdict.windowKind === PacedWindowKind.enum.weekly) {
-    return `${spent} - ahead of an even spend, back on pace ${countdownTo({
-      time: verdict.readyAt,
-      now
-    })}`;
+    return {
+      text: `${spent} - ahead of an even spend, back on pace`,
+      time: verdict.readyAt
+    };
   }
 
-  return `${spent} - on track to run out ${countdownTo({
-    time: verdict.runOutAt,
-    now
-  })}, before its reset`;
-}
-
-/** How long until `time`, as the usage meter says it - "in 2h 5m". */
-function countdownTo({ time, now }: {
-  time: number;
-  now: number;
-}) {
-  return resetCountdown({
-    iso: new Date(time).toISOString(),
-    now
-  });
+  return {
+    text: `${spent} - runs out before its reset`,
+    time: verdict.runOutAt
+  };
 }
 
 /** The Config panel's live line for one window (`paceForecasts`): how much is

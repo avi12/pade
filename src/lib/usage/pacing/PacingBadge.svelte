@@ -4,8 +4,10 @@
   // (PacingDetails) that says why, what it runs now and when it reverts, with
   // the overrides right there.
 
+  import { adaptedChoice } from "@/lib/stores/usage/usageAdapt.svelte";
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
   import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
+  import { pacingFactText, pacingResume } from "@/lib/usage/pacing/pacing-policy";
   import PacingDetails from "@/lib/usage/pacing/PacingDetails.svelte";
 
   const { sessionId, isMeasuring = false }: {
@@ -16,6 +18,34 @@
   } = $props();
 
   const status = $derived(pacingStatus(sessionId));
+  const resume = $derived.by(() => {
+    if (!status) {
+      return null;
+    }
+
+    const choice = adaptedChoice(sessionId);
+    const slowedUntil = status.revertsAt ?? choice?.restoreAt ?? status.verdict?.readyAt ?? null;
+    return pacingResume({
+      isStopped: status.isStopped,
+      resumesAt: status.isStopped ? status.continuesAt : slowedUntil,
+      original: choice?.original ?? null
+    });
+  });
+  const hint = $derived.by(() => {
+    if (!resume) {
+      return "";
+    }
+
+    const resumeText = pacingFactText({
+      fact: resume,
+      now: Date.now()
+    });
+    if (status?.isStopped) {
+      return `Paused so your usage lasts until it resets. ${resumeText}. Click for why`;
+    }
+
+    return `Slowed so your usage lasts until it resets. ${resumeText}. Click for why`;
+  });
   const popoverId = $derived(`pacing-${sessionId}`);
   // The measuring copy names no anchor: two badges sharing one name, the
   // popover anchored to the later one - the invisible copy - and was hidden
@@ -36,13 +66,13 @@
   });
 </script>
 
-{#if status}
+{#if status && resume}
   <!-- The hint takes the shared top-layer bubble: as a `data-tooltip` pseudo it
        was clipped by the tab strip, painted under the pacing note below it, and
        shaken by a paused badge's alarm animation. It sits on a wrapper because
        the bubble anchors itself through `anchor-name`, which the button already
        spends on its popover. -->
-  <span class="badge-hint" {@attach tooltip("Slowed so your usage lasts until it resets - click for why")}>
+  <span class="badge-hint" {@attach tooltip(() => hint)}>
     <button
       style:anchor-name={anchorName}
       class="badge"
@@ -61,7 +91,7 @@
 
   {#if !isMeasuring}
     <div id={popoverId} style:position-anchor={anchorName} class="pacing-popover popover-menu" popover>
-      <PacingDetails {sessionId} {status} />
+      <PacingDetails {resume} {sessionId} {status} />
     </div>
   {/if}
 {/if}

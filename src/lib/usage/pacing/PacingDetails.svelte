@@ -5,24 +5,27 @@
 
   import { adaptedChoice } from "@/lib/stores/usage/usageAdapt.svelte";
   import type { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
-  import { PACING_STEP_TEXT, pacingFacts, spokenTime } from "@/lib/usage/pacing/pacing-policy";
+  import { PACING_STEP_TEXT, pacingFacts, pacingWhen, spokenTime } from "@/lib/usage/pacing/pacing-policy";
+  import type { pacingResume } from "@/lib/usage/pacing/pacing-policy";
   import PacingActions from "@/lib/usage/pacing/PacingActions.svelte";
 
-  const { sessionId, status }: {
+  const { sessionId, status, resume }: {
     sessionId: string;
     status: NonNullable<ReturnType<typeof pacingStatus>>;
+    /** When it is back to normal - the badge's hint says the same. */
+    resume: ReturnType<typeof pacingResume>;
   } = $props();
 
-  const lines = $derived.by(() => {
-    const choice = adaptedChoice(sessionId);
-    return pacingFacts({
+  const lines = $derived(
+    pacingFacts({
       verdict: status.verdict,
-      choice,
-      restUntil: status.restUntil,
-      revertsAt: status.revertsAt ?? choice?.restoreAt ?? null,
-      now: Date.now()
-    });
-  });
+      choice: adaptedChoice(sessionId),
+      resume
+    })
+  );
+  // One switch for the popover: clicking any time reads them all as a
+  // countdown, and back (CSS swaps the two spans).
+  const countdownToggleId = $derived(`pacing-countdown-${sessionId}`);
   const history = $derived(
     status.history.map(entry => `${spokenTime({
       time: entry.at,
@@ -32,8 +35,25 @@
 </script>
 
 <h4 class="section-label">Usage pacing</h4>
-{#each lines as line (line)}
-  <p>{line}</p>
+<input id={countdownToggleId} class="countdown-toggle" aria-label="Show times as a countdown" type="checkbox" />
+{#each lines as line (line.text)}
+  <p>
+    {line.text}
+    {#if line.time !== null}
+      <label class="when" for={countdownToggleId}>
+        <span class="at">{pacingWhen({
+          time: line.time,
+          now: Date.now(),
+          isCountdown: false
+        })}</span>
+        <span class="in">{pacingWhen({
+          time: line.time,
+          now: Date.now(),
+          isCountdown: true
+        })}</span>
+      </label>
+    {/if}
+  </p>
 {/each}
 <ul class="active">
   {#each status.steps as step (step)}
@@ -58,6 +78,39 @@
   p {
     margin: 0;
     color: var(--on-surface);
+  }
+
+  /* Hidden from sight but still in the tab order, so the keyboard can flip it. */
+  .countdown-toggle {
+    position: absolute;
+    block-size: 1px;
+    inline-size: 1px;
+    opacity: 0%;
+    pointer-events: none;
+  }
+
+  .when {
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    cursor: pointer;
+
+    .in {
+      display: none;
+    }
+
+    .countdown-toggle:checked ~ p & {
+      .at {
+        display: none;
+      }
+
+      .in {
+        display: inline;
+      }
+    }
+
+    .countdown-toggle:focus-visible ~ p & {
+      outline: 2px solid var(--primary);
+    }
   }
 
   .active {

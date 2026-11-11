@@ -1,5 +1,13 @@
 import { CreditsState, PacedWindowKind, UsageWindowKind } from "@/lib/types";
-import { isPacingOn, pacingFacts, pacingPreview } from "@/lib/usage/pacing/pacing-policy";
+import {
+  isPacingOn,
+  pacingFacts,
+  pacingFactText,
+  pacingPreview,
+  pacingResume,
+  pacingWhen,
+  spokenTime
+} from "@/lib/usage/pacing/pacing-policy";
 import { paceForecasts, RESET_GRACE_MS } from "@/lib/usage/pacing/usage-pace";
 import type { PaceForecast } from "@/lib/usage/pacing/usage-pace";
 import { describe, expect, it } from "vitest";
@@ -144,42 +152,139 @@ describe("pacingPreview", () => {
 });
 
 describe("pacingFacts", () => {
-  it("lists only what pacing knows, in order", () => {
-    const facts = pacingFacts({
-      verdict: {
-        windowKind: UsageWindowKind.enum.session,
-        utilization: 85,
-        runOutAt: NOW + HOUR_MS,
-        readyAt: NOW + HOUR_MS
-      },
-      choice: {
-        current: "Sonnet 5.5",
-        original: "Opus 5.5"
-      },
-      restUntil: null,
-      revertsAt: null,
-      now: NOW
+  it("lists only what pacing knows, in order, each time kept apart", () => {
+    const resume = pacingResume({
+      isStopped: false,
+      resumesAt: NOW + DAY_MS,
+      original: "Opus 5.5"
     });
-    expect(facts).toEqual([
-      "session window at 85% - on track to run out in 1h 0m, before its reset",
-      "Runs Sonnet 5.5 - normally Opus 5.5"
+    expect(
+      pacingFacts({
+        verdict: {
+          windowKind: UsageWindowKind.enum.session,
+          utilization: 85,
+          runOutAt: NOW + HOUR_MS,
+          readyAt: NOW + HOUR_MS
+        },
+        choice: {
+          current: "Sonnet 5.5",
+          original: "Opus 5.5"
+        },
+        resume
+      })
+    ).toEqual([
+      {
+        text: "session window at 85% - runs out before its reset",
+        time: NOW + HOUR_MS
+      },
+      {
+        text: "Runs Sonnet 5.5 - normally Opus 5.5",
+        time: null
+      },
+      {
+        text: "Back to Opus 5.5",
+        time: NOW + DAY_MS
+      }
     ]);
   });
 
   it("says a weekly window is ahead of an even spend, and when it is back on pace", () => {
+    const [verdict] = pacingFacts({
+      verdict: {
+        windowKind: UsageWindowKind.enum.weekly,
+        utilization: 80,
+        runOutAt: NOW,
+        readyAt: NOW + DAY_MS
+      },
+      choice: null,
+      resume: pacingResume({
+        isStopped: true,
+        resumesAt: null,
+        original: null
+      })
+    });
+    expect(verdict).toEqual({
+      text: "weekly window at 80% - ahead of an even spend, back on pace",
+      time: NOW + DAY_MS
+    });
+  });
+});
+
+describe("pacingWhen", () => {
+  it("reads a time as a clock time or as a countdown", () => {
+    const time = NOW + HOUR_MS;
     expect(
-      pacingFacts({
-        verdict: {
-          windowKind: UsageWindowKind.enum.weekly,
-          utilization: 80,
-          runOutAt: NOW,
-          readyAt: NOW + DAY_MS
-        },
-        choice: null,
-        restUntil: null,
-        revertsAt: null,
+      pacingWhen({
+        time,
+        now: NOW,
+        isCountdown: false
+      })
+    ).toBe(
+      `at ${spokenTime({
+        time,
+        now: NOW
+      })}`
+    );
+    expect(
+      pacingWhen({
+        time,
+        now: NOW,
+        isCountdown: true
+      })
+    ).toBe("in 1h 0m");
+  });
+
+  it("falls back to the clock for a time already past", () => {
+    expect(
+      pacingWhen({
+        time: NOW - HOUR_MS,
+        now: NOW,
+        isCountdown: true
+      })
+    ).toMatch(/^at /v);
+  });
+});
+
+describe("pacingResume", () => {
+  it("says when a paused session continues, as the badge's hint reads it", () => {
+    const fact = pacingResume({
+      isStopped: true,
+      resumesAt: NOW + HOUR_MS,
+      original: "Opus 5.5"
+    });
+    expect(
+      pacingFactText({
+        fact,
         now: NOW
       })
-    ).toEqual(["weekly window at 80% - ahead of an even spend, back on pace in 1d 0h"]);
+    ).toBe(
+      `Continues at ${spokenTime({
+        time: NOW + HOUR_MS,
+        now: NOW
+      })}`
+    );
+  });
+
+  it("names the model and effort a slowed session goes back to", () => {
+    expect(
+      pacingResume({
+        isStopped: false,
+        resumesAt: NOW + HOUR_MS,
+        original: "Opus 5.5 · high effort"
+      }).text
+    ).toBe("Back to Opus 5.5 · high effort");
+  });
+
+  it("falls back to the pace when no time is known yet", () => {
+    expect(
+      pacingResume({
+        isStopped: true,
+        resumesAt: null,
+        original: null
+      })
+    ).toEqual({
+      text: "Continues once usage is back on pace",
+      time: null
+    });
   });
 });
