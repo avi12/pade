@@ -436,8 +436,11 @@ export const LimitReset = z.object({
   resetsLeft: z.number(),
   /** When the first of them expires, ISO-8601. */
   endsAt: z.string().nullish(),
-  /** The window keys a reset clears (`five_hour`, `seven_day`, …). */
-  clears: z.array(z.string())
+  /** Which limits it frees up, as Claude names the grant. */
+  kind: z.enum(["session", "weekly", "fable", "full"]),
+  /** Some limit it clears has use on it now; claude.ai greys out a reset
+   *  that would clear nothing. */
+  hasUsageToClear: z.boolean()
 });
 export type LimitReset = z.infer<typeof LimitReset>;
 

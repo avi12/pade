@@ -50,7 +50,8 @@ const launchReset: LimitReset = {
   label: "Claude Opus 5.5 launch: one usage-limit reset for Pro and Max",
   resetsLeft: 1,
   endsAt: "2026-10-22T16:00:00+00:00",
-  clears: ["five_hour", "seven_day"]
+  kind: "full",
+  hasUsageToClear: true
 };
 
 beforeEach(async () => {
@@ -141,7 +142,8 @@ describe("choosing between kinds of reset", () => {
     label: "New model launch: one Fable reset",
     resetsLeft: 3,
     endsAt: "2027-03-09T07:59:00+00:00",
-    clears: ["seven_day_overage_included"]
+    kind: "fable",
+    hasUsageToClear: true
   };
 
   beforeEach(async () => {
@@ -149,13 +151,38 @@ describe("choosing between kinds of reset", () => {
     await refreshLimitResetOffers();
   });
 
-  it("opens on the first kind, or on the one a menu row asked for", () => {
+  it("asks which kind from the chip, but not from a menu row's own button", () => {
     askToResetLimits();
-    expect(limitResetConfirmation().chosen?.grantId).toBe(fableReset.grantId);
+    expect(limitResetConfirmation()).toMatchObject({
+      isChoosing: true,
+      chosen: {
+        grantId: fableReset.grantId
+      }
+    });
 
     cancelLimitReset();
     askToResetLimits(launchReset.grantId);
+    expect(limitResetConfirmation()).toMatchObject({
+      isChoosing: false,
+      chosen: {
+        grantId: launchReset.grantId
+      }
+    });
+  });
+
+  it("starts the pick on a kind that has something to clear, and never spends one that hasn't", async () => {
+    mocks.limitResetOffers.mockResolvedValue([{
+      ...fableReset,
+      hasUsageToClear: false
+    }, launchReset]);
+    await refreshLimitResetOffers();
+
+    askToResetLimits();
     expect(limitResetConfirmation().chosen?.grantId).toBe(launchReset.grantId);
+
+    chooseLimitReset(fableReset.grantId);
+    await confirmLimitReset(vi.fn(async () => {}));
+    expect(mocks.claimLimitReset).not.toHaveBeenCalled();
   });
 
   it("spends the kind picked in the confirmation", async () => {

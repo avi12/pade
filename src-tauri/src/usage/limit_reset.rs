@@ -1,7 +1,8 @@
-//! Claude's free usage-limit resets: a grant the account is given (a launch
-//! promotion, say) that clears its session and weekly limits once, on demand.
-//! claude.ai shows it as "Limit resets → Reset for free"; this offers the same
-//! button in PADE's usage meter.
+//! Claude's free usage-limit resets: grants the account is given (a launch
+//! promotion, a monthly full reset) that each clear some of its limits once, on
+//! demand. claude.ai shows them as "Limit resets → Reset for free", one button
+//! per kind - a weekly reset apart from a Fable one - greyed out while the
+//! limits a kind clears hold no use; this offers the same in PADE's usage meter.
 //!
 //! Both calls are the ones Claude Code itself makes. The offer is the `cedar_ember`
 //! block of the OAuth usage endpoint - which answers only a caller that names
@@ -10,10 +11,11 @@
 //! naming the grant and a fresh request id, so a retried claim is never counted
 //! twice. Spending a grant cannot be undone; the frontend confirms first.
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Instant;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use super::{
     claude_access_token, claude_usage_url, curl_claude_oauth, is_safe_header_token,
@@ -26,20 +28,36 @@ const RESET_PROGRAM: &str = "cedar_ember";
 const RESET_REQUEST_TIMEOUT_SECONDS: u32 = 20;
 /// The longest grant id Claude Code itself accepts.
 const MAXIMUM_GRANT_ID_LENGTH: usize = 40;
+/// The 5-hour window's key in a grant's `clears`.
+const SESSION_WINDOW: &str = "five_hour";
 
-/// The reset an account can spend now: the grant the server names as next.
+/// Which limits a reset frees up, named as Claude Code names it.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ResetKind {
+    Session,
+    Weekly,
+    /// Clears the included model's week and gives its use back to the weekly
+    /// limit.
+    Fable,
+    Full,
+}
+
+/// One kind of reset the account can spend now.
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LimitReset {
+    /// The grant a claim of this kind spends.
     grant_id: String,
-    /// The grant's own description ("Claude Opus 5.5 launch: one usage-limit
-    /// reset for Pro and Max").
+    /// That grant's own description ("New model launch: one Fable reset").
     label: String,
     resets_left: u32,
-    /// When the grant expires, ISO-8601.
+    /// When the first of them expires, ISO-8601.
     ends_at: Option<String>,
-    /// The windows a reset clears (`five_hour`, `seven_day`, …).
-    clears: Vec<String>,
+    kind: ResetKind,
+    /// Some limit it clears has use on it now. claude.ai greys out a reset
+    /// that would clear nothing.
+    has_usage_to_clear: bool,
 }
 
 /// What a claim did, as the server reports it.
@@ -74,6 +92,23 @@ struct Grant {
     clears: Vec<String>,
     #[serde(rename = "usable_now")]
     is_usable_now: bool,
+    /// The kind the server names, when it names one this knows.
+    #[serde(rename = "type", default, deserialize_with = "known_kind")]
+    declared_kind: Option<ResetKind>,
+    /// Spending it also takes the week's included-model use off the weekly
+    /// limit - which makes it a Fable reset, whatever its `type`.
+    #[serde(rename = "gives_back_weekly", default)]
+    is_giving_back_weekly: bool,
+    /// How much of each window it clears is used now, 0-100.
+    #[serde(default)]
+    percent_used: HashMap<String, u32>,
+}
+
+/// A `type` this build doesn't know reads as none, as Claude Code reads it,
+/// rather than failing the whole status block.
+fn known_kind<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<ResetKind>, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(ResetKind::deserialize(value).ok())
 }
 
 /// The resets the account can spend now, one per kind - empty when it has
@@ -198,21 +233,44 @@ impl Grant {
     fn is_spendable(&self) -> bool {
         self.is_usable_now && self.resets_left > 0
     }
+
+    /// Its kind, decided as Claude Code decides it: giving the week back makes
+    /// it a Fable reset, then the server's own `type`, and only then the
+    /// windows it clears.
+    fn kind(&self) -> ResetKind {
+        if self.is_giving_back_weekly {
+            return ResetKind::Fable;
+        }
+
+        if let Some(kind) = self.declared_kind {
+            return kind;
+        }
+
+        let clears_session = self.clears.iter().any(|window| window == SESSION_WINDOW);
+        let clears_longer = self.clears.iter().any(|window| window != SESSION_WINDOW);
+        match (clears_session, clears_longer) {
+            (true, false) => ResetKind::Session,
+            (false, true) => ResetKind::Weekly,
+            _ => ResetKind::Full,
+        }
+    }
+
+    /// Some window it clears holds use now. A window the server gives no
+    /// figure for counts as used, so an unknown never greys a reset out.
+    fn has_usage_to_clear(&self) -> bool {
+        self.clears.is_empty()
+            || self.clears.iter().any(|window| {
+                self.percent_used
+                    .get(window)
+                    .is_none_or(|percent| *percent > 0)
+            })
+    }
 }
 
-/// The limits a grant clears, order-free, so two grants of one kind compare
-/// equal however the server lists them.
-fn kind_of(grant: &Grant) -> Vec<&str> {
-    let mut clears: Vec<&str> = grant.clears.iter().map(String::as_str).collect();
-    clears.sort_unstable();
-    clears
-}
-
-/// One offer per kind of reset the account can spend now - a kind being the
-/// set of limits its grants clear. One launch can hand out several grants of
-/// a kind (a base grant plus tenure bonuses), and claude.ai counts them
-/// together ("Fable reset · 3"); different kinds (a Fable reset beside an
-/// all-models one) stay apart so the user picks which to spend.
+/// One offer per kind of reset the account can spend now. One launch can
+/// hand out several grants of a kind (a base grant plus tenure bonuses), and
+/// claude.ai counts them together ("Fable reset · 3"); different kinds (a
+/// weekly reset beside a Fable one) stay apart, each spent on its own.
 ///
 /// Each offer spends the grant that runs out first in its kind - the server's
 /// `next_grant_id` when it is one of them - and the server's next kind leads.
@@ -221,12 +279,11 @@ fn offered_resets(status: ResetStatus) -> Vec<LimitReset> {
         return Vec::new();
     }
 
-    // One pass: each spendable grant joins its kind's group, its kind worked
-    // out once. Groups keep the server's order (a handful of grants, so a
-    // linear lookup beats hashing).
-    let mut groups: Vec<(Vec<&str>, Vec<&Grant>)> = Vec::new();
+    // One pass: each spendable grant joins its kind's group. Groups keep the
+    // server's order (a handful of grants, so a linear lookup beats hashing).
+    let mut groups: Vec<(ResetKind, Vec<&Grant>)> = Vec::new();
     for grant in status.grants.iter().filter(|grant| grant.is_spendable()) {
-        let kind = kind_of(grant);
+        let kind = grant.kind();
         if let Some((_, grants)) = groups.iter_mut().find(|(existing, _)| *existing == kind) {
             grants.push(grant);
         } else {
@@ -238,7 +295,7 @@ fn offered_resets(status: ResetStatus) -> Vec<LimitReset> {
     groups.sort_by_key(|(_, grants)| !grants.iter().any(|grant| is_grant(grant, next_grant_id)));
     groups
         .iter()
-        .filter_map(|(_, grants)| offer_for_kind(grants, next_grant_id))
+        .filter_map(|(kind, grants)| offer_for_kind(*kind, grants, next_grant_id))
         .collect()
 }
 
@@ -249,7 +306,11 @@ fn is_grant(grant: &Grant, grant_id: Option<&str>) -> bool {
 /// One kind's offer: every reset its grants hold, the earliest expiry, and
 /// the grant a claim spends - the server's next when it is of this kind, or
 /// else the one that runs out first.
-fn offer_for_kind(grants: &[&Grant], next_grant_id: Option<&str>) -> Option<LimitReset> {
+fn offer_for_kind(
+    kind: ResetKind,
+    grants: &[&Grant],
+    next_grant_id: Option<&str>,
+) -> Option<LimitReset> {
     let first_expiring = grants
         .iter()
         .min_by_key(|grant| (grant.ends_at.is_none(), grant.ends_at.as_deref()))?;
@@ -262,7 +323,8 @@ fn offer_for_kind(grants: &[&Grant], next_grant_id: Option<&str>) -> Option<Limi
         label: spent_first.label.clone(),
         resets_left: grants.iter().map(|grant| grant.resets_left).sum(),
         ends_at: first_expiring.ends_at.clone(),
-        clears: spent_first.clears.clone(),
+        kind,
+        has_usage_to_clear: spent_first.has_usage_to_clear(),
     })
 }
 
@@ -288,7 +350,9 @@ fn claude_cli_user_agent(profile: &ClaudeProfile) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_grant_id, offered_resets, LimitReset, LimitResetOutcome, ResetStatus};
+    use super::{
+        is_grant_id, offered_resets, LimitReset, LimitResetOutcome, ResetKind, ResetStatus,
+    };
 
     fn status(json: &serde_json::Value) -> ResetStatus {
         serde_json::from_value(json.clone()).expect("a status")
@@ -319,11 +383,8 @@ mod tests {
                 label: "Claude Opus 5.5 launch: one usage-limit reset for Pro and Max".to_string(),
                 resets_left: 1,
                 ends_at: Some("2026-10-22T16:00:00+00:00".to_string()),
-                clears: vec![
-                    "five_hour".to_string(),
-                    "seven_day".to_string(),
-                    "seven_day_overage_included".to_string()
-                ],
+                kind: ResetKind::Full,
+                has_usage_to_clear: true,
             }]
         );
     }
@@ -394,6 +455,69 @@ mod tests {
                 ("all-early", 2, Some("2027-04-01T00:00:00+00:00"))
             ]
         );
+    }
+
+    #[test]
+    fn a_weekly_reset_and_a_fable_reset_are_offered_apart_as_claude_names_them() {
+        // The real shape, probed live 2026-11-11: a monthly weekly reset that
+        // also clears Fable's week, beside Fable resets the server types "full"
+        // but which give the week back.
+        let offers = offered_resets(status(&serde_json::json!({
+            "eligible": true,
+            "grants": [
+                {
+                    "id": "full-reset-2611",
+                    "label": "One full limit reset (November 2026)",
+                    "resets_left": 1,
+                    "ends_at": "2026-12-10T22:00:00+00:00",
+                    "clears": ["seven_day", "seven_day_overage_included"],
+                    "usable_now": true,
+                    "percent_used": { "seven_day": 63, "seven_day_overage_included": 0 },
+                    "type": "weekly",
+                    "gives_back_weekly": false
+                },
+                {
+                    "id": "launch-2610-fable",
+                    "label": "New model launch: one Fable reset",
+                    "resets_left": 1,
+                    "ends_at": "2027-03-09T07:59:00+00:00",
+                    "clears": ["seven_day_overage_included"],
+                    "usable_now": true,
+                    "percent_used": { "seven_day_overage_included": 0 },
+                    "type": "full",
+                    "gives_back_weekly": true
+                }
+            ],
+            "next_grant_id": "full-reset-2611"
+        })));
+
+        let summary: Vec<(ResetKind, bool)> = offers
+            .iter()
+            .map(|offer| (offer.kind, offer.has_usage_to_clear))
+            .collect();
+        assert_eq!(
+            summary,
+            vec![(ResetKind::Weekly, true), (ResetKind::Fable, false)]
+        );
+    }
+
+    #[test]
+    fn an_unknown_type_falls_back_to_the_windows_it_clears() {
+        let offers = offered_resets(status(&serde_json::json!({
+            "eligible": true,
+            "grants": [{
+                "id": "session",
+                "label": "session",
+                "resets_left": 1,
+                "clears": ["five_hour"],
+                "usable_now": true,
+                "type": "something_new"
+            }],
+            "next_grant_id": "session"
+        })));
+
+        assert_eq!(offers[0].kind, ResetKind::Session);
+        assert!(offers[0].has_usage_to_clear);
     }
 
     #[test]

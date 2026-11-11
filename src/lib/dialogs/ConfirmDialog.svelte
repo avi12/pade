@@ -24,6 +24,7 @@
     busyLabel,
     danger = false,
     busy = false,
+    isConfirmable = true,
     error = null,
     nested = false,
     onconfirm,
@@ -38,6 +39,8 @@
     /** Paints the glyph and the confirm button in the critical role. */
     danger?: boolean;
     busy?: boolean;
+    /** The action can run with what is picked now (default: always). */
+    isConfirmable?: boolean;
     error?: string | null;
     /** Render as a popover nested in an open menu (keeps that menu visible behind)
      *  rather than a top-level modal <dialog>. */
@@ -98,9 +101,9 @@
     <button class="cancel" disabled={busy} onclick={oncancel} type="button">Cancel</button>
     <button
       class="confirm"
-      disabled={busy}
+      disabled={busy || !isConfirmable}
       onclick={async () => {
-        if (!busy) {
+        if (!busy && isConfirmable) {
           await onconfirm();
         }
       }}

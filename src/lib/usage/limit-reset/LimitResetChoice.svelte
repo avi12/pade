@@ -3,7 +3,7 @@
   // confirmation can ask which to spend. Each option says what it frees up and
   // how many are left; the pick is lit via :has.
   import type { LimitReset } from "@/lib/types";
-  import { limitResetKind, limitResetSummary } from "@/lib/usage/limit-reset/limit-reset-kind";
+  import { limitResetKind, limitResetSummary, NOTHING_TO_RESET } from "@/lib/usage/limit-reset/limit-reset-kind";
 
   const { offers, chosenGrantId, isLocked, onchoose }: {
     offers: readonly LimitReset[];
@@ -17,11 +17,12 @@
 <fieldset class="reset-choice" disabled={isLocked}>
   <legend class="visually-hidden">Which reset to use</legend>
   {#each offers as offer (offer.grantId)}
-    {@const kind = limitResetKind(offer.clears)}
+    {@const kind = limitResetKind(offer.kind)}
     <label>
       <input
         name="limit-reset-choice"
         checked={offer.grantId === chosenGrantId}
+        disabled={!offer.hasUsageToClear}
         onchange={() => onchoose(offer.grantId)}
         type="radio"
       />
@@ -30,7 +31,13 @@
           <span class="option-name">{kind.title}</span>
           <span class="option-meta">{limitResetSummary(offer)}</span>
         </span>
-        <span class="option-effect">{kind.effect}</span>
+        <span class="option-effect">
+          {#if offer.hasUsageToClear}
+            {kind.effect}
+          {:else}
+            {NOTHING_TO_RESET}
+          {/if}
+        </span>
       </span>
     </label>
   {/each}
@@ -79,7 +86,8 @@
       accent-color: var(--primary);
     }
 
-    &:disabled label {
+    &:disabled label,
+    label:has(input:disabled) {
       opacity: 60%;
       cursor: default;
     }

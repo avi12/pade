@@ -17,6 +17,8 @@ let isConfirming = $state(false);
 let isClaiming = $state(false);
 let failure = $state<string | null>(null);
 let chosenGrantId = $state<string | null>(null);
+// The chip asks which kind to spend; a menu row's own button has already said.
+let isChoosing = $state(false);
 
 /** The resets Claude's account can spend now, one per kind (the server's
  *  next kind first) - empty when it holds none. */
@@ -30,6 +32,7 @@ export function limitResetConfirmation() {
   return {
     isOpen: isConfirming,
     isClaiming,
+    isChoosing: isChoosing && offers.length > 1,
     failure,
     chosen: offers.find(offer => offer.grantId === chosenGrantId) ?? offers[0] ?? null
   };
@@ -59,14 +62,16 @@ function announceNewOffers() {
     return;
   }
 
-  showToast(`A ${limitResetKind(first.clears).name} is available - use it from Claude's usage meter`);
+  showToast(`A ${limitResetKind(first.kind).name} is available - use it from Claude's usage meter`);
 }
 
-/** Open the confirmation, on `grantId`'s kind when given (a menu row's own
- *  button) or else on the first offer. */
+/** Open the confirmation for `grantId`'s kind alone (a menu row's own
+ *  button), or else to pick among the kinds, starting on the first that has
+ *  something to clear. */
 export function askToResetLimits(grantId?: string) {
   failure = null;
-  chosenGrantId = grantId ?? offers[0]?.grantId ?? null;
+  isChoosing = grantId === undefined;
+  chosenGrantId = grantId ?? (offers.find(offer => offer.hasUsageToClear) ?? offers[0])?.grantId ?? null;
   isConfirming = true;
 }
 
@@ -89,7 +94,7 @@ export function cancelLimitReset() {
  *  the meter shows the cleared limits; a refusal stays open with its reason. */
 export async function confirmLimitReset(onreset: () => Promise<void>) {
   const { chosen } = limitResetConfirmation();
-  if (!chosen) {
+  if (!chosen?.hasUsageToClear) {
     return;
   }
 
