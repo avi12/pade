@@ -73,14 +73,13 @@ import { MILLISECONDS_PER_MINUTE, PACING_STEP_ORDER, pacingMargin, spokenTime } 
 import {
   assessPace,
   burnRate,
+  CONTINUE_REQUEST,
   hasRoomToSpare,
   isRestEnough,
   MINIMUM_RATE_SPAN_MS,
   paceForecasts,
   RATE_HISTORY_MS,
-  resumeRequest,
   slowRestUntil,
-  USER_CONTINUE_REQUEST,
   windowName
 } from "@/lib/usage/pacing/usage-pace";
 import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/usage-pace";
@@ -696,17 +695,16 @@ export function createUsagePacing(host: PacingHost) {
   async function resume(id: string) {
     await pickUp({
       id,
-      request: resumeRequest(),
       isOnlyAfterStoppedWork: true
     });
   }
 
-  // Pick a paused session back up - unless it is already working: a "continue"
-  // typed into a running turn would queue a stray one behind it. Pacing's own
-  // continue goes only to work it stopped; an agent that was idle stays so.
-  async function pickUp({ id, request, isOnlyAfterStoppedWork }: {
+  // Pick a paused session back up with a plain "continue" - unless it is
+  // already working: one typed into a running turn would queue a stray one
+  // behind it. Pacing's own continue goes only to work it stopped; an agent
+  // that was idle stays so.
+  async function pickUp({ id, isOnlyAfterStoppedWork }: {
     id: string;
-    request: string;
     isOnlyAfterStoppedWork: boolean;
   }) {
     const state = paced.get(id);
@@ -730,7 +728,7 @@ export function createUsagePacing(host: PacingHost) {
 
     await submitPastedPrompt({
       id,
-      text: request,
+      text: CONTINUE_REQUEST,
       wait: afterDelay
     });
   }
@@ -740,7 +738,6 @@ export function createUsagePacing(host: PacingHost) {
     continuedAnyway.set(id, false);
     await pickUp({
       id,
-      request: USER_CONTINUE_REQUEST,
       isOnlyAfterStoppedWork: false
     });
   }

@@ -437,12 +437,6 @@ export function slowRestUntil({ readyAt, continueAt, stretch, now }: {
   return Math.min(readyAt, now + Math.max(MINIMUM_REST_MS, rest));
 }
 
-/** The message that picks a paused agent back up - marked as pacing's own, so
- *  the agent never mistakes it for the user's answer to a question it asked. */
-export function resumeRequest() {
-  return "PADE usage pacing: the pause is over (the interruption and any refused tool calls were pacing's) - continue where you left off, relaunching background work the pause stopped. This is not the user: it answers nothing you asked.";
-}
-
-/** What the user's own "Continue anyway" types: the user is speaking, so it
- *  needs none of pacing's explaining. */
-export const USER_CONTINUE_REQUEST = "continue";
+/** What picks a paused agent back up - pacing's own resume and the user's
+ *  "Continue anyway" alike. */
+export const CONTINUE_REQUEST = "continue";

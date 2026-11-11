@@ -9,7 +9,6 @@ import {
   paceForecasts,
   reportedPacedKinds,
   RESET_GRACE_MS,
-  resumeRequest,
   slowRestUntil,
   WEEKLY_WINDOW_MS
 } from "@/lib/usage/pacing/usage-pace";
@@ -527,11 +526,5 @@ describe("slowRestUntil", () => {
         now: NOW
       })
     ).toBe(NOW + 30 * MINUTE_MS);
-  });
-});
-
-describe("resumeRequest", () => {
-  it("says it comes from pacing, not the user", () => {
-    expect(resumeRequest()).toContain("not the user");
   });
 });
