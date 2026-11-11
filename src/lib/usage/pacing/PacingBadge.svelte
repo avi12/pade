@@ -70,6 +70,14 @@
   .badge-hint {
     display: inline-flex;
     flex: none;
+
+    /* The details say more than the hint, so while they are open the hint
+       goes: an anchored element is drawn only while its anchor is visible
+       (position-visibility's default), and the shared bubble anchors on this
+       wrapper - so the wrapper hides, and the badge inside shows again below. */
+    &:has(+ .pacing-popover:popover-open) {
+      visibility: hidden;
+    }
   }
 
   .badge {
@@ -85,6 +93,9 @@
     font-size: 0.625rem;
     letter-spacing: 0.04em;
 
+    /* Shown even while its wrapper hides to put the hint away (above). */
+    visibility: visible;
+
     /* Cyberpunk: a session pacing has stopped outright stutters every few
        seconds - an alarm on a held state, not on the step count changing. */
     @media (prefers-reduced-motion: no-preference) {
@@ -99,10 +110,6 @@
     flex-direction: column;
     gap: 6px;
     inline-size: 280px;
-
-    /* The badge's hint stays up while the pointer is on it, right under the
-       badge: open below that line rather than under it. */
-    margin-block-start: calc(2 * var(--tooltip-gap) + var(--tooltip-line-block-size));
     padding: 10px;
     color: var(--on-surface);
     font-size: 0.75rem;

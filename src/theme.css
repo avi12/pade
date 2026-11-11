@@ -937,8 +937,8 @@ textarea {
   /* One line whenever it fits: the bubble is as wide as its text, up to the
      viewport less its edge gutters, and only text longer than that wraps. */
   max-inline-size: calc(100vw - 2 * var(--tooltip-edge-gutter));
-  padding: var(--tooltip-padding-block) 8px;
-  border: var(--tooltip-border-width) solid var(--tooltip-border-color);
+  padding: 3px 8px;
+  border: 1px solid var(--tooltip-border-color);
   border-radius: var(--tooltip-radius);
   background: var(--tooltip-background);
   color: var(--tooltip-foreground);
@@ -947,8 +947,8 @@ textarea {
      bound below it (App), so a palette sets it where it resolves per element. */
   font-family: var(--tooltip-font, var(--font-ui));
   font-weight: 500;
-  font-size: var(--tooltip-font-size);
-  line-height: var(--tooltip-line-height);
+  font-size: calc(0.6875 * var(--font-base));
+  line-height: 1.35;
   letter-spacing: var(--tooltip-letter-spacing);
 
   /* Wrap only past the max-inline-size cap, and keep a tooltip's own line
