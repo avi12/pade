@@ -37,7 +37,8 @@
   // caret does - a new-window click still opens the project in a new window -
   // a new-chat button, and the options menu on hover or right-click), then,
   // while open, its chats indented under it. A pinned project leads with a
-  // drag grip while the pins can be reordered.
+  // drag grip while the pins can be reordered. Closed, it keeps only its live
+  // chats.
   const {
     group,
     labels,
@@ -72,7 +73,7 @@
 
   const NEW_CHAT = "New chat";
   const EXPAND = "Show chats";
-  const COLLAPSE = "Hide chats";
+  const COLLAPSE = "Hide inactive chats";
 
   let rowMenu = $state<ProjectRowMenu | null>(null);
 
@@ -95,6 +96,14 @@
   // Open until the user says otherwise when it is in front or runs anything;
   // a project with nothing running starts closed.
   const isExpanded = $derived(expandedByUser.get(group.project) ?? (group.isCurrent || hasLiveChats));
+  // Closed, a project still lists its live chats - only the rest fold away.
+  const listedChats = $derived.by(() => {
+    if (isExpanded) {
+      return group.chats;
+    }
+
+    return group.chats.filter(chat => chat.isLive);
+  });
   const counts = $derived(
     activityCounts(
       group.chats.map(chat => chatActivity({
@@ -169,10 +178,10 @@
     <ProjectRowMenu bind:this={rowMenu} {...menu} {isPinned} {labels} project={group.project} />
   </div>
 
-  {#if isExpanded}
+  {#if isExpanded || hasLiveChats}
     <ProjectChatList
       {activeChatId}
-      chats={group.chats}
+      chats={listedChats}
       {now}
       {ondeletechat}
       {onnewchat}
