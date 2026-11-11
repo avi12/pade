@@ -99,6 +99,10 @@
     flex-direction: column;
     gap: 6px;
     inline-size: 280px;
+
+    /* The badge's hint stays up while the pointer is on it, right under the
+       badge: open below that line rather than under it. */
+    margin-block-start: calc(2 * var(--tooltip-gap) + var(--tooltip-line-block-size));
     padding: 10px;
     color: var(--on-surface);
     font-size: 0.75rem;
