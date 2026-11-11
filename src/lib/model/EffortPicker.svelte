@@ -1,9 +1,11 @@
 <script lang="ts">
-  // A model's effort ladder as one row of buttons, each showing its level as the
-  // chip in the colour a tab tints its model name - so the row runs cool to hot.
+  // A model's effort ladder as one row of buttons, each drawn as a tab's model
+  // tag draws the level in use: the signal bars lit up to that level, over its
+  // name in the colour the tab tints it - so the row climbs and runs cool to hot.
 
+  import EffortBars from "@/lib/model/EffortBars.svelte";
   import EffortTint from "@/lib/model/EffortTint.svelte";
-  import { effortTone } from "@/lib/model/model-label";
+  import { effortBars, effortTone } from "@/lib/model/model-label";
   import type { ModelOption } from "@/lib/types";
 
   const { efforts, current, recommended, onpick }: {
@@ -14,6 +16,8 @@
     recommended: string | null;
     onpick: (effort: string) => Promise<void>;
   } = $props();
+
+  const ladder = $derived(efforts.map(effort => effort.id));
 </script>
 
 <div class="efforts" aria-label="Reasoning effort" role="group">
@@ -32,7 +36,13 @@
       data-tooltip={isRecommended ? `${effort.name} - recommended` : effort.name}
       onclick={async () => await onpick(effort.id)}
     >
-      <EffortTint isFilled {tone}>{effort.name}</EffortTint>
+      <EffortBars
+        bars={effortBars({
+          model: "",
+          effort: effort.id,
+          ladder
+        })} />
+      <EffortTint {tone}>{effort.name}</EffortTint>
     </button>
   {/each}
 </div>
@@ -60,7 +70,11 @@
   }
 
   .effort {
+    --effort-bars-height: 14px;
+    --effort-bar-width: 3px;
+
     display: grid;
+    gap: 4px;
     justify-items: center;
     padding: 6px 4px;
     border: 1px solid transparent;
