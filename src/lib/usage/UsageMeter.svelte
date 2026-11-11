@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AgentId } from "@/lib/agent/agent-icon";
-  import { Command, sendMessage } from "@/lib/ipc/messaging";
+  import { fetchAccountReading, latestAccount } from "@/lib/stores/usage/accountReadings.svelte";
   import { limitResetOffers, refreshLimitResetOffers } from "@/lib/stores/usage/limitReset.svelte";
   import type { AccountUsage, AgentSession, NoReading } from "@/lib/types";
   import { limitResetTotal } from "@/lib/usage/limit-reset/limit-reset-kind";
@@ -27,7 +27,13 @@
   // own limits): each agent's rate-limit windows - the session, weekly, and any
   // per-model caps - read via that vendor's usage endpoint from the local token,
   // keyed by agent id. The backend caches each (~3 min), so this polls slowly.
-  let accounts = $state<ReadonlyMap<string, AccountUsage | null>>(new Map());
+  // Which agents have a reading to show (an hour-old one stands in while the
+  // endpoint refuses); the numbers themselves are the newest any reader
+  // brought (`latestAccount`), so pacing's badge and the meter never disagree.
+  let shownAccounts = $state<ReadonlyMap<string, AccountUsage | null>>(new Map());
+  const accounts = $derived(
+    new Map([...shownAccounts].map(([id, account]) => [id, account === null ? null : latestAccount(id) ?? account]))
+  );
   // Why each agent's latest ask brought no reading (signed out, sign-in
   // expired, …), so a pill without numbers can say so instead of a bare dash.
   let noReadings = $state<ReadonlyMap<string, NoReading>>(new Map());
@@ -68,7 +74,7 @@
       agentIds.map(async id => [
         id,
         await settledValue({
-          promise: sendMessage(Command.usageAccountAgent, {
+          promise: fetchAccountReading({
             agent: id,
             forceRefresh
           }),
@@ -115,7 +121,7 @@
 
   async function refreshAtResetBoundary() {
     now = Date.now();
-    accounts = await loadAccounts({ forceRefresh: true });
+    shownAccounts = await loadAccounts({ forceRefresh: true });
   }
 
   $effect(() => {
@@ -123,7 +129,7 @@
     async function refreshAccounts() {
       const next = await loadAccounts();
       if (!isCancelled) {
-        accounts = next;
+        shownAccounts = next;
       }
     }
     refreshAccounts();
@@ -133,7 +139,7 @@
   });
 
   const accountTimer = setInterval(async () => {
-    accounts = await loadAccounts();
+    shownAccounts = await loadAccounts();
   }, ACCOUNT_REFRESH_MS);
   const clockTimer = setInterval(() => {
     now = Date.now();
@@ -176,7 +182,7 @@
 
   <LimitResetConfirm
     onreset={async () => {
-      accounts = await loadAccounts({ forceRefresh: true });
+      shownAccounts = await loadAccounts({ forceRefresh: true });
     }}
   />
 </span>

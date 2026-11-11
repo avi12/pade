@@ -163,8 +163,15 @@ function evenSpend({ window, now }: {
   const startAt = usageResetTime(window.resetsAt) - WEEKLY_WINDOW_MS;
   return {
     percentage: (now - startAt) / WEEKLY_WINDOW_MS * FULL_PERCENTAGE,
-    reachedAt: startAt + window.utilization / FULL_PERCENTAGE * WEEKLY_WINDOW_MS
+    reachedAt: evenSpendReachedAt(window)
   };
+}
+
+/** When an even spend over a weekly window reaches what it has used - when it
+ *  is back on pace if its agents stopped now. */
+export function evenSpendReachedAt(window: UsageWindow) {
+  const startAt = usageResetTime(window.resetsAt) - WEEKLY_WINDOW_MS;
+  return startAt + window.utilization / FULL_PERCENTAGE * WEEKLY_WINDOW_MS;
 }
 
 /** When a window would be back on pace if its agents stopped now, by its own

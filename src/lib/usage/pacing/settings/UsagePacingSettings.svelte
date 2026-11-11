@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
-  import type { AccountUsage } from "@/lib/types";
+  import { fetchAccountReading, latestAccount } from "@/lib/stores/usage/accountReadings.svelte";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import PacedSubagents from "@/lib/usage/pacing/PacedSubagents.svelte";
   import { isPacingOn } from "@/lib/usage/pacing/pacing-policy";
@@ -33,23 +32,17 @@
 
   // Only the limits the agent's plan has: Claude Ultra reports a weekly limit
   // and no 5-hour one. The backend caches the reading for a few minutes.
-  let account = $state<AccountUsage | null>(null);
+  const account = $derived(latestAccount(agent));
   $effect(() => {
     const agentId = agent;
     untrack(() => loadAccount(agentId));
   });
 
   async function loadAccount(agentId: string) {
-    const reading = await settledValue({
-      promise: sendMessage(Command.usageAccountAgent, {
-        agent: agentId,
-        forceRefresh: false
-      }),
+    await settledValue({
+      promise: fetchAccountReading({ agent: agentId }),
       fallback: null
     });
-    if (agentId === agent) {
-      account = reading?.account ?? null;
-    }
   }
 
   const shownKinds = $derived(reportedPacedKinds(account));

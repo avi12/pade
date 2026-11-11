@@ -18,6 +18,7 @@ import { isTurnRunningOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
 import { createRecoveryLoop } from "@/lib/stores/agent/recoveryLoop.svelte";
 import type { RecoveryHit, RecoveryHost } from "@/lib/stores/agent/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
+import { fetchAccountReading } from "@/lib/stores/usage/accountReadings.svelte";
 import { PROMPT_SUBMIT } from "@/lib/terminal/input/terminal-input";
 import { stripAnsi } from "@/lib/terminal/output/ansi";
 import { CreditsState, SessionStatus } from "@/lib/types";
@@ -318,10 +319,7 @@ function waitingNote({ session, resetAt }: {
  *  account can't say", which leaves the decision to the reset clock. */
 export async function readAccount(session: AgentSession) {
   try {
-    const reading = await sendMessage(Command.usageAccountAgent, {
-      agent: session.agent.id,
-      forceRefresh: false
-    });
+    const reading = await fetchAccountReading({ agent: session.agent.id });
     return reading.account;
   } catch {
     return null;

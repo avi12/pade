@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { Command, sendMessage } from "@/lib/ipc/messaging";
+  import { fetchAccountReading, latestAccount } from "@/lib/stores/usage/accountReadings.svelte";
   import type { AccountReading, Agent } from "@/lib/types";
   import { noReadingsOf } from "@/lib/usage/meter/usage-meter";
   import UsageLimitStack from "@/lib/usage/meter/UsageLimitStack.svelte";
@@ -25,10 +25,7 @@
       agents.map(async agent => [
         agent.id,
         await settledValue({
-          promise: sendMessage(Command.usageAccountAgent, {
-            agent: agent.id,
-            forceRefresh: false
-          }),
+          promise: fetchAccountReading({ agent: agent.id }),
           fallback: null
         })
       ] as const)
@@ -39,10 +36,11 @@
   // Why an agent without a reading has none, so its row says "Run to refresh"
   // (and how to fix it on hover) instead of a bare dash.
   const noReadings = $derived(noReadingsOf(readings));
+  // An agent whose latest ask brought no reading shows why instead of numbers.
   const groups = $derived(
     agents.map(agent => buildAgentGroup({
       agent,
-      account: readings.get(agent.id)?.account ?? null,
+      account: readings.get(agent.id)?.account === null ? null : latestAccount(agent.id),
       noReading: noReadings.get(agent.id) ?? null,
       now: Date.now()
     }))

@@ -24,6 +24,7 @@ import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActi
 import { compactionHeadroom, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
+import { fetchAccountReading } from "@/lib/stores/usage/accountReadings.svelte";
 import { shieldHandoffSuccessor, takeOverPacing } from "@/lib/stores/usage/usagePacing.svelte";
 import { submittedPrompt } from "@/lib/terminal/input/terminal-input";
 import { CreditsState, SessionStatus } from "@/lib/types";
@@ -590,10 +591,7 @@ export function createAutoHandoff(host: HandoffHost) {
       fallback: null
     });
     const reading = await settledValue({
-      promise: sendMessage(Command.usageAccountAgent, {
-        agent,
-        forceRefresh: false
-      }),
+      promise: fetchAccountReading({ agent }),
       fallback: null
     });
     return hasUsageHeadroom({

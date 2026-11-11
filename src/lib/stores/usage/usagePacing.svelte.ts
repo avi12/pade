@@ -48,6 +48,7 @@ import { modelOptions } from "@/lib/stores/model/modelOptions.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
+import { latestAccount } from "@/lib/stores/usage/accountReadings.svelte";
 import { NO_THROTTLE, setStopPart, setThrottlePart, throttledSessions } from "@/lib/stores/usage/pacingControl.svelte";
 import type { ControlTarget } from "@/lib/stores/usage/pacingControl.svelte";
 import {
@@ -77,6 +78,7 @@ import {
   assessPace,
   burnRate,
   CONTINUE_REQUEST,
+  evenSpendReachedAt,
   hasRoomToSpare,
   isRestEnough,
   MINIMUM_RATE_SPAN_MS,
@@ -180,10 +182,12 @@ function pacingStorageKey() {
 }
 
 const paced = new SvelteMap<string, PaceState>();
-/** Why each held session is held: the window that holds it, and its numbers. */
+/** Why each held session is held: the window that holds it - named, so how
+ *  much of it is used is read live (`liveVerdict`) - and its numbers. */
 const verdicts = new SvelteMap<string, {
   windowKind: PacedWindowKind;
-  utilization: number;
+  windowKey: string;
+  agentId: string;
   runOutAt: number;
   readyAt: number;
   resetAt: number;
@@ -499,6 +503,29 @@ export function slowedSessionCount() {
   return count;
 }
 
+/** Why a session is held, with its window as the newest reading has it - the
+ *  same numbers the usage meter shows. A weekly window's back-on-pace time
+ *  follows that reading too. Null when nothing holds it, or its window is no
+ *  longer read. */
+function liveVerdict(id: string) {
+  const verdict = verdicts.get(id);
+  if (verdict === undefined) {
+    return null;
+  }
+
+  const window = latestAccount(verdict.agentId)?.windows.find(each => each.key === verdict.windowKey);
+  if (window === undefined) {
+    return null;
+  }
+
+  const isWeekly = verdict.windowKind === PacedWindowKind.enum.weekly;
+  return {
+    ...verdict,
+    utilization: window.utilization,
+    readyAt: isWeekly ? Math.max(Date.now(), evenSpendReachedAt(window)) : verdict.readyAt
+  };
+}
+
 /** Everything a session's pacing badge shows (reactive): which steps are
  *  active, why, what it runs now, when it reverts, and what pacing did. Null
  *  when pacing isn't touching the session. */
@@ -512,7 +539,7 @@ export function pacingStatus(id: string) {
   const hasRestEnd = state !== undefined && !isRestPending(state);
   return {
     steps,
-    verdict: verdicts.get(id) ?? null,
+    verdict: liveVerdict(id),
     isStopped: state !== undefined,
     /** When a paused session continues on its own. */
     continuesAt: state === undefined ? null : continueTime(state),
@@ -987,7 +1014,8 @@ export function createUsagePacing(host: PacingHost) {
     } else {
       verdicts.set(session.id, {
         windowKind: binding.kind,
-        utilization: binding.window.utilization,
+        windowKey: binding.window.key,
+        agentId: session.agent.id,
         runOutAt: now + (binding.continueAt - binding.readyAt),
         readyAt: binding.readyAt,
         resetAt: binding.continueAt
