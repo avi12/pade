@@ -15,6 +15,8 @@
   import type { DragHint } from "@/lib/ui/drag/drag-reorder";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
+  const MINIMUM_DRAGGABLE_TABS = 2;
+
   // The session tab strip: full pills for the sessions that fit, status dots
   // for the next few, a "+N" popover for the rest (packing in lib/session/tab-fit), the
   // off-layout mirror row that drives the measurements, and the add-agent menu.
@@ -138,6 +140,8 @@
       .filter((session): session is AgentSession => session !== undefined);
   }
   const visibleSessions = $derived(tabsFor(tabPack.visible));
+  // A lone tab has nothing to reorder or split beside, so it doesn't drag.
+  const isDraggable = $derived(sessions.length >= MINIMUM_DRAGGABLE_TABS);
   const dotSessions = $derived(tabsFor(tabPack.dots));
   const moreSessions = $derived(tabsFor(tabPack.more));
   const overflowHasActive = $derived(
@@ -218,11 +222,12 @@
       <div
         class="tab"
         class:active={isActive}
+        class:draggable={isDraggable}
         class:shown={paneIds.includes(session.id)}
         data-selected-tab={isActive}
         data-session-tab={session.id}
         onoutroend={() => closingIds.delete(session.id)}
-        onpointerdown={e => beginTabDrag({
+        onpointerdown={e => isDraggable && beginTabDrag({
           e,
           isRenaming: editingId !== null,
           onreorder,
@@ -361,15 +366,17 @@
       align-items: center;
       border-radius: var(--radius-full);
       background: var(--surface-2);
-
-      /* The pill body is a drag handle (reorder / split); a touch-drag must
-         grab the pill, not scroll the strip. */
-      cursor: grab;
-      touch-action: none;
       animation: spring-in 320ms var(--ease);
 
-      &:active {
-        cursor: grabbing;
+      /* With a second tab, the pill body is a drag handle (reorder / split); a
+         touch-drag must grab the pill, not scroll the strip. */
+      &.draggable {
+        cursor: grab;
+        touch-action: none;
+
+        &:active {
+          cursor: grabbing;
+        }
       }
 
       &.active {
