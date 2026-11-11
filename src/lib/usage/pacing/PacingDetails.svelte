@@ -16,6 +16,8 @@
     resume: ReturnType<typeof pacingResume>;
   } = $props();
 
+  const COUNTDOWN_TICK_MS = 1000;
+
   const lines = $derived(
     pacingFacts({
       verdict: status.verdict,
@@ -26,16 +28,38 @@
   // One switch for the popover: clicking any time reads them all as a
   // countdown, and back (CSS swaps the two spans).
   const countdownToggleId = $derived(`pacing-countdown-${sessionId}`);
+  let isCountdown = $state(false);
+  let now = $state(Date.now());
   const history = $derived(
     status.history.map(entry => `${spokenTime({
       time: entry.at,
-      now: Date.now()
+      now
     })} ${entry.text}`)
   );
+
+  // A countdown counts down: while it shows, the clock ticks each second. A
+  // clock time needs no tick.
+  $effect(() => {
+    if (!isCountdown) {
+      return;
+    }
+
+    now = Date.now();
+    const timer = setInterval(() => {
+      now = Date.now();
+    }, COUNTDOWN_TICK_MS);
+    return () => clearInterval(timer);
+  });
 </script>
 
 <h4 class="section-label">Usage pacing</h4>
-<input id={countdownToggleId} class="countdown-toggle" aria-label="Show times as a countdown" type="checkbox" />
+<input
+  id={countdownToggleId}
+  class="countdown-toggle"
+  aria-label="Show times as a countdown"
+  type="checkbox"
+  bind:checked={isCountdown}
+/>
 {#each lines as line (line.text)}
   <p>
     {line.text}
@@ -43,12 +67,12 @@
       <label class="when" for={countdownToggleId}>
         <span class="at">{pacingWhen({
           time: line.time,
-          now: Date.now(),
+          now,
           isCountdown: false
         })}</span>
         <span class="in">{pacingWhen({
           time: line.time,
-          now: Date.now(),
+          now,
           isCountdown: true
         })}</span>
       </label>
