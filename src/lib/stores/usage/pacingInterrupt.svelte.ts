@@ -145,30 +145,46 @@ async function isTakenByHook({ request, keys }: {
   });
 }
 
+/** Whether the session has a subagent running: the screen lists background
+ *  agents, or a subagent's transcript was written lately - each alone misses
+ *  some, and the interrupt alone leaves every one of them running. */
+export async function hasRunningSubagents({ session, hasBackgroundAgents }: {
+  session: AgentSession;
+  hasBackgroundAgents: boolean;
+}) {
+  if (hasBackgroundAgents) {
+    return true;
+  }
+
+  const running = await subagentsWrittenSince({
+    session,
+    since: Date.now() - RUNNING_SUBAGENT_MS
+  });
+  return running.length > 0;
+}
+
 /** One press of the keys, then the subagents still writing after it - none
- *  when no subagent was running (a subagent counts as running when its
- *  transcript was written lately or the screen shows background agents). */
+ *  when no subagent was running. */
 async function pressAndVerify({ request, keys }: {
   request: TerminalStopRequest;
   keys: InterruptKeys;
 }) {
   const { session } = request;
-  const running = await subagentsWrittenSince({
+  const isAnySubagentRunning = await hasRunningSubagents({
     session,
-    since: Date.now() - RUNNING_SUBAGENT_MS
+    hasBackgroundAgents: request.hasBackgroundAgents()
   });
-  const hasRunningSubagents = running.length > 0 || request.hasBackgroundAgents();
   const interruptedAt = Date.now();
   await pressAll({
     id: session.id,
     presses: interruptPresses({
       keys,
-      hasRunningSubagents,
+      hasRunningSubagents: isAnySubagentRunning,
       isWorking: request.isWorking()
     })
   });
 
-  if (!hasRunningSubagents) {
+  if (!isAnySubagentRunning) {
     return [];
   }
 
@@ -197,10 +213,20 @@ export async function stopThroughTerminal(request: TerminalStopRequest) {
 
   try {
     const keys = await interruptKeys(session.agent.command);
-    if (keys === null || await isTakenByHook({
+    if (keys === null) {
+      return;
+    }
+
+    // The hook taking the stop ends the turn it refused, but a subagent still
+    // writing outlives that - so the keys still go in while one runs.
+    const isTakenByHookAlone = await isTakenByHook({
       request,
       keys
-    })) {
+    }) && !await hasRunningSubagents({
+      session,
+      hasBackgroundAgents: request.hasBackgroundAgents()
+    });
+    if (isTakenByHookAlone) {
       return;
     }
 

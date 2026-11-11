@@ -48,7 +48,11 @@ import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { setStopPart } from "@/lib/stores/usage/pacingControl.svelte";
 import type { ControlTarget } from "@/lib/stores/usage/pacingControl.svelte";
-import { forgetTerminalStop, stopThroughTerminal } from "@/lib/stores/usage/pacingInterrupt.svelte";
+import {
+  forgetTerminalStop,
+  hasRunningSubagents,
+  stopThroughTerminal
+} from "@/lib/stores/usage/pacingInterrupt.svelte";
 import { createAccountRound } from "@/lib/stores/usage/usageAccountRound.svelte";
 import { adaptedChoice, adaptedSteps, createUsageAdapter } from "@/lib/stores/usage/usageAdapt.svelte";
 import type { AdaptHost } from "@/lib/stores/usage/usageAdapt.svelte";
@@ -619,9 +623,13 @@ export function createUsagePacing(host: PacingHost) {
     return agentReportsBusy(id) || sessionStatus(id) === SessionStatus.enum.working;
   }
 
-  // Anything a pause would have to stop: its turn, or work it delegated.
-  function isRunningWork(id: string) {
-    return isWorking(id) || backgroundAgentCount(id) > 0;
+  // Anything a pause would have to stop: its turn, or work it delegated -
+  // subagents found on screen or by their transcripts.
+  async function isRunningWork(session: AgentSession) {
+    return isWorking(session.id) || await hasRunningSubagents({
+      session,
+      hasBackgroundAgents: backgroundAgentCount(session.id) > 0
+    });
   }
 
   async function pause({ session, kind, window, rate, readyAt, continueAt, isResting }: {
@@ -642,7 +650,7 @@ export function createUsagePacing(host: PacingHost) {
     }) : null;
     // Already idle - its turn ended since it was judged - so it is simply held:
     // nothing to stop, and no request typed in, which would only spend a turn.
-    const isIdle = !isRunningWork(session.id);
+    const isIdle = !await isRunningWork(session);
     setPace({
       id: session.id,
       state: {
