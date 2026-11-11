@@ -44,8 +44,8 @@ function sessionPreview({ slowedCount = 0, ...shape }: Parameters<typeof forecas
 describe("isPacingOn", () => {
   it("is on unless turned off", () => {
     expect(isPacingOn({})).toBe(true);
-    expect(isPacingOn({ usagePacing: true })).toBe(true);
-    expect(isPacingOn({ usagePacing: false })).toBe(false);
+    expect(isPacingOn({ paceUsage: true })).toBe(true);
+    expect(isPacingOn({ paceUsage: false })).toBe(false);
   });
 });
 

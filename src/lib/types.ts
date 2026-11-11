@@ -623,7 +623,7 @@ const Prefs = z.object({
   autoResume: z.boolean().nullish(),
   /** Slow agents down so neither usage limit runs out before it resets
    *  (lib/usage/pacing/pacing-policy). Opt-out: on unless explicitly false. */
-  usagePacing: z.boolean().nullish(),
+  paceUsage: z.boolean().nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
   uiScale: z.number().min(UI_SCALE_MINIMUM).max(UI_SCALE_MAXIMUM).nullish(),
   /** Width, in pixels, of the resizable side panel (Feed/Git/Tasks/Config). The

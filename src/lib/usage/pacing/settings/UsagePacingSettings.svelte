@@ -65,7 +65,7 @@
     <Segmented
       chosen={isOn}
       label="Usage pacing"
-      onchoose={async value => await updatePrefs({ usagePacing: value })}
+      onchoose={async value => await updatePrefs({ paceUsage: value })}
       options={SWITCH_OPTIONS}
     />
   </header>

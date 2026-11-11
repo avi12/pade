@@ -45,8 +45,8 @@ const EARLY_MINUTES: Record<PacedWindowKind, number> = {
 };
 
 /** Whether pacing runs - on unless the user turned it off. */
-export function isPacingOn(prefs: Pick<Prefs, "usagePacing">) {
-  return prefs.usagePacing !== false;
+export function isPacingOn(prefs: Pick<Prefs, "paceUsage">) {
+  return prefs.paceUsage !== false;
 }
 
 /** How far ahead of pace each window may run, in milliseconds. */
