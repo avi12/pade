@@ -1682,7 +1682,6 @@ textarea {
     --cyber-glitch-in-animation: cyber-glitch-in 300ms steps(1, end);
     --cyber-glitch-soft-animation: cyber-glitch-soft 200ms var(--ease);
     --cyber-jitter-animation: cyber-jitter 260ms steps(1, end);
-    --cyber-alarm-animation: cyber-alarm 5000ms steps(1, end) infinite;
     --cyber-glitch-out-animation: cyber-glitch-out 200ms steps(4, end) forwards;
   }
 }
@@ -1837,34 +1836,6 @@ textarea {
   75% {
     text-shadow: none;
     translate: 0 0;
-  }
-}
-
-/* An alarm: quiet for most of its loop, then a brief stutter - a held state
-   that keeps asking to be looked at without flashing all the time. */
-@keyframes cyber-alarm {
-  0%,
-  90%,
-  100% {
-    text-shadow: none;
-    opacity: 100%;
-    translate: 0 0;
-  }
-
-  92% {
-    text-shadow: 2px 0 var(--cyber-glitch-1), -2px 0 var(--cyber-glitch-2);
-    opacity: 75%;
-    translate: 2px 0;
-  }
-
-  94% {
-    text-shadow: -2px 0 var(--cyber-glitch-1), 2px 0 var(--cyber-glitch-2);
-    translate: -2px 0;
-  }
-
-  96% {
-    opacity: 90%;
-    translate: 1px 0;
   }
 }
 

@@ -63,25 +63,21 @@
 </script>
 
 {#if status && resume}
-  <!-- The hint sits on a wrapper so its bubble anchors to something still: a
-       paused badge's alarm jolts the badge itself. While the details are open
-       the tab's hints stay quiet (data-tooltip-route). -->
-  <span class="badge-hint" data-tooltip={hint}>
-    <button
-      style:anchor-name={anchorName}
-      class="badge"
-      class:stopped={status.isStopped}
-      data-noreorder
-      popovertarget={popoverTarget}
-      type="button"
-    >
-      {#if status.isStopped}
-        PAUSED
-      {:else}
-        SLOWED
-      {/if}
-    </button>
-  </span>
+  <!-- While the details are open the tab's hints stay quiet (data-tooltip-route). -->
+  <button
+    style:anchor-name={anchorName}
+    class="badge"
+    data-noreorder
+    data-tooltip={hint}
+    popovertarget={popoverTarget}
+    type="button"
+  >
+    {#if status.isStopped}
+      PAUSED
+    {:else}
+      SLOWED
+    {/if}
+  </button>
 
   {#if !isMeasuring}
     <!-- `data-noreorder`: the popover renders in the top layer but still sits
@@ -93,11 +89,6 @@
 {/if}
 
 <style>
-  .badge-hint {
-    display: inline-flex;
-    flex: none;
-  }
-
   .badge {
     flex: none;
     padding-block: 1px;
@@ -110,20 +101,6 @@
     font-weight: 700;
     font-size: 0.625rem;
     letter-spacing: 0.04em;
-
-    /* Cyberpunk: a session pacing has stopped outright stutters every few
-       seconds - an alarm on a held state, not on the step count changing. */
-    @media (prefers-reduced-motion: no-preference) {
-      :global(:root[data-palette="cyberpunk"]) &.stopped {
-        animation: var(--cyber-alarm-animation);
-      }
-    }
-
-    /* Still while its details are open: they are anchored to the badge, so
-       its alarm's sideways jolt shook them too. */
-    .badge-hint:has(+ .pacing-popover:popover-open) & {
-      animation: none;
-    }
   }
 
   .pacing-popover {
