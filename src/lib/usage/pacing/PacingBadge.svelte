@@ -5,6 +5,7 @@
   // the overrides right there.
 
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
+  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import PacingDetails from "@/lib/usage/pacing/PacingDetails.svelte";
 
   const { sessionId, isMeasuring = false }: {
@@ -27,22 +28,28 @@
 </script>
 
 {#if status}
-  <button
-    style:anchor-name={anchorName}
-    class="badge"
-    class:stopped={status.isStopped}
-    aria-label={`Usage pacing: ${status.steps.length} of ${status.allowedCount} steps active`}
-    data-noreorder
-    data-tooltip="Usage pacing is holding this agent back - click for why"
-    popovertarget={popoverTarget}
-    type="button"
-  >
-    {#if status.isStopped}
-      PAUSED
-    {:else}
-      PACED {status.steps.length}/{status.allowedCount}
-    {/if}
-  </button>
+  <!-- The hint takes the shared top-layer bubble: as a `data-tooltip` pseudo it
+       was clipped by the tab strip, painted under the pacing note below it, and
+       shaken by a paused badge's alarm animation. It sits on a wrapper because
+       the bubble anchors itself through `anchor-name`, which the button already
+       spends on its popover. -->
+  <span class="badge-hint" {@attach tooltip("Usage pacing is holding this agent back - click for why")}>
+    <button
+      style:anchor-name={anchorName}
+      class="badge"
+      class:stopped={status.isStopped}
+      aria-label={`Usage pacing: ${status.steps.length} of ${status.allowedCount} steps active`}
+      data-noreorder
+      popovertarget={popoverTarget}
+      type="button"
+    >
+      {#if status.isStopped}
+        PAUSED
+      {:else}
+        PACED {status.steps.length}/{status.allowedCount}
+      {/if}
+    </button>
+  </span>
 
   {#if !isMeasuring}
     <div id={popoverId} style:position-anchor={anchorName} class="pacing-popover popover-menu" popover>
@@ -52,6 +59,11 @@
 {/if}
 
 <style>
+  .badge-hint {
+    display: inline-flex;
+    flex: none;
+  }
+
   .badge {
     flex: none;
     padding-block: 1px;
