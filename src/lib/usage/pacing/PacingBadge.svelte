@@ -132,9 +132,11 @@
       }
     }
 
-    /* Shown again inside its hidden wrapper (above). */
+    /* Shown again inside its hidden wrapper (above), and still: the details
+       are anchored to the badge, so its alarm's sideways jolt shook them too. */
     .badge-hint:has(+ .pacing-popover:popover-open) & {
       visibility: visible;
+      animation: none;
     }
   }
 
