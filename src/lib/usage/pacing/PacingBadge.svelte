@@ -31,20 +31,17 @@
       original: choice?.original ?? null
     });
   });
+  // Only when it is back to normal: the badge already says it is held, and a
+  // click opens the why.
   const hint = $derived.by(() => {
     if (!resume) {
       return "";
     }
 
-    const resumeText = pacingFactText({
+    return pacingFactText({
       fact: resume,
       now: Date.now()
     });
-    if (status?.isStopped) {
-      return `Paused so your usage lasts until it resets. ${resumeText}. Click for why`;
-    }
-
-    return `Slowed so your usage lasts until it resets. ${resumeText}. Click for why`;
   });
   const popoverId = $derived(`pacing-${sessionId}`);
   // The measuring copy names no anchor: two badges sharing one name, the
@@ -149,6 +146,9 @@
     padding: 10px;
     color: var(--on-surface);
     font-size: 0.75rem;
+
+    /* It sits inside the tab, whose grab hand would say it drags too. */
+    cursor: auto;
     position-area: bottom span-right;
   }
 </style>
