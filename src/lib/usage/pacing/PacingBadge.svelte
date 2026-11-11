@@ -90,7 +90,9 @@
   </span>
 
   {#if !isMeasuring}
-    <div id={popoverId} style:position-anchor={anchorName} class="pacing-popover popover-menu" popover>
+    <!-- `data-noreorder`: the popover renders in the top layer but still sits
+         inside the tab, so a press anywhere in it started dragging the tab. -->
+    <div id={popoverId} style:position-anchor={anchorName} class="pacing-popover popover-menu" data-noreorder popover>
       <PacingDetails {resume} {sessionId} {status} />
     </div>
   {/if}
