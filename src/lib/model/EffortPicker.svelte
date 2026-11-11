@@ -1,11 +1,10 @@
 <script lang="ts">
-  // A model's effort ladder as one row of buttons, each drawn as a tab's model
-  // tag draws the level in use: the signal bars lit up to that level, over its
-  // name in the colour the tab tints it - so the row climbs and runs cool to hot.
+  // A model's effort ladder as the design's segmented control: one button per
+  // level, each a single bar climbing in height over its name - the tab's
+  // signal bars spread out, one per level, lit in the primary colour up to the
+  // level in use. The level in use sits on the primary container.
 
-  import EffortBars from "@/lib/model/EffortBars.svelte";
-  import EffortTint from "@/lib/model/EffortTint.svelte";
-  import { effortBars, effortTone } from "@/lib/model/model-label";
+  import { effortBars } from "@/lib/model/model-label";
   import type { ModelOption } from "@/lib/types";
 
   const { efforts, current, recommended, onpick }: {
@@ -18,16 +17,26 @@
   } = $props();
 
   const ladder = $derived(efforts.map(effort => effort.id));
+  // Each level's bar height, read off the ladder's top level so every bar
+  // climbs as a tab's do; lit up to the level in use, none while none is.
+  const bars = $derived.by(() => {
+    const iCurrent = current === null ? -1 : ladder.indexOf(current);
+    const heights = effortBars({
+      model: "",
+      effort: ladder.at(-1) ?? "",
+      ladder
+    });
+    return heights.map((bar, i) => ({
+      heightPercent: bar.heightPercent,
+      isLit: i <= iCurrent
+    }));
+  });
 </script>
 
 <div class="efforts" aria-label="Reasoning effort" role="group">
   {#each efforts as effort, i (effort.id)}
     {@const isCurrent = current === effort.id}
     {@const isRecommended = recommended === effort.id}
-    {@const tone = effortTone({
-      step: i + 1,
-      steps: efforts.length
-    })}
     <button
       class="effort"
       class:current={isCurrent}
@@ -36,69 +45,76 @@
       data-tooltip={isRecommended ? `${effort.name} - recommended` : effort.name}
       onclick={async () => await onpick(effort.id)}
     >
-      <EffortBars
-        bars={effortBars({
-          model: "",
-          effort: effort.id,
-          ladder
-        })} />
-      <EffortTint {tone}>{effort.name}</EffortTint>
+      <span class="bar-slot" aria-hidden="true">
+        <span style:--bar-height="{bars[i]?.heightPercent ?? 100}%" class="bar" class:lit={bars[i]?.isLit}></span>
+      </span>
+      <span class="name">{effort.name}</span>
     </button>
   {/each}
 </div>
 
 <style>
   .efforts {
-    display: grid;
-    grid-auto-columns: 1fr;
-    grid-auto-flow: column;
-    gap: 4px;
-    padding-block: 2px 6px;
-    padding-inline: 6px;
-
-    /* Cyberpunk sets the levels in one sunken strip, the design's segmented
-       effort control. */
-    :global(:root[data-palette="cyberpunk"]) & {
-      gap: 3px;
-      margin-block-end: 6px;
-      margin-inline: 6px;
-      padding: 3px;
-      border: 1px solid var(--outline);
-      border-radius: var(--radius-small);
-      background: var(--surface-1);
-    }
+    display: flex;
+    gap: 3px;
+    margin-block-end: 6px;
+    margin-inline: 6px;
+    padding: 3px;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-medium);
+    background: var(--surface-1);
   }
 
   .effort {
-    --effort-bars-height: 14px;
-    --effort-bar-width: 3px;
-
-    display: grid;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
     gap: 4px;
-    justify-items: center;
-    padding: 6px 4px;
-    border: 1px solid transparent;
+    align-items: center;
+    min-inline-size: 0;
+    padding-block: 6px 5px;
+    padding-inline: 2px;
+    border: none;
     border-radius: var(--radius-small);
     background: transparent;
-    font-family: var(--font-monospace);
-    font-size: 0.625rem;
+    color: var(--on-surface-variant);
     cursor: pointer;
+    transition: background 120ms var(--ease), color 120ms var(--ease);
 
     &:hover {
       background: var(--surface-3);
+      color: var(--on-surface);
     }
 
     &.current {
-      border-color: var(--primary);
-      background: var(--surface-3);
-
-      :global(:root[data-palette="cyberpunk"]) & {
-        border-color: transparent;
-        background: var(--primary-container);
-      }
+      background: var(--primary-container);
+      color: var(--on-primary-container);
     }
+  }
 
-    &.recommended {
+  .bar-slot {
+    display: flex;
+    align-items: flex-end;
+    block-size: 0.875rem;
+  }
+
+  .bar {
+    block-size: var(--bar-height);
+    inline-size: 0.5rem;
+    border-radius: var(--radius-small);
+    background: var(--outline);
+
+    &.lit {
+      background: var(--primary);
+    }
+  }
+
+  .name {
+    font-family: var(--font-monospace);
+    font-weight: 700;
+    font-size: 0.65625rem;
+
+    .recommended > & {
       text-decoration: underline dotted;
       text-underline-offset: 3px;
     }

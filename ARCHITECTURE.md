@@ -700,8 +700,7 @@ flowchart LR
 | `src/lib/model/running-model.ts` | Pure: how a running model reads (`runningModelLook`) - its words ("Opus 5.5 · high effort", Ultracode), its one-word name for a tab's badge (`shortModelName`), its effort tone and its effort bars (`effortBars`) - the one source both model chips read | `model-label`, `session-model-look`, `sidebar/ProjectChatRow` |
 | `src/lib/model/ModelMenu.svelte` | The model and effort menu a tab's tag opens: the agent's own catalog (`ModelPicker`) and the shown model's effort ladder (`EffortPicker`); a pick goes to `stores/model/modelSwitch` | `ModelPicker`, `EffortPicker`, `stores/model/modelOptions`, `ModelMenuPopover` |
 | `src/lib/model/ModelPicker.svelte` | An agent's models as a pick list, the one in use checked, each with the effort level the agent recommends for it | `ModelMenu` |
-| `src/lib/model/EffortPicker.svelte` | A model's effort ladder as one row of chips, running cool to hot in the tones a tab tints its model name | `EffortTint`, `ModelMenu`, `config/models/AgentModelDefaultRow` |
-| `src/lib/model/EffortTint.svelte` | Text coloured by how hard a model thinks, in one of the theme's five effort tones (blue, green, amber, red, purple) | `EffortPicker` |
+| `src/lib/model/EffortPicker.svelte` | A model's effort ladder as the design's segmented control: one button per level, each a single bar climbing in height (`effortBars`, the tab's signal-bar heights) over its name, lit in the primary colour up to the level in use, which sits on the primary container | `model-label`, `ModelMenu`, `config/models/AgentModelDefaultRow` |
 
 ### Terminal (`src/lib/terminal/`)
 
