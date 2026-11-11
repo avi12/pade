@@ -307,5 +307,11 @@
         color: var(--on-primary-container);
       }
     }
+
+    /* While the pill's pacing details are open, its other hints stay quiet:
+       they would open under the details and collide with them. */
+    :global(.tab:has(.pacing-popover:popover-open)) [data-tooltip]::after {
+      display: none;
+    }
   }
 </style>
