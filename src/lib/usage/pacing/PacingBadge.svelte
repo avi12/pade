@@ -17,7 +17,16 @@
 
   const status = $derived(pacingStatus(sessionId));
   const popoverId = $derived(`pacing-${sessionId}`);
-  const anchorName = $derived(`--pacing-${sessionId}`);
+  // The measuring copy names no anchor: two badges sharing one name, the
+  // popover anchored to the later one - the invisible copy - and was hidden
+  // with it, so a click opened nothing that could be seen.
+  const anchorName = $derived.by(() => {
+    if (isMeasuring) {
+      return undefined;
+    }
+
+    return `--pacing-${sessionId}`;
+  });
   const popoverTarget = $derived.by(() => {
     if (isMeasuring) {
       return undefined;
