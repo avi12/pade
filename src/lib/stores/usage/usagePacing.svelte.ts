@@ -1142,14 +1142,25 @@ export function createUsagePacing(host: PacingHost) {
   // stopped (`pausing`); a stopped session is idle, and a turn it starts after
   // is the user's own. A session gone since is let go too, so a resumed
   // conversation never starts out stopped.
+  //
+  // Every open session that isn't stopping is told so each time, not just the
+  // ones this instance stopped: a stop written before the window reloaded is
+  // in no one's memory, and was left blocking every tool call for good. The
+  // writes skip an unchanged value, so this costs nothing once settled.
   async function syncStops() {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one sync's lookup, never rendered
     const isStopping = new Map<string, ControlTarget>();
     for (const session of host.sessions()) {
+      const target = {
+        command: session.agent.command,
+        conversationId: session.conversationId
+      };
       if (isStoppingMidTurn(paced.get(session.id))) {
-        isStopping.set(session.id, {
-          command: session.agent.command,
-          conversationId: session.conversationId
+        isStopping.set(session.id, target);
+      } else {
+        await setStopPart({
+          target,
+          isStopped: false
         });
       }
     }
