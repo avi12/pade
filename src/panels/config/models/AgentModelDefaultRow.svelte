@@ -5,7 +5,7 @@
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import EffortPicker from "@/lib/model/EffortPicker.svelte";
-  import { modelOption, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
+  import { modelOption, modelOptions, refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import type { Agent, ModelChoice } from "@/lib/types";
   import Select from "@/lib/ui/controls/Select.svelte";
 
@@ -42,7 +42,9 @@
 </script>
 
 <li class="agent-default">
-  <label class="agent-model" for={selectId}>
+  <!-- Focusing the pick re-reads the agent's catalog, as the tab's model menu
+       does on opening, so a model the agent fetched since is listed. -->
+  <label class="agent-model" for={selectId} onfocusin={async () => await refreshModelOptions(agent.command)}>
     <span class="agent-name"><Icon name={agentIconName(agent.id)} size={14} />{agent.label}</span>
     <Select
       id={selectId}

@@ -7,7 +7,7 @@
   import { projectModelDefault, withProjectModelDefault } from "@/lib/model/agent-model-scope";
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
-  import { ensureModelOptions, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
+  import { modelOptions, refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import type { Agent } from "@/lib/types";
   import AgentModelDefaultRow from "@/panels/config/models/AgentModelDefaultRow.svelte";
   import { onMount } from "svelte";
@@ -19,9 +19,11 @@
 
   const configurableAgents = $derived(agents.filter(agent => modelOptions(agent.command).length > 0));
 
+  // Re-read on every visit: an agent re-fetches its catalog, and a list
+  // loaded once would keep the models it had then.
   onMount(async () => {
     for (const agent of agents) {
-      await ensureModelOptions(agent.command);
+      await refreshModelOptions(agent.command);
     }
   });
 </script>
