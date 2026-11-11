@@ -36,12 +36,11 @@
 // (lib/stores/usage/pacingControl), which the agent's hook reads on every tool
 // call; a stop is written there too, so it lands mid-turn, not only at its end.
 
-import { hasStopAllAction } from "@/lib/agent/interrupt-keys";
 import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
 import { windowLabel } from "@/lib/ipc/platform";
 import { cheaperModelChoice, lowerEffortChoice } from "@/lib/model/model-cost";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
-import { agentReportsBusy, backgroundAgentCount, isTurnRunningOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
+import { agentReportsBusy, backgroundAgentCount } from "@/lib/stores/agent/agentActivity.svelte";
 import { sessionModel } from "@/lib/stores/agent/context.svelte";
 import { modelOptions } from "@/lib/stores/model/modelOptions.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
@@ -74,7 +73,6 @@ import {
   isRestEnough,
   MINIMUM_RATE_SPAN_MS,
   paceForecasts,
-  pauseRequest,
   RATE_HISTORY_MS,
   resumeRequest,
   slowRestUntil,
@@ -157,11 +155,7 @@ const PaceState = z.object({
    *  `restMs` once it has - its step can outlast the whole rest. */
   restUntil: z.number().nullable().default(null),
   /** How long a resting session rests, counted from when it actually stops. */
-  restMs: z.number().nullable().default(null),
-  /** Whether PADE has sent the pause request. A running turn is stopped with Esc
-   *  instead - no extra turn spent re-reading the context - and the request
-   *  follows only if delegated work keeps going after it. */
-  hasSentPauseRequest: z.boolean().default(true)
+  restMs: z.number().nullable().default(null)
 });
 type PaceState = z.infer<typeof PaceState>;
 
@@ -649,8 +643,6 @@ export function createUsagePacing(host: PacingHost) {
     // Already idle - its turn ended since it was judged - so it is simply held:
     // nothing to stop, and no request typed in, which would only spend a turn.
     const isIdle = !isRunningWork(session.id);
-    const isInterrupting = isTurnRunningOnScreen(session.id);
-    const isStoppedByKeys = isInterrupting || hasStopAllAction(session.agent.command);
     setPace({
       id: session.id,
       state: {
@@ -665,8 +657,7 @@ export function createUsagePacing(host: PacingHost) {
           [window.key]: rate
         },
         restUntil,
-        restMs: restUntil === null ? null : restUntil - now,
-        hasSentPauseRequest: isIdle || !isStoppedByKeys
+        restMs: restUntil === null ? null : restUntil - now
       }
     });
     record({
@@ -682,93 +673,16 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    await stopRunningWork({
-      session,
-      window,
-      stopWrittenAt: now,
-      isStoppedByKeys,
-      isResting
-    });
-  }
-
-  // Stop the work a paused session is running: the hook takes the stop on its
-  // next tool call, the terminal stop presses the agent's keys when it doesn't
-  // (`pacingInterrupt`), and the pause request covers work no key can stop.
-  async function stopRunningWork({ session, window, stopWrittenAt, isStoppedByKeys, isResting }: {
-    session: AgentSession;
-    window: UsageWindow;
-    stopWrittenAt: number;
-    isStoppedByKeys: boolean;
-    isResting: boolean;
-  }) {
+    // No request typed in - it would spend a turn: the hook refuses the next
+    // tool call, delegated work's included, and the terminal stop presses the
+    // agent's interrupt keys (`pacingInterrupt`).
     stopThroughTerminal({
       session,
-      stopWrittenAt,
+      stopWrittenAt: now,
       isStillStopping: () => isStoppingMidTurn(paced.get(session.id)),
       isWorking: () => isWorking(session.id),
       hasBackgroundAgents: () => backgroundAgentCount(session.id) > 0
     });
-
-    // Its work may have ended while the stop was written.
-    if (isStoppedByKeys || !isRunningWork(session.id)) {
-      return;
-    }
-
-    await askToStop({
-      id: session.id,
-      window,
-      isSlowing: isResting
-    });
-  }
-
-  // The pause request: one extra turn, spent only where no key can stop the
-  // work - background agents, workflows and teammates outlive the turn Esc
-  // ends, and only an agent with a stop-all action can end them by key.
-  async function askToStop({ id, window, isSlowing }: {
-    id: string;
-    window: UsageWindow;
-    isSlowing: boolean;
-  }) {
-    await submitPastedPrompt({
-      id,
-      text: pauseRequest({
-        window,
-        now: Date.now(),
-        isSlowing
-      }),
-      wait: afterDelay
-    });
-  }
-
-  // After Esc ended the turn, work still reported is delegated work: ask the
-  // agent to stop it, once.
-  async function stopDelegatedWork({ id, state, window }: {
-    id: string;
-    state: PaceState;
-    window: UsageWindow;
-  }) {
-    const isDelegatedWorkRunning = state.phase === PacePhase.enum.pausing
-      && !state.hasSentPauseRequest
-      && (isWorking(id) || backgroundAgentCount(id) > 0)
-      && !isTurnRunningOnScreen(id);
-    if (!isDelegatedWorkRunning) {
-      return state;
-    }
-
-    const asked = {
-      ...state,
-      hasSentPauseRequest: true
-    };
-    setPace({
-      id,
-      state: asked
-    });
-    await askToStop({
-      id,
-      window,
-      isSlowing: state.restMs !== null
-    });
-    return asked;
   }
 
   async function resume(id: string) {
@@ -1267,11 +1181,7 @@ export function createUsagePacing(host: PacingHost) {
 
     hold({
       id,
-      state: await stopDelegatedWork({
-        id,
-        state,
-        window: binding.window
-      }),
+      state,
       ...binding
     });
   }

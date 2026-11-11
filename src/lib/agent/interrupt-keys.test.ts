@@ -1,5 +1,5 @@
 import { AgentId } from "@/lib/agent/agent-icon";
-import { hasStopAllAction, interruptKeysOf } from "@/lib/agent/interrupt-keys";
+import { interruptKeysOf } from "@/lib/agent/interrupt-keys";
 import { ESCAPE } from "@/lib/terminal/input/terminal-sequences";
 import type { ClaudeKeybindings } from "@/lib/types";
 import { describe, expect, it } from "vitest";
@@ -85,10 +85,20 @@ describe("interruptKeysOf", () => {
       })?.interrupt?.presses
     ).toBe(2);
     for (const command of [AgentId.Codex, AgentId.Copilot, AgentId.Opencode]) {
-      expect(hasStopAllAction(command)).toBe(false);
+      expect(
+        interruptKeysOf({
+          command,
+          keybindings: null
+        })?.stopAll ?? null
+      ).toBeNull();
     }
 
-    expect(hasStopAllAction(AgentId.Claude)).toBe(true);
+    expect(
+      interruptKeysOf({
+        command: AgentId.Claude,
+        keybindings: null
+      })?.stopAll
+    ).not.toBeNull();
     expect(
       interruptKeysOf({
         command: AgentId.Aider,

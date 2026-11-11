@@ -29,8 +29,7 @@
 
 import { PacedWindowKind } from "@/lib/types";
 import type { AccountUsage, UsageWindow, UsageWindowKind } from "@/lib/types";
-import { resetCountdown, usageResetTime } from "@/lib/usage/usage-groups";
-import { formatPercent } from "@/lib/util/format";
+import { usageResetTime } from "@/lib/usage/usage-groups";
 
 /** Below this much of a window spent, no one is paced however fast it burns. */
 export const PACE_FLOOR_PERCENTAGE = 60;
@@ -438,25 +437,10 @@ export function slowRestUntil({ readyAt, continueAt, stretch, now }: {
   return Math.min(readyAt, now + Math.max(MINIMUM_REST_MS, rest));
 }
 
-/** The request that stops a working agent at its next safe point - for good,
- *  or for a short rest when it is being slowed down. */
-export function pauseRequest({ window, now, isSlowing }: {
-  window: UsageWindow;
-  now: number;
-  isSlowing: boolean;
-}) {
-  const countdown = resetCountdown({
-    iso: window.resetsAt,
-    now
-  });
-  const outcome = isSlowing ? "work takes a short break here to slow the pace" : "work pauses here to spread the rest out";
-  return `PADE usage pacing: ${formatPercent(window.utilization)} of this account's ${windowName(window.kind)} usage is spent and it resets ${countdown}, so ${outcome}. Finish the step you're on, stop every background agent, workflow and teammate still running, noting where each got to, launch nothing new, then stop and wait - you'll be told to continue.`;
-}
-
 /** The message that picks a paused agent back up - marked as pacing's own, so
  *  the agent never mistakes it for the user's answer to a question it asked. */
 export function resumeRequest() {
-  return "PADE usage pacing: the pause is over (any interruption was pacing's) - continue where you left off, relaunching background work you stopped. This is not the user: it answers nothing you asked.";
+  return "PADE usage pacing: the pause is over (the interruption and any refused tool calls were pacing's) - continue where you left off, relaunching background work the pause stopped. This is not the user: it answers nothing you asked.";
 }
 
 /** What the user's own "Continue anyway" types: the user is speaking, so it

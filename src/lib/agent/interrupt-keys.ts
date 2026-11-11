@@ -173,12 +173,6 @@ export function interruptKeysOf({ command, keybindings }: {
  *  it. */
 export type InterruptKeys = NonNullable<ReturnType<typeof interruptKeysOf>>;
 
-/** Whether `command` has a stop-all-agents action PADE can press - its
- *  background work then needs no extra turn asking the agent to stop it. */
-export function hasStopAllAction(command: string) {
-  return (AGENT_INTERRUPT_SHORTCUTS[command]?.stopAll ?? null) !== null;
-}
-
 /** A shortcut ready to press: each keystroke's bytes, and how many times. */
 export type KeyPress = NonNullable<InterruptKeys["interrupt"]>;
 

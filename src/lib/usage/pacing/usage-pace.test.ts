@@ -7,7 +7,6 @@ import {
   isRestEnough,
   PACE_FLOOR_PERCENTAGE,
   paceForecasts,
-  pauseRequest,
   reportedPacedKinds,
   RESET_GRACE_MS,
   resumeRequest,
@@ -528,44 +527,6 @@ describe("slowRestUntil", () => {
         now: NOW
       })
     ).toBe(NOW + 30 * MINUTE_MS);
-  });
-});
-
-describe("pauseRequest", () => {
-  const window = sessionWindow({
-    utilization: 72,
-    resetsIn: 3 * HOUR_MS
-  });
-
-  it("names the window, its spend and the time to its reset", () => {
-    const text = pauseRequest({
-      window,
-      now: NOW,
-      isSlowing: false
-    });
-    expect(text).toContain("72%");
-    expect(text).toContain("session usage");
-    expect(text).toContain("in 3h 0m");
-  });
-
-  it("asks a slowed agent for a short break", () => {
-    expect(
-      pauseRequest({
-        window,
-        now: NOW,
-        isSlowing: true
-      })
-    ).toContain("short break");
-  });
-
-  it("pauses the agent's delegated background work too", () => {
-    const text = pauseRequest({
-      window,
-      now: NOW,
-      isSlowing: true
-    });
-    expect(text).toContain("stop every background agent, workflow and teammate");
-    expect(text).toContain("launch nothing new");
   });
 });
 

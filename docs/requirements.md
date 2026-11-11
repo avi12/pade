@@ -327,9 +327,12 @@ writes.
   - rest = stretch × (time left / runway − 1), at least 5 minutes - while that
   needs no more rest than work), and **stop until there's room**, after which
   the agent continues on its own. Only as many sessions step as the account
-  needs, biggest saving first. A pause costs no turn on an idle agent: the
-  pause request is typed only into running work, and "continue" only into
-  work pacing stopped. A live line per limit shows the active agent's spend,
+  needs, biggest saving first. A pause types nothing: running work is
+  interrupted (Esc, and stop-all while subagents run) and the PreToolUse hook
+  refuses every further tool call, and "continue" is typed only into work
+  pacing stopped. A tab's SLOWED / PAUSED badge says, in its hint and its
+  details, when the session is back to normal - each time in the details
+  reads "at 2:49 PM" or, clicked, "in 6h 59m". A live line per limit shows the active agent's spend,
   when it resets, when it runs out at this pace, and how many sessions pacing
   slows. Every step undoes itself as room comes back (a cheaper effort or
   model steps back up once a session runway reaches 1.5 times the time left,
