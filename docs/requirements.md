@@ -325,7 +325,8 @@ writes.
   (`lib/model/model-cost.ts`, via the same switch a tab's model pick uses),
   **rests between work** (sized so work and rest average out to a lasting pace
   - rest = stretch × (time left / runway − 1), at least 5 minutes - while that
-  needs no more rest than work), and **stop until there's room**, after which
+  needs no more rest than work; after a rest it works at least 5 minutes before
+  the next, so a "continue" is never cut off at once), and **stop until there's room**, after which
   the agent continues on its own. Only as many sessions step as the account
   needs, biggest saving first. A pause types nothing: running work is
   interrupted (Esc, and stop-all while subagents run) and the PreToolUse hook

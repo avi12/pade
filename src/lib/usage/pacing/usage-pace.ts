@@ -51,6 +51,9 @@ export const RATE_HISTORY_MS = 45 * 60_000;
 /** The shortest rest a slowed session takes - a rest of seconds is all
  *  interruption and no saving. */
 const MINIMUM_REST_MS = 5 * 60_000;
+/** The shortest stretch a slowed session works between two rests - as long as
+ *  the shortest rest, so a rest never follows the last one at once. */
+export const MINIMUM_WORK_STRETCH_MS = MINIMUM_REST_MS;
 /** How long a weekly window runs, start to reset - the length its even spend
  *  is drawn over. */
 export const WEEKLY_WINDOW_MS = 7 * 24 * 60 * 60_000;

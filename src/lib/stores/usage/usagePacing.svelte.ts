@@ -77,6 +77,7 @@ import {
   hasRoomToSpare,
   isRestEnough,
   MINIMUM_RATE_SPAN_MS,
+  MINIMUM_WORK_STRETCH_MS,
   paceForecasts,
   RATE_HISTORY_MS,
   slowRestUntil,
@@ -864,6 +865,15 @@ export function createUsagePacing(host: PacingHost) {
         step,
         binding
       });
+      // A rest right after the last one ended would buy a "continue" only to
+      // cut off the first thing it started - so the session works a stretch
+      // at least as long as the shortest rest before it rests again.
+      const workedFor = Date.now() - (workingSince.get(session.id) ?? Date.now());
+      const isBetweenRests = isResting && workedFor < MINIMUM_WORK_STRETCH_MS;
+      if (isBetweenRests) {
+        return;
+      }
+
       const isStopping = step === PacingStep.enum.stop;
       if (isResting || isStopping) {
         await pause({
