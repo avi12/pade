@@ -109,6 +109,9 @@ const MINUTES = new Intl.NumberFormat(undefined, {
 });
 /** How many of a session's pacing actions its badge keeps. */
 const HISTORY_LENGTH = 6;
+/** How long a handoff successor works before pacing may step in - ample to
+ *  read one handoff doc and take in its goal. */
+const HANDOFF_READ_GRACE_MS = 2 * MILLISECONDS_PER_MINUTE;
 /** How long "Skip this window" holds when the window's reset isn't known. */
 const SKIP_FALLBACK_MS = 60 * MILLISECONDS_PER_MINUTE;
 /** The steps that change what the agent runs rather than when it runs. */
@@ -195,6 +198,10 @@ const skippedUntil = new SvelteMap<string, number>();
  *  doesn't end it early. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
 const continuedAnyway = new Map<string, boolean>();
+/** Handoff successors pacing leaves alone while they read the handoff doc:
+ *  null until the session is first seen working, then when the shield ends. */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
+const shieldedUntil = new Map<string, number | null>();
 /** Each agent's account forecast per window, for the Config panel's live lines. */
 const forecasts = new SvelteMap<string, Partial<Record<PacedWindowKind, PaceForecast>>>();
 /** The live loop's sessions, for the count of those pacing slows. */
@@ -279,6 +286,7 @@ registerSessionState(SessionStateKey.enum.usagePacing, {
     histories.delete(id);
     skippedUntil.delete(id);
     continuedAnyway.delete(id);
+    shieldedUntil.delete(id);
     workingSince.delete(id);
     workingShares.delete(id);
     accountKeys.delete(id);
@@ -542,6 +550,13 @@ export async function skipPacing(id: string) {
 /** Continue a stopped or resting session now. */
 export async function resumePacing(id: string) {
   await controller?.resume(id);
+}
+
+/** Leave a handoff's successor alone until it has read the handoff doc - its
+ *  first HANDOFF_READ_GRACE_MS of work, or its first turn if that ends sooner
+ *  - so a stop never lands before it knows what it is continuing. */
+export function shieldHandoffSuccessor(id: string) {
+  shieldedUntil.set(id, null);
 }
 
 /** A prompt was submitted in a session - by the user, or by a PADE flow such
@@ -1272,6 +1287,38 @@ export function createUsagePacing(host: PacingHost) {
     return true;
   }
 
+  // A handoff successor still taking in the handoff doc (`shieldHandoffSuccessor`).
+  function isShielded(id: string) {
+    if (!shieldedUntil.has(id)) {
+      return false;
+    }
+
+    const until = shieldedUntil.get(id) ?? null;
+    const isWorkingNow = isWorking(id);
+    if (until === null) {
+      if (isWorkingNow) {
+        shieldedUntil.set(id, Date.now() + HANDOFF_READ_GRACE_MS);
+      }
+
+      return true;
+    }
+
+    const isShieldOver = !isWorkingNow || Date.now() >= until;
+    if (isShieldOver) {
+      shieldedUntil.delete(id);
+      return false;
+    }
+
+    return true;
+  }
+
+  // Skipped by the user, mid model switch, the user's own run, or a handoff
+  // successor still reading: pacing doesn't touch the session this scan.
+  function isLeftAlone(id: string) {
+    const isSkipped = (skippedUntil.get(id) ?? 0) > Date.now();
+    return isSkipped || isModelSwitchApplying(id) || isContinuedRun(id) || isShielded(id);
+  }
+
   async function paceSession({ session, account, accountKey }: {
     session: AgentSession;
     account: AccountUsage | null;
@@ -1284,8 +1331,7 @@ export function createUsagePacing(host: PacingHost) {
       return null;
     }
 
-    const isSkipped = (skippedUntil.get(id) ?? 0) > Date.now();
-    if (isSkipped || isModelSwitchApplying(id) || isContinuedRun(id)) {
+    if (isLeftAlone(id)) {
       return null;
     }
 
