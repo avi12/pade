@@ -10,6 +10,7 @@ import { dismissApiError } from "@/lib/stores/agent/apiErrorRetry.svelte";
 import { observeContextScreen } from "@/lib/stores/agent/context.svelte";
 import { clearPendingPrompt, pendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
+import { takeOverPacing } from "@/lib/stores/usage/usagePacing.svelte";
 import { observeUsageLimitScreen } from "@/lib/stores/usage/usageResume.svelte";
 import { createSessionActivity } from "@/lib/terminal/activity/sessionActivity.svelte";
 import { createTerminalFit, Screen } from "@/lib/terminal/fit/terminalFit.svelte";
@@ -260,6 +261,7 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
 
       if (data === ENTER) {
         dismissApiError(session().id);
+        takeOverPacing(session().id);
       }
 
       activity.noteInput(data);

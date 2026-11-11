@@ -23,8 +23,9 @@
 // Every step undoes itself as room comes back, and all of it reverts as the
 // window is about to reset. The user can override any agent from its tab badge
 // (`easePacing`, `skipPacing`, `resumePacing`): ease one step, leave it alone for
-// the rest of its window, or resume a stopped one now. A user who restarts a
-// paused agent by hand wins the same way. Pauses are remembered per window, so
+// the rest of its window, or resume a stopped one now. A user who sends a
+// paused agent a prompt of their own wins the same way (`takeOverPacing`), the
+// moment they press Enter. Pauses are remembered per window, so
 // a reload keeps them. The app shell supplies sessions and settings through
 // `PacingHost` and drives the scan from a component `$effect`.
 //
@@ -523,6 +524,7 @@ let controller: {
   ease: (id: string) => Promise<void>;
   skip: (id: string) => Promise<void>;
   resume: (id: string) => Promise<void>;
+  takeOver: (id: string) => Promise<void>;
 } | null = null;
 
 /** Undo pacing's latest step on a session. */
@@ -538,6 +540,12 @@ export async function skipPacing(id: string) {
 /** Continue a stopped or resting session now. */
 export async function resumePacing(id: string) {
   await controller?.resume(id);
+}
+
+/** The user submitted a prompt in a session: a pause pacing holds on it
+ *  gives way to their turn. */
+export async function takeOverPacing(id: string) {
+  await controller?.takeOver(id);
 }
 
 /** What the app shell provides: the switch, read per scan so turning it off
@@ -713,14 +721,7 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    forgetPace(id);
-    forgetTerminalStop(id);
-    await syncStops();
-    workingSince.set(id, Date.now());
-    record({
-      id,
-      text: "continued"
-    });
+    await liftPause(id);
 
     const isNothingToContinue = isOnlyAfterStoppedWork && !state.hasStoppedWork;
     if (isWorking(id) || isNothingToContinue) {
@@ -734,6 +735,19 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
+  // End a pause: the hook stops refusing the session's tool calls and any
+  // terminal stop still pending is called off.
+  async function liftPause(id: string) {
+    forgetPace(id);
+    forgetTerminalStop(id);
+    await syncStops();
+    workingSince.set(id, Date.now());
+    record({
+      id,
+      text: "continued"
+    });
+  }
+
   // The user's own continue: unlike pacing's, it owns the run it starts.
   async function continueAnyway(id: string) {
     continuedAnyway.set(id, false);
@@ -741,6 +755,19 @@ export function createUsagePacing(host: PacingHost) {
       id,
       isOnlyAfterStoppedWork: false
     });
+  }
+
+  // The user sent the paused session a prompt of their own: that turn is
+  // theirs, so the pause lifts at once - before the next scan, which would
+  // have read the new turn as pacing's stop still finishing and kept refusing
+  // its tool calls - and no continue is typed over their prompt.
+  async function takeOver(id: string) {
+    if (!paced.has(id)) {
+      return;
+    }
+
+    continuedAnyway.set(id, false);
+    await liftPause(id);
   }
 
   // Back on pace. A session still finishing its step is left to stop first; one
@@ -1507,7 +1534,8 @@ export function createUsagePacing(host: PacingHost) {
         })}`
       });
     },
-    resume: continueAnyway
+    resume: continueAnyway,
+    takeOver
   };
 
   return {
