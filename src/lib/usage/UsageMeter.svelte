@@ -24,11 +24,9 @@
   // The running agent sessions - one usage group per distinct coding agent among
   // them is derived below (the shell's windowSessions owns the list; the shell fallback and
   // terminal-editor sessions are filtered out in `buildGroups`).
-  const { agent, project, sessions }: {
+  const { agent, sessions }: {
     /** The active session's agent id, whose account the panel's pacing reads. */
     agent: string;
-    /** The window's workspace, which pacing's workspace scope edits. */
-    project: string;
     sessions: AgentSession[];
   } = $props();
 
@@ -185,7 +183,7 @@
 <span class="usage-wrap menu-host">
   <UsageTrigger {groups} {justReset} {resetLabel} {showsResetInPill} />
 
-  <UsagePanel {agent} {groups} {justReset} {project} />
+  <UsagePanel {agent} {groups} {justReset} />
 
   {#if showsResetInPill}
     <button

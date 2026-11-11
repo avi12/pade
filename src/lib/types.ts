@@ -540,37 +540,9 @@ export const DiffStyle = z.enum(["unified", "split"]);
 export const PacingStep = z.enum(["effort", "model", "rest", "stop"]);
 export type PacingStep = z.infer<typeof PacingStep>;
 
-/** What a stopped agent does once it has room again: wait for the user, or
- *  continue on its own. Either way it continues just before the reset. */
-export const PacingStopThen = z.enum(["ask", "continue"]);
-
-/** Usage pacing's settings: whether it runs, which steps it may take, how early
- *  a forecast run-out has to be before it acts, and what follows a stop. */
-const PacingSettings = z.object({
-  isOn: z.boolean(),
-  steps: z.array(PacingStep),
-  stopThen: PacingStopThen,
-  earlyMinutes: z.number().int().positive()
-});
-export type PacingSettings = z.infer<typeof PacingSettings>;
-
-/** The usage windows pacing watches, each with its own settings. */
+/** The usage windows pacing watches. */
 export const PacedWindowKind = UsageWindowKind.extract(["session", "weekly"]);
 export type PacedWindowKind = z.infer<typeof PacedWindowKind>;
-
-/** Pacing's settings per window. A window left out runs on its defaults. */
-const PacingByWindow = z.object({
-  session: PacingSettings,
-  weekly: PacingSettings
-}).partial();
-export type PacingByWindow = Required<z.infer<typeof PacingByWindow>>;
-
-/** Settings saved before pacing was split per window were one flat set, which
- *  governed the session window - read them as that. */
-const StoredPacing = z.preprocess(
-  raw => PacingSettings.safeParse(raw).success ? { session: raw } : raw,
-  PacingByWindow
-);
 
 export const StartMode = z.enum(["temp", "picker"]);
 export type StartMode = z.infer<typeof StartMode>;
@@ -649,11 +621,9 @@ const Prefs = z.object({
    *  in place, or hand off when the context is nearly full. Opt-out: on unless
    *  explicitly set to false. */
   autoResume: z.boolean().nullish(),
-  /** Usage pacing's settings per window. Absent = each window's defaults. */
-  pacing: StoredPacing.nullish(),
-  /** Per-workspace pacing overrides, keyed by project path, per window. A
-   *  window left out follows the global `pacing` (lib/usage/pacing/pacing-scope). */
-  pacingProjects: z.record(z.string(), PacingByWindow).nullish(),
+  /** Slow agents down so neither usage limit runs out before it resets
+   *  (lib/usage/pacing/pacing-policy). Opt-out: on unless explicitly false. */
+  usagePacing: z.boolean().nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
   uiScale: z.number().min(UI_SCALE_MINIMUM).max(UI_SCALE_MAXIMUM).nullish(),
   /** Width, in pixels, of the resizable side panel (Feed/Git/Tasks/Config). The

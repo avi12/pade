@@ -1,6 +1,6 @@
 <script lang="ts">
-  // A tab's usage-pacing badge: shown while pacing is holding the session back,
-  // "PACED 2/4" - the active steps out of the allowed ones. It opens a popover
+  // A tab's usage-pacing badge: shown while pacing is holding the session back -
+  // SLOWED while it runs on a cheaper setup, PAUSED while it waits. It opens a popover
   // (PacingDetails) that says why, what it runs now and when it reverts, with
   // the overrides right there.
 
@@ -33,12 +33,11 @@
        shaken by a paused badge's alarm animation. It sits on a wrapper because
        the bubble anchors itself through `anchor-name`, which the button already
        spends on its popover. -->
-  <span class="badge-hint" {@attach tooltip("Usage pacing is holding this agent back - click for why")}>
+  <span class="badge-hint" {@attach tooltip("Slowed so your usage lasts until it resets - click for why")}>
     <button
       style:anchor-name={anchorName}
       class="badge"
       class:stopped={status.isStopped}
-      aria-label={`Usage pacing: ${status.steps.length} of ${status.allowedCount} steps active`}
       data-noreorder
       popovertarget={popoverTarget}
       type="button"
@@ -46,7 +45,7 @@
       {#if status.isStopped}
         PAUSED
       {:else}
-        PACED {status.steps.length}/{status.allowedCount}
+        SLOWED
       {/if}
     </button>
   </span>

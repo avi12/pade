@@ -13,46 +13,19 @@ describe("pacingNote", () => {
     utilization: 72,
     pausedAt: NOW - 20 * MINUTE_MS,
     readyAt: NOW + HOUR_MS,
-    continueAt: NOW + 2 * HOUR_MS,
     restUntil: null,
     restMs: null
   } as const;
   const clock = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
 
-  it("says when the agent was paused and that it continues just before the reset", () => {
+  it("says when the agent was paused and that it continues on its own once there is room", () => {
     const note = pacingNote({
       agent: "Claude",
       state: paused,
-      isContinuingWhenReady: false,
       now: NOW
     });
     expect(note).toContain(`paused at ${clock.format(paused.pausedAt)}`);
-    expect(note).toContain(`continues on its own around ${clock.format(paused.continueAt)}`);
-  });
-
-  it("names the earlier time once the session continues as soon as it has room", () => {
-    expect(
-      pacingNote({
-        agent: "Claude",
-        state: paused,
-        isContinuingWhenReady: true,
-        now: NOW
-      })
-    ).toContain(`continues on its own around ${clock.format(paused.readyAt)}`);
-  });
-
-  it("tells a ready session apart from one still waiting for room", () => {
-    expect(
-      pacingNote({
-        agent: "Claude",
-        state: {
-          ...paused,
-          phase: "ready"
-        },
-        isContinuingWhenReady: false,
-        now: NOW
-      })
-    ).toContain("has room in its session usage (72%) again");
+    expect(note).toContain(`continues on its own around ${clock.format(paused.readyAt)}`);
   });
 
   it("says how long a slowed agent rests", () => {
@@ -64,7 +37,6 @@ describe("pacingNote", () => {
           ...paused,
           restUntil
         },
-        isContinuingWhenReady: true,
         now: NOW
       })
     ).toBe(`Claude is resting until ${clock.format(restUntil)} to slow its session usage (72%)`);
@@ -80,7 +52,6 @@ describe("pacingNote", () => {
           restUntil: NOW - 5 * MINUTE_MS,
           restMs: 15 * MINUTE_MS
         },
-        isContinuingWhenReady: true,
         now: NOW
       })
     ).toBe(`Claude is finishing its step, then rests for 15 minutes (until ${clock.format(NOW + 15 * MINUTE_MS)} at the earliest) to slow its session usage (72%)`);
@@ -94,7 +65,6 @@ describe("isStoppingMidTurn", () => {
 
   it("lets go once it has stopped, once the user took it over, and for an unpaced session", () => {
     expect(isStoppingMidTurn({ phase: "paused" })).toBe(false);
-    expect(isStoppingMidTurn({ phase: "ready" })).toBe(false);
     expect(isStoppingMidTurn({ phase: "overridden" })).toBe(false);
     expect(isStoppingMidTurn(undefined)).toBe(false);
   });

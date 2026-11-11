@@ -39,7 +39,7 @@
     /** Split members collapsing out (out:collapsePane); dropped on `outroend`. */
     collapsingSplitPanes: SvelteSet<string>;
     /** The usage pauses, each shown across the top of its own session's pane. */
-    pacing: Pick<ReturnType<typeof createUsagePacing>, "pauses" | "continueNow" | "continueWhenReady">;
+    pacing: Pick<ReturnType<typeof createUsagePacing>, "pauses" | "continueNow">;
     paneIds: string[];
     activeId: string | null;
     /** True while a split pane's header is dragged up over the tab strip. */

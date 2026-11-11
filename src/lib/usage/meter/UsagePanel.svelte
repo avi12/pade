@@ -11,11 +11,9 @@
   // place they live), the limit closest to its cap, and a card per running
   // agent under a legend of the kind codes. The head and pacing show even with
   // nothing running, so pacing's settings are always within reach.
-  const { agent, project, groups, justReset }: {
+  const { agent, groups, justReset }: {
     /** The active session's agent id, whose account pacing's live lines read. */
     agent: string;
-    /** The window's workspace, which pacing's workspace scope edits. */
-    project: string;
     groups: AgentGroup[];
     justReset: ReadonlySet<string>;
   } = $props();
@@ -33,7 +31,7 @@
 >
   <UsageSummary {groups} />
 
-  <UsagePacingSettings {agent} {project} />
+  <UsagePacingSettings {agent} />
 
   {#if groups.length > 0}
     {#if spotlight}

@@ -1,48 +1,44 @@
 <script lang="ts">
-  import { agentForecast } from "@/lib/stores/usage/usagePacing.svelte";
-  import type { PacedWindowKind, PacingSettings } from "@/lib/types";
+  import { agentForecast, slowedSessionCount } from "@/lib/stores/usage/usagePacing.svelte";
+  import type { PacedWindowKind } from "@/lib/types";
   import { pacingPreview } from "@/lib/usage/pacing/pacing-policy";
+  import { formatPercent } from "@/lib/util/format";
 
-  // One window's live line for the active agent: where its usage is heading -
-  // how much is spent (and, weekly, a tick where an even spend would be), when
-  // it runs out and resets - and what pacing would do about it now. A reading,
-  // so it sets in mono.
-  const { agent, kind, settings }: {
+  // One limit's live line for the active agent: how much is spent and when it
+  // resets, when it runs out at this pace, and what pacing is doing about it.
+  // A reading, so it sets in mono.
+  const { agent, kind }: {
     agent: string;
     kind: PacedWindowKind;
-    settings: PacingSettings;
   } = $props();
 
   const preview = $derived(
     pacingPreview({
+      kind,
       forecast: agentForecast({
         agentId: agent,
         kind
       }),
-      settings,
+      slowedCount: slowedSessionCount(),
       now: Date.now()
     })
   );
 </script>
 
-<output class="forecast">
-  {#if preview.meter}
-    <span class="window">{preview.meter.name}</span>
-    <span
-      style:--used={`${preview.meter.utilization}%`}
-      style:--even={preview.meter.evenPercentage === null ? null : `${preview.meter.evenPercentage}%`}
-      class="meter"
-      class:has-even={preview.meter.evenPercentage !== null}
-    ></span>
-    <span class="detail">{preview.meter.detail}</span>
-  {/if}
-  <span class="would">{preview.wouldDo}</span>
-</output>
+{#if preview}
+  <output class="forecast">
+    <span class="window">{preview.name} {formatPercent(preview.utilization)}</span>
+    <span style:--used={`${preview.utilization}%`} class="meter"></span>
+    <span class="resets">{preview.resets}</span>
+    <span class="line">{preview.pace}</span>
+    <span class="line action">{preview.action}</span>
+  </output>
+{/if}
 
 <style>
   .forecast {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
     gap: 4px 10px;
     align-items: center;
     padding-block: 8px;
@@ -54,29 +50,27 @@
     font-size: 0.6875rem;
   }
 
-  .detail,
-  .would {
-    grid-column: 1 / -1;
+  .window {
+    text-transform: capitalize;
   }
 
-  .detail {
+  .resets {
     color: var(--on-surface-variant);
   }
 
+  .line {
+    grid-column: 1 / -1;
+    color: var(--on-surface-variant);
+  }
+
+  .action {
+    color: var(--on-surface);
+  }
+
   .meter {
-    position: relative;
     block-size: 6px;
     background:
       linear-gradient(var(--primary), var(--primary)) no-repeat 0 0 / var(--used) 100%,
       var(--surface-3);
-
-    &.has-even::after {
-      content: "";
-      position: absolute;
-      inset-block: -3px;
-      inset-inline-start: var(--even);
-      inline-size: 2px;
-      background: var(--on-surface);
-    }
   }
 </style>

@@ -9,7 +9,7 @@
   // the session they act on - never in a stack of look-alike banners.
   const { pause, pacing }: {
     pause: UsagePacing["pauses"][number];
-    pacing: Pick<UsagePacing, "continueNow" | "continueWhenReady">;
+    pacing: Pick<UsagePacing, "continueNow">;
   } = $props();
 </script>
 
@@ -17,20 +17,9 @@
   <span class="pause-icon"><Icon name="pause" /></span>
   <span class="note">{pause.note}</span>
   <span class="actions">
-    {#if pause.canContinueWhenReady}
-      <button
-        class="note-action quiet" onclick={() => pacing.continueWhenReady(pause.id)}
-        type="button">Continue when there's room</button>
-    {/if}
     <button
       class="note-action" onclick={async () => await pacing.continueNow(pause.id)}
-      type="button">
-      {#if pause.isReady}
-        Continue
-      {:else}
-        Continue anyway
-      {/if}
-    </button>
+      type="button">Continue anyway</button>
   </span>
 </output>
 
@@ -80,16 +69,6 @@
 
     &:hover {
       background: color-mix(in sRGB, var(--primary) 88%, var(--on-primary));
-    }
-
-    &.quiet {
-      background: transparent;
-      color: var(--on-primary-container);
-      outline: 1px solid var(--primary);
-
-      &:hover {
-        background: color-mix(in sRGB, var(--primary) 14%, transparent);
-      }
     }
   }
 </style>

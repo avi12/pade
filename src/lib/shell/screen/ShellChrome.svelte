@@ -99,7 +99,7 @@
   />
   <span class="chrome-spacer"></span>
 
-  <UsageMeter {agent} {project} {sessions} />
+  <UsageMeter {agent} {sessions} />
   <!-- Open a console editor (Neovim/Vim/Helix) in its own terminal tab,
        split beside the agent so you can watch and edit at once. GUI editors
        go through the OS (ide.open); these need a real TTY, which only a PADE

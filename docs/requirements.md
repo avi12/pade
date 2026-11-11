@@ -312,41 +312,36 @@ writes.
   pane") instead of being pressed in a loop. The usage panel's pacing card
   lists each paced subagent with its step (held Ns, wrapping up, spawns
   blocked).
-  Pacing's settings live in one place, the **Usage pacing** card of the
-  top-bar usage panel (`lib/usage/pacing/settings/`, shown even with no agent
-  running); the Config panel has none. The card has a **This workspace / Global**
-  scope switch over one block per window (**Session window**, **Weekly
-  window**), each with its own settings (`lib/usage/pacing/pacing-scope.ts`): global
-  ones in `prefs.pacing` (settings saved before the split read as the session
-  window's), a workspace's own in `prefs.pacingProjects[project]`, per window.
-  A workspace window shows **Global** while it follows the global settings,
-  stops following them the moment it is changed there, and goes back with
-  **Use global**. Each block is a **Strength** preset - Off, Gentle (effort
-  only), Balanced (default: effort, model, rests), Strict (all four, the stop
-  asking first), or Custom once a step is edited - over a numbered list of
-  steps PADE climbs one at a time while the agent stays too fast: **1 Lower
-  effort** (a level at a time, to the bottom of its ladder), **2 Cheaper
-  model** (`lib/model/model-cost.ts`, via the same switch a tab's model pick
-  uses), **3 Rest between work** (a short rest sized so work and rest average
-  out to a lasting pace - rest = stretch × (time left / runway − 1), at least 5
-  minutes - while that needs no more rest than work, or always when Stop is
-  off), **4 Stop until there's room** (with **Ask me / Continue** for once it
-  has room), the margin and steps folded under **Fine-tune**. A live line per
-  window shows the active agent's spend (weekly: with a tick where an even
-  spend would be), when it runs out and resets, and what pacing would do now.
-  The steps, margin and stop behaviour that apply are those of the window
-  holding the agent. Every step undoes itself as room comes back (a cheaper
-  effort or model steps back up once a session runway reaches 1.5 times the
-  time left, or the week is back on its even spend), and everything reverts as
-  the window is
-  about to reset; a choice the user makes in between is theirs to keep.
-  While pacing holds an agent its tab shows **PACED n/m** (active steps of the
-  allowed ones); the badge opens why, what it runs now, when it reverts and
-  what pacing did, with **Ease one step**, **Skip this window** and, when
-  stopped or resting, **Resume now**. A stopped agent also shows the note with
-  **Continue anyway** / **Continue when there's room**. Pauses and steps are
-  remembered per window across a reload; a user who restarts a paused agent by
-  hand is not paused again until it is back on pace.
+  Pacing has one goal - get as much done as possible without the weekly or the
+  5-hour limit running out before it resets - and one setting: an **On / Off**
+  switch (`prefs.usagePacing`, on unless turned off) in the **Usage pacing**
+  card of the top-bar usage panel (`lib/usage/pacing/settings/`, shown even
+  with no agent running). It is account-wide: no presets, no per-step
+  choices, no per-project overrides. While an account is on track to run out
+  early - the 5-hour window by its burn, the week ahead of an even spend, each
+  past a small built-in slack (30 minutes, 6 hours; `pacing-policy.ts`) - PADE
+  climbs the same steps one at a time, mildest first: **lower effort** (a
+  level at a time, to the bottom of its ladder), **cheaper model**
+  (`lib/model/model-cost.ts`, via the same switch a tab's model pick uses),
+  **rests between work** (sized so work and rest average out to a lasting pace
+  - rest = stretch × (time left / runway − 1), at least 5 minutes - while that
+  needs no more rest than work), and **stop until there's room**, after which
+  the agent continues on its own. Only as many sessions step as the account
+  needs, biggest saving first. A pause costs no turn on an idle agent: the
+  pause request is typed only into running work, and "continue" only into
+  work pacing stopped. A live line per limit shows the active agent's spend,
+  when it resets, when it runs out at this pace, and how many sessions pacing
+  slows. Every step undoes itself as room comes back (a cheaper effort or
+  model steps back up once a session runway reaches 1.5 times the time left,
+  or the week is back on its even spend), and everything reverts as the window
+  is about to reset; a choice the user makes in between is theirs to keep.
+  While pacing holds an agent its tab shows **SLOWED** (**PAUSED** while it is
+  stopped); the badge opens why, what it runs now, when it reverts and what
+  pacing did, with **Ease one step**, **Skip this window** and, when stopped or
+  resting, **Resume now**. A stopped agent also shows the note with
+  **Continue anyway**. Pauses and steps are remembered per window across a
+  reload; a user who restarts a paused agent by hand is not paused again until
+  it is back on pace.
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface agent-native project config: `CLAUDE.md`, `AGENTS.md`,

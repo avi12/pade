@@ -1,19 +1,20 @@
-// Usage pacing's policy - the steps it may take and the presets that pick them.
-// Pure, so the Config panel and the pacing store read one definition.
+// Usage pacing's policy - one switch, and one built-in way of pacing. Pure, so
+// the Config panel and the pacing store read one definition.
 //
-// While an agent stays on track to run out of usage before its window resets,
-// pacing climbs these steps one at a time, in this order: turn its effort down,
-// move it to a cheaper model, give it short rests between stretches of work,
-// and stop it until there's room. Each step undoes itself as room comes back,
-// and all of it reverts as the window is about to reset. A preset is just a set
-// of steps; any other set reads as Custom.
+// The goal: get as much done as possible without either usage limit running
+// out before it resets. While an account is on track to run out early, pacing
+// slows its agents only as much as that needs, mildest first: turn the effort
+// down, move to a cheaper model, give short rests between stretches of work,
+// and - right at the edge - stop until there's room. Each step undoes itself
+// as room comes back, a stopped agent continues on its own, and everything
+// reverts as the window is about to reset.
 
-import { PacedWindowKind, PacingStep, PacingStopThen } from "@/lib/types";
-import type { PacingByWindow, PacingSettings, UsageWindowKind } from "@/lib/types";
+import { PacedWindowKind, PacingStep } from "@/lib/types";
+import type { Prefs, UsageWindowKind } from "@/lib/types";
 import { isForecastOverPace, windowName } from "@/lib/usage/pacing/usage-pace";
-import type { MarginOf, PaceForecast } from "@/lib/usage/pacing/usage-pace";
+import type { PaceForecast } from "@/lib/usage/pacing/usage-pace";
 import { resetCountdown } from "@/lib/usage/usage-groups";
-import { formatPercent } from "@/lib/util/format";
+import { formatCount, formatPercent } from "@/lib/util/format";
 
 /** Every step, in the order pacing climbs them. */
 export const PACING_STEP_ORDER = [
@@ -23,201 +24,34 @@ export const PACING_STEP_ORDER = [
   PacingStep.enum.stop
 ] as const;
 
-/** How the Config panel names each step and says what it does. */
-export const PACING_STEP_TEXT: Record<PacingStep, {
-  label: string;
-  hint: string;
-}> = {
-  [PacingStep.enum.effort]: {
-    label: "Lower effort",
-    hint: "one level at a time"
-  },
-  [PacingStep.enum.model]: {
-    label: "Cheaper model",
-    hint: "e.g. opus → sonnet"
-  },
-  [PacingStep.enum.rest]: {
-    label: "Rest between work",
-    hint: "short breaks sized to the pace"
-  },
-  [PacingStep.enum.stop]: {
-    label: "Stop until there's room",
-    hint: "it always continues just before the reset"
-  }
+/** How a paced session's popover names each step it has taken. */
+export const PACING_STEP_TEXT: Record<PacingStep, string> = {
+  [PacingStep.enum.effort]: "Lower effort",
+  [PacingStep.enum.model]: "Cheaper model",
+  [PacingStep.enum.rest]: "Rests between work",
+  [PacingStep.enum.stop]: "Stopped until there's room"
 };
-
-const MINUTES_PER_HOUR = 60;
-const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
-
-/** How far ahead of pace a window may run before pacing acts, in minutes, per
- *  window - a session is judged in minutes, a week in hours and days. */
-export const PACING_EARLY_OPTIONS: Record<PacedWindowKind, readonly number[]> = {
-  [PacedWindowKind.enum.session]: [15, 30, 60, 120],
-  [PacedWindowKind.enum.weekly]: [6 * MINUTES_PER_HOUR, 12 * MINUTES_PER_HOUR, MINUTES_PER_DAY, 2 * MINUTES_PER_DAY]
-};
-
-/** A margin as the Config panel names it - "30 min", "6 h", "1 d". */
-export function marginLabel(minutes: number) {
-  if (minutes < MINUTES_PER_HOUR) {
-    return `${minutes} min`;
-  }
-
-  return minutes < MINUTES_PER_DAY ? `${minutes / MINUTES_PER_HOUR} h` : `${minutes / MINUTES_PER_DAY} d`;
-}
-
-/** How the Config panel heads each window, and how its trigger reads. */
-export const PACED_WINDOW_TEXT: Record<PacedWindowKind, {
-  title: string;
-  hint: string;
-  trigger: string;
-  triggerEnd: string;
-}> = {
-  [PacedWindowKind.enum.session]: {
-    title: "Session window",
-    hint: "Judged by how fast it burns while agents work",
-    trigger: "Act when on track to run out",
-    triggerEnd: "early"
-  },
-  [PacedWindowKind.enum.weekly]: {
-    title: "Weekly window",
-    hint: "Judged against an even spend over the week",
-    trigger: "Act when ahead of an even spend by",
-    triggerEnd: ""
-  }
-};
-
-export const PacingPreset = {
-  Off: "off",
-  Gentle: "gentle",
-  Balanced: "balanced",
-  Strict: "strict",
-  Custom: "custom"
-} as const;
-export type PacingPreset = (typeof PacingPreset)[keyof typeof PacingPreset];
-
-/** The presets that name a set of steps. */
-const NAMED_PRESETS = [PacingPreset.Gentle, PacingPreset.Balanced, PacingPreset.Strict] as const;
-
-/** The steps each named preset takes. */
-const PRESET_STEPS: Record<(typeof NAMED_PRESETS)[number], readonly PacingStep[]> = {
-  [PacingPreset.Gentle]: [PacingStep.enum.effort],
-  [PacingPreset.Balanced]: [PacingStep.enum.effort, PacingStep.enum.model, PacingStep.enum.rest],
-  [PacingPreset.Strict]: PACING_STEP_ORDER
-};
-
-/** The settings each window is paced on until the user changes them: Balanced,
- *  with a margin that suits the window. */
-export const DEFAULT_PACING: PacingByWindow = {
-  [PacedWindowKind.enum.session]: {
-    isOn: true,
-    steps: [...PRESET_STEPS[PacingPreset.Balanced]],
-    stopThen: PacingStopThen.enum.ask,
-    earlyMinutes: 30
-  },
-  [PacedWindowKind.enum.weekly]: {
-    isOn: true,
-    steps: [...PRESET_STEPS[PacingPreset.Balanced]],
-    stopThen: PacingStopThen.enum.ask,
-    earlyMinutes: 12 * MINUTES_PER_HOUR
-  }
-};
-
-/** Whether pacing watches any window at all. */
-export function isPacingOn(pacing: PacingByWindow) {
-  return PacedWindowKind.options.some(kind => pacing[kind].isOn);
-}
-
-/** Every preset with what it does, for the Config panel's strength row. */
-export const PACING_PRESETS = [
-  {
-    value: PacingPreset.Off,
-    label: "Off",
-    hint: "Never paces an agent"
-  },
-  {
-    value: PacingPreset.Gentle,
-    label: "Gentle",
-    hint: "Turns the effort down, nothing more"
-  },
-  {
-    value: PacingPreset.Balanced,
-    label: "Balanced",
-    hint: "Turns the effort down, then the model, then adds rests"
-  },
-  {
-    value: PacingPreset.Strict,
-    label: "Strict",
-    hint: "Every step, ending in a stop"
-  }
-] as const;
-
-/** A step set in climbing order, without repeats. */
-function ordered(steps: readonly PacingStep[]) {
-  return PACING_STEP_ORDER.filter(step => steps.includes(step));
-}
-
-/** Which preset the settings amount to - Custom when the steps match none. */
-export function pacingPreset(settings: PacingSettings) {
-  if (!settings.isOn) {
-    return PacingPreset.Off;
-  }
-
-  const chosen = ordered(settings.steps).join();
-  const named = NAMED_PRESETS.find(preset => ordered(PRESET_STEPS[preset]).join() === chosen);
-  return named ?? PacingPreset.Custom;
-}
-
-/** The settings a preset picks, keeping what it doesn't decide. */
-export function withPreset({ settings, preset }: {
-  settings: PacingSettings;
-  preset: PacingPreset;
-}) {
-  if (preset === PacingPreset.Off) {
-    return {
-      ...settings,
-      isOn: false
-    };
-  }
-
-  if (preset === PacingPreset.Custom) {
-    return {
-      ...settings,
-      isOn: true
-    };
-  }
-
-  return {
-    ...settings,
-    isOn: true,
-    steps: [...PRESET_STEPS[preset]],
-    stopThen: preset === PacingPreset.Strict ? PacingStopThen.enum.ask : settings.stopThen
-  };
-}
-
-/** The settings with one step turned on or off. */
-export function withStep({ settings, step, isAllowed }: {
-  settings: PacingSettings;
-  step: PacingStep;
-  isAllowed: boolean;
-}) {
-  const others = settings.steps.filter(candidate => candidate !== step);
-  return {
-    ...settings,
-    steps: ordered(isAllowed ? [...others, step] : others)
-  };
-}
-
-/** The allowed steps, in climbing order. */
-export function allowedSteps(settings: PacingSettings) {
-  return ordered(settings.steps);
-}
 
 export const MILLISECONDS_PER_MINUTE = 60_000;
+const MINUTES_PER_HOUR = 60;
 
-/** How far ahead of pace each window may run, from its settings - null for a
- *  window whose pacing is off. */
-export function pacingMargins(pacing: PacingByWindow): MarginOf {
-  return kind => pacing[kind].isOn ? pacing[kind].earlyMinutes * MILLISECONDS_PER_MINUTE : null;
+/** How far ahead of pace a window may run before pacing acts: a little slack,
+ *  so a short burst doesn't slow anything, sized to the window - minutes for
+ *  the 5-hour window, hours for the week. Near the reset it shrinks to a share
+ *  of the time left (lib/usage/pacing/usage-pace). */
+const EARLY_MINUTES: Record<PacedWindowKind, number> = {
+  [PacedWindowKind.enum.session]: 30,
+  [PacedWindowKind.enum.weekly]: 6 * MINUTES_PER_HOUR
+};
+
+/** Whether pacing runs - on unless the user turned it off. */
+export function isPacingOn(prefs: Pick<Prefs, "usagePacing">) {
+  return prefs.usagePacing !== false;
+}
+
+/** How far ahead of pace each window may run, in milliseconds. */
+export function pacingMargin(kind: PacedWindowKind) {
+  return EARLY_MINUTES[kind] * MILLISECONDS_PER_MINUTE;
 }
 
 const CLOCK = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
@@ -321,86 +155,73 @@ function countdownTo({ time, now }: {
   });
 }
 
-/** The Config panel's live line for one window's forecast (`paceForecasts`):
- *  the window, how much is spent (and, weekly, where an even spend would be),
- *  when it runs out and resets, and what pacing would do about it right now. A
- *  null forecast is a window not yet watched. */
-export function pacingPreview({ forecast, settings, now }: {
+/** The Config panel's live line for one window (`paceForecasts`): how much is
+ *  spent and when it resets, when it runs out at this pace, and what pacing is
+ *  doing about it. A null forecast is a window not yet read. */
+export function pacingPreview({ kind, forecast, slowedCount, now }: {
+  kind: PacedWindowKind;
   forecast: PaceForecast | null;
-  settings: PacingSettings;
+  /** Sessions pacing is slowing right now. */
+  slowedCount: number;
   now: number;
 }) {
   if (forecast === null) {
-    return {
-      meter: null,
-      wouldDo: "Measures the pace while the agent works"
-    };
+    return null;
   }
 
-  const parts = [formatPercent(forecast.window.utilization)];
-  if (forecast.evenPercentage !== null) {
-    parts.push(`even spend ${formatPercent(forecast.evenPercentage)}`);
-  }
-
-  parts.push(
-    runOutText({
-      forecast,
-      now
-    }), `resets ${countdownTo({
+  return {
+    name: windowName(forecast.window.kind),
+    utilization: forecast.window.utilization,
+    resets: `resets ${spokenTime({
       time: forecast.resetAt,
       now
-    })}`
-  );
-  const meter = {
-    name: `${windowName(forecast.window.kind)} window`,
-    utilization: forecast.window.utilization,
-    evenPercentage: forecast.evenPercentage,
-    detail: parts.join(" · ")
-  };
-  return {
-    meter,
-    wouldDo: wouldDoText({
+    })}`,
+    pace: paceText({
       forecast,
-      settings,
+      now
+    }),
+    action: actionText({
+      kind,
+      forecast,
+      slowedCount,
       now
     })
   };
 }
 
-function runOutText({ forecast, now }: {
+function paceText({ forecast, now }: {
   forecast: PaceForecast;
   now: number;
 }) {
   if (!forecast.isMeasured) {
-    return "pace not measured yet";
+    return "Measuring the pace";
   }
 
-  if (forecast.runOutAt === null) {
-    return "nothing spent lately";
+  if (forecast.runOutAt === null || forecast.runOutAt >= forecast.resetAt) {
+    return "At this pace: lasts until the reset";
   }
 
-  return `runs out ${countdownTo({
+  return `At this pace: runs out ${spokenTime({
     time: forecast.runOutAt,
     now
   })}`;
 }
 
-function wouldDoText({ forecast, settings, now }: {
+function actionText({ kind, forecast, slowedCount, now }: {
+  kind: PacedWindowKind;
   forecast: PaceForecast;
-  settings: PacingSettings;
+  slowedCount: number;
   now: number;
 }) {
-  if (!forecast.isMeasured) {
-    return "Measuring the pace - it can act after about ten minutes of work";
+  if (slowedCount > 0) {
+    const sessions = slowedCount === 1 ? "1 session" : `${formatCount(slowedCount)} sessions`;
+    return `Slowing ${sessions} so it lasts`;
   }
 
-  const isOverPace = isForecastOverPace({
+  const isOverPace = forecast.isMeasured && isForecastOverPace({
     forecast,
-    margin: settings.earlyMinutes * MILLISECONDS_PER_MINUTE,
+    margin: pacingMargin(kind),
     now
   });
-  const firstStep = allowedSteps(settings)[0];
-  return isOverPace && firstStep !== undefined
-    ? `Would now: ${PACING_STEP_TEXT[firstStep].label.toLowerCase()}`
-    : "On pace - nothing to do";
+  return isOverPace ? "Slowing down the next working session" : "On pace - nothing to slow";
 }

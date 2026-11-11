@@ -37,7 +37,7 @@
 {/each}
 <ul class="active">
   {#each status.steps as step (step)}
-    <li>{PACING_STEP_TEXT[step].label}</li>
+    <li>{PACING_STEP_TEXT[step]}</li>
   {/each}
 </ul>
 
