@@ -1,7 +1,6 @@
 // The usage meter's view logic, kept pure so the trigger, the details panel and
 // the meter itself all read it from one place (usage-groups.ts builds the data).
 
-import { AgentId } from "@/lib/agent/agent-icon";
 import {
   type AccountReading,
   type AccountUsage,
@@ -56,11 +55,6 @@ export function groupSeverityClass(group: AgentGroup) {
 /** The agents that get a pill of their own in the trigger. */
 export function triggerPillGroups(groups: readonly AgentGroup[]) {
   return groups.slice(0, MAX_TRIGGER_PILLS);
-}
-
-/** Whether Claude has a pill of its own - not folded into the "+N" chip. */
-export function hasClaudePill(groups: readonly AgentGroup[]) {
-  return triggerPillGroups(groups).some(group => group.id === AgentId.Claude);
 }
 
 /** How many agents fold into the trigger's "+N" chip. */

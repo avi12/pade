@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LimitResetCard from "@/lib/usage/limit-reset/LimitResetCard.svelte";
   import { USAGE_MENU_ANCHOR, USAGE_MENU_ID, USAGE_PANEL_LABEL } from "@/lib/usage/meter/usage-meter";
   import UsageAgentCard from "@/lib/usage/meter/UsageAgentCard.svelte";
   import UsageKindLegend from "@/lib/usage/meter/UsageKindLegend.svelte";
@@ -7,7 +8,8 @@
   import UsagePacingSettings from "@/lib/usage/pacing/settings/UsagePacingSettings.svelte";
   import { type AgentGroup, findSpotlight } from "@/lib/usage/usage-groups";
 
-  // The meter's details popover: the summary, usage pacing's settings (the one
+  // The meter's details popover: the summary, Claude's free usage resets, usage
+  // pacing's settings (the one
   // place they live), the limit closest to its cap, and a card per running
   // agent under a legend of the kind codes. The head and pacing show even with
   // nothing running, so pacing's settings are always within reach.
@@ -30,6 +32,8 @@
   role="dialog"
 >
   <UsageSummary {groups} />
+
+  <LimitResetCard />
 
   <UsagePacingSettings {agent} />
 

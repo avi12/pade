@@ -1,7 +1,6 @@
 import { type AccountUsage, type NoReading, NoReadingReason, UsageWindowKind } from "@/lib/types";
 import {
   groupSeverityClass,
-  hasClaudePill,
   isJustReset,
   KEEP_LAST_READING_MS,
   limitTooltip,
@@ -108,11 +107,6 @@ describe("trigger pills and overflow", () => {
     expect(triggerPillGroups(groups).map(group => group.id)).toEqual(["claude", "codex"]);
     expect(overflowCount(groups)).toBe(2);
     expect(overflowCount(groups.slice(0, 1))).toBe(0);
-  });
-
-  it("knows whether Claude keeps a pill of its own", () => {
-    expect(hasClaudePill(groups)).toBe(true);
-    expect(hasClaudePill(groups.slice(1))).toBe(false);
   });
 
   it("paints an agent with its worst limit's severity", () => {

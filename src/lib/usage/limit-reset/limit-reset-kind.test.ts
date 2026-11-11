@@ -1,7 +1,7 @@
 import {
-  limitResetChip,
+  limitResetExpiry,
   limitResetKind,
-  NOTHING_TO_RESET,
+  limitResetTotal,
   spentResetPhrase
 } from "@/lib/usage/limit-reset/limit-reset-kind";
 import { describe, expect, it } from "vitest";
@@ -11,6 +11,7 @@ describe("limitResetKind", () => {
     expect(limitResetKind("fable")).toEqual({
       name: "Fable reset",
       title: "Fable reset",
+      scope: "Fable",
       effect: "Resets your Fable limit, and takes this week's Fable use off your weekly limit"
     });
   });
@@ -43,44 +44,68 @@ describe("spentResetPhrase", () => {
   });
 });
 
-describe("limitResetChip", () => {
-  const fable = {
-    grantId: "fable",
-    label: "fable",
-    resetsLeft: 3,
-    endsAt: null,
-    kind: "fable",
-    hasUsageToClear: true
-  } as const;
-  const weekly = {
-    grantId: "weekly",
-    label: "weekly",
-    resetsLeft: 1,
-    endsAt: null,
-    kind: "weekly",
-    hasUsageToClear: true
-  } as const;
+const NOW = Date.parse("2026-11-11T10:00:00Z");
+const HOUR_MS = 3_600_000;
 
-  it("names a single kind and says what it frees up", () => {
-    expect(limitResetChip([fable])).toEqual({
-      label: "Fable reset",
-      hint: "Resets your Fable limit, and takes this week's Fable use off your weekly limit · 3 left"
-    });
+const fable = {
+  grantId: "fable",
+  label: "fable",
+  resetsLeft: 3,
+  endsAt: null,
+  kind: "fable",
+  hasUsageToClear: true
+} as const;
+const weekly = {
+  grantId: "weekly",
+  label: "weekly",
+  resetsLeft: 1,
+  endsAt: null,
+  kind: "weekly",
+  hasUsageToClear: true
+} as const;
+
+describe("limitResetTotal", () => {
+  it("counts every reset across the kinds", () => {
+    expect(limitResetTotal([weekly, fable])).toBe(4);
+    expect(limitResetTotal([])).toBe(0);
   });
+});
 
-  it("says when a single kind has nothing to clear", () => {
-    expect(
-      limitResetChip([{
+describe("limitResetExpiry", () => {
+  it("counts down to the first expiry, and warns under a day out", () => {
+    const soon = limitResetExpiry({
+      offer: {
         ...fable,
-        hasUsageToClear: false
-      }]).hint
-    ).toBe(`${NOTHING_TO_RESET} · 3 left`);
+        endsAt: new Date(NOW + 5 * HOUR_MS).toISOString()
+      },
+      now: NOW
+    });
+    expect(soon?.countdown).toBe("Expires in 5h 0m");
+    expect(soon?.isSoon).toBe(true);
+    expect(
+      limitResetExpiry({
+        offer: {
+          ...fable,
+          endsAt: new Date(NOW + 50 * HOUR_MS).toISOString()
+        },
+        now: NOW
+      })?.isSoon
+    ).toBe(false);
   });
 
-  it("counts several kinds and lists each in the hint", () => {
-    expect(limitResetChip([weekly, fable])).toEqual({
-      label: "4 resets",
-      hint: "Weekly reset: 1 left\nFable reset: 3 left\nClick to pick which one to use"
-    });
+  it("says nothing for a reset that never expires", () => {
+    expect(
+      limitResetExpiry({
+        offer: fable,
+        now: NOW
+      })
+    ).toBeNull();
+  });
+});
+
+describe("limitResetKind scopes", () => {
+  it("badges each kind by what it works on", () => {
+    expect(limitResetKind("weekly").scope).toBe("All models");
+    expect(limitResetKind("fable").scope).toBe("Fable");
   });
 });

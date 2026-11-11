@@ -3,6 +3,7 @@
 // gives each kind its words.
 
 import type { LimitReset } from "@/lib/types";
+import { resetCountdown } from "@/lib/usage/usage-groups";
 import { formatCount } from "@/lib/util/format";
 
 type ResetKind = LimitReset["kind"];
@@ -11,15 +12,18 @@ type ResetKind = LimitReset["kind"];
  *  Fable today, as Claude Code itself labels this window. */
 const INCLUDED_MODEL_NAME = "Fable";
 
-function kind({ name, effect }: {
+function kind({ name, scope, effect }: {
   /** As it reads mid-sentence ("your one weekly reset"). */
   name: string;
+  /** Which limits it works on, as a card's badge says it. */
+  scope: string;
   /** What spending it does, in plain words. */
   effect: string;
 }) {
   return {
     name,
     title: name.charAt(0).toUpperCase() + name.slice(1),
+    scope,
     effect
   };
 }
@@ -27,18 +31,22 @@ function kind({ name, effect }: {
 const RESET_KINDS = {
   session: kind({
     name: "5-hour reset",
+    scope: "5-hour",
     effect: "Resets your 5-hour limit"
   }),
   weekly: kind({
     name: "weekly reset",
+    scope: "All models",
     effect: "Resets your weekly limit"
   }),
   fable: kind({
     name: `${INCLUDED_MODEL_NAME} reset`,
+    scope: INCLUDED_MODEL_NAME,
     effect: `Resets your ${INCLUDED_MODEL_NAME} limit, and takes this week's ${INCLUDED_MODEL_NAME} use off your weekly limit`
   }),
   full: kind({
     name: "full reset",
+    scope: "All limits",
     effect: "Resets your 5-hour and weekly limits"
   })
 } as const satisfies Record<ResetKind, ReturnType<typeof kind>>;
@@ -64,44 +72,44 @@ export function limitResetKind(resetKind: ResetKind) {
   return RESET_KINDS[resetKind];
 }
 
-/** How many of a kind are left and until when, in the user's own locale and
- *  time ("3 left · use by Mar 9, 9:59 AM"). */
-export function limitResetSummary(offer: LimitReset) {
-  const left = `${formatCount(offer.resetsLeft)} left`;
+const EXPIRY_DATE = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit"
+});
+
+/** How long a reset stays "expiring soon" before it lapses, so its card warns. */
+const EXPIRING_SOON_MS = 24 * 60 * 60 * 1000;
+
+/** When a kind's first reset lapses, as its card says it ("Expires in 2d 6h"
+ *  beside "Mar 9, 9:59 AM"), flagged once it is under a day away. Null for a
+ *  reset that never expires. */
+export function limitResetExpiry({ offer, now }: {
+  offer: LimitReset;
+  now: number;
+}) {
   if (!offer.endsAt) {
-    return left;
+    return null;
   }
 
-  const date = new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(Date.parse(offer.endsAt));
-  return `${left} · use by ${date}`;
+  const endsAt = Date.parse(offer.endsAt);
+  return {
+    countdown: `Expires ${resetCountdown({
+      iso: offer.endsAt,
+      now
+    })}`,
+    date: EXPIRY_DATE.format(endsAt),
+    isSoon: endsAt - now < EXPIRING_SOON_MS
+  };
 }
 
-/** The meter chip's face for the offers: one kind is named outright ("Fable
- *  reset", its hint saying what it frees up); several are counted ("4
- *  resets", the hint listing each kind) and the click lets the user pick. */
-export function limitResetChip(offers: readonly LimitReset[]) {
-  const [only] = offers;
-  if (offers.length === 1 && only) {
-    const { title, effect } = limitResetKind(only.kind);
-    return {
-      label: title,
-      hint: `${only.hasUsageToClear ? effect : NOTHING_TO_RESET} · ${limitResetSummary(only)}`
-    };
-  }
-
+/** Every reset the account holds, across its kinds - the meter's count. */
+export function limitResetTotal(offers: readonly LimitReset[]) {
   let total = 0;
   for (const offer of offers) {
     total += offer.resetsLeft;
   }
 
-  const lines = offers.map(offer => `${limitResetKind(offer.kind).title}: ${limitResetSummary(offer)}`);
-  return {
-    label: `${formatCount(total)} resets`,
-    hint: [...lines, "Click to pick which one to use"].join("\n")
-  };
+  return total;
 }

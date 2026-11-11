@@ -1,8 +1,7 @@
 // Claude's free usage-limit resets (claude.ai's "Reset for free"), one offer
-// per kind, shared by the two places that offer them - the collapsed usage
-// meter's chip and the rows in its menu - so both show the same offers and
-// open the one confirmation. Spending a reset can't be undone, so asking for
-// one only opens that confirmation, where the user picks which kind to spend.
+// per kind, shared by the meter's trigger (which counts them) and the usage
+// panel's "Usage resets" card (which spends them). Spending a reset can't be
+// undone, so a kind's button only opens the one confirmation.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
@@ -17,8 +16,6 @@ let isConfirming = $state(false);
 let isClaiming = $state(false);
 let failure = $state<string | null>(null);
 let chosenGrantId = $state<string | null>(null);
-// The chip asks which kind to spend; a menu row's own button has already said.
-let isChoosing = $state(false);
 
 /** The resets Claude's account can spend now, one per kind (the server's
  *  next kind first) - empty when it holds none. */
@@ -32,9 +29,8 @@ export function limitResetConfirmation() {
   return {
     isOpen: isConfirming,
     isClaiming,
-    isChoosing: isChoosing && offers.length > 1,
     failure,
-    chosen: offers.find(offer => offer.grantId === chosenGrantId) ?? offers[0] ?? null
+    chosen: offers.find(offer => offer.grantId === chosenGrantId) ?? null
   };
 }
 
@@ -65,22 +61,11 @@ function announceNewOffers() {
   showToast(`A ${limitResetKind(first.kind).name} is available - use it from Claude's usage meter`);
 }
 
-/** Open the confirmation for `grantId`'s kind alone (a menu row's own
- *  button), or else to pick among the kinds, starting on the first that has
- *  something to clear. */
-export function askToResetLimits(grantId?: string) {
+/** Open the confirmation for `grantId`'s kind (its card button). */
+export function askToResetLimits(grantId: string) {
   failure = null;
-  isChoosing = grantId === undefined;
-  chosenGrantId = grantId ?? (offers.find(offer => offer.hasUsageToClear) ?? offers[0])?.grantId ?? null;
+  chosenGrantId = grantId;
   isConfirming = true;
-}
-
-/** Pick which kind the open confirmation spends. */
-export function chooseLimitReset(grantId: string) {
-  if (!isClaiming) {
-    chosenGrantId = grantId;
-    failure = null;
-  }
 }
 
 /** Close the confirmation, unless the claim is already on its way. */

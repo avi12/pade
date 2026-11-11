@@ -1,25 +1,15 @@
 <script lang="ts">
-  import { AgentId } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
-  import { growInline } from "@/lib/ui/motion";
   import { groupSeverityClass } from "@/lib/usage/meter/usage-meter";
   import UsageLimitStack from "@/lib/usage/meter/UsageLimitStack.svelte";
   import type { AgentGroup } from "@/lib/usage/usage-groups";
-  import type { Snippet } from "svelte";
 
   // One agent in the trigger: icon + short name, then a stack per limit (the
   // mono kind letter over its percent).
-  const { group, justReset, showsResetInPill, resetLabel }: {
+  const { group, justReset }: {
     group: AgentGroup;
     justReset: ReadonlySet<string>;
-    showsResetInPill: boolean;
-    resetLabel: Snippet;
   } = $props();
-
-  // The trigger is a button and can't hold the free-reset chip, so Claude's pill
-  // keeps an invisible slot of the chip's exact size for the meter to anchor
-  // the real chip over.
-  const showsResetSlot = $derived(group.id === AgentId.Claude && showsResetInPill);
 </script>
 
 <span class={["agent-pill severity", groupSeverityClass(group)]} class:unknown={group.isUnknown}>
@@ -28,9 +18,6 @@
     <span class="agent-pill-name">{group.shortName}</span>
   </span>
   <UsageLimitStack {group} {justReset} />
-  {#if showsResetSlot}
-    <span class="reset-face reset-slot" aria-hidden="true" transition:growInline>{@render resetLabel()}</span>
-  {/if}
 </span>
 
 <style>
@@ -71,10 +58,5 @@
     font-size: 0.6875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .reset-slot {
-    visibility: hidden;
-    anchor-name: --reset-slot;
   }
 </style>

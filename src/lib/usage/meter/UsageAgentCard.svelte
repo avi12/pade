@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { AgentId } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
-  import LimitResetOffer from "@/lib/usage/limit-reset/LimitResetOffer.svelte";
   import { groupSeverityClass, isJustReset, planCaption } from "@/lib/usage/meter/usage-meter";
   import UsageLimitRow from "@/lib/usage/meter/UsageLimitRow.svelte";
   import type { AgentGroup } from "@/lib/usage/usage-groups";
@@ -36,9 +34,6 @@
         />
       {/each}
     </div>
-  {/if}
-  {#if group.id === AgentId.Claude}
-    <LimitResetOffer />
   {/if}
 </li>
 

@@ -1,18 +1,11 @@
 <script lang="ts">
   import { AgentId } from "@/lib/agent/agent-icon";
-  import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import { askToResetLimits, limitResetOffers, refreshLimitResetOffers } from "@/lib/stores/usage/limitReset.svelte";
+  import { limitResetOffers, refreshLimitResetOffers } from "@/lib/stores/usage/limitReset.svelte";
   import type { AccountUsage, AgentSession, NoReading } from "@/lib/types";
-  import { growInline } from "@/lib/ui/motion";
-  import { limitResetChip } from "@/lib/usage/limit-reset/limit-reset-kind";
+  import { limitResetTotal } from "@/lib/usage/limit-reset/limit-reset-kind";
   import LimitResetConfirm from "@/lib/usage/limit-reset/LimitResetConfirm.svelte";
-  import {
-    hasClaudePill,
-    noReadingsOf,
-    pendingResetBoundaries,
-    withLastGoodReadings
-  } from "@/lib/usage/meter/usage-meter";
+  import { noReadingsOf, pendingResetBoundaries, withLastGoodReadings } from "@/lib/usage/meter/usage-meter";
   import type { KeptReading } from "@/lib/usage/meter/usage-meter";
   import UsagePanel from "@/lib/usage/meter/UsagePanel.svelte";
   import UsageTrigger from "@/lib/usage/meter/UsageTrigger.svelte";
@@ -93,11 +86,7 @@
     return read.accounts;
   }
 
-  const resetOffers = $derived(limitResetOffers());
-  const resetChip = $derived(limitResetChip(resetOffers));
-  // The chip sits in Claude's pill, so it shows only while that pill does (not
-  // folded into the "+N" overflow).
-  const showsResetInPill = $derived(resetOffers.length > 0 && hasClaudePill(groups));
+  const resetCount = $derived(limitResetTotal(limitResetOffers()));
 
   // Each new Claude usage reading re-checks the free reset, so the offer follows
   // the meter's own refresh instead of keeping a timer of its own.
@@ -181,20 +170,9 @@
 </script>
 
 <span class="usage-wrap menu-host">
-  <UsageTrigger {groups} {justReset} {resetLabel} {showsResetInPill} />
+  <UsageTrigger {groups} {justReset} {resetCount} />
 
   <UsagePanel {agent} {groups} {justReset} />
-
-  {#if showsResetInPill}
-    <button
-      class="reset-face reset-chip"
-      aria-label="{resetChip.label} - {resetChip.hint}"
-      data-tooltip={resetChip.hint}
-      onclick={() => askToResetLimits()}
-      type="button"
-      transition:growInline
-    >{@render resetLabel()}</button>
-  {/if}
 
   <LimitResetConfirm
     onreset={async () => {
@@ -202,10 +180,6 @@
     }}
   />
 </span>
-
-{#snippet resetLabel()}
-  <Icon name="refresh" size={11} />{resetChip.label}
-{/snippet}
 
 <style>
   .usage-wrap {
@@ -256,69 +230,6 @@
 
     100% {
       background-color: transparent;
-      scale: 1;
-    }
-  }
-
-  /* A free reset waiting to be spent, shown in Claude's pill because it is
-     Claude's. The trigger keeps an invisible slot of the chip's exact size and
-     the real chip - a sibling of the trigger - is anchored over it, so both
-     faces share this look. */
-  :where(.usage-wrap) :global(.reset-face) {
-    display: inline-flex;
-    gap: 3px;
-    align-items: center;
-    padding-block: 1px;
-    padding-inline: 6px;
-    border: 1px solid var(--primary);
-    border-radius: var(--radius-full);
-    font-weight: 700;
-    font-size: 0.6563rem;
-    line-height: 1.4;
-    white-space: nowrap;
-  }
-
-  .reset-chip {
-    position: absolute;
-    inset: anchor(top) anchor(right) anchor(bottom) anchor(left);
-    z-index: 1;
-    justify-content: center;
-    background: color-mix(in oklch, var(--primary) 16%, transparent);
-    color: var(--primary);
-    cursor: pointer;
-    transition: background 150ms var(--ease);
-
-    /* A reset is worth knowing about the moment it lands: as the chip appears
-       it pops, then a ring pulses out from it a few times. A CSS animation runs
-       on insertion, so this plays exactly when the offer shows up. */
-    animation: reset-arrive 1200ms var(--ease) 3;
-    position-anchor: --reset-slot;
-
-    /* The slot is invisible by design; the default (anchors-visible) would hide
-       the chip along with it. */
-    position-visibility: always;
-
-    &:hover {
-      background: color-mix(in oklch, var(--primary) 30%, transparent);
-    }
-  }
-
-  @keyframes reset-arrive {
-    0% {
-      box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 70%, transparent);
-      scale: 1;
-    }
-
-    20% {
-      scale: 1.15;
-    }
-
-    45% {
-      scale: 1;
-    }
-
-    100% {
-      box-shadow: 0 0 0 10px transparent;
       scale: 1;
     }
   }

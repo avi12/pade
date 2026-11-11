@@ -1,18 +1,10 @@
 <script lang="ts">
   // The one confirmation for spending one of Claude's free usage-limit resets,
-  // opened from a menu row for that kind, or from the collapsed meter's chip,
-  // which first asks which kind to spend when there are several. A popover
-  // rather than a modal, so an open usage menu stays visible behind it.
+  // opened from that kind's button in the "Usage resets" card. A popover rather
+  // than a modal, so an open usage menu stays visible behind it.
   import ConfirmDialog from "@/lib/dialogs/ConfirmDialog.svelte";
-  import {
-    cancelLimitReset,
-    chooseLimitReset,
-    confirmLimitReset,
-    limitResetConfirmation,
-    limitResetOffers
-  } from "@/lib/stores/usage/limitReset.svelte";
+  import { cancelLimitReset, confirmLimitReset, limitResetConfirmation } from "@/lib/stores/usage/limitReset.svelte";
   import { limitResetKind, NOTHING_TO_RESET, spentResetPhrase } from "@/lib/usage/limit-reset/limit-reset-kind";
-  import LimitResetChoice from "@/lib/usage/limit-reset/LimitResetChoice.svelte";
 
   const { onreset }: {
     /** Re-read the account once its limits were reset. */
@@ -20,13 +12,10 @@
   } = $props();
 
   const confirmation = $derived(limitResetConfirmation());
-  const offers = $derived(limitResetOffers());
-  const hasChoice = $derived(confirmation.isChoosing);
 </script>
 
 {#if confirmation.isOpen && confirmation.chosen}
   {@const kind = limitResetKind(confirmation.chosen.kind)}
-  {@const title = hasChoice ? "Which reset do you want to use?" : `Use your ${kind.name}?`}
   {@const spentReset = spentResetPhrase({
     name: kind.name,
     resetsLeft: confirmation.chosen.resetsLeft
@@ -41,16 +30,8 @@
     nested
     oncancel={cancelLimitReset}
     onconfirm={() => confirmLimitReset(onreset)}
-    {title}
+    title="Use your {kind.name}?"
   >
-    {#if hasChoice}
-      <LimitResetChoice
-        chosenGrantId={confirmation.chosen.grantId}
-        isLocked={confirmation.isClaiming}
-        {offers}
-        onchoose={chooseLimitReset}
-      />
-    {/if}
     {#if confirmation.chosen.hasUsageToClear}
       <p>
         {kind.effect}, right now. This spends {spentReset}, and it can't be undone. Your

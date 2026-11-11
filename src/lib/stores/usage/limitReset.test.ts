@@ -3,7 +3,6 @@ import { showToast, toastText } from "@/lib/stores/ui/toast.svelte";
 import {
   askToResetLimits,
   cancelLimitReset,
-  chooseLimitReset,
   confirmLimitReset,
   limitResetConfirmation,
   limitResetOffers,
@@ -68,7 +67,7 @@ describe("the free limit reset", () => {
   });
 
   it("only asks, never spends, when the reset is requested", () => {
-    askToResetLimits();
+    askToResetLimits(launchReset.grantId);
 
     expect(limitResetConfirmation().isOpen).toBe(true);
     expect(mocks.claimLimitReset).not.toHaveBeenCalled();
@@ -81,7 +80,7 @@ describe("the free limit reset", () => {
     });
     mocks.limitResetOffers.mockResolvedValue([]);
     const onreset = vi.fn(async () => {});
-    askToResetLimits();
+    askToResetLimits(launchReset.grantId);
 
     await confirmLimitReset(onreset);
 
@@ -97,7 +96,7 @@ describe("the free limit reset", () => {
       result: "ineligible",
       reason: "not_limited"
     });
-    askToResetLimits();
+    askToResetLimits(launchReset.grantId);
 
     await confirmLimitReset(vi.fn(async () => {}));
 
@@ -110,7 +109,7 @@ describe("the free limit reset", () => {
 
   it("stays open with an error when Claude can't be reached", async () => {
     mocks.claimLimitReset.mockRejectedValue(new Error("offline"));
-    askToResetLimits();
+    askToResetLimits(launchReset.grantId);
 
     await confirmLimitReset(vi.fn(async () => {}));
 
@@ -136,7 +135,7 @@ describe("announcing a free limit reset", () => {
   });
 });
 
-describe("choosing between kinds of reset", () => {
+describe("several kinds of reset", () => {
   const fableReset: LimitReset = {
     grantId: "launch-2610-fable",
     label: "New model launch: one Fable reset",
@@ -151,50 +150,28 @@ describe("choosing between kinds of reset", () => {
     await refreshLimitResetOffers();
   });
 
-  it("asks which kind from the chip, but not from a menu row's own button", () => {
-    askToResetLimits();
-    expect(limitResetConfirmation()).toMatchObject({
-      isChoosing: true,
-      chosen: {
-        grantId: fableReset.grantId
-      }
+  it("opens on the kind whose button was pressed, and spends that one", async () => {
+    mocks.claimLimitReset.mockResolvedValue({
+      reset: true,
+      result: "reset"
     });
+    askToResetLimits(fableReset.grantId);
+    expect(limitResetConfirmation().chosen?.grantId).toBe(fableReset.grantId);
 
-    cancelLimitReset();
-    askToResetLimits(launchReset.grantId);
-    expect(limitResetConfirmation()).toMatchObject({
-      isChoosing: false,
-      chosen: {
-        grantId: launchReset.grantId
-      }
-    });
+    await confirmLimitReset(vi.fn(async () => {}));
+
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.limitResetClaim, { grantId: fableReset.grantId });
   });
 
-  it("starts the pick on a kind that has something to clear, and never spends one that hasn't", async () => {
+  it("never spends a kind with nothing to clear", async () => {
     mocks.limitResetOffers.mockResolvedValue([{
       ...fableReset,
       hasUsageToClear: false
     }, launchReset]);
     await refreshLimitResetOffers();
 
-    askToResetLimits();
-    expect(limitResetConfirmation().chosen?.grantId).toBe(launchReset.grantId);
-
-    chooseLimitReset(fableReset.grantId);
+    askToResetLimits(fableReset.grantId);
     await confirmLimitReset(vi.fn(async () => {}));
     expect(mocks.claimLimitReset).not.toHaveBeenCalled();
-  });
-
-  it("spends the kind picked in the confirmation", async () => {
-    mocks.claimLimitReset.mockResolvedValue({
-      reset: true,
-      result: "reset"
-    });
-    askToResetLimits();
-    chooseLimitReset(launchReset.grantId);
-
-    await confirmLimitReset(vi.fn(async () => {}));
-
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.limitResetClaim, { grantId: launchReset.grantId });
   });
 });
