@@ -74,7 +74,7 @@
       >
         <Icon name={group.icon} size={15} />
         <span class="menu-item-text">{group.name}</span>
-        <span class="usage"><UsageLimitStack {group} isInMenu /></span>
+        <span class="usage"><UsageLimitStack {group} /></span>
         <span class="tick" aria-hidden="true" hidden={!isPicked}>✓</span>
       </button>
     </li>

@@ -277,7 +277,9 @@ These are non-negotiable for all work in this repo.
      affordances like a `▾` disclosure caret or a `\` path separator are text, not
      icons, and stay as-is.)
    - No `title` attribute: a hover hint is the app's CSS tooltip
-     (`data-tooltip="…"`, the global `[data-tooltip]` bubble in `theme.css`),
+     (`data-tooltip="…"`, shown through the one top-layer bubble by
+     `lib/ui/tooltip/data-tooltip-route`, so it is never clipped wherever the
+     trigger sits),
      never the native `title` tooltip, which ignores the theme and lags. A
      component prop that happens to be named `title` (a dialog's heading) is not
      the attribute and stays. The one exception is an `<iframe>`'s `title`: it
@@ -318,7 +320,7 @@ These are non-negotiable for all work in this repo.
      global rule reaching into it by class name. Reserve global CSS for
      genuinely cross-cutting utilities many components share by
      token/attribute/name - the design tokens, `[popover]`, the `.ck`
-     checkbox, the `[data-tooltip]` bubble, the shared field and menu shells,
+     checkbox, the tooltip bubble's look, the shared field and menu shells,
      the shared keyframes. Avoid `:global(...)` inside a component except to
      key off the root's palette/theme attributes or to style a child
      component that offers no prop for it.

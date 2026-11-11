@@ -1,7 +1,6 @@
 <script lang="ts">
   import { observeProjectLanguages, projectLanguageShares } from "@/lib/stores/workspace/projectLanguages.svelte";
   import type { LanguageShare } from "@/lib/types";
-  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import {
     isEnteringAfterCount,
     isLanguageMix,
@@ -57,13 +56,6 @@
   function settle() {
     isEntering = false;
   }
-
-  // The shared top-layer bubble, not a `data-tooltip` pseudo: a project row
-  // contains its own painting (content-visibility), which would clip a bubble
-  // that opens below the row.
-  function segmentTooltip(share: LanguageShare) {
-    return tooltip(languageShareText(share));
-  }
 </script>
 
 <span
@@ -78,7 +70,7 @@
       <span
         style:flex-grow={share.perMille}
         style:--language-color={colors[i]}
-        {@attach segmentTooltip(share)}
+        data-tooltip={languageShareText(share)}
       ></span>
     {/each}
   {/if}

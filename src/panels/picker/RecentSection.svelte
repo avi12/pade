@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import type { Ide } from "@/lib/types";
   import { collapseRow } from "@/lib/ui/motion";
-  import { tooltip, truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
+  import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
   import LanguageBar from "@/lib/workspace/display/LanguageBar.svelte";
   import LastAccessed from "@/lib/workspace/display/LastAccessed.svelte";
@@ -67,7 +67,7 @@
           {:else}
             <button class="recent-item" onclick={() => onopen({ path })}>
               {#if isTemporaryWorkspace(path)}
-                <TempBadge {@attach tooltip("Its label lives in PADE - the folder keeps its path")} />
+                <TempBadge data-tooltip="Its label lives in PADE - the folder keeps its path" />
               {:else if lifecycle.isOwned(path)}
                 <span class="project-tag">project</span>
               {/if}

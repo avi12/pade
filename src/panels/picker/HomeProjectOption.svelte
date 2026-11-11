@@ -1,15 +1,12 @@
 <script lang="ts">
-  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { isTemporaryWorkspace, projectRootPrefix } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/display/RootedName.svelte";
   import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
   import { HomeMenuList } from "@/panels/picker/home-menu-tabs";
 
   // One project in the composer's menu: its root and name ("avi\pade"), the
-  // TEMP badge for a throwaway workspace, a tick when picked, and its path in
-  // the shared top-layer bubble - never a
-  // `data-tooltip` pseudo, whose box would widen the scrolling list into a
-  // sideways scrollbar.
+  // TEMP badge for a throwaway workspace, a tick when picked, and its path as
+  // its hint.
   const { menuId, path, name, isPicked, onpick }: {
     menuId: string;
     path: string;
@@ -23,10 +20,10 @@
   <button
     class="menu-item"
     class:picked={isPicked}
-    {@attach tooltip(path)}
     aria-current={isPicked}
     data-arrow-list={HomeMenuList.Projects}
     data-arrow-open-focus
+    data-tooltip={path}
     onclick={onpick}
     popovertarget={menuId}
     popovertargetaction="hide"

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { MERGE_INTO_TOOLTIP } from "@/lib/shell/handoff/window-handoff";
   import type { WindowInfo } from "@/lib/types";
-  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
 
   // An open-window row's secondary action: merge this window into that one.
   // It rides the row's end, shown while the row is hovered or anything in it
@@ -18,8 +17,8 @@
 {#if !windowRow.isCurrent}
   <button
     class="merge-into"
-    {@attach tooltip(MERGE_INTO_TOOLTIP)}
     data-arrow-stop
+    data-tooltip={MERGE_INTO_TOOLTIP}
     onclick={() => onmerge(windowRow.label)}
     role="menuitem"
     type="button"

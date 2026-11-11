@@ -1,7 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { Axis, beginReorder } from "@/lib/ui/drag/drag-reorder";
-  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
 
   // The drag handle a reorderable switcher row leads with - a span, so grabbing
   // it never triggers the row button's own click. The row wrapper carrying
@@ -23,8 +22,8 @@
 
 {#if isEnabled}
   <span
-    class="grip" {@attach tooltip("Drag to reorder")}
-    aria-hidden="true"
+    class="grip" aria-hidden="true"
+    data-tooltip="Drag to reorder"
     onpointerdown={e => beginReorder({
       e,
       itemSelector,

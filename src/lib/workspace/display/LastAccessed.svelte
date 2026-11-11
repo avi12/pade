@@ -1,6 +1,5 @@
 <script lang="ts">
   import { settings } from "@/lib/settings/settings.svelte";
-  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { formatAge, formatTimestamp } from "@/lib/util/format";
 
   // When a project was last opened or left, as a compact age ("3d ago") with the
@@ -19,7 +18,7 @@
 {#if lastUsed !== undefined}
   <time
     class="last-accessed"
-    {@attach tooltip(`Last accessed ${formatTimestamp(lastUsed)}`)}
+    data-tooltip={`Last accessed ${formatTimestamp(lastUsed)}`}
     datetime={new Date(lastUsed).toISOString()}
   >{formatAge({
     stamp: lastUsed,

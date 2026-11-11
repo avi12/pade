@@ -13,11 +13,9 @@ function resolve(text: TooltipText) {
 let nextAnchorId = 0;
 
 const ANCHOR_NAME_PROPERTY = "anchor-name";
-const TRIGGER_ATTRIBUTE = "data-overflow-tooltip";
+/** Marks a trigger of these attachments - it shows its own bubble. */
+export const TRIGGER_ATTRIBUTE = "data-overflow-tooltip";
 const NESTED_TOOLTIP_SELECTOR = `[data-tooltip], [${TRIGGER_ATTRIBUTE}]`;
-// Set while this trigger's bubble is up, so theme.css can hide an enclosing
-// `[data-tooltip]` pseudo (the usage pill around its limit bars) meanwhile.
-const SHOWN_ATTRIBUTE = "data-overflow-tooltip-shown";
 interface Bubble {
   text: string;
   fontFamily?: string;
@@ -28,9 +26,7 @@ const NO_BUBBLE: Bubble = { text: "" };
 /** A descendant with its own tooltip - a `[data-tooltip]` (a chat row's pause
  *  mark) or a trigger of this same bubble (a language bar segment) - speaks
  *  for itself, so over it the trigger's bubble steps aside and the two never
- *  stack. theme.css's `:has()` rule can't do this for the shared bubble: it
- *  lives in the top layer, outside the trigger, so only a document-wide
- *  `:has()` could link them - the selector its PERF note bans. */
+ *  stack. */
 function isOverNestedTooltip({ elTrigger, target }: {
   elTrigger: HTMLElement;
   target: EventTarget | null | undefined;
@@ -43,17 +39,11 @@ function isOverNestedTooltip({ elTrigger, target }: {
   return elTooltipOwner !== elTrigger && elTrigger.contains(elTooltipOwner);
 }
 
-/** Shared plumbing for both attachments: name the trigger as an anchor, then
- *  show/hide the single top-level bubble on hover/focus. `textToShow` returns the
- *  text for the current state (empty string = no bubble), so the truncation and
- *  always-on variants differ only in that one function.
- *
- *  The tooltip renders through the shared overflow-tooltip layer rather than a
- *  local `::after`, so it is never clipped, scroll-width-inflating, or painted
- *  behind a composited scroll container's contents - a `[data-tooltip]` pseudo is
- *  `position: fixed`, and inside a `.picker`-style scroller Chromium paints that
- *  escaped fixed box *behind* the scrolled rows, so a following row occludes it
- *  (see overflow-tooltip.svelte). */
+/** The attachment's plumbing: name the trigger as an anchor, then show/hide
+ *  the single top-layer bubble on hover/focus. `bubbleToShow` returns the text
+ *  for the current state (empty string = no bubble). A hint that is always on
+ *  is a plain `data-tooltip` (data-tooltip-route), shown through the same
+ *  bubble. */
 function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
   return (elTrigger: HTMLElement) => {
     const anchorName = `--overflow-tooltip-${nextAnchorId++}`;
@@ -77,7 +67,6 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
         text,
         fontFamily
       });
-      elTrigger.toggleAttribute(SHOWN_ATTRIBUTE, true);
       // Any scroll dismisses the bubble, as a native tooltip does: its row
       // may slide under a pinned section (which `anchors-visible` can't see,
       // since nothing clips it) while the bubble would still be riding it.
@@ -89,7 +78,6 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
 
     function deactivate() {
       removeEventListener("scroll", deactivate, { capture: true });
-      elTrigger.removeAttribute(SHOWN_ATTRIBUTE);
       clearOverflowTooltip(anchorName);
     }
 
@@ -119,20 +107,6 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
       elTrigger.removeAttribute(TRIGGER_ATTRIBUTE);
     };
   };
-}
-
-/** Attachment that always surfaces `tooltip` on hover/focus, through the shared
- *  top-level bubble. Use this instead of a `data-tooltip` pseudo whenever the
- *  trigger sits inside a scroll container, a `[popover]`/`content-visibility`
- *  ancestor, or an element carrying a `view-transition-name` - each of those
- *  makes the ancestor a containing block (and stacking context) for the
- *  `position: fixed` pseudo, so the bubble is clipped, or trapped in the
- *  ancestor's paint order and occluded by whatever follows it. The launcher's
- *  recent list is one; the switcher's drag grips (their row is named for the
- *  reorder morph) are another, where the bubble showed *underneath* the next
- *  row's icon and text. */
-export function tooltip(text: TooltipText) {
-  return overflowTooltip(() => ({ text: resolve(text) }));
 }
 
 /** Attachment that surfaces `tooltip` only while the element's text is actually

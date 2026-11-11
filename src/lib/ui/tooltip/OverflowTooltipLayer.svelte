@@ -1,7 +1,12 @@
 <script lang="ts">
+  import { routeDataTooltips } from "@/lib/ui/tooltip/data-tooltip-route";
   import { overflowTooltipState } from "@/lib/ui/tooltip/overflow-tooltip.svelte";
+  import { onMount } from "svelte";
 
   const POPOVER_OPEN_SELECTOR = ":popover-open";
+
+  // Every `data-tooltip` in the window shows through this bubble too.
+  onMount(routeDataTooltips);
 
   // The bubble is a manual [popover] so it renders in the TOP LAYER - above the
   // workspace switcher's own popover menu (a plain fixed div would paint behind
@@ -46,9 +51,8 @@
     margin-inline: var(--tooltip-edge-gutter);
     animation: fadein 120ms var(--ease) both;
 
-    /* Flip above the trigger near the viewport bottom - reuses theme.css's
-       shared try, and its gap/gutter tokens above, so this bubble and the
-       [data-tooltip] pseudo are placed identically. */
+    /* Flip above the trigger near the viewport bottom - theme.css's shared
+       try, keeping the gap/gutter tokens above. */
     position-try-fallbacks: --tooltip-flip-up;
 
     /* The moment its trigger lets go, the bubble loses its text and anchor

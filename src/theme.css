@@ -926,11 +926,9 @@ textarea {
   }
 }
 
-/* The bubble itself, one home for both tooltips: the [data-tooltip] pseudo
-   below and the top-layer bubble (OverflowTooltipLayer) read identically and
-   can never drift. Only the look lives here - each places itself, since the
-   top-layer one also has to reset the popover's own box first. */
-[data-tooltip]::after,
+/* The one tooltip bubble's look (OverflowTooltipLayer places it). Every hint
+   shows through it - `data-tooltip` (lib/ui/tooltip/data-tooltip-route) and the
+   `tooltip()` / `truncationTooltip()` attachments alike. */
 .overflow-tooltip {
   inline-size: max-content;
 
@@ -962,72 +960,13 @@ textarea {
   pointer-events: none;
 }
 
-/* Tooltips - pure CSS (inspired by video-time-manager). Add data-tooltip="…"
-   (plus an aria-label on icon-only controls) to any element and its ::after shows
-   the text, placed with CSS anchor positioning: `position: fixed` lifts it out of
-   a dense, overflow:hidden toolbar's clip; `inset-block-start: anchor(bottom)` +
-   `justify-self: anchor-center` sit the bubble centered *below* the trigger with a
-   `margin-block-start` gap, so it never rides over the control it describes; near
-   the viewport bottom (the dock, low panel rows) it flips *above* via
-   --tooltip-flip-up, keeping the same gap. The bubble anchors to its own trigger
-   via `position-anchor: auto` - a pseudo-element's implicit anchor is its
-   originating element - deliberately NOT a named anchor: a trigger that also
-   hosts a popover sets its own inline `anchor-name` (the IDE caret, the usage
-   pill), which would override a stylesheet-side name and strand the bubble on
-   top of the control. `position: relative` keeps the trigger a containing block
-   for any absolutely-positioned children it owns. Sized off --font-base so it
-   tracks the zoom pref.
-
-   PERF: the bubble is `display: none` until its trigger is hovered/focused. An
-   always-present anchor-positioned fixed pseudo on every one of the ~30 triggers
-   makes the browser re-run anchor + position-try for all of them on every
-   drag/resize frame - that is the window-drag lag (bisected to the tooltip
-   rewrite, c9d199a). display:none keeps them out of layout at rest, so only the
-   single hovered bubble is ever positioned; `display` + `@starting-style`
-   (allow-discrete) keep the fade. For the same reason never gate tooltips with a
-   document-level `body:has(…)` - it forces a full-tree recalc on every layout
-   change.
-
-   LIMIT: `fixed` only escapes as far as its containing block. An ancestor with a
-   `view-transition-name`, a transform/filter, or `content-visibility` becomes that
-   containing block *and* a stacking context, so there the bubble is clipped or
-   painted under whatever follows the ancestor. Those triggers use the shared
-   top-layer bubble instead - `{@attach tooltip(…)}` from `@/lib/ui/tooltip/truncation-tooltip`
-   - not this pseudo. */
+/* A `data-tooltip` trigger. Its hint is not drawn here: every one shows through
+   the one top-layer bubble (lib/ui/tooltip/data-tooltip-route), the only layer no
+   scroll container, sticky row, transform or [popover] can clip or cover.
+   `position: relative` keeps the trigger a containing block for any
+   absolutely-positioned children it owns. */
 [data-tooltip] {
   position: relative;
-
-  &::after {
-    content: attr(data-tooltip);
-    position: fixed;
-    inset-block-start: anchor(bottom);
-    z-index: 200;
-    display: none;
-    justify-self: anchor-center;
-    margin-block-start: var(--tooltip-gap);
-    margin-inline: var(--tooltip-edge-gutter);
-    opacity: 0%;
-    transition:
-      opacity 120ms var(--ease),
-      display 120ms allow-discrete;
-    position-anchor: auto;
-    position-try-fallbacks: --tooltip-flip-up;
-  }
-
-  &:hover::after,
-  &:focus-visible::after {
-    display: block;
-    opacity: 100%;
-  }
-
-  /* Nested tooltips: while a descendant's own tooltip shows, suppress this one so
-     the two never stack (e.g. a usage bar inside the usage pill). The shared
-     overflow bubble marks its trigger while it is up (truncation-tooltip). */
-  &:has([data-overflow-tooltip-shown])::after,
-  &:has([data-tooltip]:hover)::after,
-  &:has([data-tooltip]:focus-visible)::after {
-    opacity: 0%;
-  }
 }
 
 /* Flip above the trigger only when there's no room below (the dock, low panel
@@ -1035,15 +974,6 @@ textarea {
 @position-try --tooltip-flip-up {
   inset-block: auto anchor(top);
   margin-block: 0 var(--tooltip-gap);
-}
-
-/* The bubble toggles display, so give its shown state a from-opacity for the
-   enter transition (allow-discrete on `display` handles the exit). */
-@starting-style {
-  [data-tooltip]:hover::after,
-  [data-tooltip]:focus-visible::after {
-    opacity: 0%;
-  }
 }
 
 /* ── Popover menu triggers stay active while their menu is open ────────────────
@@ -1069,15 +999,6 @@ textarea {
        closed. */
     .caret:not(.menu-host:not(:has([popover]:popover-open)) *) {
       rotate: 180deg;
-    }
-
-    /* The trigger's hover tooltips - its own and any inside it (the usage
-       pill's limits) - must not peek out from behind the open menu. */
-    &,
-    [data-tooltip] {
-      &[data-tooltip]::after {
-        display: none;
-      }
     }
   }
 }

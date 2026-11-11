@@ -2,7 +2,6 @@
   import Icon from "@/lib/Icon.svelte";
   import { AddRootStatus } from "@/lib/types";
   import type { AddRootOutcome } from "@/lib/types";
-  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { nameError, parseInput, ProjectName } from "@/lib/validate";
   import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
   import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save/save-workspace-form";
@@ -165,7 +164,7 @@
     <span class="save-title">Save this workspace</span>
     <button
       class="save-relabel"
-      {@attach tooltip("Rename it in PADE only - the folder keeps its path")}
+      data-tooltip="Rename it in PADE only - the folder keeps its path"
       onclick={onrelabel}
       type="button"
     ><Icon name="pencil" size={13} /> Relabel</button>

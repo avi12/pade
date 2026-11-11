@@ -1,6 +1,5 @@
 <script lang="ts">
   import { growInline } from "@/lib/ui/motion";
-  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import {
     isJustReset,
     limitTooltip,
@@ -13,34 +12,13 @@
   // One agent's limits as compact stacks - the mono kind letter over its
   // percent, coloured by how close it is - or a dash with no reading. Shared by
   // the top bar's agent pill and the composer's LLM menu, so they read alike.
-  const { group, justReset = new Set(), isInMenu = false }: {
+  const { group, justReset = new Set() }: {
     group: AgentGroup;
     /** Limits that just started over, whose numbers flash. */
     justReset?: ReadonlySet<string>;
-    /** Inside a scrolling [popover] menu a `data-tooltip` pseudo would be
-     *  trapped and widen the list, so the hint takes the shared top-layer
-     *  bubble there. Elsewhere it stays the CSS pseudo, which theme.css hides
-     *  while the enclosing trigger's own menu is open. */
-    isInMenu?: boolean;
   } = $props();
 
   const face = $derived(noReadingFace(group));
-
-  function pseudoHint(text: string) {
-    if (isInMenu) {
-      return undefined;
-    }
-
-    return text;
-  }
-
-  function menuHint(text: () => string) {
-    if (!isInMenu) {
-      return undefined;
-    }
-
-    return tooltip(text);
-  }
 </script>
 
 {#if group.limits.length > 0}
@@ -54,8 +32,7 @@
           agentId: group.id,
           limit
         })}
-        {@attach menuHint(() => limitTooltip(limit))}
-        data-tooltip={pseudoHint(limitTooltip(limit))}
+        data-tooltip={limitTooltip(limit)}
         transition:growInline
       >
         <span class="kind">{limit.kindShort}</span>
@@ -68,8 +45,7 @@
   <span
     class="dash"
     class:state={face.isState}
-    {@attach menuHint(() => face.hint)}
-    data-tooltip={pseudoHint(face.hint)}
+    data-tooltip={face.hint}
   >{face.label}</span>
 {:else}
   <span class="dash">{NO_READING}</span>

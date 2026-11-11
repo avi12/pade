@@ -10,7 +10,6 @@
   import { effective } from "@/lib/settings/prefs.svelte";
   import { contextPercentage, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
   import type { SessionStatus } from "@/lib/types";
-  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { ContextLevel, contextLevel } from "@/lib/usage/context-level";
 
   const { agentId, sessionId, status, isAwaitingChoice = false }: {
@@ -36,17 +35,16 @@
     });
   });
 
-  // Top-layer, so the bubble works inside the rail's scroller as in the strip.
-  function contextTooltipAttachment(element: HTMLElement) {
+  const hint = $derived.by(() => {
     if (sessionId === null) {
-      return;
+      return undefined;
     }
 
-    return tooltip(() => contextTooltip({
+    return contextTooltip({
       measured: measuredContextPercentage(sessionId),
       estimate: percentage
-    }))(element);
-  }
+    });
+  });
 </script>
 
 <span
@@ -55,7 +53,7 @@
   class:critical={level === ContextLevel.Critical}
   class:unknown={percentage === null}
   class:warning={level === ContextLevel.Warning}
-  {@attach contextTooltipAttachment}
+  data-tooltip={hint}
 ><Icon name={agentIconName(agentId)} size={14} /></span>
 
 <style>

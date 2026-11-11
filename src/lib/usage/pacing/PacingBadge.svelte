@@ -6,7 +6,6 @@
 
   import { adaptedChoice } from "@/lib/stores/usage/usageAdapt.svelte";
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
-  import { tooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { pacingFactText, pacingResume } from "@/lib/usage/pacing/pacing-policy";
   import PacingDetails from "@/lib/usage/pacing/PacingDetails.svelte";
 
@@ -64,12 +63,10 @@
 </script>
 
 {#if status && resume}
-  <!-- The hint takes the shared top-layer bubble: as a `data-tooltip` pseudo it
-       was clipped by the tab strip, painted under the pacing note below it, and
-       shaken by a paused badge's alarm animation. It sits on a wrapper because
-       the bubble anchors itself through `anchor-name`, which the button already
-       spends on its popover. -->
-  <span class="badge-hint" {@attach tooltip(() => hint)}>
+  <!-- The hint sits on a wrapper so its bubble anchors to something still: a
+       paused badge's alarm jolts the badge itself. While the details are open
+       the tab's hints stay quiet (data-tooltip-route). -->
+  <span class="badge-hint" data-tooltip={hint}>
     <button
       style:anchor-name={anchorName}
       class="badge"
@@ -99,16 +96,6 @@
   .badge-hint {
     display: inline-flex;
     flex: none;
-
-    /* The details say more than the hint, so while they are open the hint
-       goes: an anchored element is drawn only while its anchor is visible
-       (position-visibility's default), and the shared bubble anchors on this
-       wrapper - so the wrapper hides, and the badge inside shows again below,
-       only then: an always-visible badge escaped the tab strip's hidden
-       measuring copy, which showed as a second, draggable badge. */
-    &:has(+ .pacing-popover:popover-open) {
-      visibility: hidden;
-    }
   }
 
   .badge {
@@ -132,10 +119,9 @@
       }
     }
 
-    /* Shown again inside its hidden wrapper (above), and still: the details
-       are anchored to the badge, so its alarm's sideways jolt shook them too. */
+    /* Still while its details are open: they are anchored to the badge, so
+       its alarm's sideways jolt shook them too. */
     .badge-hint:has(+ .pacing-popover:popover-open) & {
-      visibility: visible;
       animation: none;
     }
   }
