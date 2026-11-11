@@ -1,22 +1,38 @@
 <script lang="ts">
-  // The workspace's starting model and effort, per installed agent. Only agents
-  // whose own catalog PADE can read are listed - an agent you don't have never
-  // shows up. A new session of that agent in this workspace starts on the pick;
-  // the tab's own menu can still switch it afterwards.
+  // The starting model and effort per installed agent, for one scope: every
+  // PADE workspace (`project` null) or this one, which outranks it. Only
+  // agents whose own catalog PADE can read are listed - an agent you don't
+  // have never shows up. The tab's own menu can still switch a session after.
 
-  import { projectModelDefault, withProjectModelDefault } from "@/lib/model/agent-model-scope";
+  import {
+    globalModelDefault,
+    projectModelDefault,
+    withGlobalModelDefault,
+    withProjectModelDefault
+  } from "@/lib/model/agent-model-scope";
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
-  import { modelOptions, refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
-  import type { Agent } from "@/lib/types";
+  import { modelOption, modelOptions, refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
+  import type { Agent, ModelChoice } from "@/lib/types";
   import AgentModelDefaultRow from "@/panels/config/models/AgentModelDefaultRow.svelte";
   import { onMount } from "svelte";
 
   const { agents, project }: {
     agents: Agent[];
-    project: string;
+    /** The workspace these picks are for, or null for every workspace. */
+    project: string | null;
   } = $props();
 
+  const AGENT_OWN_DEFAULT = "Its own default";
+
+  // Names the scope in each pick's element id - both lists sit in one panel.
+  const scope = $derived.by(() => {
+    if (project === null) {
+      return "global";
+    }
+
+    return "project";
+  });
   const configurableAgents = $derived(agents.filter(agent => modelOptions(agent.command).length > 0));
 
   // Re-read on every visit: an agent re-fetches its catalog, and a list
@@ -26,6 +42,64 @@
       await refreshModelOptions(agent.command);
     }
   });
+
+  function chosenFor(agent: Agent) {
+    if (project === null) {
+      return globalModelDefault({
+        prefs,
+        agent: agent.id
+      });
+    }
+
+    return projectModelDefault({
+      prefs,
+      project,
+      agent: agent.id
+    });
+  }
+
+  /** What leaving the pick empty means here: the agent's own default, or - in
+   *  a workspace - every workspace's pick when one is set. */
+  function fallbackLabel(agent: Agent) {
+    const inherited = project === null ? undefined : globalModelDefault({
+      prefs,
+      agent: agent.id
+    });
+    if (inherited?.model === undefined) {
+      return AGENT_OWN_DEFAULT;
+    }
+
+    const name = modelOption({
+      command: agent.command,
+      model: inherited.model
+    })?.name ?? inherited.model;
+    return `Every workspace's (${name})`;
+  }
+
+  async function save({ agent, choice }: {
+    agent: Agent;
+    choice: ModelChoice | undefined;
+  }) {
+    if (project === null) {
+      await updatePrefs({
+        agentModelGlobal: withGlobalModelDefault({
+          prefs,
+          agent: agent.id,
+          choice
+        })
+      });
+      return;
+    }
+
+    await updatePrefs({
+      agentModelProjects: withProjectModelDefault({
+        prefs,
+        project,
+        agent: agent.id,
+        choice
+      })
+    });
+  }
 </script>
 
 {#if configurableAgents.length === 0}
@@ -35,19 +109,13 @@
     {#each configurableAgents as agent (agent.id)}
       <AgentModelDefaultRow
         {agent}
-        chosen={projectModelDefault({
-          prefs,
-          project,
-          agent: agent.id
+        chosen={chosenFor(agent)}
+        fallbackLabel={fallbackLabel(agent)}
+        onsave={async choice => await save({
+          agent,
+          choice
         })}
-        onsave={async choice => await updatePrefs({
-          agentModelProjects: withProjectModelDefault({
-            prefs,
-            project,
-            agent: agent.id,
-            choice
-          })
-        })}
+        {scope}
       />
     {/each}
   </ul>

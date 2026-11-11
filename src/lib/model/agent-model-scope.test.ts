@@ -1,5 +1,10 @@
 import { AgentId } from "@/lib/agent/agent-icon";
-import { projectModelDefault, withProjectModelDefault } from "@/lib/model/agent-model-scope";
+import {
+  projectModelDefault,
+  startingModelChoice,
+  withGlobalModelDefault,
+  withProjectModelDefault
+} from "@/lib/model/agent-model-scope";
 import type { Prefs } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -96,6 +101,89 @@ describe("withProjectModelDefault", () => {
       withProjectModelDefault({
         prefs,
         project: PROJECT,
+        agent: AgentId.Claude,
+        choice: {}
+      })
+    ).toEqual({});
+  });
+});
+
+describe("startingModelChoice", () => {
+  const OPUS = { model: "claude-opus-5-5" };
+  const FABLE = { model: "claude-fable-5-2" };
+  const SONNET = { model: "claude-sonnet-5-5" };
+  const prefs: Prefs = {
+    agentModelGlobal: {
+      [AgentId.Claude]: OPUS
+    },
+    agentModelProjects: {
+      [PROJECT]: {
+        [AgentId.Claude]: FABLE
+      }
+    }
+  };
+
+  it("takes the workspace's pick over every workspace's", () => {
+    expect(
+      startingModelChoice({
+        explicit: undefined,
+        prefs,
+        project: PROJECT,
+        agent: AgentId.Claude
+      })
+    ).toEqual(FABLE);
+  });
+
+  it("falls back to every workspace's pick, then the agent's own default", () => {
+    expect(
+      startingModelChoice({
+        explicit: undefined,
+        prefs,
+        project: "C:/elsewhere",
+        agent: AgentId.Claude
+      })
+    ).toEqual(OPUS);
+    expect(
+      startingModelChoice({
+        explicit: undefined,
+        prefs,
+        project: "C:/elsewhere",
+        agent: AgentId.Codex
+      })
+    ).toBeUndefined();
+  });
+
+  it("keeps a handoff's own choice over both", () => {
+    expect(
+      startingModelChoice({
+        explicit: SONNET,
+        prefs,
+        project: PROJECT,
+        agent: AgentId.Claude
+      })
+    ).toEqual(SONNET);
+  });
+});
+
+describe("withGlobalModelDefault", () => {
+  it("sets an agent's pick and drops it when cleared", () => {
+    const set = withGlobalModelDefault({
+      prefs: {},
+      agent: AgentId.Claude,
+      choice: {
+        model: "claude-opus-5-5"
+      }
+    });
+    expect(set).toEqual({
+      [AgentId.Claude]: {
+        model: "claude-opus-5-5"
+      }
+    });
+    expect(
+      withGlobalModelDefault({
+        prefs: {
+          agentModelGlobal: set
+        },
         agent: AgentId.Claude,
         choice: {}
       })

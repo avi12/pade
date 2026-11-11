@@ -603,6 +603,10 @@ const Prefs = z.object({
    *  agent id → choice. A new session of that agent in that project starts on
    *  it; an agent with no entry starts on its own default. */
   agentModelProjects: z.record(z.string(), z.record(z.string(), ModelChoice)).nullish(),
+  /** Every workspace's starting model and effort for each agent - agent id →
+   *  choice. A workspace's own pick (`agentModelProjects`) outranks it; with
+   *  neither, the agent starts on its own default. */
+  agentModelGlobal: z.record(z.string(), ModelChoice).nullish(),
   /** Explicit per-project editor picks - canonical project path → IDE id. A
    *  pick from the workspace's editor menu; outranks every rule for that
    *  project (`ide_suggest` puts it first). */

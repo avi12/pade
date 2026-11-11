@@ -47,8 +47,11 @@
 
     <SettingsCard title="Starting model">
       <p class="field-hint">
-        New sessions in this workspace start on these - each tab can still switch from its model tag
+        New sessions start on these - each tab can still switch from its model tag
       </p>
+      <h4 class="field-label">Every workspace</h4>
+      <AgentModelDefaults {agents} project={null} />
+      <h4 class="field-label">This workspace</h4>
       <AgentModelDefaults {agents} {project} />
     </SettingsCard>
 

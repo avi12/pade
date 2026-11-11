@@ -9,10 +9,14 @@
   import type { Agent, ModelChoice } from "@/lib/types";
   import Select from "@/lib/ui/controls/Select.svelte";
 
-  const { agent, chosen, onsave }: {
+  const { agent, chosen, fallbackLabel, scope, onsave }: {
     agent: Agent;
-    /** The workspace's current pick for this agent, if any. */
+    /** This scope's current pick for this agent, if any. */
     chosen: ModelChoice | undefined;
+    /** What no pick here falls back to, as the first option reads it. */
+    fallbackLabel: string;
+    /** Which list the row is in - its pick's id must differ between them. */
+    scope: string;
     onsave: (choice: ModelChoice | undefined) => Promise<void>;
   } = $props();
 
@@ -21,7 +25,7 @@
   const modelChoices = $derived([
     {
       value: AGENT_DEFAULT,
-      label: "Its own default"
+      label: fallbackLabel
     },
     ...modelOptions(agent.command).map(option => ({
       value: option.id,
@@ -38,7 +42,7 @@
   const efforts = $derived(chosenOption?.efforts ?? []);
   const recommendedEffort = $derived(chosenOption?.recommendedEffort ?? null);
   const selectedEffort = $derived(chosen?.effort ?? null);
-  const selectId = $derived(`model-default-${agent.id}`);
+  const selectId = $derived(`model-default-${scope}-${agent.id}`);
 </script>
 
 <li class="agent-default">
