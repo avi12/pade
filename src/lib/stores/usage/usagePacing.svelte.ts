@@ -84,7 +84,8 @@ import {
   paceForecasts,
   RATE_HISTORY_MS,
   slowRestUntil,
-  windowName
+  windowName,
+  workingRunway
 } from "@/lib/usage/pacing/usage-pace";
 import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/usage-pace";
 import { afterDelay } from "@/lib/util/async/delay";
@@ -126,7 +127,8 @@ function shouldRest({ step, binding }: {
   binding: PaceBinding;
 }) {
   return step === PacingStep.enum.rest && isRestEnough({
-    ...binding,
+    runway: workingRunway(binding),
+    continueAt: binding.continueAt,
     now: Date.now()
   });
 }
@@ -669,6 +671,12 @@ export function createUsagePacing(host: PacingHost) {
   }) {
     const now = Date.now();
     const restUntil = isResting ? slowRestUntil({
+      runway: workingRunway({
+        window,
+        rate,
+        readyAt,
+        continueAt
+      }),
       readyAt,
       continueAt,
       stretch: now - (workingSince.get(session.id) ?? now - MINIMUM_RATE_SPAN_MS),

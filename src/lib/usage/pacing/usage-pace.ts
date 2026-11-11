@@ -366,15 +366,32 @@ export function paceForecasts({ account, now, rateOf }: {
   return forecasts;
 }
 
+/** How long what is left of a holding window lasts while its agents work: at
+ *  the measured working burn, the way the agents actually spend it. Until that
+ *  is measured, the time from when it is back on pace to when it runs free -
+ *  for a session window the same runway, for a weekly one the even spend's,
+ *  which assumes round-the-clock work and so sizes rests far too short. */
+export function workingRunway({ window, rate, readyAt, continueAt }: {
+  window: UsageWindow;
+  rate: number;
+  readyAt: number;
+  continueAt: number;
+}) {
+  return rate > 0 ? runwayOf({
+    window,
+    rate
+  }) : continueAt - readyAt;
+}
+
 /** Whether resting can bring a session back on pace - it needs no more rest
  *  than work. Past that, a stop does the job better than rests longer than the
  *  work between them. */
-export function isRestEnough({ readyAt, continueAt, now }: {
-  readyAt: number;
+export function isRestEnough({ runway, continueAt, now }: {
+  /** `workingRunway`. */
+  runway: number;
   continueAt: number;
   now: number;
 }) {
-  const runway = continueAt - readyAt;
   const timeLeft = continueAt - now;
   return timeLeft <= 2 * runway;
 }
@@ -427,14 +444,15 @@ export function hasRoomToSpare({ account, now, marginOf, rateOf }: {
  *
  *  with time left and runway both measured to the grace period. Never shorter
  *  than MINIMUM_REST_MS, and never past the moment a full stop would end. */
-export function slowRestUntil({ readyAt, continueAt, stretch, now }: {
+export function slowRestUntil({ runway, readyAt, continueAt, stretch, now }: {
+  /** `workingRunway`. */
+  runway: number;
   readyAt: number;
   continueAt: number;
   /** How long the session has just worked. */
   stretch: number;
   now: number;
 }) {
-  const runway = continueAt - readyAt;
   const timeLeft = continueAt - now;
   const rest = runway > 0 ? stretch * (timeLeft / runway - 1) : timeLeft;
   return Math.min(readyAt, now + Math.max(MINIMUM_REST_MS, rest));

@@ -10,7 +10,8 @@ import {
   reportedPacedKinds,
   RESET_GRACE_MS,
   slowRestUntil,
-  WEEKLY_WINDOW_MS
+  WEEKLY_WINDOW_MS,
+  workingRunway
 } from "@/lib/usage/pacing/usage-pace";
 import type { UsageSample } from "@/lib/usage/pacing/usage-pace";
 import { describe, expect, it } from "vitest";
@@ -448,18 +449,73 @@ describe("isRestEnough", () => {
   it("rests while no more rest than work is needed, and stops past that", () => {
     expect(
       isRestEnough({
-        readyAt: NOW + HOUR_MS,
+        runway: HOUR_MS,
         continueAt: NOW + 2 * HOUR_MS,
         now: NOW
       })
     ).toBe(true);
     expect(
       isRestEnough({
-        readyAt: NOW + 90 * MINUTE_MS,
+        runway: 30 * MINUTE_MS,
         continueAt: NOW + 2 * HOUR_MS,
         now: NOW
       })
     ).toBe(false);
+  });
+});
+
+describe("workingRunway", () => {
+  const RESETS_IN = 54 * HOUR_MS;
+  const window = weeklyWindow({
+    utilization: 76,
+    resetsIn: RESETS_IN
+  });
+  const continueAt = NOW + RESETS_IN - RESET_GRACE_MS;
+  // An even spend reaches 76% about 14 hours from now.
+  const readyAt = NOW + 14 * HOUR_MS;
+
+  it("lasts what is left at the measured working burn", () => {
+    // 24% left at 2% an hour of work lasts 12 hours of work.
+    expect(
+      workingRunway({
+        window,
+        rate: perHour(2),
+        readyAt,
+        continueAt
+      })
+    ).toBe(12 * HOUR_MS);
+  });
+
+  it("falls back to the time from back on pace to running free until the burn is measured", () => {
+    expect(
+      workingRunway({
+        window,
+        rate: 0,
+        readyAt,
+        continueAt
+      })
+    ).toBe(continueAt - readyAt);
+  });
+
+  it("sizes a weekly rest from how fast the agents really spend, not a round-the-clock even spend", () => {
+    function rest({ rate }: { rate: number }) {
+      return slowRestUntil({
+        runway: workingRunway({
+          window,
+          rate,
+          readyAt,
+          continueAt
+        }),
+        readyAt,
+        continueAt,
+        stretch: 20 * MINUTE_MS,
+        now: NOW
+      }) - NOW;
+    }
+    // The even spend's 40-hour runway asked for 7 minutes after 20 of work;
+    // working at 1% an hour, the 24 hours of work left needs about 25.
+    expect(rest({ rate: 0 })).toBeLessThan(8 * MINUTE_MS);
+    expect(rest({ rate: perHour(1) })).toBeGreaterThan(24 * MINUTE_MS);
   });
 });
 
@@ -501,6 +557,7 @@ describe("slowRestUntil", () => {
     // Runway 1h against 2h left: rest as long as it just worked.
     expect(
       slowRestUntil({
+        runway: HOUR_MS,
         readyAt: NOW + HOUR_MS,
         continueAt: NOW + 2 * HOUR_MS,
         stretch: 20 * MINUTE_MS,
@@ -512,6 +569,7 @@ describe("slowRestUntil", () => {
   it("rests at least five minutes, and never past where a full stop would end", () => {
     expect(
       slowRestUntil({
+        runway: 90 * MINUTE_MS,
         readyAt: NOW + 30 * MINUTE_MS,
         continueAt: NOW + 2 * HOUR_MS,
         stretch: MINUTE_MS,
@@ -520,6 +578,7 @@ describe("slowRestUntil", () => {
     ).toBe(NOW + 5 * MINUTE_MS);
     expect(
       slowRestUntil({
+        runway: 30 * MINUTE_MS,
         readyAt: NOW + 30 * MINUTE_MS,
         continueAt: NOW + HOUR_MS,
         stretch: 2 * HOUR_MS,
