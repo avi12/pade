@@ -82,6 +82,12 @@ export async function setStopPart({ target, isStopped }: {
   });
 }
 
+/** The throttle that holds nothing back - writing it lifts one. */
+export const NO_THROTTLE: PacingThrottle = {
+  isBlockingSpawns: false,
+  subagents: {}
+};
+
 /** Set a session's throttle; an empty one lifts it. */
 export async function setThrottlePart({ target, throttle }: {
   target: ControlTarget;

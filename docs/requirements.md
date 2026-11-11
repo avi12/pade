@@ -344,10 +344,11 @@ writes.
   pacing did, with **Ease one step**, **Skip this window** and, when stopped or
   resting, **Resume now**. A stopped agent also shows the note with
   **Continue anyway**. Pauses and steps are remembered per window across a
-  reload. A user who sends a paused or stopping agent a prompt of their own
-  takes it over the moment they press Enter: the pause lifts, the hook lets
-  that turn's tool calls through, and pacing leaves the run alone until the
-  agent goes quiet again.
+  reload. A prompt sent to an agent pacing holds back - the user pressing
+  Enter, or PADE's own handoff request - takes it over at once: that turn keeps
+  the slower model and effort, but a pause lifts, the hook lets every tool call
+  through (its subagents' included, and new subagents may start), and pacing
+  leaves the run alone until the agent goes quiet, then paces it again.
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface agent-native project config: `CLAUDE.md`, `AGENTS.md`,

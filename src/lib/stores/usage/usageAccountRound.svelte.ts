@@ -15,7 +15,7 @@
 // reports.
 
 import { windowLabel } from "@/lib/ipc/platform";
-import { setThrottlePart, showThrottles } from "@/lib/stores/usage/pacingControl.svelte";
+import { NO_THROTTLE, setThrottlePart, showThrottles } from "@/lib/stores/usage/pacingControl.svelte";
 import type { ControlTarget } from "@/lib/stores/usage/pacingControl.svelte";
 import {
   controlThrottle,
@@ -32,10 +32,6 @@ import type { PacingMessage, RoundPlan, WindowReport } from "@/lib/usage/pacing/
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 
 const SUBAGENT_STEPS_STORAGE_KEY = "pade.usage-pacing-subagents";
-const NO_THROTTLE = {
-  isBlockingSpawns: false,
-  subagents: {}
-};
 
 export function createAccountRound({ pollMs, onPlan }: {
   /** How often each window submits - its reports live a couple of these. */

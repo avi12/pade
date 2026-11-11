@@ -23,9 +23,10 @@
 // Every step undoes itself as room comes back, and all of it reverts as the
 // window is about to reset. The user can override any agent from its tab badge
 // (`easePacing`, `skipPacing`, `resumePacing`): ease one step, leave it alone for
-// the rest of its window, or resume a stopped one now. A user who sends a
-// paused agent a prompt of their own wins the same way (`takeOverPacing`), the
-// moment they press Enter. Pauses are remembered per window, so
+// the rest of its window, or resume a stopped one now. A prompt sent to a held
+// agent - the user's Enter, or a PADE handoff request - wins the same way
+// (`takeOverPacing`) the moment it is sent: that turn keeps the slower setup
+// but nothing refuses its tool calls or its subagents' until it goes quiet. Pauses are remembered per window, so
 // a reload keeps them. The app shell supplies sessions and settings through
 // `PacingHost` and drives the scan from a component `$effect`.
 //
@@ -47,7 +48,7 @@ import { modelOptions } from "@/lib/stores/model/modelOptions.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
-import { setStopPart } from "@/lib/stores/usage/pacingControl.svelte";
+import { NO_THROTTLE, setStopPart, setThrottlePart, throttledSessions } from "@/lib/stores/usage/pacingControl.svelte";
 import type { ControlTarget } from "@/lib/stores/usage/pacingControl.svelte";
 import {
   forgetTerminalStop,
@@ -60,6 +61,7 @@ import type { AdaptHost } from "@/lib/stores/usage/usageAdapt.svelte";
 import { hasUsageLimit, readAccount } from "@/lib/stores/usage/usageResume.svelte";
 import { PacedWindowKind, PacingStep, SessionStatus } from "@/lib/types";
 import type { AccountUsage, AgentSession, UsageWindow } from "@/lib/types";
+import { isThrottling } from "@/lib/usage/pacing/account-round";
 import type { RoundPlan, SessionReport } from "@/lib/usage/pacing/account-round";
 import {
   costWeight,
@@ -542,8 +544,9 @@ export async function resumePacing(id: string) {
   await controller?.resume(id);
 }
 
-/** The user submitted a prompt in a session: a pause pacing holds on it
- *  gives way to their turn. */
+/** A prompt was submitted in a session - by the user, or by a PADE flow such
+ *  as a handoff: whatever pacing holds on it gives way to that turn, which
+ *  keeps its slower model and effort. */
 export async function takeOverPacing(id: string) {
   await controller?.takeOver(id);
 }
@@ -757,17 +760,37 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
-  // The user sent the paused session a prompt of their own: that turn is
-  // theirs, so the pause lifts at once - before the next scan, which would
-  // have read the new turn as pacing's stop still finishing and kept refusing
-  // its tool calls - and no continue is typed over their prompt.
+  // A prompt was sent to a session pacing holds back: that turn runs on the
+  // slower setup it has, but nothing refuses it. A pause lifts at once - before
+  // the next scan, which would have read the new turn as pacing's stop still
+  // finishing - and so do its subagents' holds and the spawn block, and no
+  // continue is typed over the prompt. Pacing leaves the run alone until the
+  // agent goes quiet, then paces it again.
   async function takeOver(id: string) {
-    if (!paced.has(id)) {
+    const session = sessionOf(id);
+    if (session === undefined) {
+      return;
+    }
+
+    const isPaused = paced.has(id);
+    const isThrottled = throttledSessions().some(throttle => throttle.sessionId === id && isThrottling(throttle));
+    const isHeldBack = isPaused || isThrottled || adapter.isSteppedDown(id);
+    if (!isHeldBack) {
       return;
     }
 
     continuedAnyway.set(id, false);
-    await liftPause(id);
+    await setThrottlePart({
+      target: {
+        command: session.agent.command,
+        conversationId: session.conversationId
+      },
+      throttle: NO_THROTTLE
+    });
+
+    if (isPaused) {
+      await liftPause(id);
+    }
   }
 
   // Back on pace. A session still finishing its step is left to stop first; one

@@ -24,6 +24,7 @@ import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActi
 import { compactionHeadroom, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
+import { takeOverPacing } from "@/lib/stores/usage/usagePacing.svelte";
 import { submittedPrompt } from "@/lib/terminal/input/terminal-input";
 import { CreditsState, SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
@@ -524,6 +525,9 @@ export function createAutoHandoff(host: HandoffHost) {
     doc: string;
     reason: HandoffReason;
   }) {
+    // Pacing may be stopping the session as it fills up: a refused write would
+    // lose the handoff doc.
+    await takeOverPacing(session.id);
     await submitPastedPrompt({
       id: session.id,
       // The full path, never the bare name: an agent resolves a bare name
