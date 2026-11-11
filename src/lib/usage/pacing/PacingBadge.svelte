@@ -74,7 +74,9 @@
     /* The details say more than the hint, so while they are open the hint
        goes: an anchored element is drawn only while its anchor is visible
        (position-visibility's default), and the shared bubble anchors on this
-       wrapper - so the wrapper hides, and the badge inside shows again below. */
+       wrapper - so the wrapper hides, and the badge inside shows again below,
+       only then: an always-visible badge escaped the tab strip's hidden
+       measuring copy, which showed as a second, draggable badge. */
     &:has(+ .pacing-popover:popover-open) {
       visibility: hidden;
     }
@@ -93,15 +95,17 @@
     font-size: 0.625rem;
     letter-spacing: 0.04em;
 
-    /* Shown even while its wrapper hides to put the hint away (above). */
-    visibility: visible;
-
     /* Cyberpunk: a session pacing has stopped outright stutters every few
        seconds - an alarm on a held state, not on the step count changing. */
     @media (prefers-reduced-motion: no-preference) {
       :global(:root[data-palette="cyberpunk"]) &.stopped {
         animation: var(--cyber-alarm-animation);
       }
+    }
+
+    /* Shown again inside its hidden wrapper (above). */
+    .badge-hint:has(+ .pacing-popover:popover-open) & {
+      visibility: visible;
     }
   }
 
