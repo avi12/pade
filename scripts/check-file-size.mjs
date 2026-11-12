@@ -4,18 +4,18 @@
 // Usage: pnpm lint:size [--update | --init]. --update only ever lowers the
 // baseline; --init writes the first one from the current tree.
 
-import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
 import {
   BaselineSchema,
-  FILE_SIZE_LIMIT,
-  Verdict,
   countCodeLines,
+  FILE_SIZE_LIMIT,
   isMeasuredPath,
   judgeSizes,
   offendersOf,
-  tightenBaseline
+  tightenBaseline,
+  Verdict
 } from "./file-size/file-size.ts";
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 
 const BASELINE_PATH = "scripts/file-size-baseline.json";
 const JSON_INDENT = 2;
@@ -25,7 +25,10 @@ const isInitialize = process.argv.includes("--init");
 
 function readBaseline() {
   const parsed = BaselineSchema.safeParse(JSON.parse(readFileSync(BASELINE_PATH, "utf8")));
-  if (parsed.success) return parsed.data;
+  if (parsed.success) {
+    return parsed.data;
+  }
+
   console.error(`${BASELINE_PATH} is malformed: ${parsed.error.message}`);
   process.exit(1);
 }
@@ -37,19 +40,24 @@ function measureSources() {
   });
   const sizes = {};
   for (const path of listing.split("\n")) {
-    if (!isMeasuredPath(path)) continue;
-    sizes[path] = countCodeLines({ path, text: readFileSync(path, "utf8") });
+    if (!isMeasuredPath(path)) {
+      continue;
+    }
+
+    sizes[path] = countCodeLines({
+      path,
+      text: readFileSync(path, "utf8")
+    });
   }
   return sizes;
 }
 
 function writeBaseline(baseline) {
-  const largestFirst = Object.fromEntries(Object.entries(baseline).sort(([, a], [, b]) => b - a));
+  const largestFirst = Object.fromEntries(Object.entries(baseline).sort(([, sizeA], [, sizeB]) => sizeB - sizeA));
   writeFileSync(BASELINE_PATH, `${JSON.stringify(largestFirst, null, JSON_INDENT)}\n`);
 }
 
 const sizes = measureSources();
-
 if (isInitialize) {
   writeBaseline(offendersOf(sizes));
   console.log(`Wrote ${BASELINE_PATH}`);
@@ -57,19 +65,26 @@ if (isInitialize) {
 }
 
 const baseline = readBaseline();
-
 if (isUpdate) {
-  writeBaseline(tightenBaseline({ sizes, baseline }));
+  writeBaseline(
+    tightenBaseline({
+      sizes,
+      baseline
+    })
+  );
   console.log(`Tightened ${BASELINE_PATH}`);
   process.exit(0);
 }
 
-const findings = judgeSizes({ sizes, baseline });
-for (const { path, size, recorded } of findings.filter((finding) => finding.kind === Verdict.Shrunk)) {
+const findings = judgeSizes({
+  sizes,
+  baseline
+});
+for (const { path, size, recorded } of findings.filter(finding => finding.kind === Verdict.Shrunk)) {
   console.log(`shrunk: ${path} is ${size} lines (baseline ${recorded}) - run pnpm lint:size --update to tighten`);
 }
 
-const failures = findings.filter((finding) => finding.kind === Verdict.Fail);
+const failures = findings.filter(finding => finding.kind === Verdict.Fail);
 for (const { path, size, recorded } of failures) {
   const allowed = recorded ?? FILE_SIZE_LIMIT;
   console.error(`${path}: ${size} lines of non-test code, allowed ${allowed} - split it by concern into a semantic subfolder`);
