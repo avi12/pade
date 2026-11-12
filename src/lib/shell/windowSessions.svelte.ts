@@ -4,86 +4,27 @@
 // math lives in `@/lib/session/panes/pane-layout`, the policy for an emptied
 // workspace stays with the shell (`onEmptied`).
 
-import { aiNamingEnabled } from "@/lib/agent/ai-naming-scope";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import { startingModelChoice } from "@/lib/model/agent-model-scope";
 import { frontProject, sessionsOfProject } from "@/lib/session/chats/session-projects";
 import { didFailToStart } from "@/lib/session/lifecycle/session-exit";
 import { rekeyLayout } from "@/lib/session/lifecycle/session-restart";
 import { forgetSession, rekeySession } from "@/lib/session/lifecycle/session-scope";
 import { layoutWithoutSession, layoutWithoutSessions, wrappedIndex } from "@/lib/session/panes/pane-layout";
 import type { PaneLayout } from "@/lib/session/panes/pane-layout";
-import { settings } from "@/lib/settings/settings.svelte";
+import { newSession } from "@/lib/shell/session-launch";
+import type { LaunchOptions } from "@/lib/shell/session-launch";
+import { createSessionNaming } from "@/lib/shell/windowSessionNaming.svelte";
 import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
 import { setPendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
-import { applyNamingToAll, isNaming, setNaming } from "@/lib/stores/session/sessionNaming.svelte";
+import { setNaming } from "@/lib/stores/session/sessionNaming.svelte";
 import { isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
-import { activeMemberIn } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
-import type { Agent, AgentSession, ModelChoice } from "@/lib/types/agent";
-import { untrack } from "svelte";
+import type { Agent, AgentSession } from "@/lib/types/agent";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 // How long a deliberate leave waits for a busy agent to reach an idle prompt
 // before killing it anyway - graceful, but never a trap behind a wedged agent.
 const GRACEFUL_LEAVE_TIMEOUT_MS = 30_000;
-
-interface LaunchOptions {
-  agent: Agent;
-  /** The project the session belongs to - the active project when absent. */
-  project?: string;
-  /** Reuse this session id instead of minting one - restoring a persisted
-   *  chat keeps its identity (and its snapshot entry) across a relaunch. */
-  sessionId?: string;
-  initialPrompt?: string;
-  cwd?: string;
-  branch?: string;
-  /** Extra command args - the project path when running a terminal editor. */
-  args?: string[];
-  /** Add alongside the current panes (split) instead of replacing them. */
-  split?: boolean;
-  /** A model / effort to run this session on (a successor keeping its
-   *  predecessor's pick). */
-  modelChoice?: ModelChoice;
-  /** The conversation to carry on - a session resumed after its folder
-   *  moved; a new one otherwise. */
-  conversationId?: string;
-  /** The session this one takes over from - a handoff successor. It steps
-   *  into that tab's place, pane and focus as they are, so a handoff of a tab
-   *  in the background stays in the background. */
-  replacing?: string;
-}
-
-/** A fresh session for `project`, launched as `options` say. */
-function newSession({ options, project }: {
-  options: LaunchOptions;
-  project: string;
-}) {
-  const session: AgentSession = {
-    id: options.sessionId ?? crypto.randomUUID(),
-    agent: options.agent,
-    project,
-    modelChoice: startingModelChoice({
-      explicit: options.modelChoice,
-      prefs: settings.prefs,
-      project,
-      agent: options.agent.id
-    }),
-    // Never leave an agent to inherit the backend process cwd: another PADE
-    // window may switch that shared process to a different project while this
-    // terminal is mounting. Worktrees still override the session's project, and
-    // a multi-part workspace starts its agents in the member the top bar points
-    // at - the root until you pick another (see stores/workspaceMembers).
-    cwd: options.cwd ?? activeMemberIn(project),
-    branch: options.branch,
-    args: options.args,
-    // A stable id for this conversation, distinct from the session `id` (which
-    // is re-keyed to remount the terminal on a restart). Pins the agent's own
-    // conversation so a restart resumes THIS one.
-    conversationId: options.conversationId ?? crypto.randomUUID()
-  };
-  return session;
-}
 
 /** What the shell lends its sessions. */
 interface WindowSessionsHost {
@@ -147,46 +88,7 @@ export function createWindowSessions(host: WindowSessionsHost) {
   // the rest get a zero-duration outro.
   const collapsingSplitPanes = new SvelteSet<string>();
 
-  // Whether a project names its session tabs with AI - its own choice when it
-  // has one, else the global default (lib/agent/ai-naming-scope).
-  function namesWithAi(project: string) {
-    return aiNamingEnabled({
-      prefs: settings.prefs,
-      project
-    });
-  }
-
-  // Name a session taken in from another window as its project says - unless
-  // a ✦ toggled on by hand came along with it.
-  function seedNaming(session: AgentSession) {
-    if (isNaming(session.id)) {
-      return;
-    }
-
-    setNaming({
-      id: session.id,
-      agent: session.agent.command,
-      isOn: namesWithAi(session.project)
-    });
-  }
-
-  // The naming settings as one comparable key, so the effect below re-runs only
-  // when one of them really changes.
-  const namingSettingsKey = $derived(
-    JSON.stringify([settings.prefs.aiSessionNaming, settings.prefs.aiSessionNamingProjects])
-  );
-
-  // Apply that setting to every tab already open, each under its own project,
-  // and again whenever it changes. `sessions` is read untracked on purpose: this
-  // effect exists to follow the SETTING, and re-running it on every tab open or
-  // close would undo a ✦ the user had just flipped by hand. New tabs are seeded
-  // in `launch` instead.
-  $effect(() => {
-    applyNamingToAll({
-      sessions: untrack(() => sessions),
-      isOnFor: project => namingSettingsKey !== "" && namesWithAi(project)
-    });
-  });
+  const { namesWithAi, seedNaming } = createSessionNaming({ sessions: () => sessions });
 
   function launch(options: LaunchOptions) {
     const session = newSession({
