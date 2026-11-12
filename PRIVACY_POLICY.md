@@ -56,13 +56,14 @@ yourself. When you use them, **their** privacy policies apply:
   running Discord client, which may display them on your Discord profile.
   Turning the toggle off clears the status. Nothing is sent when Discord is
   not running or the toggle is off.
-- **Update check** (on by default, Config → Updates): a released PADE reads a
-  small file from PADE's GitHub repository every few hours and, when it names a
-  newer version, downloads that release from GitHub (a copy installed with
-  winget instead asks GitHub which versions winget holds, and lets winget
-  install the newer one). The requests carry PADE's
-  version in their user agent and nothing about you or your projects; GitHub's
-  privacy statement applies. Turning **Check for updates** off stops them.
+- **Update check** (on by default, Config → Updates): a PADE that was not
+  installed from its MSIX package reads a small file from PADE's GitHub
+  repository every few hours and, when it names a newer version, tells you to
+  install the package from that release's page. Nothing is downloaded or
+  installed by PADE. The request carries PADE's version in its user agent and
+  nothing about you or your projects; GitHub's privacy statement applies.
+  Turning **Check for updates** off stops it. A PADE installed from its MSIX
+  package makes no such request; Windows updates it.
 - **Design tools**: the Design menu opens third-party web tools in a separate
   window; your use of those sites is governed by their own policies.
 

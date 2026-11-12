@@ -91,22 +91,19 @@ Then edit any file in the repo and watch it appear in the Change Feed.
 
 ## Build (release)
 
-Every [release](https://github.com/avi12/pade/releases) has a portable
-`PADE-<version>.exe` to run from anywhere, and a `PADE-<version>-setup.msi`
-installer that can add desktop and Start menu shortcuts. You can also
-`winget install avi12.PADE`. Every way keeps itself up to date (Config → Updates).
-Or install the signed MSIX through `PADE.appinstaller`, after trusting
-`PADE.cer` (see [docs/releasing.md](docs/releasing.md)); Windows then keeps it
-up to date.
+Every [release](https://github.com/avi12/pade/releases) has a signed MSIX
+(`PADE-<version>.msix`) with `PADE.cer` and `PADE.appinstaller`. Trust
+`PADE.cer` once, then open `PADE.appinstaller` (see
+[docs/releasing.md](docs/releasing.md)); Windows then keeps PADE up to date.
 
 ```bash
 pnpm app:build                 # tauri build --no-bundle → src-tauri/target/release/pade.exe
-pnpm release <version> <notes> # build the exe and MSI, tag, publish the GitHub release and update manifest
+pnpm release <version> <notes> # build the exe, pack the MSIX, tag, publish the GitHub release and update manifest
 ```
 
 Tauri builds for the host platform only, so run the build on each OS you target.
 Before cutting a release, run the quality gates: `pnpm lint` and `pnpm test`.
-[`docs/releasing.md`](docs/releasing.md) has the release steps and how updates work.
+[`docs/releasing.md`](docs/releasing.md) has the release steps and how installed copies update.
 
 ## Architecture
 

@@ -65,10 +65,9 @@ These are non-negotiable for all work in this repo.
    `docs/releasing.md`): bump the patch version by default (minor for a feature
    users would notice); the notes file holds the **changelog highlights** -
    plain sentences for users, no file names - and the script appends the link to
-   the full commit range, attaches the portable `PADE-<version>.exe`, the
-   `PADE-<version>-setup.msi` installer, the signed `PADE-<version>.msix`
+   the full commit range, attaches the signed `PADE-<version>.msix`
    (also as `PADE.msix`) with its `PADE.cer` and `PADE.appinstaller` feed, and
-   publishes the update manifest installed copies poll. A push of docs-only or
+   publishes the update manifest unpackaged copies poll for their notice. A push of docs-only or
    tooling-only commits with nothing a user would see still gets a release, its
    highlights saying so in one line.
 
@@ -399,8 +398,7 @@ clippy `-D warnings` finding needs an idiomatic fix rather than an `#[allow]`.
 ## Building
 
 Stack: Tauri 2 + Rust core, Svelte 5 + Vite frontend. Windows is the shipping
-platform (a portable exe, an MSI installer and a signed MSIX); Tauri builds for the host OS
-only.
+platform (PADE ships only as a signed MSIX); Tauri builds for the host OS only.
 
 ### Prerequisites
 
@@ -409,10 +407,6 @@ only.
 - Rust stable via rustup.
 - Platform prerequisites per Tauri: on Windows, WebView2 (preinstalled on
   Windows 11) and the MSVC build tools.
-- No VBScript: WiX's ICE checks need it, but `pnpm release` links the MSI
-  with them skipped and the `Installer` GitHub Actions workflow runs them.
-  A plain `pnpm tauri build --bundles msi` still runs them, so it fails
-  without VBScript; that is expected, not a reason to enable VBScript.
 
 If `pnpm` is not recognized in your shell, fix that before building anything:
 Tauri's `beforeBuildCommand` spawns `pnpm build` as a child process, so
@@ -449,11 +443,10 @@ actually ship, replicate the build steps from `scripts/release.mjs`:
 ```powershell
 cargo build --release --manifest-path src-tauri/Cargo.toml -p contextmenu-handler
 $env:PADE_CONTEXT_MENU_HANDLER = (Resolve-Path 'src-tauri/target/release/contextmenu_handler.dll').Path
-pnpm tauri build --bundles msi
+pnpm tauri build --no-bundle
 ```
 
-Output: `src-tauri/target/release/pade.exe` and the MSI under
-`src-tauri/target/release/bundle/msi/`. Verify the exe before reporting done:
+Output: `src-tauri/target/release/pade.exe`. Verify the exe before reporting done:
 
 ```powershell
 $exe = Get-Item 'src-tauri/target/release/pade.exe'
@@ -490,11 +483,9 @@ Note: `pnpm lint:rust` runs `cargo fmt`, which rewrites files. Check
 
 `pnpm release <major.minor.patch> <notes-file>` is NOT a build command. It
 bumps the version, builds as above, commits `chore(release): <version>`, tags,
-pushes, creates the GitHub release with `PADE-<version>.exe`,
-`PADE-<version>-setup.msi`, `PADE-<version>.msix`, `PADE.msix`, `PADE.cer` and
-`PADE.appinstaller`, pushes the update manifest `docs/updates.json`, and
-submits a winget PR (pass `--no-winget` after the notes file to skip winget). It
-refuses to run on a dirty tracked tree or with a version that is not newer than
+pushes, creates the GitHub release with `PADE-<version>.msix`,
+`PADE.msix`, `PADE.cer` and `PADE.appinstaller`, and pushes the update manifest
+`docs/updates.json`. It refuses to run on a dirty tracked tree or with a version that is not newer than
 the current one, and it needs `gh` authenticated. Full details:
 `docs/releasing.md`.
 

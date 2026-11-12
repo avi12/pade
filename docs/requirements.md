@@ -614,20 +614,19 @@ writes.
   🔭 multi-monitor tear-off (native windows).
 - R2.5 **i18n** - 🔭 full Unicode + RTL (Hebrew/Arabic bidi).
 - R2.6 **Deployment** - one codebase → desktop (Tauri) and 🔭 web (headless core).
-  ✅ The desktop app ships as **one portable exe** per GitHub release (no
-  installer; the Windows 11 context-menu handler rides inside it) and
-  **updates itself**: a published copy polls `docs/updates.json` on `main`,
-  downloads a newer exe, checks its SHA-256 and swaps it in as PADE closes or
-  on **Restart to update** (Config → Updates, with an opt-out **Check for
-  updates** switch). Every push to `main` is released (`docs/releasing.md`).
-  ✅ Also published to **winget** (`avi12.PADE`, a portable package); a winget
-  install updates itself through `winget upgrade` once winget lists a newer
-  version, so winget's own record stays true.
-  ✅ Every release also attaches a **signed MSIX** (`PADE-<version>.msix`,
-  `PADE.msix`), the public `PADE.cer` that trusts it, and a `PADE.appinstaller`
-  feed: an MSIX install is updated by Windows on each start (PADE's own updater
-  stands down), declares "Open in PADE" in its manifest, and shares the
-  unpackaged copy's settings and agent config (write virtualization off).
+  ✅ The desktop app ships **only as a signed MSIX** per GitHub release:
+  `PADE-<version>.msix` (also `PADE.msix`), the public `PADE.cer` that trusts
+  it and a `PADE.appinstaller` feed. Windows updates an MSIX install on each
+  start, so PADE has no updater of its own there; the package declares "Open in
+  PADE" in its manifest and shares an unpackaged copy's settings and agent
+  config (write virtualization off). There is no portable exe, MSI or winget
+  package. Every push to `main` is released (`docs/releasing.md`).
+  ✅ A published copy that is **not** packaged (an old exe or MSI install) polls
+  `docs/updates.json` on `main` and, when it names a newer version, says
+  "PADE now ships as an MSIX package - install it from the latest release" in
+  Config → Updates and as a toast, with a link to the release page (no
+  download, swap or elevation). Development builds never nag; the opt-out
+  **Check for updates** switch turns the check off.
 - R2.7 **Open source** - Apache-2.0; TS plugin SDK (🔭); public RFCs.
 
 ## 3. Architecture (SoC map)

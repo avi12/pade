@@ -1,22 +1,23 @@
 # Releasing PADE
 
-PADE ships three ways, all attached to every GitHub release:
+PADE ships **only as a signed MSIX package**. Every GitHub release attaches
+exactly four files:
 
-- **a portable exe**, `PADE-<version>.exe`, that runs from wherever it is saved;
-- **an MSI installer**, `PADE-<version>-setup.msi`, that installs PADE under
-  Program Files. Its Shortcuts page (added to Tauri's WiX template in
-  `src-tauri/windows/installer.wxs`) has two checkboxes, both on by default:
-  a desktop shortcut and a Start menu shortcut. A silent install turns one off
-  with `DESKTOPSHORTCUT=""` or `STARTMENUSHORTCUT=""`;
-- **a signed MSIX package**, `PADE-<version>.msix` (and the same file as
-  `PADE.msix`), with the public certificate `PADE.cer` that trusts it and the
-  update feed `PADE.appinstaller`. Windows installs it per user, keeps it up to
-  date and removes it cleanly (see "Installing the MSIX" below).
+- `PADE-<version>.msix`, and the same file as `PADE.msix` (the stable name the
+  update feed points at);
+- the public certificate `PADE.cer` that trusts it;
+- the update feed `PADE.appinstaller`.
 
-Every way PADE keeps its settings in `%APPDATA%\pade` and its WebView2 data in
-`%LOCALAPPDATA%`. The exe and the MSI carry the Windows 11 context-menu handler
-inside the exe (written out beside it when "Open in PADE" is turned on); the
-MSIX carries it as a file its manifest declares. WebView2 ships with Windows 11.
+Windows installs the package per user, keeps it up to date and removes it
+cleanly (see "Installing the MSIX" below). There is no portable exe, no MSI
+installer and no winget package; the exe is still built, because the MSIX packs
+it.
+
+PADE keeps its settings in `%APPDATA%\pade` and its WebView2 data in
+`%LOCALAPPDATA%`. The MSIX carries the Windows 11 context-menu handler as a file
+its manifest declares; an unpackaged exe (`pnpm app:build`, a development run)
+carries it inside itself and writes it out beside itself when "Open in PADE" is
+turned on. WebView2 ships with Windows 11.
 
 ## The MSIX package
 
@@ -38,7 +39,7 @@ certificate's subject `CN=avi12` exactly). It declares:
   CLSID as the sparse manifest the unpackaged copy registers at run time.
 
 A packaged PADE (`src-tauri/src/platform/package.rs` asks Windows whether the
-process has package identity) leaves both to Windows: the self-updater never
+process has package identity) leaves both to Windows: the release notice never
 starts, and Config → Updates says updates come through Windows; the context
 menu toggle only flips the handler's show/hide flag, since the manifest
 already declares the verb. Its install folder is read-only, which nothing else
@@ -59,8 +60,8 @@ Signing timestamps through `http://timestamp.digicert.com`, so a package stays
 valid after the certificate expires.
 
 To build and sign the package alone, from what `src-tauri/target/release`
-already holds (build it as in AGENTS.md first), with no version bump, git,
-GitHub or winget step:
+already holds (build it as in AGENTS.md first), with no version bump, git
+or GitHub step:
 
 ```powershell
 node scripts/release.mjs --msix-only <major.minor.patch>
@@ -105,73 +106,47 @@ Every push to `main` is released (see `CLAUDE.md`). With the work committed:
    before it changes anything;
 2. sets the version in `src-tauri/Cargo.toml` - its one home; the exe and the
    Config panel read it from there;
-3. builds the context-menu handler, then PADE and its MSI
-   (`tauri build --bundles msi`), embedding the handler. It links the MSI
-   itself with WiX's `light -sval`, skipping the ICE checks: they run on
-   VBScript, which Windows no longer installs by default, so the `Installer`
-   GitHub Actions workflow runs them whenever the installer's sources change;
+3. builds the context-menu handler, then PADE (`tauri build --no-bundle`),
+   embedding the handler;
 4. lays out the MSIX folder (`pade.exe`, `contextmenu_handler.dll`, the
    logos, the filled manifest), packs it with `makeappx pack`, signs it with
    `signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256`,
    exports `PADE.cer` and fills `PADE.appinstaller`;
 5. commits `chore(release): <version>`, tags `v<version>` and pushes both;
-6. creates the GitHub release with the exe, the MSI, `PADE-<version>.msix`,
-   `PADE.msix`, `PADE.cer` and `PADE.appinstaller`, appending a link to every
-   commit since the previous tag;
-7. writes `docs/updates.json` from both files' SHA-256 (the exe at the top
-   level, the MSI under `installer`) and pushes it.
+6. creates the GitHub release with `PADE-<version>.msix`, `PADE.msix`,
+   `PADE.cer` and `PADE.appinstaller`, appending a link to every commit since
+   the previous tag;
+7. writes `docs/updates.json` (the version and the release page) and pushes it.
 
-The manifest goes last: installed copies see a release only once it is on
-`main`, so it never points at a file that is not uploaded yet.
-
-8. fills the winget manifests in `packaging/winget` (version, date, exe address
-   and SHA-256), runs `winget validate` on them, and opens the pull request to
-   `microsoft/winget-pkgs` with `wingetcreate submit` (titled "New package" the
-   first time, "New version" after), using `gh auth token`. winget's reviewers
-   merge it, usually within a day or two. Pass `--no-winget` after the notes
-   file to skip this step.
+The manifest goes last: an unpackaged copy sees a release only once it is on
+`main`, so it never points at files that are not uploaded yet.
 
 A patch release (`0.0.x`) is the default; a minor bump marks a release with a
 new feature users would notice.
 
 ## How installed copies update
 
-`src-tauri/src/update.rs` reads `docs/updates.json` from `main`
-(raw.githubusercontent.com) at start and every six hours, the way a browser
-extension polls its update URL. When it names a newer version, the exe is
-downloaded to `%LOCALAPPDATA%\pade\updates` and checked against the manifest's
-SHA-256, and Config → Updates offers **Restart to update**. Otherwise the swap
-happens as PADE closes, so the next start is the new version.
+A packaged PADE updates through Windows: the `PADE.appinstaller` feed it was
+installed from asks Windows for a newer package each time PADE starts, and PADE
+itself never checks (`src-tauri/src/platform/package.rs` is the one answer).
 
-The swap renames the running exe aside (a running exe can be renamed, not
-overwritten), puts the new one under its name, and the next start deletes what
-was set aside.
+A copy that is **not** packaged - an exe or MSI PADE shipped before it became
+MSIX-only, or a `pnpm app:build` exe - cannot update itself any more. A
+published one still polls `docs/updates.json` from `main`
+(raw.githubusercontent.com) at start and every six hours
+(`src-tauri/src/update.rs`), only to compare versions. When the manifest names a
+newer one, Config → Updates and a toast say "PADE now ships as an MSIX package -
+install it from the latest release", and **Open release page** opens that
+release in the browser. Nothing is downloaded, swapped or elevated.
 
-A copy the MSI installed (the folder it records under
-`HKLM\Software\avi12\PADE`) can't swap its own exe under Program Files, so it
-downloads the release's MSI the same checked way, and a hidden PowerShell waits
-for PADE to close and runs it with `msiexec /passive`, which asks for elevation.
-It passes along which shortcuts exist, so an update never brings back one the
-user removed. **Restart to update** closes PADE, and the installer starts it
-again.
-
-A copy installed with `winget install avi12.PADE` (it lives under
-`…\WinGet\Packages\`) updates through winget instead, so `winget list` stays
-true: it reads which versions `microsoft/winget-pkgs` holds (the GitHub API, at
-the same times), and when one is newer, a hidden PowerShell waits for PADE to
-close and runs `winget upgrade --id avi12.PADE`. **Restart to update** closes
-PADE, and the upgrade starts it again. A winget copy sees a release once its
-winget pull request is merged, not when the GitHub release is published.
-
-An MSIX install never updates itself: Windows does, from the
-`PADE.appinstaller` feed it was installed from, each time PADE starts.
-
-- Only a published exe updates itself: a debug build, or a release build run from
-  `src-tauri\target`, never does.
+- A development build (`pnpm app`) or a release build run from `src-tauri\target`
+  never checks, so never nags.
 - **Check for updates** in Config turns the check off, and with it every
-  connection the updater makes.
-- 0.0.1 shipped as an installer without the updater; replace it by hand once.
+  connection it makes.
+- The manifest holds only `version` and `releaseUrl`. Copies from before the
+  MSIX-only release read different fields and so see nothing from it: they
+  have to be moved to the MSIX by hand once.
 
-To try an update without a release, serve a manifest locally and point
-`PADE_UPDATE_FEED` at it (a `http://127.0.0.1` or `http://localhost` address is
-accepted) before starting a published exe.
+To try the notice without a release, serve a manifest locally and point
+`PADE_UPDATE_FEED` at it (its `releaseUrl` must be https) before starting a
+published exe.
