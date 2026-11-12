@@ -325,7 +325,7 @@ writes.
   (`lib/model/model-cost.ts`, via the same switch a tab's model pick uses),
   **rests between work** (sized so work and rest average out to a lasting pace
   - rest = stretch × (time left / runway − 1), at least 5 minutes and at most
-  3 hours, where the runway is how long what is left lasts at the measured
+  10 minutes, where the runway is how long what is left lasts at the measured
   working burn, for the weekly window too, not the round-the-clock even spend
   - while that needs no more rest than work; after a rest it works at least 5
   minutes before the next, so a "continue" is never cut off at once), and

@@ -125,7 +125,7 @@ type PaceBinding = NonNullable<ReturnType<typeof assessPace>>;
 /** Whether a rest is the step to take: the rest step, while resting needs no
  *  more rest than work - past that, a stop takes over. A weekly window never
  *  stops: a stop until it is back on an even spend can last half a day, so it
- *  rests in bursts instead, each rest capped (`slowRestUntil`). */
+ *  rests in short bursts instead, each rest capped (`slowRestUntil`). */
 function shouldRest({ step, binding }: {
   step: PacingStep;
   binding: PaceBinding;

@@ -592,7 +592,7 @@ describe("slowRestUntil", () => {
     ).toBe(NOW + 20 * MINUTE_MS);
   });
 
-  it("rests at most three hours, however long the turn it follows", () => {
+  it("rests at most ten minutes, however long the turn it follows", () => {
     expect(
       slowRestUntil({
         runway: HOUR_MS,
@@ -601,7 +601,7 @@ describe("slowRestUntil", () => {
         stretch: 4 * HOUR_MS,
         now: NOW
       })
-    ).toBe(NOW + 3 * HOUR_MS);
+    ).toBe(NOW + 10 * MINUTE_MS);
   });
 
   it("rests at least five minutes, and never past where a full stop would end", () => {
