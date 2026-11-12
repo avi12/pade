@@ -8,7 +8,7 @@
   import { dockBlockSize } from "@/lib/stores/tasks/runnerDock.svelte";
   import type { createUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
   import type { Agent, AgentSession } from "@/lib/types/agent";
-  import type { DragHint } from "@/lib/ui/drag/drag-reorder";
+  import type { DragHint } from "@/lib/ui/drag/reorder/reorder-types";
   import { collapsePane } from "@/lib/ui/motion";
   import type { SvelteSet } from "svelte/reactivity";
 

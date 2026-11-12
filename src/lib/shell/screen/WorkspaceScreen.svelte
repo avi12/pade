@@ -19,7 +19,7 @@
   import { activeMemberIn } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
   import SendSelectionButton from "@/lib/terminal/input/SendSelectionButton.svelte";
   import type { Agent, AgentSession } from "@/lib/types/agent";
-  import type { DragHint } from "@/lib/ui/drag/drag-reorder";
+  import type { DragHint } from "@/lib/ui/drag/reorder/reorder-types";
   import { saveTempWorkspace } from "@/lib/workspace/save/save-temp-workspace";
   import SidePanel from "@/panels/SidePanel.svelte";
   import SidePanelResizer from "@/panels/SidePanelResizer.svelte";

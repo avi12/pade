@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { Axis, beginReorder } from "@/lib/ui/drag/drag-reorder";
+  import { beginReorder } from "@/lib/ui/drag/reorder/drag-reorder";
+  import { Axis } from "@/lib/ui/drag/reorder/reorder-types";
 
   // The drag handle a reorderable switcher row leads with - a span, so grabbing
   // it never triggers the row button's own click. The row wrapper carrying

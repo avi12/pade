@@ -3,7 +3,8 @@
   import RunnerOutput from "@/lib/runners/RunnerOutput.svelte";
   import { pipeRunner, rerunRunner, setRunnerOrder, stopRunner } from "@/lib/stores/tasks/runners.svelte";
   import type { RunnerRow } from "@/lib/stores/tasks/runners.svelte";
-  import { Axis, beginReorder } from "@/lib/ui/drag/drag-reorder";
+  import { beginReorder } from "@/lib/ui/drag/reorder/drag-reorder";
+  import { Axis } from "@/lib/ui/drag/reorder/reorder-types";
 
   // One task runner in the dock: its bar (kind, status, controls - and the drag
   // handle that sorts it among its siblings) over its streamed output, or over a

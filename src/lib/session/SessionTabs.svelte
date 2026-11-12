@@ -12,7 +12,7 @@
   import { beginTabDrag } from "@/lib/session/tabs/tab-drag";
   import { awaitingChoice } from "@/lib/stores/session/sessionAttention.svelte";
   import type { Agent, AgentSession } from "@/lib/types/agent";
-  import type { DragHint } from "@/lib/ui/drag/drag-reorder";
+  import type { DragHint } from "@/lib/ui/drag/reorder/reorder-types";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   const MINIMUM_DRAGGABLE_TABS = 2;

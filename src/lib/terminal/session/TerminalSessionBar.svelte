@@ -3,8 +3,9 @@
   import ModelChip from "@/lib/model/readout/ModelChip.svelte";
   import SessionBadge from "@/lib/session/SessionBadge.svelte";
   import type { AgentSession, SessionStatus } from "@/lib/types/agent";
-  import { Axis, beginReorder } from "@/lib/ui/drag/drag-reorder";
-  import type { DragHint } from "@/lib/ui/drag/drag-reorder";
+  import { beginReorder } from "@/lib/ui/drag/reorder/drag-reorder";
+  import { Axis } from "@/lib/ui/drag/reorder/reorder-types";
+  import type { DragHint } from "@/lib/ui/drag/reorder/reorder-types";
 
   const {
     session, status, isRemovable,

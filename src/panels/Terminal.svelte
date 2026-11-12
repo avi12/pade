@@ -15,7 +15,7 @@
   import TerminalSessionBar from "@/lib/terminal/session/TerminalSessionBar.svelte";
   import { SessionStatus } from "@/lib/types/agent";
   import type { AgentSession } from "@/lib/types/agent";
-  import type { DragHint } from "@/lib/ui/drag/drag-reorder";
+  import type { DragHint } from "@/lib/ui/drag/reorder/reorder-types";
   import { isEditingText } from "@/lib/ui/keyboard/focus";
   import type { Terminal } from "@xterm/xterm";
   import "@xterm/xterm/css/xterm.css";
