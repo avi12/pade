@@ -1679,3 +1679,5 @@ new tests belong first: they run in milliseconds and need no window.
 Above the unit layer, `pnpm test:e2e` (`scripts/smoke.mjs`) is a focused
 boot-and-render gate over the real app via the WebView2 CDP port - see the
 script's header for its deliberate scope limits and current scenarios.
+
+The release pipeline (`pnpm release`, `docs/releasing.md`) is `scripts/release.mjs`, a thin entry that sequences one module per stage under `scripts/release-pipeline/` (`environment`, `version`, `signing`, `build`, `msix`, `release-files`, `github`, `update-manifest`, `winget`); the directory is deliberately not named `release/`, which `.gitignore` excludes as the output folder.
