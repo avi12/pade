@@ -4,7 +4,7 @@ import {
   onWatchesArmed,
   rewatchHeldProjects,
   watchHeldProjects
-} from "@/lib/stores/workspace/project-watch";
+} from "@/lib/stores/workspace/change-feed/project-watch";
 import { describe, expect, it, vi } from "vitest";
 
 const APP = "C:/work/app";

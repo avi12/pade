@@ -23,7 +23,7 @@ import { sessionModel } from "@/lib/stores/agent/context.svelte";
 import { awaitingChoice } from "@/lib/stores/session/sessionAttention.svelte";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
-import { feedStore } from "@/lib/stores/workspace/feed.svelte";
+import { feedStore } from "@/lib/stores/workspace/change-feed/feed.svelte";
 import type { AgentSession, SessionStatus } from "@/lib/types";
 import { onDestroy, onMount } from "svelte";
 import { SvelteMap } from "svelte/reactivity";

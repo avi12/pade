@@ -7,8 +7,8 @@
   import { effective } from "@/lib/settings/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import { feedStore } from "@/lib/stores/workspace/feed.svelte";
-  import { onWatchesArmed } from "@/lib/stores/workspace/project-watch";
+  import { feedStore } from "@/lib/stores/workspace/change-feed/feed.svelte";
+  import { onWatchesArmed } from "@/lib/stores/workspace/change-feed/project-watch";
   import { workspaceMembers as storedMembers } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
   import type { ChangeEvent, WatchStatus } from "@/lib/types";
   import FeedCards from "@/panels/feed/FeedCards.svelte";
@@ -23,7 +23,7 @@
   // that already has this project, at the right line.
   const { project }: { project: string } = $props();
 
-  // The feed events live in a persistent store (lib/stores/workspace/feed) that owns the one
+  // The feed events live in a persistent store (lib/stores/workspace/change-feed/feed) that owns the one
   // live subscription, so switching side panels away and back keeps the feed -
   // this component only reads and renders them.
 

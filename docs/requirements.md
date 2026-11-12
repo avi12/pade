@@ -123,7 +123,7 @@ writes.
   fills, single-colour marks and format glyphs take the card's language tone. An
   unrecognised type falls back to the text badge, so every row stays tagged.
 - R1.2.9 ✅ **The feed survives panel switches.** Events accumulate in a persistent
-  store (`lib/stores/workspace/feed`) that owns the single live subscription, so switching the
+  store (`lib/stores/workspace/change-feed/feed`) that owns the single live subscription, so switching the
   side panel away from the feed and back no longer empties it (the panel unmounts on
   every switch; the backend keeps no replay). Cleared on a workspace switch.
 - R1.2.10 ✅ Git state follows repository lifecycle changes. Creating or removing

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { watchSummary } from "@/lib/feed/watch/feed-status";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import { rewatchHeldProjects } from "@/lib/stores/workspace/project-watch";
+  import { rewatchHeldProjects } from "@/lib/stores/workspace/change-feed/project-watch";
 
   // The empty panel's self-description: an empty list is ambiguous (nothing
   // changed, or there is no watch on this project), so it states which - and,
