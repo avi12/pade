@@ -30,8 +30,8 @@
   import { createSessionAutomation } from "@/lib/shell/sessionAutomation.svelte";
   import { registerSessionShortcuts } from "@/lib/shell/shortcuts/session-shortcuts";
   import { Side } from "@/lib/shell/side-panels";
-  import { runChatClick } from "@/lib/shell/sidebar/chat-click";
-  import type { ChatClickHost, ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";
+  import { runChatClick } from "@/lib/shell/sidebar/chats/chat-click";
+  import type { ChatClickHost, ChatPick, ConversationPick } from "@/lib/shell/sidebar/chats/chat-click";
   import ProjectSidebar from "@/lib/shell/sidebar/ProjectSidebar.svelte";
   import { clearDiscordPresence } from "@/lib/shell/window/discord-presence";
   import { WindowRoute, windowRouteFor } from "@/lib/shell/window/window-route";
@@ -669,7 +669,7 @@
   }
 
   // ── Left rail: switch, start and delete chats ─────────────────────────────
-  // A chat click does what lib/shell/sidebar/chat-click decides: bring a live
+  // A chat click does what lib/shell/sidebar/chats/chat-click decides: bring a live
   // session forward here or in the window that runs it, relaunch a persisted
   // chat or resume a recorded conversation beside the open sessions, or - on a
   // new-window click - move a live session (still running) or reopen the chat

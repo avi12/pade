@@ -9,8 +9,8 @@
 
 <script lang="ts">
   import type { SidebarChat } from "@/lib/session/chats/chat-registry";
-  import { shownChats } from "@/lib/shell/sidebar/chat-activity";
-  import ProjectChatRow from "@/lib/shell/sidebar/ProjectChatRow.svelte";
+  import { shownChats } from "@/lib/shell/sidebar/chats/chat-activity";
+  import ProjectChatRow from "@/lib/shell/sidebar/chats/ProjectChatRow.svelte";
   import { collapseRow, expandRow } from "@/lib/ui/motion";
   import { formatCount } from "@/lib/util/format";
 

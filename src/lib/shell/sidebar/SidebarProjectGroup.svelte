@@ -14,8 +14,8 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { SidebarProject } from "@/lib/session/chats/chat-registry";
-  import { activityCounts, chatActivity, chatStatus } from "@/lib/shell/sidebar/chat-activity";
-  import ProjectChatList from "@/lib/shell/sidebar/ProjectChatList.svelte";
+  import { activityCounts, chatActivity, chatStatus } from "@/lib/shell/sidebar/chats/chat-activity";
+  import ProjectChatList from "@/lib/shell/sidebar/chats/ProjectChatList.svelte";
   import { displayName } from "@/lib/util/paths";
   import { isNewWindowClick } from "@/lib/workspace/open-windows";
   import ProjectRowMain from "@/lib/workspace/switcher/projects/ProjectRowMain.svelte";

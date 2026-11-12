@@ -6,8 +6,8 @@
   import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
   import { PROJECT_SEARCH_ID } from "@/lib/shell/shortcuts/window-shortcut-actions";
-  import { activityCounts, chatActivity, chatStatus } from "@/lib/shell/sidebar/chat-activity";
-  import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";
+  import { activityCounts, chatActivity, chatStatus } from "@/lib/shell/sidebar/chats/chat-activity";
+  import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chats/chat-click";
   import { firstListedProject, sidebarProjectOrder, sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
   import SidebarHeader from "@/lib/shell/sidebar/SidebarHeader.svelte";
   import SidebarProjectList from "@/lib/shell/sidebar/SidebarProjectList.svelte";

@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import { NEEDS_YOU } from "@/lib/shell/sidebar/chat-activity";
+  import { NEEDS_YOU } from "@/lib/shell/sidebar/chats/chat-activity";
   import { WindowMode } from "@/lib/types";
   import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
   import { formatCount } from "@/lib/util/format";

@@ -4,8 +4,8 @@
   import { runningModelLook } from "@/lib/model/readout/running-model";
   import AgentStatusGlyph from "@/lib/session/AgentStatusGlyph.svelte";
   import type { SidebarChat } from "@/lib/session/chats/chat-registry";
-  import { ChatActivity, chatActivity, chatStatus, NEEDS_YOU } from "@/lib/shell/sidebar/chat-activity";
-  import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
+  import { ChatActivity, chatActivity, chatStatus, NEEDS_YOU } from "@/lib/shell/sidebar/chats/chat-activity";
+  import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/chats/ProjectChatMenu.svelte";
   import { sessionModel } from "@/lib/stores/agent/context.svelte";
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
   import type { RecordedConversation } from "@/lib/types";

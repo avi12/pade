@@ -1,4 +1,4 @@
-import { activityCounts, ChatActivity, chatActivity, shownChats } from "@/lib/shell/sidebar/chat-activity";
+import { activityCounts, ChatActivity, chatActivity, shownChats } from "@/lib/shell/sidebar/chats/chat-activity";
 import { SessionStatus } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
