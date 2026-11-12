@@ -14,6 +14,7 @@
 
 pub mod model_cost;
 pub mod model_label;
+pub mod policy;
 pub mod reset_time;
 #[cfg(test)]
 mod test_support;
