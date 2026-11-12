@@ -20,6 +20,7 @@ pub mod load_shedding;
 pub mod model_cost;
 pub mod model_label;
 pub mod policy;
+pub mod registry;
 pub mod reset_time;
 pub mod subagent_steps;
 #[cfg(test)]
