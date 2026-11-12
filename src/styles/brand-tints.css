@@ -1,0 +1,109 @@
+/* Agent brand tints - each coding agent's signature colour. Used only to tint the
+   agent chips in the picker and onboarding; a component opts in by colouring its
+   icon with `var(--agent-brand, currentColor)`. The session tabs never set
+   --agent-brand - their icon colour instead encodes context-window severity (the
+   --context-* gauge above), as the usage meter's icon encodes rate-limit
+   severity. Grok, Cursor and Aider are monochrome brands -
+   they set nothing and follow the text colour. Brand hex (not theme tokens) so the
+   colours stay true; the dark scheme lightens each for contrast on dark surfaces. */
+[data-agent="claude"] {
+  --agent-brand: #d97757;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #e28b6d;
+  }
+}
+
+[data-agent="codex"] {
+  --agent-brand: #6d5ae6;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #a99bff;
+  }
+}
+
+[data-agent="copilot"] {
+  --agent-brand: #8250df;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #a371f7;
+  }
+}
+
+[data-agent="antigravity"] {
+  --agent-brand: #4285f4;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #83aefc;
+  }
+}
+
+/* Language & editor brand tints - same mechanism as the agent tints above.
+   Languages key by their icon name (`data-brand={languageIcon(kind)}`); editors
+   key by their canonical id (`data-brand={ideBrand(id)}`). A component opts in
+   by colouring the icon span with `var(--brand-color, <fallback>)`.
+
+   Most marks need no entry: multi-colour official logos (the JetBrains
+   products, JavaScript, Python, Java, C++, C#, PHP, Ruby, Android Studio) carry
+   their fills baked into the SVG, so a tint is a no-op there. Entries below
+   cover only the genuinely single-colour brands, nesting both schemes: light is
+   the official brand hex (darkened where the true hex is illegible on light
+   surfaces - the Android green); dark is lightened for contrast. Cursor stays
+   untinted - its brand is genuinely black and follows the text colour. Rust's
+   logo is black too, so it wears the colour the ecosystem knows it by - the
+   named rust #b7410e, GitHub's Rust #dea584 in the dark scheme. */
+[data-brand="go"] {
+  --brand-color: #00add8;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #40c8ea;
+  }
+}
+
+[data-brand="android"] {
+  --brand-color: #1ea362;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #3ddc84;
+  }
+}
+
+[data-brand="rust"] {
+  --brand-color: #b7410e;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #dea584;
+  }
+}
+
+[data-brand="vscode"] {
+  --brand-color: #007acc;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #3ea6e8;
+  }
+}
+
+[data-brand="sublime"] {
+  --brand-color: #ff9800;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #ffad33;
+  }
+}
+
+[data-brand="visualstudio"] {
+  --brand-color: #5c2d91;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #9a70d6;
+  }
+}
+
+[data-brand="zed"] {
+  --brand-color: #084ccf;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #5b8def;
+  }
+}
