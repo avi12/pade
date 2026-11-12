@@ -88,13 +88,12 @@ import {
   sessionLoad,
   shedFraction
 } from "@/lib/usage/pacing/engine/load-shedding";
-import { measuredBurn } from "@/lib/usage/pacing/session-control/measured-burn";
-import type { MeasuredBurn } from "@/lib/usage/pacing/session-control/measured-burn";
-import { MILLISECONDS_PER_MINUTE, PACING_STEP_ORDER, pacingMargin, spokenTime } from "@/lib/usage/pacing/engine/pacing-policy";
-import { ObservedKind, PacePhase } from "@/lib/usage/pacing/shadow-report/pacing-report";
-import { paceFactsOf } from "@/lib/usage/pacing/shadow-report/report-facts";
-import type { OwnedFacts } from "@/lib/usage/pacing/shadow-report/report-facts";
-import { canHoldRest, heldRestUntil } from "@/lib/usage/pacing/session-control/rest-hold";
+import {
+  MILLISECONDS_PER_MINUTE,
+  PACING_STEP_ORDER,
+  pacingMargin,
+  spokenTime
+} from "@/lib/usage/pacing/engine/pacing-policy";
 import {
   assessPace,
   burnRate,
@@ -111,6 +110,12 @@ import {
   workRhythm
 } from "@/lib/usage/pacing/engine/usage-pace";
 import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/engine/usage-pace";
+import { measuredBurn } from "@/lib/usage/pacing/session-control/measured-burn";
+import type { MeasuredBurn } from "@/lib/usage/pacing/session-control/measured-burn";
+import { canHoldRest, heldRestUntil } from "@/lib/usage/pacing/session-control/rest-hold";
+import { ObservedKind, PacePhase } from "@/lib/usage/pacing/shadow-report/pacing-report";
+import { paceFactsOf } from "@/lib/usage/pacing/shadow-report/report-facts";
+import type { OwnedFacts } from "@/lib/usage/pacing/shadow-report/report-facts";
 import { afterDelay } from "@/lib/util/async/delay";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { formatPercent } from "@/lib/util/format";

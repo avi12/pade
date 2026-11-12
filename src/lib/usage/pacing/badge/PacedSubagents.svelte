@@ -5,8 +5,8 @@
   // no new subagent. Nothing shows while the round holds nothing back.
 
   import { throttledSessions } from "@/lib/stores/usage/pacingControl.svelte";
-  import { isThrottling } from "@/lib/usage/pacing/engine/account-round";
   import PacedSession from "@/lib/usage/pacing/badge/PacedSession.svelte";
+  import { isThrottling } from "@/lib/usage/pacing/engine/account-round";
 
   const sessions = $derived(throttledSessions().filter(session => isThrottling(session)));
 </script>

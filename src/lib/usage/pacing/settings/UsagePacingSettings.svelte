@@ -4,10 +4,10 @@
   import { fetchAccountReading, latestAccount } from "@/lib/stores/usage/accountReadings.svelte";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import PacedSubagents from "@/lib/usage/pacing/badge/PacedSubagents.svelte";
-  import { isPacingOn } from "@/lib/usage/pacing/engine/pacing-policy";
-  import PacingForecast from "@/lib/usage/pacing/settings/PacingForecast.svelte";
   import UnstoppedSubagents from "@/lib/usage/pacing/badge/UnstoppedSubagents.svelte";
+  import { isPacingOn } from "@/lib/usage/pacing/engine/pacing-policy";
   import { reportedPacedKinds } from "@/lib/usage/pacing/engine/usage-pace";
+  import PacingForecast from "@/lib/usage/pacing/settings/PacingForecast.svelte";
   import { settledValue } from "@/lib/util/async/settled";
   import { untrack } from "svelte";
 
