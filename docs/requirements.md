@@ -286,7 +286,14 @@ writes.
   (`lib/usage/pacing/subagent-steps.ts`, `account-round.ts`). A session pacing
   is **stopping** (stop or rest, until it has stopped) has every tool call -
   its own and every subagent's - refused except the ones that stop work, so the
-  stop lands mid-turn. All of it reaches the agent through one pacing control
+  stop lands mid-turn. A **rest** instead pauses, never kills: for an agent
+  whose hook can hold (Claude) and a rest no longer than 55 minutes, the hook
+  **holds** every tool call - the session's and each subagent's - until the rest
+  ends or is lifted, then lets it run as asked. No key is pressed, no subagent
+  is killed, and no "continue" is typed afterwards
+  (`lib/usage/pacing/rest-hold.ts`). A session whose hook predates the hold
+  (it noted no held call 10 seconds after the rest began, and the session still
+  works) falls back to the stop below. All of it reaches the agent through one pacing control
   file per session, read by the agent's `PreToolUse` hook on every tool call
   (`agents/running_model/pacing_control.rs`; with no file the hook exits at
   once, about 17 ms). Claude gets all of it (hook input names the subagent in
@@ -340,7 +347,8 @@ writes.
   needs, biggest saving first. A pause types nothing: running work is
   interrupted (Esc, and stop-all while subagents run) and the PreToolUse hook
   refuses every further tool call, and "continue" is typed only into work
-  pacing stopped. A tab's SLOWED / PAUSED badge says, in its hint and its
+  pacing stopped. A rest instead holds the tool calls until it ends, so nothing
+  is interrupted and nothing is continued. A tab's SLOWED / PAUSED badge says, in its hint and its
   details, when the session is back to normal - each time in the details
   reads "at 2:49 PM" or, clicked, "in 6h 59m". A live line per limit shows the active agent's spend,
   when it resets, when it runs out at this pace, and how many sessions pacing
