@@ -1,0 +1,68 @@
+/* The one text-field look. `.text-field` is a field standing on its own;
+   `.text-field-plate` is a framed row holding a bare input with its icon and
+   buttons (the switcher's search, the Open tab's path row), and it wears
+   exactly what a standalone field wears, so the two can never read as two
+   different controls. The plate's border is the focus indicator for the input
+   inside it, which carries no frame, fill or ring of its own. A plate with
+   trailing buttons trims its end padding through
+   `--field-plate-padding-inline-end`. Each palette's skin restates the frame
+   in its own terms further down. */
+:is(.text-field, .text-field-plate) {
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-medium);
+  background-color: var(--surface-2);
+  color: var(--on-surface);
+  font-size: 0.8125rem;
+  transition: border-color 150ms var(--ease);
+
+  &::placeholder,
+  & ::placeholder {
+    color: var(--on-surface-variant);
+  }
+}
+
+.text-field {
+  padding-block: var(--field-padding-block);
+  padding-inline: var(--field-padding-inline);
+
+  &:focus-visible {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: none;
+  }
+
+  &:is(:user-invalid, [aria-invalid="true"]) {
+    border-color: var(--critical);
+  }
+}
+
+.text-field-plate {
+  padding-block: 0;
+  padding-inline: var(--field-padding-inline) var(--field-plate-padding-inline-end, var(--field-padding-inline));
+
+  &:focus-within {
+    border-color: var(--primary);
+  }
+
+  &:has(:user-invalid, [aria-invalid="true"]) {
+    border-color: var(--critical);
+  }
+
+  :read-write {
+    &,
+    &:focus-visible {
+      padding-block: var(--field-padding-block);
+      padding-inline: 0;
+      border: none;
+      background: none;
+      outline: none;
+      box-shadow: none;
+    }
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: var(--focus-glow);
+}
