@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import ModelMenuPopover from "@/lib/model/ModelMenuPopover.svelte";
+  import ModelMenuPopover from "@/lib/model/menu/ModelMenuPopover.svelte";
   import RunnerDock from "@/lib/runners/RunnerDock.svelte";
   import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
   import { paneIdsAfterSplit, sessionsAfterReorder } from "@/lib/session/panes/pane-layout";

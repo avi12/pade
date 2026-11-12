@@ -2,7 +2,7 @@
   // The window's one model menu, hung off whichever model chip opened it - a
   // tab's model tag or a pane header's chip (stores/model/modelMenu).
 
-  import ModelMenu from "@/lib/model/ModelMenu.svelte";
+  import ModelMenu from "@/lib/model/menu/ModelMenu.svelte";
   import { MODEL_MENU_ANCHOR, MODEL_MENU_ID, modelMenuSessionId } from "@/lib/stores/model/modelMenu.svelte";
   import type { AgentSession, ModelChoice } from "@/lib/types";
   import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";

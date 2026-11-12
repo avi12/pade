@@ -5,9 +5,9 @@
   // goes to `onchoose`, which applies it the moment the agent can take it (see
   // stores/modelSwitch).
 
-  import EffortPicker from "@/lib/model/EffortPicker.svelte";
+  import EffortPicker from "@/lib/model/menu/EffortPicker.svelte";
+  import ModelPicker from "@/lib/model/menu/ModelPicker.svelte";
   import { modelLabel, modelName } from "@/lib/model/model-label";
-  import ModelPicker from "@/lib/model/ModelPicker.svelte";
   import { sessionModel } from "@/lib/stores/agent/context.svelte";
   import { modelOption, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import { pendingModelSwitch, SwitchWait } from "@/lib/stores/model/modelSwitch.svelte";

@@ -4,7 +4,7 @@
 
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
-  import EffortPicker from "@/lib/model/EffortPicker.svelte";
+  import EffortPicker from "@/lib/model/menu/EffortPicker.svelte";
   import { modelOption, modelOptions, refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import type { Agent, ModelChoice } from "@/lib/types";
   import Select from "@/lib/ui/controls/Select.svelte";
