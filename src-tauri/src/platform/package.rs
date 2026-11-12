@@ -1,7 +1,7 @@
 //! Whether this copy of PADE was installed from the release's `.msix`.
 //!
 //! A packaged copy lives in a read-only folder Windows owns. Windows updates it
-//! (the `.appinstaller` feed), so the self-updater stands down, and its package
+//! (the `.appinstaller` feed), so the release notice stands down, and its package
 //! manifest declares the Explorer context menu, so the runtime sparse-package
 //! registration stands down too. Everything that branches on it asks here.
 

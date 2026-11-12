@@ -60,8 +60,8 @@ export function startWindowServices({ windowSessions, repository, isWindowFocuse
     await ensureChoiceAttention();
   });
 
-  // Follow PADE's own self-update, so a ready release is announced and Config
-  // can offer the restart into it (lib/stores/update/appUpdate).
+  // Follow PADE's release notice, so a newer release is announced and Config
+  // can link its page (lib/stores/update/appUpdate).
   onMount(async () => {
     await watchAppUpdate();
   });

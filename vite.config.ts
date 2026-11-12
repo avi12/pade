@@ -60,7 +60,7 @@ export default defineConfig({
       // Windows a watched file locked or deleted under the watcher kills it for
       // good: the app keeps running but never receives another hot update until
       // `pnpm app` restarts. That is src-tauri's locked .pdb/.exe artifacts
-      // (EBUSY), `release/` getting each release's exe and installer, `dist/`
+      // (EBUSY), `release/` getting each release's package, `dist/`
       // emptied by every build, the subagent worktrees under `.claude/` (copies
       // of the whole source, deleted again), and `.svelte-check/`, whose
       // regenerated tsconfig Vite would answer with a FULL reload.

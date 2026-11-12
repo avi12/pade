@@ -287,7 +287,6 @@ pub fn run() {
             workspace::preferences::set_prefs,
             update::update_status,
             update::update_check,
-            update::update_restart,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ADE")
@@ -300,15 +299,6 @@ pub fn run() {
             // gracefully by now (App intercepts the window close and waits for
             // each agent's idle prompt before killing); this is the backstop
             // for whatever a force-close or a crashed WebView leaves behind.
-            //
-            // On the way out, a downloaded release is swapped in, so the next
-            // start is the new version.
-            if matches!(event, tauri::RunEvent::Exit) {
-                if let Err(error) = update::apply_pending(handle) {
-                    eprintln!("could not install the update: {error}");
-                }
-                return;
-            }
             let tauri::RunEvent::ExitRequested { api, code, .. } = &event else {
                 return;
             };

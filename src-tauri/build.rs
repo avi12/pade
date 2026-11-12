@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 /// The release build points this at the built `contextmenu_handler.dll`
-/// (`scripts/release.mjs`), so the one portable exe carries the Windows 11
+/// (`scripts/release.mjs`), so the one exe carries the Windows 11
 /// menu's handler and writes it out beside itself when the menu is turned on.
 const CONTEXT_MENU_HANDLER_VARIABLE: &str = "PADE_CONTEXT_MENU_HANDLER";
 const EMBEDDED_HANDLER_FILE: &str = "contextmenu_handler.dll";

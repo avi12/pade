@@ -3,7 +3,7 @@
 //! A copy installed from the release's `.msix` runs with package identity:
 //! Windows owns its install folder (read-only), its updates (the
 //! `.appinstaller` feed) and its Explorer context menu (declared in the
-//! package manifest). PADE asks once here and stands its own updater and
+//! package manifest). PADE asks once here and stands its release notice and
 //! menu registration down when the answer is yes.
 
 #[cfg(windows)]

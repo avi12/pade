@@ -10,12 +10,11 @@ export const SYSTEM_COMMANDS = {
   contextMenuRegister: "context_menu_register",
   contextMenuUnregister: "context_menu_unregister",
   updateStatus: "update_status",
-  updateCheck: "update_check",
-  updateRestart: "update_restart"
+  updateCheck: "update_check"
 } as const;
 
 export const SYSTEM_EVENTS = {
-  updateReady: "update://ready"
+  updateAvailable: "update://available"
 } as const;
 
 export interface SystemCommandProtocol {
@@ -35,12 +34,10 @@ export interface SystemCommandProtocol {
   [SYSTEM_COMMANDS.contextMenuStatus]: () => boolean;
   [SYSTEM_COMMANDS.contextMenuRegister]: () => void;
   [SYSTEM_COMMANDS.contextMenuUnregister]: () => void;
-  /** PADE's version and whether a newer release is downloaded and ready. */
+  /** PADE's version and any newer release found. */
   [SYSTEM_COMMANDS.updateStatus]: () => UpdateStatus;
-  /** Check GitHub for a newer release now, answering once any download ends. */
+  /** Check GitHub for a newer release now. */
   [SYSTEM_COMMANDS.updateCheck]: () => UpdateStatus;
-  /** Swap the ready release in and restart into it. */
-  [SYSTEM_COMMANDS.updateRestart]: () => void;
 }
 
 export const SYSTEM_RESPONSE_SCHEMAS = {
@@ -51,15 +48,14 @@ export const SYSTEM_RESPONSE_SCHEMAS = {
   [SYSTEM_COMMANDS.contextMenuRegister]: NO_REPLY,
   [SYSTEM_COMMANDS.contextMenuUnregister]: NO_REPLY,
   [SYSTEM_COMMANDS.updateStatus]: UpdateStatus,
-  [SYSTEM_COMMANDS.updateCheck]: UpdateStatus,
-  [SYSTEM_COMMANDS.updateRestart]: NO_REPLY
+  [SYSTEM_COMMANDS.updateCheck]: UpdateStatus
 } satisfies { [Key in keyof SystemCommandProtocol]: z.ZodType<ReturnType<SystemCommandProtocol[Key]>> };
 
 export interface SystemEventProtocol {
-  /** A newer PADE is downloaded, checked and ready to swap in. */
-  [SYSTEM_EVENTS.updateReady]: (data: UpdateStatus) => void;
+  /** A newer PADE release was found. */
+  [SYSTEM_EVENTS.updateAvailable]: (data: UpdateStatus) => void;
 }
 
 export const SYSTEM_PAYLOAD_SCHEMAS = {
-  [SYSTEM_EVENTS.updateReady]: UpdateStatus
+  [SYSTEM_EVENTS.updateAvailable]: UpdateStatus
 } satisfies { [Key in keyof SystemEventProtocol]: z.ZodType<Parameters<SystemEventProtocol[Key]>[0]> };

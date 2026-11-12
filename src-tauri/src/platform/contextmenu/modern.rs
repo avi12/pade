@@ -85,7 +85,7 @@ pub fn register() -> Result<(), String> {
 }
 
 /// A release exe carries the handler (see `build.rs`) and writes it out beside
-/// itself, so the portable download needs no second file. A dev build has none
+/// itself, so an unpackaged copy needs no second file. A dev build has none
 /// and relies on `cargo build -p contextmenu-handler` instead.
 #[cfg(embedded_context_menu_handler)]
 fn write_embedded_handler(handler: &Path) -> Result<(), String> {
