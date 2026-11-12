@@ -1,0 +1,264 @@
+:root {
+  --seed-hue: 210deg;
+
+  /* light scheme */
+  --primary: hsl(var(--seed-hue) 90% 45%);
+  --on-primary: #ffffff;
+  --primary-container: hsl(var(--seed-hue) 90% 92%);
+  --on-primary-container: hsl(var(--seed-hue) 90% 18%);
+  --tertiary: hsl(160deg 55% 32%);
+  --tertiary-wash: hsl(160deg 55% 45% / 16%);
+  --warning: hsl(28deg 90% 42%);
+  --warning-wash: hsl(28deg 90% 45% / 16%);
+  --critical: hsl(352deg 72% 50%);
+  --critical-wash: hsl(352deg 72% 55% / 14%);
+
+  /* Reasoning effort - five tones, coolest to hottest: blue, green, amber,
+     red, purple (see lib/model/EffortTint). Hues set far apart so neighbouring
+     levels never read alike, and dark enough to stay legible as text. */
+  --effort-tone-1: hsl(215deg 85% 45%);
+  --effort-tone-2: hsl(150deg 80% 30%);
+  --effort-tone-3: hsl(38deg 100% 38%);
+  --effort-tone-4: hsl(5deg 85% 48%);
+  --effort-tone-5: hsl(285deg 70% 48%);
+
+  /* Context-window fuel gauge - a blue→amber→red ramp for how full an agent's
+     context is (see lib/usage/context-level). Its own scale, distinct from the
+     blue/orange/pink severity above, so a filling context reads like a traffic
+     light on each session tab. Theme-adaptive: darker/denser in light mode. */
+  --context-ok: hsl(212deg 90% 46%);
+  --context-warning: hsl(40deg 92% 40%);
+  --context-critical: hsl(2deg 78% 50%);
+  --surface: hsl(var(--seed-hue) 30% 98%);
+  --surface-1: hsl(var(--seed-hue) 28% 96%);
+  --surface-2: hsl(var(--seed-hue) 26% 93%);
+  --surface-3: hsl(var(--seed-hue) 24% 89%);
+  --on-surface: hsl(214deg 30% 14%);
+  --on-surface-variant: hsl(214deg 14% 40%);
+  --outline: hsl(214deg 15% 82%);
+
+  /* Shadow tint for floating surfaces (menus, modals). A fixed dark blue so it
+     reads as depth in both schemes - never color-mix(on-surface) which inverts
+     to a light "glow" in dark mode. */
+  --shadow-color: hsl(214deg 30% 30% / 20%);
+
+  /* Saturated primary glow under the floating "Send to agent" action - a fixed
+     mid-tone blue (same in both schemes, per the design) so it reads as a tinted
+     halo rather than tracking the theme's lighter/darker primary. */
+  --primary-shadow: hsl(var(--seed-hue) 90% 45% / 45%);
+
+  /* Terminal surface follows the theme - light in light mode. */
+  --code-background: hsl(var(--seed-hue) 30% 96%);
+  --code-foreground: hsl(214deg 30% 20%);
+
+  /* Terminal ANSI palette (Terminal.svelte feeds these to xterm). Agent CLIs
+     paint with these 16 slots, and xterm's defaults suit only a dark screen -
+     on the light scheme every CHROMATIC colour is re-picked dark enough to read
+     on the light code surface.
+
+     The black/white pair is the exception and stays literal: a CLI addresses
+     those two as backgrounds as much as text (Claude's bash bar is SGR 107 on
+     30 - bright-white ground, black ink), so re-picking white dark turns every
+     such bar into a black slab in daylight. Legibility of a light slot used as
+     TEXT is not this palette's job: Terminal.svelte's `minimumContrastRatio`
+     nudges it to WCAG AA against whatever it lands on. */
+  --terminal-black: hsl(214deg 30% 20%);
+  --terminal-red: hsl(352deg 72% 44%);
+  --terminal-green: hsl(160deg 60% 28%);
+  --terminal-yellow: hsl(30deg 90% 36%);
+  --terminal-blue: hsl(210deg 90% 42%);
+  --terminal-magenta: hsl(265deg 55% 48%);
+  --terminal-cyan: hsl(190deg 75% 30%);
+  --terminal-white: hsl(var(--seed-hue) 24% 89%);
+  --terminal-bright-black: hsl(214deg 12% 46%);
+  --terminal-bright-red: hsl(352deg 75% 38%);
+  --terminal-bright-green: hsl(160deg 65% 24%);
+  --terminal-bright-yellow: hsl(30deg 95% 32%);
+  --terminal-bright-blue: hsl(210deg 95% 38%);
+  --terminal-bright-magenta: hsl(265deg 60% 44%);
+  --terminal-bright-cyan: hsl(190deg 80% 26%);
+  --terminal-bright-white: hsl(var(--seed-hue) 40% 99%);
+  --terminal-selection: hsl(210deg 90% 45% / 22%);
+
+  /* Find-in-terminal (lib/terminal/find/TerminalFind). Both are washes, never solids: the
+     addon draws every other match UNDER the row's glyphs but the active one
+     OVER them, so an opaque active colour would blank out the very word the
+     search just found. Amber because that is what a reader already expects a
+     match to look like - the palette's own warning hue, one step and two steps
+     up in strength so "one of these" and "this one" separate at a glance. */
+  --terminal-find-match: hsl(28deg 90% 45% / 26%);
+  --terminal-find-active: hsl(28deg 90% 45% / 60%);
+
+  /* The caret. Defined once, in terms of the accent, so it follows every scheme
+     and palette; a chosen Windows Terminal scheme overwrites this token with its
+     own cursor colour (lib/terminal/theme/terminal-palette). */
+  --terminal-cursor: var(--primary);
+
+  /* Syntax-highlight palette for the code / config / diff viewers. */
+  --syntax-comment: hsl(214deg 12% 48%);
+  --syntax-keyword: hsl(265deg 55% 52%);
+  --syntax-string: hsl(160deg 50% 34%);
+  --syntax-number: hsl(28deg 75% 44%);
+  --syntax-function: hsl(210deg 80% 46%);
+  --syntax-property: hsl(190deg 65% 36%);
+
+  /* A bloom around whatever holds keyboard focus. Off - every palette states
+     focus with its outline alone (Cyberpunk's design draws no glow on it
+     either); a palette that wants one redefines this one token. */
+  --focus-glow: none;
+
+  /* M3 shape scale. `--radius-full` is the pill - the fully-rounded end every
+     chip, badge and segmented control in the app wears. It is a token and not a
+     literal `999px` for the same reason the other four are: a palette has to be
+     able to re-point the whole scale, and a skin whose corners are all square
+     (cyberpunk) cannot do that if two thirds of the app spells its corner out
+     by hand. */
+  --radius-small: 8px;
+  --radius-medium: 14px;
+  --radius-large: 20px;
+  --radius-extra-large: 28px;
+  --radius-full: 999px;
+
+  /* Tooltip bubble geometry, shared by the `[data-tooltip]` pseudo below and the
+     top-layer bubble (OverflowTooltipLayer) so the two can never drift: the gap
+     that clears the trigger, and the inset that keeps a bubble anchored to an
+     edge-hugging trigger (the switcher's drag grip) off the window edge -
+     `anchor-center` clamps the MARGIN box into the viewport, so the inline
+     margin *is* that gutter. */
+  --tooltip-gap: 6px;
+  --tooltip-edge-gutter: 8px;
+
+  /* The bubble's type and box, and the height of a one-line bubble from them -
+     what a popover opening under a hinted trigger clears, so it sits below the
+     hint rather than under it. */
+  --tooltip-font-size: calc(0.6875 * var(--font-base));
+  --tooltip-line-height: 1.35;
+  --tooltip-padding-block: 3px;
+  --tooltip-border-width: 1px;
+  --tooltip-line-block-size:
+    calc(
+      var(--tooltip-font-size) * var(--tooltip-line-height)
+      + 2 * (var(--tooltip-padding-block) + var(--tooltip-border-width))
+    );
+
+  /* The bubble's look, as tokens a palette re-points rather than a second
+     rule restyling the bubble. Its one-pixel border is transparent here and
+     the padding is a pixel short of the box it draws, so a palette that frames
+     the bubble keeps the same size. */
+  --tooltip-background: var(--surface-3);
+  --tooltip-foreground: var(--on-surface);
+  --tooltip-border-color: transparent;
+  --tooltip-radius: var(--radius-small);
+  --tooltip-letter-spacing: normal;
+
+  /* A text field's inner padding, shared by `.text-field` and the plate that
+     wraps a bare input (`.text-field-plate`, below), and by a dropdown trigger
+     that sits in a row with them, so all three come out the same height. */
+  --field-padding-block: 8px;
+  --field-padding-inline: 12px;
+
+  /* M3 emphasized easing, plus a spring that overshoots for expressive,
+     spatial motion (cards rising, chips popping, menus springing open). */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+
+  /* A fast-out, long-settle curve with no overshoot, for a box that should
+     arrive without bouncing (popover menus). */
+  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Its counterpart for leaving: starts slow and accelerates away (a panel
+     closing). */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* The one authoritative home for the font stacks. lib/settings/prefs composes a chosen
+     UI/mono font on top of these via `var(--font-*-base)` - never re-spelling the
+     fallback list - and App binds the result onto --font-ui/--font-monospace. */
+  --font-ui-base: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --font-monospace-base: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+
+  /* The palette's tabular digits, which lib/settings/prefs puts ahead of a UI
+     font the user picks, so numbers keep one width whatever that face's own
+     figures do. A monospace face needs none: its digits are one width already. */
+  --font-digits: "Figtree Digits";
+  --font-ui: var(--font-ui-base);
+  --font-monospace: var(--font-monospace-base);
+
+  /* Appended after the monospace stack for right-to-left text (lib/terminal/rtl/TerminalRtl).
+     Programming fonts carry no Arabic or Hebrew at all, so those runs would fall
+     back to whatever the platform picked - naming the faces keeps a terminal's
+     Arabic legible and consistent instead of leaving it to chance. Installed
+     with the OS, so nothing is fetched at runtime. */
+  --font-rtl-fallback: "Segoe UI", "Noto Sans Arabic", "Noto Sans Hebrew", "Tahoma", sans-serif;
+
+  /* Font scaling (video-time-manager model): --font-base is a ≥16px unit that
+     tracks the user's browser zoom (1rem) times --ui-scale, the zoom knob set
+     from the uiScale pref in lib/settings/prefs. What is sized off --font-base
+     and the terminal follow the knob; plain rem sizes stay at their design. */
+  --ui-scale: 1;
+  --font-base: calc(max(16px, 1rem) * var(--ui-scale));
+
+  /* Native widgets (buttons, form controls, scrollbars) follow the app theme -
+     without this the UA paints its light-mode faces in dark mode. */
+  color-scheme: light;
+}
+
+/* Dark tokens. The theme controller resolves "system" to a concrete light/dark
+   via matchMedia and sets data-theme accordingly, so this single block covers
+   both OS-follow and an explicit dark choice (DRY - no duplicated media block). */
+:root[data-theme="dark"] {
+  --primary: hsl(var(--seed-hue) 90% 68%);
+  --on-primary: hsl(var(--seed-hue) 90% 12%);
+  --primary-container: hsl(var(--seed-hue) 55% 22%);
+  --on-primary-container: hsl(var(--seed-hue) 90% 88%);
+  --tertiary: hsl(160deg 55% 62%);
+  --tertiary-wash: hsl(160deg 55% 50% / 16%);
+  --warning: hsl(28deg 90% 62%);
+  --warning-wash: hsl(28deg 90% 58% / 16%);
+  --critical: hsl(352deg 80% 70%);
+  --critical-wash: hsl(352deg 80% 60% / 16%);
+  --effort-tone-1: hsl(212deg 95% 70%);
+  --effort-tone-2: hsl(145deg 70% 58%);
+  --effort-tone-3: hsl(45deg 100% 60%);
+  --effort-tone-4: hsl(5deg 95% 66%);
+  --effort-tone-5: hsl(290deg 85% 75%);
+  --context-ok: hsl(212deg 90% 66%);
+  --context-warning: hsl(45deg 95% 60%);
+  --context-critical: hsl(2deg 85% 66%);
+  --surface: hsl(214deg 30% 8%);
+  --surface-1: hsl(214deg 28% 11%);
+  --surface-2: hsl(214deg 26% 14%);
+  --surface-3: hsl(214deg 24% 19%);
+  --on-surface: hsl(var(--seed-hue) 24% 92%);
+  --on-surface-variant: hsl(214deg 14% 66%);
+  --outline: hsl(214deg 15% 28%);
+  --shadow-color: hsl(214deg 40% 3% / 50%);
+  --code-background: hsl(214deg 40% 6%);
+  --code-foreground: hsl(var(--seed-hue) 20% 85%);
+  --terminal-black: hsl(214deg 25% 18%);
+  --terminal-red: hsl(352deg 80% 66%);
+  --terminal-green: hsl(160deg 55% 58%);
+  --terminal-yellow: hsl(40deg 90% 64%);
+  --terminal-blue: hsl(210deg 90% 66%);
+  --terminal-magenta: hsl(265deg 70% 74%);
+  --terminal-cyan: hsl(190deg 70% 58%);
+  --terminal-white: hsl(214deg 20% 78%);
+  --terminal-bright-black: hsl(214deg 14% 52%);
+  --terminal-bright-red: hsl(352deg 85% 74%);
+  --terminal-bright-green: hsl(160deg 60% 68%);
+  --terminal-bright-yellow: hsl(45deg 95% 72%);
+  --terminal-bright-blue: hsl(210deg 95% 74%);
+  --terminal-bright-magenta: hsl(265deg 75% 82%);
+  --terminal-bright-cyan: hsl(190deg 75% 68%);
+  --terminal-bright-white: hsl(var(--seed-hue) 24% 94%);
+  --terminal-selection: hsl(210deg 90% 66% / 28%);
+  --terminal-find-match: hsl(28deg 90% 58% / 24%);
+  --terminal-find-active: hsl(28deg 90% 58% / 58%);
+  --syntax-comment: hsl(214deg 14% 56%);
+  --syntax-keyword: hsl(265deg 70% 76%);
+  --syntax-string: hsl(160deg 50% 62%);
+  --syntax-number: hsl(28deg 85% 66%);
+  --syntax-function: hsl(210deg 90% 72%);
+  --syntax-property: hsl(190deg 70% 64%);
+
+  color-scheme: dark;
+}
