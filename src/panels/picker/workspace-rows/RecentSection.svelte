@@ -7,9 +7,9 @@
   import LanguageBar from "@/lib/workspace/display/LanguageBar.svelte";
   import LastAccessed from "@/lib/workspace/display/LastAccessed.svelte";
   import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
-  import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
-  import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
-  import RowMenu from "@/panels/picker/RowMenu.svelte";
+  import type { WorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";
+  import OpenInEditorButton from "@/panels/picker/workspace-rows/OpenInEditorButton.svelte";
+  import RowMenu from "@/panels/picker/workspace-rows/RowMenu.svelte";
 
   // Recent projects: open-on-click rows with temp/project tags, the shared
   // row menu, and the inline-rename form driven by the shared lifecycle.

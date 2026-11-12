@@ -1,8 +1,8 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
-  import OwnedWorkspaceItems from "@/panels/picker/OwnedWorkspaceItems.svelte";
+  import type { WorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";
+  import OwnedWorkspaceItems from "@/panels/picker/workspace-rows/OwnedWorkspaceItems.svelte";
 
   // Trailing kebab + actions popover for one project row: reveal in Files /
   // Terminal, renaming the folder (any project no other window holds), deleting

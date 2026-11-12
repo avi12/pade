@@ -1232,7 +1232,7 @@ Shared rune state, grouped like the modules that read it.
 | `on-launch/ToggleRow.svelte` | One home for the On-launch checkbox row: the box chrome, the tick and the caption |
 | `on-launch/ExplorerContextMenuToggle.svelte` | The Windows-only Explorer "Open in PADE" toggle, self-contained over the per-user registry (`explorer-context-menu`); waits for the registry's answer so the box is born showing the real state |
 | `on-launch/explorer-context-menu.ts` | `setExplorerContextMenu`: add or remove the Explorer folder menu, resolving to the failure's message (empty on success) - the modern Win11 entry needs Developer Mode |
-| `RecentSection.svelte` | Recent rows with tags (`TempBadge` for a temp workspace) + inline-rename form; a removed row collapses out (`motion.collapseRow`) |
+| `workspace-rows/RecentSection.svelte` | Recent rows with tags (`TempBadge` for a temp workspace) + inline-rename form; a removed row collapses out (`motion.collapseRow`) |
 | `AgentsSection.svelte` | Default-agent chooser (shared `AgentChips`) with rescan/skeleton states |
 | `AgentChips.svelte` | Shared agent choice-chip radiogroup - one pill per installed agent (brand glyph + label), the selected one edged in primary over its container; the `AgentsSection` default-agent choice |
 | `editors/EditorsSection.svelte` | Editor-rules engine - kinds fetched from the backend `ide_kinds` registry (web/python/java/go/rust/android plus C/C++, C#/.NET, PHP, Ruby) - one `EditorRuleRow` per kind plus the fallback row, then `EditorAddition`; rule/fallback persistence goes back through the picker |
@@ -1248,11 +1248,11 @@ Shared rune state, grouped like the modules that read it.
 | `roots/root-path.ts` | `assessRootPath`: what adding the typed path will do - add an existing folder, create a missing one, or reject a file - as the row's status banner |
 | `roots/RootProjects.svelte` | One root folder: its path, how many projects it holds and a remove button, over the projects detected inside it - each opens in a click, with its row menu and editor button |
 | `roots/project-roots.ts` | Which root the create form defaults to (a lone root, else the one most recent projects live in) and the directories the picker watches (`watchedDirectories`) |
-| `RowMenu.svelte` | Shared kebab popover: reveal actions, the owned-workspace lifecycle entries `OwnedWorkspaceItems` renders, and the one delete item every project row carries (Delete workspace for owned, Delete directory otherwise; Shift-click skips the confirmation) |
-| `OwnedWorkspaceItems.svelte` | A row menu's actions for a PADE-owned workspace: relabel (temp only), rename into a project and move; each closes the row's popover |
-| `OpenInEditorButton.svelte` | A row's "open in your editor" button: a plain static button whose ranking is loaded only when clicked, through the same `stores/workspace/editors` store the Change Feed uses |
-| `lifecycle.svelte.ts` | Workspace rename/move/delete flows + inline-rename form state, shared by Recent and Roots; delete routes owned workspaces to the owned-only removal and every other shown project to the ungated directory removal; owns the delete confirmation state (target / in-flight / error) and which temp workspace is being relabelled, both rendered by `WorkspaceDialogs` |
-| `WorkspaceDialogs.svelte` | The lifecycle's prompts, one of each for the whole picker: the delete confirmation (`WorkspaceDeleteDialog`), the folder rename (`RenameFolderDialog`) and the PADE-only `RelabelDialog` (modal) |
+| `workspace-rows/RowMenu.svelte` | Shared kebab popover: reveal actions, the owned-workspace lifecycle entries `OwnedWorkspaceItems` renders, and the one delete item every project row carries (Delete workspace for owned, Delete directory otherwise; Shift-click skips the confirmation) |
+| `workspace-rows/OwnedWorkspaceItems.svelte` | A row menu's actions for a PADE-owned workspace: relabel (temp only), rename into a project and move; each closes the row's popover |
+| `workspace-rows/OpenInEditorButton.svelte` | A row's "open in your editor" button: a plain static button whose ranking is loaded only when clicked, through the same `stores/workspace/editors` store the Change Feed uses |
+| `workspace-rows/lifecycle.svelte.ts` | Workspace rename/move/delete flows + inline-rename form state, shared by Recent and Roots; delete routes owned workspaces to the owned-only removal and every other shown project to the ungated directory removal; owns the delete confirmation state (target / in-flight / error) and which temp workspace is being relabelled, both rendered by `WorkspaceDialogs` |
+| `workspace-rows/WorkspaceDialogs.svelte` | The lifecycle's prompts, one of each for the whole picker: the delete confirmation (`WorkspaceDeleteDialog`), the folder rename (`RenameFolderDialog`) and the PADE-only `RelabelDialog` (modal) |
 
 ## Rust core (`src-tauri/src/`)
 

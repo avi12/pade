@@ -4,9 +4,9 @@
   import { collapseRow } from "@/lib/ui/motion";
   import { formatQuantity } from "@/lib/util/format";
   import LanguageBar from "@/lib/workspace/display/LanguageBar.svelte";
-  import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
-  import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
-  import RowMenu from "@/panels/picker/RowMenu.svelte";
+  import type { WorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";
+  import OpenInEditorButton from "@/panels/picker/workspace-rows/OpenInEditorButton.svelte";
+  import RowMenu from "@/panels/picker/workspace-rows/RowMenu.svelte";
 
   // One root folder: its path, how many projects it holds and a remove button,
   // over the list of projects detected inside it - each opens in a click.

@@ -2,7 +2,7 @@
   import RelabelDialog from "@/lib/dialogs/RelabelDialog.svelte";
   import RenameFolderDialog from "@/lib/dialogs/RenameFolderDialog.svelte";
   import WorkspaceDeleteDialog from "@/lib/dialogs/WorkspaceDeleteDialog.svelte";
-  import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
+  import type { WorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";
 
   // The workspace lifecycle's prompts, raised from either list's row menu: the
   // delete confirmation, the folder rename and the PADE-only relabel. One of

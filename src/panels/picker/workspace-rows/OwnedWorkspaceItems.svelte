@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { isTemporaryWorkspace } from "@/lib/util/paths";
-  import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
+  import type { WorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";
 
   // A row menu's actions for a PADE-owned workspace: relabel (temp only),
   // rename into a project and move. The delete item is the row menu's own, so

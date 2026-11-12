@@ -14,13 +14,13 @@
   import { createEditorCatalog } from "@/panels/picker/editors/editorCatalog.svelte";
   import EditorsSection from "@/panels/picker/editors/EditorsSection.svelte";
   import HomeSection from "@/panels/picker/home/HomeSection.svelte";
-  import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
+  import { createWorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/on-launch/OnLaunchSection.svelte";
   import "@/panels/picker/project-form.css";
   import { popularRoot, watchedDirectories } from "@/panels/picker/roots/project-roots";
-  import RecentSection from "@/panels/picker/RecentSection.svelte";
+  import RecentSection from "@/panels/picker/workspace-rows/RecentSection.svelte";
   import RootsSection from "@/panels/picker/roots/RootsSection.svelte";
-  import WorkspaceDialogs from "@/panels/picker/WorkspaceDialogs.svelte";
+  import WorkspaceDialogs from "@/panels/picker/workspace-rows/WorkspaceDialogs.svelte";
   import { onDestroy, onMount } from "svelte";
 
   // Shown when the app wasn't launched inside a project. Manage root folders,

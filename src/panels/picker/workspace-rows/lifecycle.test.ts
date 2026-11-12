@@ -1,5 +1,5 @@
-import type { LifecycleHost } from "@/panels/picker/lifecycle.svelte";
-import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
+import type { LifecycleHost } from "@/panels/picker/workspace-rows/lifecycle.svelte";
+import { createWorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";
 import { describe, expect, it, vi } from "vitest";
 
 const PROJECT = "C:\\repositories\\avi\\poll-avi";
