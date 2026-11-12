@@ -35,7 +35,7 @@ import { z } from "zod";
 /** The channel the windows share the round on (they share an origin). */
 export const PACING_CHANNEL = "pade.usage-pacing";
 
-const SubagentReport = z.object({
+export const SubagentReport = z.object({
   /** The agent's own subagent id, as its hooks report its tool calls. */
   id: z.string().min(1),
   description: z.string().nullable(),

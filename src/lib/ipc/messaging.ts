@@ -73,6 +73,8 @@ import type {
   WindowDirection,
   WindowMode
 } from "@/lib/types";
+import { ShadowSummary } from "@/lib/usage/pacing/pacing-report";
+import type { PacingReport } from "@/lib/usage/pacing/pacing-report";
 import { z } from "zod";
 
 /** Every Rust `#[tauri::command]`, valued by its exact registered name. The
@@ -85,6 +87,8 @@ export enum Command {
   agentApplyModel = "agent_apply_model",
   agentSetPacingControl = "agent_set_pacing_control",
   agentPacingStopSeen = "agent_pacing_stop_seen",
+  pacingReport = "pacing_report",
+  pacingShadowSummary = "pacing_shadow_summary",
   claudeKeybindings = "claude_keybindings",
   agentResumeArgs = "agent_resume_args",
   agentConversations = "agent_conversations",
@@ -315,6 +319,12 @@ export interface CommandProtocolMap {
   /** When the session's hook last answered a call while pacing was stopping
    *  it (epoch ms), null when it hasn't since the stop was written. */
   [Command.agentPacingStopSeen]: (data: { conversationId: string }) => number | null;
+  /** This window's pacing scan, for the backend engine to compare its own
+   *  decisions with (shadow phase: it acts on nothing). */
+  [Command.pacingReport]: (data: PacingReport) => void;
+  /** How often the engine's decisions agreed with this app's, per kind, and the
+   *  latest disagreements. */
+  [Command.pacingShadowSummary]: () => ShadowSummary;
   /** The user's Claude Code keybindings as written, null when none. */
   [Command.claudeKeybindings]: () => ClaudeKeybindings | null;
   /** Launch args that reopen the agent's recorded conversation for `cwd`
@@ -779,6 +789,8 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.agentApplyModel]: SwitchOutcome,
   [Command.agentSetPacingControl]: NO_REPLY,
   [Command.agentPacingStopSeen]: z.number().nullable(),
+  [Command.pacingReport]: NO_REPLY,
+  [Command.pacingShadowSummary]: ShadowSummary,
   [Command.claudeKeybindings]: ClaudeKeybindings.nullable(),
   [Command.agentResumeArgs]: z.array(z.string()),
   [Command.agentConversations]: z.array(RecordedConversation),
