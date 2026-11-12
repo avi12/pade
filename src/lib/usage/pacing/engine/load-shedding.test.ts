@@ -6,7 +6,7 @@ import {
   planShedding,
   sessionLoad,
   shedFraction
-} from "@/lib/usage/pacing/load-shedding";
+} from "@/lib/usage/pacing/engine/load-shedding";
 import { describe, expect, it } from "vitest";
 
 const MINUTE_MS = 60_000;

@@ -10,7 +10,7 @@
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
   import type { RecordedConversation } from "@/lib/types/chat-storage";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
-  import { spokenTime } from "@/lib/usage/pacing/pacing-policy";
+  import { spokenTime } from "@/lib/usage/pacing/engine/pacing-policy";
   import { formatAge } from "@/lib/util/format";
   import { isNewWindowClick } from "@/lib/workspace/open-windows";
 

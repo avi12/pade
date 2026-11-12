@@ -2,7 +2,7 @@
 
 import { SubagentStepKind } from "@/lib/types/pacing";
 import type { SubagentStep } from "@/lib/types/pacing";
-import { easedSubagentStep, holdForSaving, nextSubagentStep } from "@/lib/usage/pacing/subagent-steps";
+import { easedSubagentStep, holdForSaving, nextSubagentStep } from "@/lib/usage/pacing/engine/subagent-steps";
 
 export function gate(holdSeconds: number) {
   return {

@@ -1,5 +1,5 @@
 //! What a model's tokens cost relative to the cheapest tier's - the port of
-//! `priceRatio` from `lib/usage/pacing/token-price.ts`. Anthropic's list prices
+//! `priceRatio` from `lib/usage/pacing/engine/token-price.ts`. Anthropic's list prices
 //! (late 2026) per million input tokens, with Haiku priced at its rate above
 //! 100k-token prompts since agent sessions run long contexts.
 

@@ -29,7 +29,7 @@
 import { effortStep } from "@/lib/model/model-label";
 import type { ModelChoice } from "@/lib/types/agent";
 import type { UsageWindow } from "@/lib/types/usage";
-import { priceRatio } from "@/lib/usage/pacing/token-price";
+import { priceRatio } from "@/lib/usage/pacing/engine/token-price";
 
 /** An effort ladder spans these weights, lowest level to highest - more effort
  *  means more thinking tokens on the same model. */

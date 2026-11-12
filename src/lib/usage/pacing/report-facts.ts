@@ -1,7 +1,7 @@
 import { cheaperModelChoice, lowerEffortChoice } from "@/lib/model/model-cost";
 import type { ModelChoice, ModelOption } from "@/lib/types/agent";
 import { PacingStep } from "@/lib/types/pacing";
-import { costWeight } from "@/lib/usage/pacing/load-shedding";
+import { costWeight } from "@/lib/usage/pacing/engine/load-shedding";
 import type { ChoiceFacts, PaceFacts, SessionFacts } from "@/lib/usage/pacing/pacing-report";
 
 /** What a session runs, as its agent reported it. */

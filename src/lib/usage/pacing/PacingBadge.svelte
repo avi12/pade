@@ -6,7 +6,7 @@
 
   import { adaptedChoice } from "@/lib/stores/usage/usageAdapt.svelte";
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
-  import { pacingFactText, pacingResume } from "@/lib/usage/pacing/pacing-policy";
+  import { pacingFactText, pacingResume } from "@/lib/usage/pacing/engine/pacing-policy";
   import PacingDetails from "@/lib/usage/pacing/PacingDetails.svelte";
 
   const { sessionId, isMeasuring = false }: {

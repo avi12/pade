@@ -6,7 +6,7 @@
 // Pure; lib/stores/usage/usagePacing runs them.
 
 import type { InterruptKeys } from "@/lib/agent/interrupt-keys";
-import { MILLISECONDS_PER_MINUTE } from "@/lib/usage/pacing/pacing-policy";
+import { MILLISECONDS_PER_MINUTE } from "@/lib/usage/pacing/engine/pacing-policy";
 
 /** The longest a hook holds one tool call through a rest. Mirrors
  *  `MAXIMUM_REST_HOLD_SECONDS` in `agents/running_model/pacing_control.rs`. */

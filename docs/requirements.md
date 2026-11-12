@@ -249,7 +249,7 @@ writes.
   working agent on track to run out of a usage window well before it resets is
   held back, so the account isn't locked out for hours at the end of the window.
   The two paced windows are each judged by how far ahead of pace they spend
-  (`lib/usage/pacing/usage-pace.ts`). The **session** window is judged without
+  (`lib/usage/pacing/engine/usage-pace.ts`). The **session** window is judged without
   assuming its length - a vendor can shorten it any day - from when it resets
   and how fast it is spent while its agents work (the burn rate, from the
   account readings each minute): runway = what's left / burn rate; it is over
@@ -265,7 +265,7 @@ writes.
   the slowdown goes to the sessions spending the most of it: a Claude session's
   share is **measured** from its own transcripts (the tokens it and its
   subagents spent in the last 20 minutes, priced by list-price ratio,
-  `lib/usage/pacing/token-price.ts`), any other agent's is estimated from its
+  `lib/usage/pacing/engine/token-price.ts`), any other agent's is estimated from its
   model, effort, time spent working and subagents.
   **One decision per account, across every window**: every live session in
   every PADE window counts, the background ones and other projects' alike.
@@ -283,7 +283,7 @@ writes.
   account must shed 30% or more, **no new subagents** start on it (the spawn is
   refused with a reason the parent can act on). As room comes back on every
   session of the account, each hold halves until it lifts
-  (`lib/usage/pacing/subagent-steps.ts`, `account-round.ts`). A session pacing
+  (`lib/usage/pacing/engine/subagent-steps.ts`, `account-round.ts`). A session pacing
   is **stopping** (stop or rest, until it has stopped) has every tool call -
   its own and every subagent's - refused except the ones that stop work, so the
   stop lands mid-turn. A **rest** instead pauses, never kills: for an agent

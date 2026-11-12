@@ -11,8 +11,8 @@ import {
 } from "./fixture-primitives";
 import { windowOf } from "./usage-pace-fixture";
 import { UsageWindowKind } from "@/lib/types/usage";
-import { costWeight, planShedding, shedFraction } from "@/lib/usage/pacing/load-shedding";
-import type { ShedCandidate } from "@/lib/usage/pacing/load-shedding";
+import { costWeight, planShedding, shedFraction } from "@/lib/usage/pacing/engine/load-shedding";
+import type { ShedCandidate } from "@/lib/usage/pacing/engine/load-shedding";
 
 const MODELS = [
   "claude-haiku-5-5",

@@ -2,8 +2,8 @@
 
 import { between, NOW, pick, random } from "./fixture-primitives";
 import { gate, WRAP_UP } from "./subagent-steps-fixture";
-import { planRound } from "@/lib/usage/pacing/account-round";
-import type { SessionReport, SubagentSteps, WindowReport } from "@/lib/usage/pacing/account-round";
+import { planRound } from "@/lib/usage/pacing/engine/account-round";
+import type { SessionReport, SubagentSteps, WindowReport } from "@/lib/usage/pacing/engine/account-round";
 
 const ACCOUNTS = ["avi@example.com", "someone@example.com"];
 

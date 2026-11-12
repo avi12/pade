@@ -14,7 +14,7 @@ import {
 import { PacedWindowKind } from "@/lib/types/pacing";
 import { UsageWindowKind } from "@/lib/types/usage";
 import type { AccountUsage, UsageWindow } from "@/lib/types/usage";
-import { pacingMargin } from "@/lib/usage/pacing/pacing-policy";
+import { pacingMargin } from "@/lib/usage/pacing/engine/pacing-policy";
 import {
   assessPace,
   burnRate,
@@ -26,8 +26,8 @@ import {
   slowRestUntil,
   workingRunway,
   workRhythm
-} from "@/lib/usage/pacing/usage-pace";
-import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/usage-pace";
+} from "@/lib/usage/pacing/engine/usage-pace";
+import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/engine/usage-pace";
 
 export function windowOf({ kind, utilization, resetsIn }: {
   kind: UsageWindow["kind"];

@@ -1,4 +1,4 @@
-//! The usage-pacing formula - the port of `lib/usage/pacing/usage-pace.ts`,
+//! The usage-pacing formula - the port of `lib/usage/pacing/engine/usage-pace.ts`,
 //! pure so every rule is tested on its own and against the TypeScript's own
 //! output (`fixtures/usage_pace.json`).
 //!

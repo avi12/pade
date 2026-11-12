@@ -1,6 +1,6 @@
 //! One account-wide pacing round over every live session in every PADE window,
 //! and every subagent those sessions run - the port of
-//! `lib/usage/pacing/account-round.ts`. The wire types match the zod schemas
+//! `lib/usage/pacing/engine/account-round.ts`. The wire types match the zod schemas
 //! there (camelCase), so a report or plan crosses IPC unchanged.
 //!
 //! An account's burn is one number for all of it, so its slowdown is one

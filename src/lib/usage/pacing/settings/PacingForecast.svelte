@@ -1,7 +1,7 @@
 <script lang="ts">
   import { agentForecast, slowedSessionCount } from "@/lib/stores/usage/usagePacing.svelte";
   import type { PacedWindowKind } from "@/lib/types/pacing";
-  import { pacingPreview } from "@/lib/usage/pacing/pacing-policy";
+  import { pacingPreview } from "@/lib/usage/pacing/engine/pacing-policy";
   import { formatPercent } from "@/lib/util/format";
 
   // One limit's live line for the active agent: how much is spent and when it

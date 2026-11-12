@@ -1,5 +1,5 @@
 // The account-wide pacing round between PADE's windows (the rules are
-// lib/usage/pacing/account-round). Every window's pacing loop submits a report
+// lib/usage/pacing/engine/account-round). Every window's pacing loop submits a report
 // of its working sessions each scan; it reaches the other windows on one
 // BroadcastChannel. The leader - the first label among the windows reporting -
 // plans the round over all of them, writes every session's throttle (its
@@ -27,8 +27,8 @@ import {
   reportLifetime,
   roundLeader,
   SubagentSteps
-} from "@/lib/usage/pacing/account-round";
-import type { PacingMessage, RoundPlan, WindowReport } from "@/lib/usage/pacing/account-round";
+} from "@/lib/usage/pacing/engine/account-round";
+import type { PacingMessage, RoundPlan, WindowReport } from "@/lib/usage/pacing/engine/account-round";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 
 const SUBAGENT_STEPS_STORAGE_KEY = "pade.usage-pacing-subagents";

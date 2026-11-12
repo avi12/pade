@@ -1,5 +1,5 @@
 // The steps usage pacing takes on one running subagent - pure, so each rule is
-// tested on its own (lib/usage/pacing/account-round ranks them against the
+// tested on its own (lib/usage/pacing/engine/account-round ranks them against the
 // sessions' steps). A subagent works inside its parent's turn, so the parent's
 // between-turn steps never reach it; the agent's own hook does, before every
 // tool call the subagent makes (agents/running_model/pacing_control). Its

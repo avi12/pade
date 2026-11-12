@@ -8,7 +8,7 @@ import {
   MINIMUM_HOLD_SECONDS,
   nextSubagentStep,
   NO_SPAWN_SHED
-} from "@/lib/usage/pacing/subagent-steps";
+} from "@/lib/usage/pacing/engine/subagent-steps";
 import { describe, expect, it } from "vitest";
 
 const WRAP_UP = {

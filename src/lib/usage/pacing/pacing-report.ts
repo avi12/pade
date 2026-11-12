@@ -3,7 +3,7 @@
 // The wire shapes are the contract with src-tauri/src/pacing/facts.rs.
 
 import { PacedWindowKind } from "@/lib/types/pacing";
-import { SubagentReport } from "@/lib/usage/pacing/account-round";
+import { SubagentReport } from "@/lib/usage/pacing/engine/account-round";
 import { z } from "zod";
 
 /** Where a paced session is: asked to stop and still finishing its step,

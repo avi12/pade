@@ -15,7 +15,7 @@ import type { CommandProtocolMap } from "@/lib/ipc/messaging";
 import type { AgentSession } from "@/lib/types/agent";
 import { PacingControlPartKind } from "@/lib/types/pacing";
 import type { PacingRestUntil, PacingThrottle } from "@/lib/types/pacing";
-import type { ThrottledSession } from "@/lib/usage/pacing/account-round";
+import type { ThrottledSession } from "@/lib/usage/pacing/engine/account-round";
 
 /** One part of a session's control, as the backend takes it. */
 type ControlPart = Parameters<CommandProtocolMap[typeof Command.agentSetPacingControl]>[0]["part"];

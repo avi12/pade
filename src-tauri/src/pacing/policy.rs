@@ -1,5 +1,5 @@
 //! Usage pacing's numeric policy - the port of the pure margins in
-//! `lib/usage/pacing/pacing-policy.ts` (its text helpers stay with the UI).
+//! `lib/usage/pacing/engine/pacing-policy.ts` (its text helpers stay with the UI).
 //!
 //! The goal: get as much done as possible without either usage limit running out
 //! before it resets. While an account is on track to run out early, pacing slows

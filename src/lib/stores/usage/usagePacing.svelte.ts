@@ -1,8 +1,8 @@
 // Usage pacing: an agent on track to run out of its usage window well before the
 // window resets is held back, so the account doesn't sit locked out for hours at
 // the end of it. The formula - how far ahead of pace each window spends, the
-// session by its burn, the week against an even spend - is lib/usage/pacing/usage-pace;
-// the one switch and the built-in way of pacing are lib/usage/pacing/pacing-policy.
+// session by its burn, the week against an even spend - is lib/usage/pacing/engine/usage-pace;
+// the one switch and the built-in way of pacing are lib/usage/pacing/engine/pacing-policy.
 // This module measures each account's burn rate from its readings while its
 // agents work, and climbs the steps one at a time while an agent stays too
 // fast, each agent against its own account:
@@ -79,18 +79,18 @@ import { SessionStatus } from "@/lib/types/agent";
 import type { AgentSession } from "@/lib/types/agent";
 import { PacedWindowKind, PacingStep } from "@/lib/types/pacing";
 import type { AccountUsage, UsageWindow } from "@/lib/types/usage";
-import { isThrottling } from "@/lib/usage/pacing/account-round";
-import type { RoundPlan, SessionReport } from "@/lib/usage/pacing/account-round";
+import { isThrottling } from "@/lib/usage/pacing/engine/account-round";
+import type { RoundPlan, SessionReport } from "@/lib/usage/pacing/engine/account-round";
 import {
   costWeight,
   lightestToRestore,
   measuredPerEstimated,
   sessionLoad,
   shedFraction
-} from "@/lib/usage/pacing/load-shedding";
+} from "@/lib/usage/pacing/engine/load-shedding";
 import { measuredBurn } from "@/lib/usage/pacing/measured-burn";
 import type { MeasuredBurn } from "@/lib/usage/pacing/measured-burn";
-import { MILLISECONDS_PER_MINUTE, PACING_STEP_ORDER, pacingMargin, spokenTime } from "@/lib/usage/pacing/pacing-policy";
+import { MILLISECONDS_PER_MINUTE, PACING_STEP_ORDER, pacingMargin, spokenTime } from "@/lib/usage/pacing/engine/pacing-policy";
 import { ObservedKind, PacePhase } from "@/lib/usage/pacing/pacing-report";
 import { paceFactsOf } from "@/lib/usage/pacing/report-facts";
 import type { OwnedFacts } from "@/lib/usage/pacing/report-facts";
@@ -109,8 +109,8 @@ import {
   windowName,
   workingRunway,
   workRhythm
-} from "@/lib/usage/pacing/usage-pace";
-import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/usage-pace";
+} from "@/lib/usage/pacing/engine/usage-pace";
+import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/engine/usage-pace";
 import { afterDelay } from "@/lib/util/async/delay";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { formatPercent } from "@/lib/util/format";

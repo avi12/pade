@@ -1,5 +1,5 @@
 //! How usage pacing shares one account's slowdown among the sessions spending it
-//! - the port of `lib/usage/pacing/load-shedding.ts`.
+//! - the port of `lib/usage/pacing/engine/load-shedding.ts`.
 //!
 //! An account's burn rate is one number for everything on it: every session, and
 //! every subagent those sessions run. So when it runs over pace, the question is

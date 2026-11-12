@@ -14,7 +14,7 @@
 //     step and what it saves, and the steps go to the biggest share of the
 //     account saved first until they cover what the account must shed
 //     (`planShedding`). A session's step goes back to its own window to take;
-//     a subagent's step (lib/usage/pacing/subagent-steps) is applied by the
+//     a subagent's step (lib/usage/pacing/engine/subagent-steps) is applied by the
 //     leader straight to the session's pacing control file, which the agent's
 //     hook reads on every tool call - whichever window the session lives in;
 //   * while the account sheds past NO_SPAWN_SHED, no session on it may start
@@ -27,9 +27,9 @@
 // again, so a report older than the step never steps it twice.
 
 import { SubagentStep } from "@/lib/types/pacing";
-import { lightestToRestore, planShedding } from "@/lib/usage/pacing/load-shedding";
-import type { ShedCandidate } from "@/lib/usage/pacing/load-shedding";
-import { easedSubagentStep, isBlockingSpawns, nextSubagentStep } from "@/lib/usage/pacing/subagent-steps";
+import { lightestToRestore, planShedding } from "@/lib/usage/pacing/engine/load-shedding";
+import type { ShedCandidate } from "@/lib/usage/pacing/engine/load-shedding";
+import { easedSubagentStep, isBlockingSpawns, nextSubagentStep } from "@/lib/usage/pacing/engine/subagent-steps";
 import { z } from "zod";
 
 /** The channel the windows share the round on (they share an origin). */

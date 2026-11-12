@@ -5,8 +5,8 @@
 
   import { adaptedChoice } from "@/lib/stores/usage/usageAdapt.svelte";
   import type { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
-  import { PACING_STEP_TEXT, pacingFacts, pacingWhen, spokenTime } from "@/lib/usage/pacing/pacing-policy";
-  import type { pacingResume } from "@/lib/usage/pacing/pacing-policy";
+  import { PACING_STEP_TEXT, pacingFacts, pacingWhen, spokenTime } from "@/lib/usage/pacing/engine/pacing-policy";
+  import type { pacingResume } from "@/lib/usage/pacing/engine/pacing-policy";
   import PacingActions from "@/lib/usage/pacing/PacingActions.svelte";
 
   const { sessionId, status, resume }: {

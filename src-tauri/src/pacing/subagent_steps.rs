@@ -1,5 +1,5 @@
 //! The steps usage pacing takes on one running subagent - the port of
-//! `lib/usage/pacing/subagent-steps.ts`. A subagent works inside its parent's
+//! `lib/usage/pacing/engine/subagent-steps.ts`. A subagent works inside its parent's
 //! turn, so the parent's between-turn steps never reach it; the agent's own hook
 //! does, before every tool call the subagent makes. Its steps, cheapest first:
 //!

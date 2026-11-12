@@ -13,8 +13,8 @@ import { PacedWindowKind, PacingStep } from "@/lib/types/pacing";
 import type { Prefs } from "@/lib/types/settings";
 import type { UsageWindowKind } from "@/lib/types/usage";
 import { resetCountdown } from "@/lib/usage/groups/reset-time";
-import { isForecastOverPace, windowName } from "@/lib/usage/pacing/usage-pace";
-import type { PaceForecast } from "@/lib/usage/pacing/usage-pace";
+import { isForecastOverPace, windowName } from "@/lib/usage/pacing/engine/usage-pace";
+import type { PaceForecast } from "@/lib/usage/pacing/engine/usage-pace";
 import { formatCount, formatPercent } from "@/lib/util/format";
 
 /** Every step, in the order pacing climbs them. */
@@ -39,7 +39,7 @@ const MINUTES_PER_HOUR = 60;
 /** How far ahead of pace a window may run before pacing acts: a little slack,
  *  so a short burst doesn't slow anything, sized to the window - minutes for
  *  the 5-hour window, hours for the week. Near the reset it shrinks to a share
- *  of the time left (lib/usage/pacing/usage-pace). */
+ *  of the time left (lib/usage/pacing/engine/usage-pace). */
 const EARLY_MINUTES: Record<PacedWindowKind, number> = {
   [PacedWindowKind.enum.session]: 30,
   [PacedWindowKind.enum.weekly]: 6 * MINUTES_PER_HOUR

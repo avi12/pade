@@ -4,16 +4,16 @@
   import { fetchAccountReading, latestAccount } from "@/lib/stores/usage/accountReadings.svelte";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import PacedSubagents from "@/lib/usage/pacing/PacedSubagents.svelte";
-  import { isPacingOn } from "@/lib/usage/pacing/pacing-policy";
+  import { isPacingOn } from "@/lib/usage/pacing/engine/pacing-policy";
   import PacingForecast from "@/lib/usage/pacing/settings/PacingForecast.svelte";
   import UnstoppedSubagents from "@/lib/usage/pacing/UnstoppedSubagents.svelte";
-  import { reportedPacedKinds } from "@/lib/usage/pacing/usage-pace";
+  import { reportedPacedKinds } from "@/lib/usage/pacing/engine/usage-pace";
   import { settledValue } from "@/lib/util/async/settled";
   import { untrack } from "svelte";
 
   // Usage pacing in the usage panel: one switch, and a live line per limit the
   // agent's plan has - how much is spent, when it runs out at this pace, and
-  // what pacing is doing about it (lib/usage/pacing/pacing-policy).
+  // what pacing is doing about it (lib/usage/pacing/engine/pacing-policy).
   const { agent }: {
     /** The active agent, whose account the live lines read. */
     agent: string;

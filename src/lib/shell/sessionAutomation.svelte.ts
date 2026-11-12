@@ -20,7 +20,7 @@ import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { createUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
 import { createUsageResume } from "@/lib/stores/usage/usageResume.svelte";
 import type { Agent, AgentSession } from "@/lib/types/agent";
-import { isPacingOn } from "@/lib/usage/pacing/pacing-policy";
+import { isPacingOn } from "@/lib/usage/pacing/engine/pacing-policy";
 import { onDestroy, onMount } from "svelte";
 
 export function createSessionAutomation({ windowSessions, availableAgents, projectLabel }: {

@@ -14,8 +14,8 @@ import {
   WEEKLY_WINDOW_MS,
   workingRunway,
   workRhythm
-} from "@/lib/usage/pacing/usage-pace";
-import type { UsageSample } from "@/lib/usage/pacing/usage-pace";
+} from "@/lib/usage/pacing/engine/usage-pace";
+import type { UsageSample } from "@/lib/usage/pacing/engine/usage-pace";
 import { describe, expect, it } from "vitest";
 
 const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();

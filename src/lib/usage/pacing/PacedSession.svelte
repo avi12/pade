@@ -5,7 +5,7 @@
   import { SubagentStepKind } from "@/lib/types/pacing";
   import type { SubagentStep } from "@/lib/types/pacing";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
-  import type { ThrottledSession } from "@/lib/usage/pacing/account-round";
+  import type { ThrottledSession } from "@/lib/usage/pacing/engine/account-round";
 
   const { session }: {
     session: ThrottledSession;

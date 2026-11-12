@@ -10,8 +10,8 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { AgentSession, SessionTokenUsage } from "@/lib/types/agent";
-import { MILLISECONDS_PER_MINUTE } from "@/lib/usage/pacing/pacing-policy";
-import { weightedTokens } from "@/lib/usage/pacing/token-price";
+import { MILLISECONDS_PER_MINUTE } from "@/lib/usage/pacing/engine/pacing-policy";
+import { weightedTokens } from "@/lib/usage/pacing/engine/token-price";
 
 /** How far back a session's burn is measured: a few turns and the subagents
  *  they ran, yet short enough to follow a model or effort switch soon after. */

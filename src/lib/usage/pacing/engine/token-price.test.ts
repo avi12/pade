@@ -1,5 +1,5 @@
 import type { ModelTokenUsage } from "@/lib/types/agent";
-import { priceRatio, weightedTokens } from "@/lib/usage/pacing/token-price";
+import { priceRatio, weightedTokens } from "@/lib/usage/pacing/engine/token-price";
 import { describe, expect, it } from "vitest";
 
 function usage(counts: Partial<ModelTokenUsage> & Pick<ModelTokenUsage, "model">) {

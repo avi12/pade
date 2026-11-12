@@ -8,9 +8,9 @@ import {
   planRound,
   roundLeader,
   subagentKey
-} from "@/lib/usage/pacing/account-round";
-import type { SessionReport, SubagentSteps, WindowReport } from "@/lib/usage/pacing/account-round";
-import { holdForSaving, MAXIMUM_HOLD_SECONDS, NO_SPAWN_SHED } from "@/lib/usage/pacing/subagent-steps";
+} from "@/lib/usage/pacing/engine/account-round";
+import type { SessionReport, SubagentSteps, WindowReport } from "@/lib/usage/pacing/engine/account-round";
+import { holdForSaving, MAXIMUM_HOLD_SECONDS, NO_SPAWN_SHED } from "@/lib/usage/pacing/engine/subagent-steps";
 import { describe, expect, it } from "vitest";
 
 const NOW = Date.UTC(2026, 10, 7, 12);
