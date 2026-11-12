@@ -11,7 +11,7 @@
   import { isNaming, toggleNaming } from "@/lib/stores/session/sessionNaming.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { AgentSession } from "@/lib/types/agent";
-  import PacingBadge from "@/lib/usage/pacing/PacingBadge.svelte";
+  import PacingBadge from "@/lib/usage/pacing/badge/PacingBadge.svelte";
 
   const {
     session,

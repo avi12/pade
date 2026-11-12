@@ -6,7 +6,7 @@
 
   import { throttledSessions } from "@/lib/stores/usage/pacingControl.svelte";
   import { isThrottling } from "@/lib/usage/pacing/engine/account-round";
-  import PacedSession from "@/lib/usage/pacing/PacedSession.svelte";
+  import PacedSession from "@/lib/usage/pacing/badge/PacedSession.svelte";
 
   const sessions = $derived(throttledSessions().filter(session => isThrottling(session)));
 </script>
