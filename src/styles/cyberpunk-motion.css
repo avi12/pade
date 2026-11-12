@@ -1,0 +1,183 @@
+/* ── Cyberpunk glitch motion ──────────────────────────────────────────────────
+   The palette's one motion vocabulary: slices (clip-path), a red/cyan colour
+   split (drop- and text-shadows in --cyber-glitch-1 / --cyber-glitch-2) and a
+   jitter (`translate`), in hard steps. It plays only on an entrance or a hover,
+   never on data that is merely updating, and only while motion is welcome -
+   the reduced-motion reset above also stops it. Each component applies the
+   shorthand it needs in its own style block, under the palette. Slicing only
+   ever masks a live element - unlike a View Transition it snapshots nothing,
+   so a terminal it crosses keeps painting through it. */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-palette="cyberpunk"] {
+    --cyber-tear-animation: cyber-tear 380ms steps(1, end);
+    --cyber-glitch-in-animation: cyber-glitch-in 300ms steps(1, end);
+    --cyber-glitch-soft-animation: cyber-glitch-soft 200ms var(--ease);
+    --cyber-jitter-animation: cyber-jitter 260ms steps(1, end);
+    --cyber-glitch-out-animation: cyber-glitch-out 200ms steps(4, end) forwards;
+  }
+}
+
+/* A panel closing: it splits, slices away from the bottom up and fades. The
+   one exit in the vocabulary, so it alone ends hidden (`forwards`). */
+@keyframes cyber-glitch-out {
+  0% {
+    opacity: 100%;
+    filter: none;
+    translate: 0 0;
+  }
+
+  25% {
+    clip-path: inset(0 0 30% 0);
+    filter: drop-shadow(2px 0 var(--cyber-glitch-1)) drop-shadow(-2px 0 var(--cyber-glitch-2));
+    translate: 3px 0;
+  }
+
+  50% {
+    clip-path: inset(40% 0 20% 0);
+    opacity: 80%;
+    translate: -4px 0;
+  }
+
+  75% {
+    clip-path: inset(0 0 85% 0);
+    opacity: 50%;
+    translate: 2px 0;
+  }
+
+  100% {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0%;
+  }
+}
+
+/* The whole window tearing in once, as the palette is switched on. */
+@keyframes cyber-tear {
+  0% {
+    clip-path: inset(0 0 70% 0);
+    filter: drop-shadow(3px 0 var(--cyber-glitch-1)) drop-shadow(-3px 0 var(--cyber-glitch-2));
+    translate: -6px 0;
+  }
+
+  18% {
+    clip-path: inset(45% 0 30% 0);
+    translate: 6px 0;
+  }
+
+  36% {
+    clip-path: inset(80% 0 0 0);
+    translate: -3px 0;
+  }
+
+  54% {
+    clip-path: inset(10% 0 55% 0);
+    filter: drop-shadow(-2px 0 var(--cyber-glitch-1)) drop-shadow(2px 0 var(--cyber-glitch-2));
+    translate: 4px 0;
+  }
+
+  72% {
+    clip-path: inset(0 0 0 0);
+    filter: none;
+    translate: 0 0;
+  }
+}
+
+/* A box arriving (a dialog, a toast, the rail, a pane, the side panel): sliced
+   in from nothing, split, then settled. It settles on `clip-path: none`, not a
+   full inset: an inset still clips to the border box, cutting off what the box
+   draws past it (a shadow, a focus ring), which then
+   snapped back the instant the animation ended. */
+@keyframes cyber-glitch-in {
+  0% {
+    clip-path: inset(0 0 88% 0);
+    opacity: 0%;
+    translate: -5px 0;
+  }
+
+  15% {
+    clip-path: inset(35% 0 40% 0);
+    opacity: 100%;
+    filter: drop-shadow(2px 0 var(--cyber-glitch-1)) drop-shadow(-2px 0 var(--cyber-glitch-2));
+    translate: 5px 0;
+  }
+
+  30% {
+    clip-path: inset(70% 0 8% 0);
+    translate: -3px 0;
+  }
+
+  45% {
+    clip-path: inset(12% 0 62% 0);
+    translate: 2px 0;
+  }
+
+  60% {
+    clip-path: none;
+    filter: drop-shadow(1px 0 var(--cyber-glitch-1)) drop-shadow(-1px 0 var(--cyber-glitch-2));
+    translate: 0 0;
+  }
+
+  75% {
+    filter: none;
+  }
+}
+
+/* A menu or popover opening: the colour split alone, no slicing - a tall list
+   cut into bands reads as jank, not as a glitch. */
+@keyframes cyber-glitch-soft {
+  0% {
+    opacity: 0%;
+    filter: drop-shadow(2px 0 var(--cyber-glitch-1)) drop-shadow(-2px 0 var(--cyber-glitch-2));
+    translate: -3px -4px;
+  }
+
+  40% {
+    opacity: 100%;
+    translate: 1px 0;
+  }
+
+  70% {
+    filter: drop-shadow(1px 0 var(--cyber-glitch-1)) drop-shadow(-1px 0 var(--cyber-glitch-2));
+    translate: 0 0;
+  }
+
+  100% {
+    opacity: 100%;
+    filter: none;
+    translate: 0 0;
+  }
+}
+
+/* The short chromatic jitter on whatever the pointer lands on. */
+@keyframes cyber-jitter {
+  0% {
+    text-shadow: 2px 0 var(--cyber-glitch-1), -2px 0 var(--cyber-glitch-2);
+    translate: 1px 0;
+  }
+
+  25% {
+    text-shadow: -2px 0 var(--cyber-glitch-1), 2px 0 var(--cyber-glitch-2);
+    translate: -1px 0;
+  }
+
+  50% {
+    text-shadow: 1px 0 var(--cyber-glitch-1), -1px 0 var(--cyber-glitch-2);
+    translate: 0 1px;
+  }
+
+  75% {
+    text-shadow: none;
+    translate: 0 0;
+  }
+}
+
+/* Every light-dismiss menu and popover opening flickers in with the soft
+   split. A manual popover is left out: those are the tooltip layer and the
+   suggestion lists that come and go as you type, where it would fire on data
+   merely updating. `:where` keeps the palette's weight out of it, so a
+   popover that is no menu - ConfirmDialog's full-window scrim, whose card
+   glitches in on its own - keeps its own entrance. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(:root[data-palette="cyberpunk"]) [popover]:not([popover="manual"]):popover-open {
+    animation: var(--cyber-glitch-soft-animation);
+  }
+}
