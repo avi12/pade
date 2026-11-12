@@ -324,12 +324,15 @@ writes.
   level at a time, to the bottom of its ladder), **cheaper model**
   (`lib/model/model-cost.ts`, via the same switch a tab's model pick uses),
   **rests between work** (sized so work and rest average out to a lasting pace
-  - rest = stretch × (time left / runway − 1), at least 5 minutes, where the
-  runway is how long what is left lasts at the measured working burn, for the
-  weekly window too, not the round-the-clock even spend - while that
-  needs no more rest than work; after a rest it works at least 5 minutes before
-  the next, so a "continue" is never cut off at once), and **stop until there's room**, after which
-  the agent continues on its own. Only as many sessions step as the account
+  - rest = stretch × (time left / runway − 1), at least 5 minutes and at most
+  3 hours, where the runway is how long what is left lasts at the measured
+  working burn, for the weekly window too, not the round-the-clock even spend
+  - while that needs no more rest than work; after a rest it works at least 5
+  minutes before the next, so a "continue" is never cut off at once), and
+  **stop until there's room**, after which the agent continues on its own. The
+  5-hour window stops when a rest would outlast the work; the weekly window
+  never stops, because a stop until it is back on an even spend can last half
+  a day - it keeps resting in bursts instead. Only as many sessions step as the account
   needs, biggest saving first. A pause types nothing: running work is
   interrupted (Esc, and stop-all while subagents run) and the PreToolUse hook
   refuses every further tool call, and "continue" is typed only into work

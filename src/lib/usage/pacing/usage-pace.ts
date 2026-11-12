@@ -51,6 +51,10 @@ export const RATE_HISTORY_MS = 45 * 60_000;
 /** The shortest rest a slowed session takes - a rest of seconds is all
  *  interruption and no saving. */
 const MINIMUM_REST_MS = 5 * 60_000;
+/** The longest a slowed session rests at once - past this the agent is out of
+ *  touch for so long that a stop would hardly differ, and the work it left
+ *  behind goes stale. */
+const MAXIMUM_REST_MS = 3 * 60 * 60_000;
 /** The shortest stretch a slowed session works between two rests - as long as
  *  the shortest rest, so a rest never follows the last one at once. */
 export const MINIMUM_WORK_STRETCH_MS = MINIMUM_REST_MS;
@@ -471,7 +475,9 @@ export function hasRoomToSpare({ account, now, marginOf, rateOf }: {
  *     rest = stretch × (time left / runway - 1)
  *
  *  with time left and runway both measured to the grace period. Never shorter
- *  than MINIMUM_REST_MS, and never past the moment a full stop would end. */
+ *  than MINIMUM_REST_MS, never longer than MAXIMUM_REST_MS - a long turn would
+ *  otherwise earn a rest of half a day - and never past the moment a full stop
+ *  would end. */
 export function slowRestUntil({ runway, readyAt, continueAt, stretch, now }: {
   /** `workingRunway`. */
   runway: number;
@@ -483,7 +489,7 @@ export function slowRestUntil({ runway, readyAt, continueAt, stretch, now }: {
 }) {
   const timeLeft = continueAt - now;
   const rest = runway > 0 ? stretch * (timeLeft / runway - 1) : timeLeft;
-  return Math.min(readyAt, now + Math.max(MINIMUM_REST_MS, rest));
+  return Math.min(readyAt, now + Math.min(MAXIMUM_REST_MS, Math.max(MINIMUM_REST_MS, rest)));
 }
 
 /** What picks a paused agent back up - pacing's own resume and the user's

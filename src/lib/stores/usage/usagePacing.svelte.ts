@@ -123,16 +123,20 @@ const MODEL_STEPS: ReadonlySet<PacingStep> = new Set([PacingStep.enum.effort, Pa
 type PaceBinding = NonNullable<ReturnType<typeof assessPace>>;
 
 /** Whether a rest is the step to take: the rest step, while resting needs no
- *  more rest than work - past that, a stop takes over. */
+ *  more rest than work - past that, a stop takes over. A weekly window never
+ *  stops: a stop until it is back on an even spend can last half a day, so it
+ *  rests in bursts instead, each rest capped (`slowRestUntil`). */
 function shouldRest({ step, binding }: {
   step: PacingStep;
   binding: PaceBinding;
 }) {
-  return step === PacingStep.enum.rest && isRestEnough({
+  const isWeeklyWindow = binding.kind === PacedWindowKind.enum.weekly;
+  const isRestStillEnough = isRestEnough({
     runway: workingRunway(binding),
     continueAt: binding.continueAt,
     now: Date.now()
   });
+  return step === PacingStep.enum.rest && (isWeeklyWindow || isRestStillEnough);
 }
 
 /** How a session's history names an effort or model step. */
