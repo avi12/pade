@@ -1,4 +1,5 @@
 mod agents;
+pub mod pacing;
 mod platform;
 mod terminal;
 #[cfg(test)]
