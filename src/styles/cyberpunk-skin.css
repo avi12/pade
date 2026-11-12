@@ -1,0 +1,162 @@
+/* Cyberpunk's shape language is FLAT - the design file's cyber skin. Every
+   corner is the same small 2px radius, on controls and containers alike, and
+   no control wears a frame, plate, bevel or shadow of its own. Structure comes
+   from fills (a selected tab is a cyan-tinted slab), coloured bars (a feed
+   card's left bar, the current project's red bar) and the red frame rules the
+   chrome draws along its own edges (the top bar's foot, the rail's seam, a
+   pane's head) - each of those drawn by its component.
+
+   What the skin does draw globally is in this block and the few rules after
+   it: a menu's red frame and cut corners, the tooltip readout, the focus ring,
+   the selection, the checked box and the section-label writing.
+
+   The scale collapses onto that one corner. The token names stay because every
+   card, button, menu and field in the app already resolves its corner through
+   them, and `--radius-full` collapses with the rest: the design squares every
+   pill, so a chip, a badge or a segmented control is a 2px rectangle here.
+
+   Both faces share all of it - shape is not light or dark. */
+:root[data-palette="cyberpunk"] {
+  /* The one corner that is not 2px: a menu's cut, on its top-right and
+     bottom-left corners (`.popover-menu`, below). */
+  --chamfer-container: 12px;
+
+  /* Red frames, on both faces: the chrome's lit edges are the skin's frame
+     colour. */
+  --hairline: var(--cyber-frame);
+
+  /* A tooltip is an instrument readout: a square plate in the mono face,
+     framed in the accent red (each face sets its plate and ink). */
+  --tooltip-border-color: var(--cyber-accent);
+  --tooltip-radius: 0;
+  --tooltip-letter-spacing: 0.03em;
+  --radius-small: 2px;
+  --radius-medium: 2px;
+  --radius-large: 2px;
+  --radius-extra-large: 2px;
+  --radius-full: 2px;
+
+  /* Motion snaps rather than eases. The skin's own curve and its short end of
+     the duration scale: a HUD acknowledges an input, it does not glide. */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Chakra Petch leads the UI stack - the face the console's skin is set in.
+     Rajdhani stays behind it (the game's own face, still vendored) and then
+     Figtree, so anything Chakra Petch's latin subset doesn't carry still
+     renders in one of the app's own faces rather than a system fallback.
+
+     Oxanium Digits sits in front of them all and covers nothing but 0–9, so
+     every number is fixed-width while every letter stays Chakra Petch (see its
+     @font-face). It is the palette's `--font-digits` too, so a UI font the
+     user picks keeps these figures. */
+  --font-digits: "Oxanium Digits";
+  --font-ui-base: var(--font-digits), "Chakra Petch", "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
+
+  /* A field is the design's plain box: one pixel of the ordinary line colour
+     on the rail's fill, lit in the focus colour (cyan at night, ink by day)
+     while you type in it. The shared field look supplies the rest. */
+  :is(.text-field, .text-field-plate) {
+    background-color: var(--surface-1);
+  }
+
+  :is(.text-field:focus-visible, .text-field-plate:focus-within) {
+    border-color: var(--cyber-focus);
+  }
+
+  * {
+    /* Per element, so it reads the mono face the user's font pick binds. */
+    --tooltip-font: var(--font-monospace);
+
+    scrollbar-color: var(--outline) transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--outline);
+  }
+
+  /* A checked box is a red fill, ticked in the tab foreground - red carries
+     the fill, never the mark on it. */
+  .checkbox {
+    .box path {
+      stroke: var(--cyber-tab-foreground);
+    }
+
+    input:checked + .box {
+      border-color: var(--cyber-accent);
+      background: var(--cyber-accent);
+    }
+
+    input:focus-visible + .box {
+      outline-color: var(--cyber-focus);
+      outline-offset: 3px;
+    }
+
+    input:not(:checked):hover + .box {
+      border-color: var(--cyber-accent);
+    }
+  }
+
+  /* ── The menus ──────────────────────────────────────────────────────────────
+     A popover menu is the one box the skin frames: a one-pixel red frame (ink
+     by day), with the 12px cut on the top-right and bottom-left corners - the
+     two-value radius below, which `corner-shape: bevel` turns into the cut, so
+     the frame follows the bevel instead of being clipped off it. It casts no
+     shadow on either face; the frame alone lifts it off the page. Its rows are
+     flat like every other control: no frame at rest or under the cursor, only
+     the shell's fill. */
+  :is(.popover-menu, .typeahead) {
+    --popover-menu-border-color: var(--cyber-frame);
+
+    border-radius: 0 var(--chamfer-container);
+    corner-shape: bevel;
+
+    /* A menu draws its border from the tokens in the shell, so one that
+       moves its frame onto a layer of its own can still hide the box's. */
+    &.typeahead {
+      border: var(--popover-menu-border-width, 1px) solid var(--popover-menu-border-color);
+    }
+
+    /* A row's focus ring is its own border (the shell's), in the focus
+       colour rather than the value colour, which is red by day. */
+    .menu-item:focus-visible {
+      border-color: var(--cyber-focus);
+    }
+
+    /* Menu rows switch, they do not ease. Every other palette cross-fades a
+       row's colour and fill over 120ms, which reads as soft on this skin,
+       where states snap. */
+    :is(button, a, [role="menuitem"]) {
+      transition: none;
+    }
+  }
+
+  /* A section label is the instrument's own writing, the design's on every
+     section label in the app: amber mono, tracked wider, led by a red `// ` -
+     amber labels, with the red spent on a mark rather than on the words. No
+     rule runs under it. The mark keeps its space inside a flex label. */
+  :is(.menu-separator, .section-label) {
+    color: var(--cyber-label);
+    font-family: var(--font-monospace);
+    letter-spacing: 0.12em;
+
+    &::before {
+      content: "// ";
+      color: var(--cyber-accent);
+      white-space: pre;
+    }
+  }
+}
+
+/* Focus and selection, at the base rules' own weight (`:where()` drops the
+   palette's), so they replace the base look without outranking a component
+   that draws its own focus state (a menu row's border). Focus is the skin's
+   focus colour - cyan at night, ink by day - held 3px off the box; a
+   selection is the brand yellow, the one place the chrome spends it. */
+:where(:root[data-palette="cyberpunk"]) :focus-visible {
+  outline-color: var(--cyber-focus);
+  outline-offset: 3px;
+}
+
+:where(:root[data-palette="cyberpunk"]) ::selection {
+  background: color-mix(in sRGB, var(--cyber-yellow) 45%, transparent);
+}
