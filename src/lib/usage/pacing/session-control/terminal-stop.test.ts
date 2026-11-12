@@ -6,7 +6,7 @@ import {
   stillWritingSubagents,
   StopVerdict,
   stopVerdict
-} from "@/lib/usage/pacing/terminal-stop";
+} from "@/lib/usage/pacing/session-control/terminal-stop";
 import { describe, expect, it } from "vitest";
 
 const ESCAPE_PRESS = {

@@ -1,4 +1,4 @@
-import { canHoldRest, heldRestUntil, isHoldFallbackDue, MAXIMUM_REST_HOLD_MS } from "@/lib/usage/pacing/rest-hold";
+import { canHoldRest, heldRestUntil, isHoldFallbackDue, MAXIMUM_REST_HOLD_MS } from "@/lib/usage/pacing/session-control/rest-hold";
 import { describe, expect, it } from "vitest";
 
 const HOLDING_KEYS = { canHoldToolCalls: true };

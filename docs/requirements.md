@@ -291,7 +291,7 @@ writes.
   **holds** every tool call - the session's and each subagent's - until the rest
   ends or is lifted, then lets it run as asked. No key is pressed, no subagent
   is killed, and no "continue" is typed afterwards
-  (`lib/usage/pacing/rest-hold.ts`). A session whose hook predates the hold
+  (`lib/usage/pacing/session-control/rest-hold.ts`). A session whose hook predates the hold
   (it noted no held call 10 seconds after the rest began, and the session still
   works) falls back to the stop below. All of it reaches the agent through one pacing control
   file per session, read by the agent's `PreToolUse` hook on every tool call

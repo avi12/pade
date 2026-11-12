@@ -6,15 +6,15 @@
 // subagents running), then the interrupt. It then checks the subagents'
 // transcripts: one still writing gets one more press, and is then listed in
 // the usage panel for the user to stop by hand, never pressed in a loop.
-// The decisions are lib/usage/pacing/terminal-stop; this runs them.
+// The decisions are lib/usage/pacing/session-control/terminal-stop; this runs them.
 
 import { interruptKeys } from "@/lib/agent/interrupt-keys";
 import type { InterruptKeys, KeyPress } from "@/lib/agent/interrupt-keys";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import type { AgentSession } from "@/lib/types/agent";
-import { RUNNING_SUBAGENT_MS, subagentsWrittenSince } from "@/lib/usage/pacing/measured-burn";
-import { isHoldFallbackDue } from "@/lib/usage/pacing/rest-hold";
+import { RUNNING_SUBAGENT_MS, subagentsWrittenSince } from "@/lib/usage/pacing/session-control/measured-burn";
+import { isHoldFallbackDue } from "@/lib/usage/pacing/session-control/rest-hold";
 import {
   interruptPresses,
   isHookTakingStop,
@@ -22,7 +22,7 @@ import {
   stillWritingSubagents,
   StopVerdict,
   stopVerdict
-} from "@/lib/usage/pacing/terminal-stop";
+} from "@/lib/usage/pacing/session-control/terminal-stop";
 import { afterDelay } from "@/lib/util/async/delay";
 import { SvelteMap } from "svelte/reactivity";
 

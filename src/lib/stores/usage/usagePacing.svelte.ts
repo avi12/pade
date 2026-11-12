@@ -22,7 +22,7 @@
 //
 // A rest an agent's hook can hold through pauses, never kills: the hook holds
 // each tool call of the session and its subagents until the rest ends
-// (lib/usage/pacing/rest-hold), so no key is pressed and no "continue" typed.
+// (lib/usage/pacing/session-control/rest-hold), so no key is pressed and no "continue" typed.
 // A session whose hook ignores the rest (it predates the hold) falls back to
 // the stop.
 //
@@ -88,13 +88,13 @@ import {
   sessionLoad,
   shedFraction
 } from "@/lib/usage/pacing/engine/load-shedding";
-import { measuredBurn } from "@/lib/usage/pacing/measured-burn";
-import type { MeasuredBurn } from "@/lib/usage/pacing/measured-burn";
+import { measuredBurn } from "@/lib/usage/pacing/session-control/measured-burn";
+import type { MeasuredBurn } from "@/lib/usage/pacing/session-control/measured-burn";
 import { MILLISECONDS_PER_MINUTE, PACING_STEP_ORDER, pacingMargin, spokenTime } from "@/lib/usage/pacing/engine/pacing-policy";
 import { ObservedKind, PacePhase } from "@/lib/usage/pacing/pacing-report";
 import { paceFactsOf } from "@/lib/usage/pacing/report-facts";
 import type { OwnedFacts } from "@/lib/usage/pacing/report-facts";
-import { canHoldRest, heldRestUntil } from "@/lib/usage/pacing/rest-hold";
+import { canHoldRest, heldRestUntil } from "@/lib/usage/pacing/session-control/rest-hold";
 import {
   assessPace,
   burnRate,
