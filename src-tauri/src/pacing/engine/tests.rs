@@ -3,12 +3,16 @@
 //! `account-round.test.ts` hold the TypeScript to.
 
 use super::*;
+use crate::pacing::account_round::is_throttling;
 use crate::pacing::account_round::SubagentReport;
 use crate::pacing::facts::{CanStepDown, ModelChoiceFacts, ObservedKind, WindowLabel};
+use crate::pacing::facts::{PaceFacts, PacePhase};
 use crate::pacing::samples::RecordParams;
 use crate::pacing::test_support::{account, session_window, weekly_window, NOW};
 use crate::pacing::units::BurnRate;
+use crate::pacing::usage_pace::PacedWindowKind;
 use crate::test_support::assert_empty;
+use crate::usage::UsageWindow;
 
 const ACCOUNT: &str = "anthropic";
 const AGENT: &str = "claude";
