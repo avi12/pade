@@ -4,7 +4,7 @@ import {
   HomeMenuTab,
   homeMenuTabId,
   tabSlideDirection
-} from "@/panels/picker/home-menu-tabs";
+} from "@/panels/picker/home-menu/home-menu-tabs";
 import { describe, expect, it } from "vitest";
 
 describe("HOME_MENU_TABS", () => {

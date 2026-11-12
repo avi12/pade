@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { homeMenuPanelId, homeMenuTabId } from "@/panels/picker/home-menu-tabs";
-  import type { HomeMenuTab } from "@/panels/picker/home-menu-tabs";
+  import { homeMenuPanelId, homeMenuTabId } from "@/panels/picker/home-menu/home-menu-tabs";
+  import type { HomeMenuTab } from "@/panels/picker/home-menu/home-menu-tabs";
   import type { Snippet } from "svelte";
 
   // One panel of the composer menu's foot, and the slide between panels.

@@ -2,7 +2,7 @@
   import { isTemporaryWorkspace, projectRootPrefix } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/display/RootedName.svelte";
   import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
-  import { HomeMenuList } from "@/panels/picker/home-menu-tabs";
+  import { HomeMenuList } from "@/panels/picker/home-menu/home-menu-tabs";
 
   // One project in the composer's menu: its root and name ("avi\pade"), the
   // TEMP badge for a throwaway workspace, a tick when picked, and its path as

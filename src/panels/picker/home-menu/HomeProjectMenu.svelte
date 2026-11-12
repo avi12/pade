@@ -1,8 +1,8 @@
 <script lang="ts">
   import { arrowLists } from "@/lib/ui/keyboard/roving-menu";
   import { ProjectChoice } from "@/panels/picker/home/home-composer";
-  import HomeMenuFooter from "@/panels/picker/HomeMenuFooter.svelte";
-  import HomeProjectOption from "@/panels/picker/HomeProjectOption.svelte";
+  import HomeMenuFooter from "@/panels/picker/home-menu/HomeMenuFooter.svelte";
+  import HomeProjectOption from "@/panels/picker/home-menu/HomeProjectOption.svelte";
   import type { ProjectOption } from "@/panels/picker/home/project-suggestions";
 
   // The composer's project menu: recent and scanned projects, each with its

@@ -10,10 +10,10 @@
     HomeMenuTab,
     homeMenuTabId,
     tabSlideDirection
-  } from "@/panels/picker/home-menu-tabs";
-  import HomeMenuTabPanel from "@/panels/picker/HomeMenuTabPanel.svelte";
-  import HomeNewSection from "@/panels/picker/HomeNewSection.svelte";
-  import OpenLocalPanel from "@/panels/picker/OpenLocalPanel.svelte";
+  } from "@/panels/picker/home-menu/home-menu-tabs";
+  import HomeMenuTabPanel from "@/panels/picker/home-menu/HomeMenuTabPanel.svelte";
+  import HomeNewSection from "@/panels/picker/home-menu/HomeNewSection.svelte";
+  import OpenLocalPanel from "@/panels/picker/home-menu/OpenLocalPanel.svelte";
 
   // The composer menu's foot, under the scrolling project list: three ways in
   // behind a tablist - New (a project under a root, or a throwaway), Open (a
