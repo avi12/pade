@@ -5,7 +5,7 @@
   import type { DragPosition, OpenTarget, TaggedPathProbe } from "@/lib/types";
   import { isDragOverElement } from "@/lib/ui/drag/drag-position";
   import { FolderPath, parseInput } from "@/lib/validate";
-  import PathCombobox from "@/panels/picker/PathCombobox.svelte";
+  import PathCombobox from "@/panels/picker/path-field/PathCombobox.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onDestroy, onMount } from "svelte";

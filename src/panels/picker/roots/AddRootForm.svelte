@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { AddRootStatus, EMPTY_PATH_PROBE } from "@/lib/types";
   import type { AddRootOutcome, TaggedPathProbe } from "@/lib/types";
-  import PathCombobox from "@/panels/picker/PathCombobox.svelte";
+  import PathCombobox from "@/panels/picker/path-field/PathCombobox.svelte";
   import { assessRootPath } from "@/panels/picker/roots/root-path";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
 

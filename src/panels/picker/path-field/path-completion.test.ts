@@ -1,5 +1,5 @@
 import { EMPTY_PATH_PROBE } from "@/lib/types";
-import { nextSegmentCompletion } from "@/panels/picker/path-completion";
+import { nextSegmentCompletion } from "@/panels/picker/path-field/path-completion";
 import { describe, expect, it } from "vitest";
 
 const TYPED = String.raw`C:\repositories\pa`;

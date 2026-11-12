@@ -7,7 +7,7 @@
   import { collapseRow, expandRow, flipDuration } from "@/lib/ui/motion";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { normalizePath } from "@/lib/util/paths";
-  import { nextSegmentCompletion } from "@/panels/picker/path-completion";
+  import { nextSegmentCompletion } from "@/panels/picker/path-field/path-completion";
   import { flip } from "svelte/animate";
 
   // A folder-path text field with directory autocomplete. As the path is typed
