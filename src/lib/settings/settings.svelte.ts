@@ -1,5 +1,5 @@
 import { createVersionedAdopter, replaceRecord } from "@/lib/settings/settings-state";
-import type { Prefs, Settings } from "@/lib/types";
+import type { Prefs, Settings } from "@/lib/types/settings";
 
 export const prefs = $state<Prefs>({});
 export const settings = $state<Settings>({

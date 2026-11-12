@@ -5,7 +5,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
-import type { LimitReset } from "@/lib/types";
+import type { LimitReset } from "@/lib/types/usage";
 import { limitResetKind } from "@/lib/usage/limit-reset/limit-reset-kind";
 import { settledValue } from "@/lib/util/async/settled";
 import { errorMessage } from "@/lib/util/errors/errors";

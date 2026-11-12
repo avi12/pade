@@ -1,5 +1,5 @@
-import { PacedWindowKind } from "@/lib/types";
-import type { ModelOption } from "@/lib/types";
+import type { ModelOption } from "@/lib/types/agent";
+import { PacedWindowKind } from "@/lib/types/pacing";
 import { costWeight } from "@/lib/usage/pacing/load-shedding";
 import { PacePhase, PacingReport } from "@/lib/usage/pacing/pacing-report";
 import type { SessionFacts } from "@/lib/usage/pacing/pacing-report";

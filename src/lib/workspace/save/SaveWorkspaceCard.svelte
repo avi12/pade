@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { AddRootStatus } from "@/lib/types";
-  import type { AddRootOutcome } from "@/lib/types";
+  import { AddRootStatus } from "@/lib/types/workspace";
+  import type { AddRootOutcome } from "@/lib/types/workspace";
   import { nameError, parseInput, ProjectName } from "@/lib/validate";
   import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
   import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save/save-workspace-form";

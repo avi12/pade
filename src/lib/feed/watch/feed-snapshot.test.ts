@@ -4,7 +4,7 @@ import {
   readFeedSnapshot,
   saveFeedSnapshot
 } from "@/lib/feed/watch/feed-snapshot";
-import { ChangeKind } from "@/lib/types";
+import { ChangeKind } from "@/lib/types/feed";
 import {
   afterEach,
   beforeEach,

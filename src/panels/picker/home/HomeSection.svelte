@@ -1,8 +1,10 @@
 <script lang="ts">
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
-  import type { Agent, OpenTarget, ProjectEntry } from "@/lib/types";
-  import { realAgents as toRealAgents } from "@/lib/types";
+  import type { Agent } from "@/lib/types/agent";
+  import { realAgents as toRealAgents } from "@/lib/types/agent";
+  import type { OpenTarget } from "@/lib/types/window";
+  import type { ProjectEntry } from "@/lib/types/workspace";
   import { collapseRow, expandRow } from "@/lib/ui/motion";
   import { displayName } from "@/lib/util/paths";
   import { nameError } from "@/lib/validate";

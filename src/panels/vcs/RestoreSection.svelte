@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import type { RestoreCandidate } from "@/lib/types";
+  import type { RestoreCandidate } from "@/lib/types/vcs";
   import { Key } from "@/lib/ui/keyboard/keys";
   import { formatPercent } from "@/lib/util/format";
   import { parseInput, RestoreQuery } from "@/lib/validate";

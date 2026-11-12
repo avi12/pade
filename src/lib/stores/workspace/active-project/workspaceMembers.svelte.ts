@@ -12,7 +12,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
-import type { WorkspaceMember } from "@/lib/types";
+import type { WorkspaceMember } from "@/lib/types/workspace";
 import { settledValue } from "@/lib/util/async/settled";
 import { memberPath } from "@/lib/workspace/members/workspace-members";
 import { untrack } from "svelte";

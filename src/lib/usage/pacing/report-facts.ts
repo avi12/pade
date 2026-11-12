@@ -1,6 +1,6 @@
 import { cheaperModelChoice, lowerEffortChoice } from "@/lib/model/model-cost";
-import { PacingStep } from "@/lib/types";
-import type { ModelChoice, ModelOption } from "@/lib/types";
+import type { ModelChoice, ModelOption } from "@/lib/types/agent";
+import { PacingStep } from "@/lib/types/pacing";
 import { costWeight } from "@/lib/usage/pacing/load-shedding";
 import type { ChoiceFacts, PaceFacts, SessionFacts } from "@/lib/usage/pacing/pacing-report";
 

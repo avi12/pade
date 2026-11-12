@@ -5,7 +5,7 @@
   // level in use. The level in use sits on the primary container.
 
   import { effortBars } from "@/lib/model/model-label";
-  import type { ModelOption } from "@/lib/types";
+  import type { ModelOption } from "@/lib/types/agent";
 
   const { efforts, current, recommended, onpick }: {
     efforts: ModelOption["efforts"];

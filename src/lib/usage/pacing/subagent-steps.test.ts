@@ -1,4 +1,4 @@
-import { SubagentStepKind } from "@/lib/types";
+import { SubagentStepKind } from "@/lib/types/pacing";
 import {
   easedSubagentStep,
   holdForSaving,

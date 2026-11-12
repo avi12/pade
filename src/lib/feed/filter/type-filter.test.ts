@@ -4,8 +4,8 @@ import {
   isEveryTypeSelected,
   typeFilterLabel
 } from "@/lib/feed/filter/type-filter";
-import { ChangeKind } from "@/lib/types";
-import type { ChangeEvent } from "@/lib/types";
+import { ChangeKind } from "@/lib/types/feed";
+import type { ChangeEvent } from "@/lib/types/feed";
 import { describe, expect, it } from "vitest";
 
 function change(path: string) {

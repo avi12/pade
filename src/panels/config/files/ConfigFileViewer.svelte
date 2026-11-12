@@ -4,7 +4,7 @@
   import { markdownDocument } from "@/lib/code/markdown";
   import SandboxedPreview from "@/lib/code/SandboxedPreview.svelte";
   import { isMarkdownPath } from "@/lib/feed/preview/preview";
-  import type { ConfigFile } from "@/lib/types";
+  import type { ConfigFile } from "@/lib/types/settings";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";
 
   // A read-only view of the selected config file: highlighted source, or - for

@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { ideBrand, ideIcon } from "@/lib/ide/ide-icon";
-  import type { Ide } from "@/lib/types";
+  import type { Ide } from "@/lib/types/editor";
   import { editorSelectId } from "@/panels/picker/editors/editor-options";
 
   // One editor-rule select - a native-popover menu of the editors that suit a

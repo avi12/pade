@@ -8,7 +8,7 @@ import {
   wrappedIndex
 } from "@/lib/session/panes/pane-layout";
 import { DropSide } from "@/lib/session/panes/reorder";
-import type { AgentSession } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
 import { describe, expect, it } from "vitest";
 
 const CLAUDE = {

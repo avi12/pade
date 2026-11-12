@@ -7,7 +7,7 @@
 // hidden`, so the box alone would let every session in the window claim it.
 
 import { EventType, onMessage } from "@/lib/ipc/messaging";
-import type { DragPosition } from "@/lib/types";
+import type { DragPosition } from "@/lib/types/window";
 import { isDragOverElement } from "@/lib/ui/drag/drag-position";
 
 export function listenForFileDrops({ element, onHoverChange, onDrop }: {

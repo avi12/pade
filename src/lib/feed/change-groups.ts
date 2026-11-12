@@ -10,7 +10,8 @@
 // `pnpm-workspace.yaml`) now splits per member instead of collapsing into one
 // repo group - the gap the convention could never close.
 
-import type { ChangeEvent, WorkspaceMember } from "@/lib/types";
+import type { ChangeEvent } from "@/lib/types/feed";
+import type { WorkspaceMember } from "@/lib/types/workspace";
 import { baseName, isSegmentPrefix } from "@/lib/util/paths";
 import { ROOT_GROUP_ID } from "@/lib/workspace/members/workspace-members";
 

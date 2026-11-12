@@ -7,8 +7,8 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { CommandProtocolMap, SettingsCommand } from "@/lib/ipc/messaging";
 import { createSerialQueue } from "@/lib/settings/settings-state";
 import { adoptSettings, beginSettingsRequest } from "@/lib/settings/settings.svelte";
-import { AddRootStatus } from "@/lib/types";
-import type { Settings } from "@/lib/types";
+import type { Settings } from "@/lib/types/settings";
+import { AddRootStatus } from "@/lib/types/workspace";
 
 const enqueueSettingsRequest = createSerialQueue();
 
@@ -38,7 +38,7 @@ export function sendSettingsMessage<Key extends SettingsCommand>(
 
 /** Add a root folder. Only an `added` outcome carries settings to adopt; a
  *  missing path or a file comes back for the caller to act on. */
-export function addRoot(data: Parameters<CommandProtocolMap[Command.workspaceAddRoot]>[0]) {
+export function addRoot(data: Parameters<CommandProtocolMap[typeof Command.workspaceAddRoot]>[0]) {
   return queueSettingsRequest(async adopt => {
     const outcome = await sendMessage(Command.workspaceAddRoot, data);
     if (outcome.status === AddRootStatus.enum.added) {

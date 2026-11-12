@@ -6,7 +6,7 @@
 // can never come from two different answers.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import type { Scheme, TerminalScheme, TerminalSchemeChoice } from "@/lib/types";
+import type { Scheme, TerminalScheme, TerminalSchemeChoice } from "@/lib/types/theme";
 
 const catalogue = $state<{ schemes: readonly TerminalScheme[] }>({ schemes: [] });
 

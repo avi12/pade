@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
-  import type { Commit, CommitDetail } from "@/lib/types";
+  import type { Commit, CommitDetail } from "@/lib/types/vcs";
   import { Key } from "@/lib/ui/keyboard/keys";
   import CommitModal from "@/lib/vcs/CommitModal.svelte";
   import CommitStats from "@/lib/vcs/CommitStats.svelte";

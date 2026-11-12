@@ -5,7 +5,7 @@ import {
   setSessionStatus,
   whenSessionIdle
 } from "@/lib/stores/session/sessions.svelte";
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
 import {
   afterEach,
   beforeEach,

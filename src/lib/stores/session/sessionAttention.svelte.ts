@@ -11,7 +11,7 @@ import { detectChoicePrompt } from "@/lib/agent/choice-prompt";
 import { EventType, onMessage } from "@/lib/ipc/messaging";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 /** Sessions with a multiple-choice prompt pending (reactive, so the tab UI

@@ -2,7 +2,7 @@
 // The backend decides each grant's kind (lib.rs `usage::limit_reset`); this
 // gives each kind its words.
 
-import type { LimitReset } from "@/lib/types";
+import type { LimitReset } from "@/lib/types/usage";
 import { resetCountdown } from "@/lib/usage/usage-groups";
 import { formatCount } from "@/lib/util/format";
 

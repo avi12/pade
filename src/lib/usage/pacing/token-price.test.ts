@@ -1,4 +1,4 @@
-import type { ModelTokenUsage } from "@/lib/types";
+import type { ModelTokenUsage } from "@/lib/types/agent";
 import { priceRatio, weightedTokens } from "@/lib/usage/pacing/token-price";
 import { describe, expect, it } from "vitest";
 

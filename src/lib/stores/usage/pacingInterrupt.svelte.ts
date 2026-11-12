@@ -12,7 +12,7 @@ import { interruptKeys } from "@/lib/agent/interrupt-keys";
 import type { InterruptKeys, KeyPress } from "@/lib/agent/interrupt-keys";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-import type { AgentSession } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
 import { RUNNING_SUBAGENT_MS, subagentsWrittenSince } from "@/lib/usage/pacing/measured-burn";
 import { isHoldFallbackDue } from "@/lib/usage/pacing/rest-hold";
 import {

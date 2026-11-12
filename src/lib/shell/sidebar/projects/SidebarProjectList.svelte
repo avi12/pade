@@ -4,7 +4,7 @@
   import { sidebarArrowKeys } from "@/lib/shell/sidebar/projects/sidebar-keyboard";
   import type { sidebarSections } from "@/lib/shell/sidebar/projects/sidebar-sections";
   import SidebarProjectGroup, { PIN_ID_ATTRIBUTE } from "@/lib/shell/sidebar/projects/SidebarProjectGroup.svelte";
-  import type { WindowInfo } from "@/lib/types";
+  import type { WindowInfo } from "@/lib/types/window";
   import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";
   import ProjectSection from "@/lib/workspace/switcher/projects/ProjectSection.svelte";
 

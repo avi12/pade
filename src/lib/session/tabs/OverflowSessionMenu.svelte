@@ -6,7 +6,7 @@
   import Icon from "@/lib/Icon.svelte";
   import SessionDot from "@/lib/session/tabs/SessionDot.svelte";
   import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-  import type { AgentSession } from "@/lib/types";
+  import type { AgentSession } from "@/lib/types/agent";
   import { formatCount } from "@/lib/util/format";
 
   const { sessions, activeId, isActive, isAwaitingChoice, onselect, onclose }: {

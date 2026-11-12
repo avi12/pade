@@ -4,7 +4,7 @@
 
   import ModelMenu from "@/lib/model/menu/ModelMenu.svelte";
   import { MODEL_MENU_ANCHOR, MODEL_MENU_ID, modelMenuSessionId } from "@/lib/stores/model/modelMenu.svelte";
-  import type { AgentSession, ModelChoice } from "@/lib/types";
+  import type { AgentSession, ModelChoice } from "@/lib/types/agent";
   import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
 
   const { sessions, onchoose }: {

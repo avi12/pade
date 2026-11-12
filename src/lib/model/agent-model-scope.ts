@@ -8,7 +8,8 @@
 // Absence is the only way back to the next level down, so clearing writes the
 // key away rather than freezing whatever the agent happened to run.
 
-import type { ModelChoice, Prefs } from "@/lib/types";
+import type { ModelChoice } from "@/lib/types/agent";
+import type { Prefs } from "@/lib/types/settings";
 import { withRecordEntry } from "@/lib/util/data/record-entry";
 
 /** The workspace's own starting model for `agent`, or `undefined` to follow

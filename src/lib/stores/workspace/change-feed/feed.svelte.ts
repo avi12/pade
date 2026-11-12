@@ -12,7 +12,7 @@
 import { eventsForLiveWatch, readFeedSnapshot, saveFeedSnapshot } from "@/lib/feed/watch/feed-snapshot";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
-import type { ChangeEvent } from "@/lib/types";
+import type { ChangeEvent } from "@/lib/types/feed";
 import { baseName } from "@/lib/util/paths";
 import { SvelteMap } from "svelte/reactivity";
 

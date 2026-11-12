@@ -7,7 +7,7 @@
 // repositories worth a branch chip - is decided here, so it is testable without
 // a backend and has exactly one home.
 
-import type { WorkspaceMember } from "@/lib/types";
+import type { WorkspaceMember } from "@/lib/types/workspace";
 import { baseName, childPath, isSegmentPrefix } from "@/lib/util/paths";
 
 /** The Change Feed's id for the group that IS the workspace root (see

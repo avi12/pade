@@ -8,8 +8,10 @@
 // Everything here is deterministic: a fixed clock and a seeded generator, so a
 // rerun with the TypeScript unchanged rewrites byte-identical files.
 
-import { PacedWindowKind, SubagentStepKind, UsageWindowKind } from "@/lib/types";
-import type { AccountUsage, SubagentStep, UsageWindow } from "@/lib/types";
+import { PacedWindowKind, SubagentStepKind } from "@/lib/types/pacing";
+import type { SubagentStep } from "@/lib/types/pacing";
+import { UsageWindowKind } from "@/lib/types/usage";
+import type { AccountUsage, UsageWindow } from "@/lib/types/usage";
 import { planRound } from "@/lib/usage/pacing/account-round";
 import type { SessionReport, SubagentSteps, WindowReport } from "@/lib/usage/pacing/account-round";
 import { costWeight, planShedding, shedFraction } from "@/lib/usage/pacing/load-shedding";

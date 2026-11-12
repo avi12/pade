@@ -1,5 +1,5 @@
 import type { IconName } from "@/lib/Icon.svelte";
-import type { TaggedPathProbe } from "@/lib/types";
+import type { TaggedPathProbe } from "@/lib/types/workspace";
 import { normalizePath } from "@/lib/util/paths";
 import { FolderPath, parseInput } from "@/lib/validate";
 

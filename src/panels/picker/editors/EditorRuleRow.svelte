@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
-  import type { Ide } from "@/lib/types";
+  import type { Ide } from "@/lib/types/editor";
   import EditorSelect from "@/panels/picker/editors/EditorSelect.svelte";
 
   // One row of the editor-rules engine: a project kind (logo, label and the

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { IconName } from "@/lib/Icon.svelte";
   import { chooseThemeMode, chooseThemePalette, effective } from "@/lib/settings/prefs.svelte";
-  import { ThemeMode, ThemePalette } from "@/lib/types";
+  import { ThemeMode, ThemePalette } from "@/lib/types/theme";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";
   import FontSizeStepper from "@/panels/config/appearance/FontSizeStepper.svelte";
   import HandoffThreshold from "@/panels/config/appearance/HandoffThreshold.svelte";

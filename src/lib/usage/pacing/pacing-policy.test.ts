@@ -1,4 +1,5 @@
-import { CreditsState, PacedWindowKind, UsageWindowKind } from "@/lib/types";
+import { PacedWindowKind } from "@/lib/types/pacing";
+import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
 import {
   isPacingOn,
   pacingFacts,

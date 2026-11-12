@@ -1,5 +1,5 @@
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import type { OpenTarget } from "@/lib/types";
+import type { OpenTarget } from "@/lib/types/window";
 import { childPath } from "@/lib/util/paths";
 import { FirstPrompt, parseInput, ProjectName } from "@/lib/validate";
 import type { HomeStart } from "@/panels/picker/home/home-composer";

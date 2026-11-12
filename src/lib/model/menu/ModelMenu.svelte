@@ -11,7 +11,7 @@
   import { sessionModel } from "@/lib/stores/agent/context.svelte";
   import { modelOption, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import { pendingModelSwitch, SwitchWait } from "@/lib/stores/model/modelSwitch.svelte";
-  import type { AgentSession, ModelChoice } from "@/lib/types";
+  import type { AgentSession, ModelChoice } from "@/lib/types/agent";
 
   const { session, onchoose }: {
     session: AgentSession;

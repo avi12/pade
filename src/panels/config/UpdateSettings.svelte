@@ -5,7 +5,7 @@
   // install is Windows' to update, so the switch and Check now stay disabled.
   import { effective, updatePrefs } from "@/lib/settings/prefs.svelte";
   import { appUpdate, checkForUpdate, restartToUpdate } from "@/lib/stores/update/appUpdate.svelte";
-  import { Updater } from "@/lib/types";
+  import { Updater } from "@/lib/types/update";
   import Checkbox from "@/lib/ui/controls/Checkbox.svelte";
   import { updateStatusLine } from "@/lib/update/status-line";
 

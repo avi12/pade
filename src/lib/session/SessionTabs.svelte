@@ -11,7 +11,7 @@
   import { collapseTab } from "@/lib/session/tabs/tab-collapse";
   import { beginTabDrag } from "@/lib/session/tabs/tab-drag";
   import { awaitingChoice } from "@/lib/stores/session/sessionAttention.svelte";
-  import type { Agent, AgentSession } from "@/lib/types";
+  import type { Agent, AgentSession } from "@/lib/types/agent";
   import type { DragHint } from "@/lib/ui/drag/drag-reorder";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 

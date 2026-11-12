@@ -16,8 +16,8 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActivity.svelte";
 import { whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
-import { SwitchOutcome } from "@/lib/types";
-import type { AgentSession, ModelChoice } from "@/lib/types";
+import { SwitchOutcome } from "@/lib/types/agent";
+import type { AgentSession, ModelChoice } from "@/lib/types/agent";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 /** What a pending switch is waiting for, as the menu tells it. */

@@ -15,7 +15,7 @@ import {
   windowsStillOpen
 } from "@/lib/dashboard/agent-board";
 import type { BoardAgent, BoardWindow } from "@/lib/dashboard/agent-board";
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
 import { describe, expect, it } from "vitest";
 
 const NOW = 1_000_000;

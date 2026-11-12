@@ -26,7 +26,7 @@
 // are its own. A session stepped by a round is skipped until its window reports
 // again, so a report older than the step never steps it twice.
 
-import { SubagentStep } from "@/lib/types";
+import { SubagentStep } from "@/lib/types/pacing";
 import { lightestToRestore, planShedding } from "@/lib/usage/pacing/load-shedding";
 import type { ShedCandidate } from "@/lib/usage/pacing/load-shedding";
 import { easedSubagentStep, isBlockingSpawns, nextSubagentStep } from "@/lib/usage/pacing/subagent-steps";

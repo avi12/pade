@@ -2,7 +2,7 @@
   import NameDialog from "@/lib/dialogs/NameDialog.svelte";
   import { Command } from "@/lib/ipc/messaging";
   import { sendSettingsMessage } from "@/lib/settings/settings-requests";
-  import { LabelSource } from "@/lib/types";
+  import { LabelSource } from "@/lib/types/workspace";
   import { WorkspaceLabel } from "@/lib/validate";
 
   // Relabel a temp workspace inside PADE: the name the top bar, the switcher and

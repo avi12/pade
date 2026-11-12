@@ -1,7 +1,7 @@
 import App from "@/App.svelte";
 import { DARK_SCHEME_QUERY, loadPrefs } from "@/lib/settings/prefs.svelte";
 import { isDashboardAddress } from "@/lib/shell/window/window-route";
-import { Scheme } from "@/lib/types";
+import { Scheme } from "@/lib/types/theme";
 import "@/theme.css";
 import { mount } from "svelte";
 

@@ -13,8 +13,8 @@
   import { currentXtermTheme, terminalFontSize } from "@/lib/terminal/session/create-terminal";
   import { createTerminalSession } from "@/lib/terminal/session/terminalSession.svelte";
   import TerminalSessionBar from "@/lib/terminal/session/TerminalSessionBar.svelte";
-  import { SessionStatus } from "@/lib/types";
-  import type { AgentSession } from "@/lib/types";
+  import { SessionStatus } from "@/lib/types/agent";
+  import type { AgentSession } from "@/lib/types/agent";
   import type { DragHint } from "@/lib/ui/drag/drag-reorder";
   import { isEditingText } from "@/lib/ui/keyboard/focus";
   import type { Terminal } from "@xterm/xterm";

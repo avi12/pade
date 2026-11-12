@@ -6,7 +6,7 @@
 
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { createSettleWaiters } from "@/lib/stores/session/settle-waiters";
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
 import { SvelteMap } from "svelte/reactivity";
 
 const statuses = new SvelteMap<string, SessionStatus>();

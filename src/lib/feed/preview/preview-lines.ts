@@ -1,5 +1,5 @@
 import { parseDiff, unifiedDiff } from "@/lib/code/diff";
-import type { FeedDiff } from "@/lib/types";
+import type { FeedDiff } from "@/lib/types/feed";
 
 /** Turn the backend's session-baseline pair into diff lines to render. Normally
  *  that's the baseline→current diff. But a file the watcher first saw a beat

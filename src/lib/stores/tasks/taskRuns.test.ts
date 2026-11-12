@@ -3,7 +3,7 @@ import { projectRunnerRows, runnerRows, stopRunner } from "@/lib/stores/tasks/ru
 import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { adoptRunningTasks, initTaskRunDetection, isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
 import { setFrontProjectSource } from "@/lib/stores/workspace/active-project/frontProject.svelte";
-import type { RunnerInfo } from "@/lib/types";
+import type { RunnerInfo } from "@/lib/types/terminal";
 import {
   beforeEach,
   describe,

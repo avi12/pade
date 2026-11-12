@@ -3,7 +3,7 @@
   // checked, each with the effort level the agent recommends for it.
 
   import Icon from "@/lib/Icon.svelte";
-  import type { ModelOption } from "@/lib/types";
+  import type { ModelOption } from "@/lib/types/agent";
 
   const { options, current, onpick }: {
     options: ModelOption[];

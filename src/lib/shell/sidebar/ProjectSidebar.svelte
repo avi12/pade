@@ -20,8 +20,9 @@
   import { invalidateProjectBranches } from "@/lib/stores/workspace/project-rows/projectBranches.svelte";
   import { revalidateProjectKinds } from "@/lib/stores/workspace/project-rows/projectKinds.svelte";
   import { revalidateProjectLanguages } from "@/lib/stores/workspace/project-rows/projectLanguages.svelte";
-  import { WindowMode } from "@/lib/types";
-  import type { AgentSession, WindowInfo } from "@/lib/types";
+  import type { AgentSession } from "@/lib/types/agent";
+  import { WindowMode } from "@/lib/types/window";
+  import type { WindowInfo } from "@/lib/types/window";
   import { isNewWindowClick, otherWindowWith } from "@/lib/workspace/open-windows";
   import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
   import SwitcherDialogs from "@/lib/workspace/switcher/dialogs/SwitcherDialogs.svelte";

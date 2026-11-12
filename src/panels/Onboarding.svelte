@@ -1,7 +1,7 @@
 <script lang="ts">
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
-  import type { Agent } from "@/lib/types";
+  import type { Agent } from "@/lib/types/agent";
   import BrandMark from "@/lib/ui/brand/BrandMark.svelte";
 
   // Shown only when more than one agent is installed - the user picks which to

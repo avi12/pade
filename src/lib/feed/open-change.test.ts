@@ -1,6 +1,6 @@
 import { openAction, openChangedFile } from "@/lib/feed/open-change";
 import { Command } from "@/lib/ipc/messaging";
-import type { Ide } from "@/lib/types";
+import type { Ide } from "@/lib/types/editor";
 import {
   beforeEach,
   describe,

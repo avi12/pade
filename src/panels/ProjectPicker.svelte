@@ -3,8 +3,11 @@
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
   import { addRoot as requestAddRoot, sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
-  import { AddRootStatus } from "@/lib/types";
-  import type { Agent, OpenTarget, ProjectEntry, Settings } from "@/lib/types";
+  import type { Agent } from "@/lib/types/agent";
+  import type { Settings } from "@/lib/types/settings";
+  import type { OpenTarget } from "@/lib/types/window";
+  import { AddRootStatus } from "@/lib/types/workspace";
+  import type { ProjectEntry } from "@/lib/types/workspace";
   import BrandMark from "@/lib/ui/brand/BrandMark.svelte";
   import { settledValue } from "@/lib/util/async/settled";
   import { isTemporaryWorkspace } from "@/lib/util/paths";

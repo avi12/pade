@@ -2,7 +2,7 @@
 // boots into, and - kept truthful by the shell as the user moves on - what a
 // reload re-routes off. One module reads and writes it so the two can't drift.
 
-import { WindowMode } from "@/lib/types";
+import { WindowMode } from "@/lib/types/window";
 import { FolderPath, parseInput } from "@/lib/validate";
 
 const MODE_PARAMETER = "w";

@@ -7,7 +7,8 @@
 // rename started from either list drives the same form - and one delete
 // confirmation dialog serves both.
 
-import type { Settings, WindowInfo } from "@/lib/types";
+import type { Settings } from "@/lib/types/settings";
+import type { WindowInfo } from "@/lib/types/window";
 import { errorMessage } from "@/lib/util/errors/errors";
 import { baseName } from "@/lib/util/paths";
 import { nameError, parseInput, ProjectName } from "@/lib/validate";

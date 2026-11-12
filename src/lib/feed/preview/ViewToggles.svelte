@@ -2,7 +2,7 @@
   import { PreviewPane } from "@/lib/feed/preview/feed-previews";
   import type { FeedPreviews, PreviewCard } from "@/lib/feed/preview/feed-previews";
   import RadioPills from "@/lib/feed/preview/RadioPills.svelte";
-  import { DiffStyle } from "@/lib/types";
+  import { DiffStyle } from "@/lib/types/theme";
   import { prefersReducedMotion } from "@/lib/ui/motion";
   import { tick } from "svelte";
   import type { z } from "zod";

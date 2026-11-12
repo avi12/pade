@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { Ide, ProjectEntry } from "@/lib/types";
+  import type { Ide } from "@/lib/types/editor";
+  import type { ProjectEntry } from "@/lib/types/workspace";
   import { collapseRow } from "@/lib/ui/motion";
   import { formatQuantity } from "@/lib/util/format";
   import LanguageBar from "@/lib/workspace/display/LanguageBar.svelte";

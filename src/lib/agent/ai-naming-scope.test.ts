@@ -4,7 +4,7 @@ import {
   projectNamingChoice,
   withProjectNamingChoice
 } from "@/lib/agent/ai-naming-scope";
-import type { Prefs } from "@/lib/types";
+import type { Prefs } from "@/lib/types/settings";
 import { describe, expect, it } from "vitest";
 
 const PROJECT = "C:\\repositories\\avi\\pade";

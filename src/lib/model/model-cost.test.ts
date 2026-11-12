@@ -1,5 +1,5 @@
 import { cheaperModelChoice, costTier, lowerEffortChoice, subagentCap } from "@/lib/model/model-cost";
-import type { ModelOption } from "@/lib/types";
+import type { ModelOption } from "@/lib/types/agent";
 import { describe, expect, it } from "vitest";
 
 function option({ id, efforts, recommendedEffort = null }: {

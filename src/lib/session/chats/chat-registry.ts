@@ -7,8 +7,9 @@
 
 import type { ElsewhereSession } from "@/lib/dashboard/agent-board";
 import { isSameProject, sessionsOfProject } from "@/lib/session/chats/session-projects";
-import { Agent, ModelChoice } from "@/lib/types";
-import type { AgentSession, RecordedConversation, SessionStatus } from "@/lib/types";
+import { Agent, ModelChoice } from "@/lib/types/agent";
+import type { AgentSession, SessionStatus } from "@/lib/types/agent";
+import type { RecordedConversation } from "@/lib/types/chat-storage";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { normalizePath } from "@/lib/util/paths";
 import { z } from "zod";

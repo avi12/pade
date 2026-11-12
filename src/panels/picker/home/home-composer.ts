@@ -1,4 +1,4 @@
-import type { OpenTarget } from "@/lib/types";
+import type { OpenTarget } from "@/lib/types/window";
 import { directoryPrefix, projectRootPrefix } from "@/lib/util/paths";
 import { FirstPrompt, parseInput, ProjectName } from "@/lib/validate";
 

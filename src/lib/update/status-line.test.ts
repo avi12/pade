@@ -1,4 +1,4 @@
-import { Updater } from "@/lib/types";
+import { Updater } from "@/lib/types/update";
 import { updateStatusLine } from "@/lib/update/status-line";
 import { describe, expect, it } from "vitest";
 

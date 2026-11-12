@@ -9,8 +9,9 @@
 // as room comes back, a stopped agent continues on its own, and everything
 // reverts as the window is about to reset.
 
-import { PacedWindowKind, PacingStep } from "@/lib/types";
-import type { Prefs, UsageWindowKind } from "@/lib/types";
+import { PacedWindowKind, PacingStep } from "@/lib/types/pacing";
+import type { Prefs } from "@/lib/types/settings";
+import type { UsageWindowKind } from "@/lib/types/usage";
 import { isForecastOverPace, windowName } from "@/lib/usage/pacing/usage-pace";
 import type { PaceForecast } from "@/lib/usage/pacing/usage-pace";
 import { resetCountdown } from "@/lib/usage/usage-groups";

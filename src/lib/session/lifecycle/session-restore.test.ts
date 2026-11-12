@@ -8,7 +8,7 @@ import {
 import { forgetSession } from "@/lib/session/lifecycle/session-scope";
 import { clearPendingPrompt, pendingPrompt, setPendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
 import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-import type { AgentSession } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
 import {
   afterEach,
   beforeEach,

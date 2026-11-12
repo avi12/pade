@@ -4,8 +4,9 @@
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
-import { ManifestMatch } from "@/lib/types";
-import type { ChangeEvent, TaskGroup, TaskManifestDescriptor } from "@/lib/types";
+import type { ChangeEvent } from "@/lib/types/feed";
+import { ManifestMatch } from "@/lib/types/terminal";
+import type { TaskGroup, TaskManifestDescriptor } from "@/lib/types/terminal";
 import { baseName } from "@/lib/util/paths";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { untrack } from "svelte";

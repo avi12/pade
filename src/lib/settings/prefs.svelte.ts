@@ -14,14 +14,9 @@ import {
   TERMINAL_PALETTE_PROPERTIES,
   terminalPaletteProperties
 } from "@/lib/terminal/theme/terminal-palette";
-import {
-  DiffStyle,
-  type Prefs,
-  Scheme,
-  type TerminalSchemeChoice,
-  ThemeMode,
-  ThemePalette
-} from "@/lib/types";
+import type { Prefs } from "@/lib/types/settings";
+import { DiffStyle, Scheme, ThemeMode, ThemePalette } from "@/lib/types/theme";
+import type { TerminalSchemeChoice } from "@/lib/types/theme";
 import { DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
 
 export {
@@ -307,7 +302,7 @@ export async function loadPrefs() {
 }
 
 /** Pick the light/dark mode. The skin is written beside it, so a legacy
- *  Cyberpunk mode (read as Auto + the Cyberpunk skin, see `lib/types`) is saved
+ *  Cyberpunk mode (read as Auto + the Cyberpunk skin, see `lib/types/settings`) is saved
  *  in its two-axis shape the first time either axis is picked. */
 export async function chooseThemeMode(mode: ThemeMode) {
   await updatePrefs({

@@ -7,8 +7,8 @@
 // rules around it: which windows a merge can go to, and what it is called.
 
 import { SnapshotSession } from "@/lib/session/lifecycle/session-restore";
-import { RecordedConversation } from "@/lib/types";
-import type { OpenTarget, WindowInfo } from "@/lib/types";
+import { RecordedConversation } from "@/lib/types/chat-storage";
+import type { OpenTarget, WindowInfo } from "@/lib/types/window";
 import { shortDisplayName } from "@/lib/util/paths";
 import { z } from "zod";
 

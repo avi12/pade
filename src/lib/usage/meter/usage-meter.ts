@@ -1,13 +1,8 @@
 // The usage meter's view logic, kept pure so the trigger, the details panel and
 // the meter itself all read it from one place (usage-groups.ts builds the data).
 
-import {
-  type AccountReading,
-  type AccountUsage,
-  type NoReading,
-  NoReadingReason,
-  UsageWindowKind
-} from "@/lib/types";
+import { NoReadingReason, UsageWindowKind } from "@/lib/types/usage";
+import type { AccountReading, AccountUsage, NoReading } from "@/lib/types/usage";
 import {
   type AgentGroup,
   Level,

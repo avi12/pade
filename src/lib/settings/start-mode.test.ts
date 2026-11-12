@@ -1,5 +1,5 @@
 import { resolvedStartMode } from "@/lib/settings/start-mode";
-import { StartMode } from "@/lib/types";
+import { StartMode } from "@/lib/types/settings";
 import { describe, expect, it } from "vitest";
 
 describe("resolvedStartMode", () => {

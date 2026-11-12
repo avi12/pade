@@ -6,7 +6,7 @@
     refreshEditors,
     windowedEditorFor
   } from "@/lib/stores/workspace/active-project/editors.svelte";
-  import type { Ide } from "@/lib/types";
+  import type { Ide } from "@/lib/types/editor";
 
   // A picker row's "open this project in your editor" button. It stays a plain,
   // static button - the project's configured ranking is loaded only when clicked

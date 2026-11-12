@@ -8,7 +8,7 @@
   import PreviewBody from "@/lib/feed/preview/PreviewBody.svelte";
   import ViewToggles from "@/lib/feed/preview/ViewToggles.svelte";
   import Icon from "@/lib/Icon.svelte";
-  import { DiffStyle } from "@/lib/types";
+  import { DiffStyle } from "@/lib/types/theme";
   import { baseName } from "@/lib/util/paths";
   import type { z } from "zod";
 

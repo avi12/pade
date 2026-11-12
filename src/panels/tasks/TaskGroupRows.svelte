@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { RunnerTask } from "@/lib/stores/tasks/runners.svelte";
-  import type { TaskGroup } from "@/lib/types";
+  import type { TaskGroup } from "@/lib/types/terminal";
   import { collapseRow, emphasized, expandRow, flipDuration } from "@/lib/ui/motion";
   import { baseName } from "@/lib/util/paths";
   import TaskRow from "@/panels/tasks/TaskRow.svelte";

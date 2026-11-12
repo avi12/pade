@@ -3,7 +3,8 @@
   // agent's title with its agent, folder, size and last use - each with a tick
   // to delete it, none ticked to start, and one to tick or untick them all -
   // and how many more the list leaves out.
-  import type { Agent, ChatStorage } from "@/lib/types";
+  import type { Agent } from "@/lib/types/agent";
+  import type { ChatStorage } from "@/lib/types/chat-storage";
   import Checkbox from "@/lib/ui/controls/Checkbox.svelte";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { deletedChatRow, unlistedChats } from "@/panels/config/chat-storage/chat-storage";

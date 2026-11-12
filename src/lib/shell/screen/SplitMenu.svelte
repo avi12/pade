@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { Agent, AgentSession } from "@/lib/types";
+  import type { Agent, AgentSession } from "@/lib/types/agent";
 
   // Thin strip at the right of the terminal row that opens the split menu: add
   // a session that is not shown yet, or launch a new instance beside the panes.

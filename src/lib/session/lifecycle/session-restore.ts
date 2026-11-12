@@ -20,8 +20,8 @@
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
 import { restoreSessionState, SavedSessionState, savedSessionState } from "@/lib/session/lifecycle/session-scope";
-import { Agent, ModelChoice } from "@/lib/types";
-import type { AgentSession } from "@/lib/types";
+import { Agent, ModelChoice } from "@/lib/types/agent";
+import type { AgentSession } from "@/lib/types/agent";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { z } from "zod";
 

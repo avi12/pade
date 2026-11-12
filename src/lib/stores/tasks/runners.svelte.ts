@@ -7,8 +7,8 @@
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { pastedText } from "@/lib/terminal/input/terminal-input";
-import type { TaskGroup } from "@/lib/types";
-import { RunnerStream } from "@/lib/types";
+import type { TaskGroup } from "@/lib/types/terminal";
+import { RunnerStream } from "@/lib/types/terminal";
 import { settledValue } from "@/lib/util/async/settled";
 
 type RunnerKind = TaskGroup["kind"];

@@ -21,8 +21,8 @@ import { createRecoveryLoop } from "@/lib/stores/agent/recoveryLoop.svelte";
 import type { RecoveryHit, RecoveryHost } from "@/lib/stores/agent/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { CONTINUE_PROMPT, hasUsageLimit, isUsageLimitStop } from "@/lib/stores/usage/usageResume.svelte";
-import { SessionStatus } from "@/lib/types";
-import type { AgentSession } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
+import type { AgentSession } from "@/lib/types/agent";
 import { SvelteMap } from "svelte/reactivity";
 
 /** How often a stuck session is nudged to continue. */

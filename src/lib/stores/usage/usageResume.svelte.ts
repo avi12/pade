@@ -21,8 +21,10 @@ import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { fetchAccountReading } from "@/lib/stores/usage/accountReadings.svelte";
 import { PROMPT_SUBMIT } from "@/lib/terminal/input/terminal-input";
 import { stripAnsi } from "@/lib/terminal/output/ansi";
-import { CreditsState, SessionStatus } from "@/lib/types";
-import type { AccountUsage, AgentSession } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
+import type { AgentSession } from "@/lib/types/agent";
+import { CreditsState } from "@/lib/types/usage";
+import type { AccountUsage } from "@/lib/types/usage";
 import { SvelteDate, SvelteMap } from "svelte/reactivity";
 
 /** The usage windows an agent CLI can exhaust - which one names the reset time. */

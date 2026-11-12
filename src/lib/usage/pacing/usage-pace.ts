@@ -27,8 +27,8 @@
 // of this: going over costs real money, which is exactly what pacing is there
 // to save.
 
-import { PacedWindowKind } from "@/lib/types";
-import type { AccountUsage, UsageWindow, UsageWindowKind } from "@/lib/types";
+import { PacedWindowKind } from "@/lib/types/pacing";
+import type { AccountUsage, UsageWindow, UsageWindowKind } from "@/lib/types/usage";
 import { usageResetTime } from "@/lib/usage/usage-groups";
 
 /** Below this much of a window spent, no one is paced however fast it burns. */

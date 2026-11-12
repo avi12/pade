@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { terminalSchemes } from "@/lib/stores/ui/terminalSchemes.svelte";
   import { ANSI_COLOR_TOKENS } from "@/lib/terminal/theme/terminal-theme";
-  import type { TerminalScheme } from "@/lib/types";
+  import type { TerminalScheme } from "@/lib/types/theme";
 
   // One "which colour scheme paints the terminal" control: a trigger showing the
   // current pick with a preview strip, and a native popover listing every scheme

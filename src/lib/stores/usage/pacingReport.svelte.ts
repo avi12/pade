@@ -14,7 +14,7 @@ import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { adaptedChoice, adaptedSteps, originalChoice } from "@/lib/stores/usage/usageAdapt.svelte";
 import { hasUsageLimit } from "@/lib/stores/usage/usageResume.svelte";
-import type { AgentSession } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
 import { createObservedRecorder } from "@/lib/usage/pacing/observed-decisions";
 import type { ObservedKind, PacingReport } from "@/lib/usage/pacing/pacing-report";
 import { choiceFactsOf, sessionFactsOf } from "@/lib/usage/pacing/report-facts";

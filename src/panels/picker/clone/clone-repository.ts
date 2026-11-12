@@ -1,5 +1,5 @@
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import type { OpenTarget } from "@/lib/types";
+import type { OpenTarget } from "@/lib/types/window";
 import {
   CloneUrl,
   GitSecret,

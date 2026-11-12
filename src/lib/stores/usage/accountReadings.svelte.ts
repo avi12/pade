@@ -5,7 +5,7 @@
 // two numbers because two readers asked at different times.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import type { AccountUsage } from "@/lib/types";
+import type { AccountUsage } from "@/lib/types/usage";
 import { SvelteMap } from "svelte/reactivity";
 
 const latest = new SvelteMap<string, AccountUsage>();

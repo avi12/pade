@@ -4,8 +4,8 @@
 
 import { PreviewPane } from "@/lib/feed/preview/feed-previews";
 import { isImagePath, isRenderablePath, isVideoPath } from "@/lib/feed/preview/preview";
-import { FeedVideoKind } from "@/lib/types";
-import type { FeedVideo } from "@/lib/types";
+import { FeedVideoKind } from "@/lib/types/feed";
+import type { FeedVideo } from "@/lib/types/feed";
 
 export const CardViewKind = {
   Message: "message",

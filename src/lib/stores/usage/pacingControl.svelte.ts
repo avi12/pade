@@ -12,12 +12,13 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { CommandProtocolMap } from "@/lib/ipc/messaging";
-import { PacingControlPartKind } from "@/lib/types";
-import type { AgentSession, PacingRestUntil, PacingThrottle } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
+import { PacingControlPartKind } from "@/lib/types/pacing";
+import type { PacingRestUntil, PacingThrottle } from "@/lib/types/pacing";
 import type { ThrottledSession } from "@/lib/usage/pacing/account-round";
 
 /** One part of a session's control, as the backend takes it. */
-type ControlPart = Parameters<CommandProtocolMap[Command.agentSetPacingControl]>[0]["part"];
+type ControlPart = Parameters<CommandProtocolMap[typeof Command.agentSetPacingControl]>[0]["part"];
 
 /** Who a control belongs to: the agent that reads it, and its conversation. */
 export type ControlTarget = Pick<AgentSession, "conversationId"> & {

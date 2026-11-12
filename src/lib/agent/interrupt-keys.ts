@@ -20,7 +20,7 @@
 import { AgentId } from "@/lib/agent/agent-icon";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { encodeChord, normalizeChord } from "@/lib/terminal/input/key-chord";
-import type { ClaudeKeybindings } from "@/lib/types";
+import type { ClaudeKeybindings } from "@/lib/types/agent";
 
 /** One shortcut: its default chord, how many presses it takes, and the action
  *  a user may rebind it under (null where the agent reads no user keys). */

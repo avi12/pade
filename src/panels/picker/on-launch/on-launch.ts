@@ -1,7 +1,7 @@
 // The choices the picker's "On launch" section offers, each with the label
 // its pill prints - the section renders them, it never spells them out.
 
-import { StartMode, TEMP_CLEANUP_DAY_CHOICES } from "@/lib/types";
+import { StartMode, TEMP_CLEANUP_DAY_CHOICES } from "@/lib/types/settings";
 
 /** One pill of a single-choice row: the value it picks and its label. */
 export interface LabelledChoice<Value> {

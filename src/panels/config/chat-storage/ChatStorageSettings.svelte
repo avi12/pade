@@ -6,7 +6,8 @@
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
-  import type { Agent, ChatStorage } from "@/lib/types";
+  import type { Agent } from "@/lib/types/agent";
+  import type { ChatStorage } from "@/lib/types/chat-storage";
   import { settledValue } from "@/lib/util/async/settled";
   import {
     agentShares,

@@ -1,4 +1,4 @@
-import type { WorkspaceMember } from "@/lib/types";
+import type { WorkspaceMember } from "@/lib/types/workspace";
 import {
   enclosingRepository,
   hasSeveralMembers,

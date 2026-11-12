@@ -12,8 +12,8 @@
 // backend's claim, never this snapshot's.
 
 import { windowLabel } from "@/lib/ipc/platform";
-import { ChangeEvent } from "@/lib/types";
-import type { WatchStatus } from "@/lib/types";
+import { ChangeEvent } from "@/lib/types/feed";
+import type { WatchStatus } from "@/lib/types/feed";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { z } from "zod";
 

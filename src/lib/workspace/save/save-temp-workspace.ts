@@ -6,8 +6,8 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import { successorPrompt } from "@/lib/stores/agent/handoff.svelte";
 import { startRunner } from "@/lib/stores/tasks/runners.svelte";
-import { TaskGroup } from "@/lib/types";
-import type { Agent, AgentSession } from "@/lib/types";
+import type { Agent, AgentSession } from "@/lib/types/agent";
+import { TaskGroup } from "@/lib/types/terminal";
 
 const INSTALL_RUNNER_LABEL = "Install dependencies";
 

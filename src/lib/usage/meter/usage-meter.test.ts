@@ -1,4 +1,5 @@
-import { type AccountUsage, type NoReading, NoReadingReason, UsageWindowKind } from "@/lib/types";
+import { NoReadingReason, UsageWindowKind } from "@/lib/types/usage";
+import type { AccountUsage, NoReading } from "@/lib/types/usage";
 import {
   groupSeverityClass,
   isJustReset,

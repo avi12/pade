@@ -7,8 +7,8 @@
   import ViewToggles from "@/lib/feed/preview/ViewToggles.svelte";
   import Icon from "@/lib/Icon.svelte";
   import { windowedEditorFor } from "@/lib/stores/workspace/active-project/editors.svelte";
-  import { DiffStyle } from "@/lib/types";
-  import type { ChangeEvent } from "@/lib/types";
+  import type { ChangeEvent } from "@/lib/types/feed";
+  import { DiffStyle } from "@/lib/types/theme";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { relativeToRoot } from "@/lib/util/paths";
   import ChangePreview from "@/panels/feed/preview/ChangePreview.svelte";

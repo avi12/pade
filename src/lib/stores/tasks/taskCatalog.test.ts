@@ -1,6 +1,7 @@
 import { createTaskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { knownTaskCommands, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
-import { ManifestMatch, type TaskGroup, TaskManifestDescriptor } from "@/lib/types";
+import { ManifestMatch, TaskManifestDescriptor } from "@/lib/types/terminal";
+import type { TaskGroup } from "@/lib/types/terminal";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({

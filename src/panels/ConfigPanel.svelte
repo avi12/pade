@@ -1,6 +1,6 @@
 <script lang="ts">
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
-  import type { Agent } from "@/lib/types";
+  import type { Agent } from "@/lib/types/agent";
   import AppearanceSettings from "@/panels/config/appearance/AppearanceSettings.svelte";
   import ChatStorageSettings from "@/panels/config/chat-storage/ChatStorageSettings.svelte";
   import DiscordSettings from "@/panels/config/DiscordSettings.svelte";

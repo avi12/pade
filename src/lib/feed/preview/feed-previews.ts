@@ -12,7 +12,7 @@ import { markdownDocument, sandboxedHtmlDocument } from "@/lib/code/markdown";
 import { isImagePath, isMarkdownPath, isVideoPath } from "@/lib/feed/preview/preview";
 import { previewLines } from "@/lib/feed/preview/preview-lines";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import type { FeedImage, FeedVideo } from "@/lib/types";
+import type { FeedImage, FeedVideo } from "@/lib/types/feed";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 /** A markdown/HTML card shows a Code|Preview toggle: Code is the diff (the

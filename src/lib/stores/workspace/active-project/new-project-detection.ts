@@ -5,7 +5,7 @@
 import { EventType, onMessage } from "@/lib/ipc/messaging";
 import { refreshEditors } from "@/lib/stores/workspace/active-project/editors.svelte";
 import { refreshProjectKind } from "@/lib/stores/workspace/project-rows/projectKinds.svelte";
-import { ChangeKind } from "@/lib/types";
+import { ChangeKind } from "@/lib/types/feed";
 import { isUnderDirectory } from "@/lib/workspace/relocate/workspace-relocate";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 

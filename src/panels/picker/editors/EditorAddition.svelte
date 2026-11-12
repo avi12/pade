@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import type { Prefs } from "@/lib/types";
+  import type { Prefs } from "@/lib/types/settings";
   import AddedEditorsList from "@/panels/picker/editors/AddedEditorsList.svelte";
   import AddEditorForm from "@/panels/picker/editors/AddEditorForm.svelte";
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { Ide } from "@/lib/types";
+  import type { Ide } from "@/lib/types/editor";
   import { collapseRow } from "@/lib/ui/motion";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";

@@ -19,8 +19,9 @@ import {
 import type { SessionsHandoff, WindowHandoff } from "@/lib/shell/handoff/window-handoff";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
-import { WindowMode } from "@/lib/types";
-import type { AgentSession, OpenTarget } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
+import { WindowMode } from "@/lib/types/window";
+import type { OpenTarget } from "@/lib/types/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { onDestroy, onMount } from "svelte";
 

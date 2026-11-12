@@ -47,8 +47,10 @@
     disposeNewProjectDetection,
     initNewProjectDetection
   } from "@/lib/stores/workspace/active-project/new-project-detection";
-  import { StartMode, realAgents as toRealAgents } from "@/lib/types";
-  import type { Agent, AgentSession, OpenTarget } from "@/lib/types";
+  import { realAgents as toRealAgents } from "@/lib/types/agent";
+  import type { Agent, AgentSession } from "@/lib/types/agent";
+  import { StartMode } from "@/lib/types/settings";
+  import type { OpenTarget } from "@/lib/types/window";
   import OverflowTooltipLayer from "@/lib/ui/tooltip/OverflowTooltipLayer.svelte";
   import { settledValue } from "@/lib/util/async/settled";
   import { isTemporaryWorkspace, shortDisplayName } from "@/lib/util/paths";

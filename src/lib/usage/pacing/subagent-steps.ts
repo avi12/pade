@@ -19,8 +19,8 @@
 // it is shorter than the shortest; a subagent told to wrap up is finishing and
 // is let be.
 
-import { SubagentStepKind } from "@/lib/types";
-import type { SubagentStep } from "@/lib/types";
+import { SubagentStepKind } from "@/lib/types/pacing";
+import type { SubagentStep } from "@/lib/types/pacing";
 
 /** A subagent's typical cycle of one reply and one tool call, in seconds. */
 const TOOL_CYCLE_SECONDS = 20;

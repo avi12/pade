@@ -1,4 +1,4 @@
-import type { PathProbe } from "@/lib/types";
+import type { PathProbe } from "@/lib/types/workspace";
 import { childPath } from "@/lib/util/paths";
 import { startTempWorkspace, submitNewProject } from "@/panels/picker/home/new-project";
 import {

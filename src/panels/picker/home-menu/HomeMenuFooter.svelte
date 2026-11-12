@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { OpenTarget } from "@/lib/types";
+  import type { OpenTarget } from "@/lib/types/window";
   import { ToggleState } from "@/lib/ui/controls/toggle-state";
   import { rovingTablist } from "@/lib/ui/keyboard/roving-tabs";
   import ClonePanel from "@/panels/picker/clone/ClonePanel.svelte";

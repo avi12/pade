@@ -9,7 +9,7 @@
   import { contextTooltip } from "@/lib/session/tabs/context-tooltip";
   import { effective } from "@/lib/settings/prefs.svelte";
   import { contextPercentage, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
-  import type { SessionStatus } from "@/lib/types";
+  import type { SessionStatus } from "@/lib/types/agent";
   import { ContextLevel, contextLevel } from "@/lib/usage/context-level";
 
   const { agentId, sessionId, status, isAwaitingChoice = false }: {

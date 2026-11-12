@@ -3,7 +3,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { effective } from "@/lib/settings/prefs.svelte";
-  import type { CommitDetail } from "@/lib/types";
+  import type { CommitDetail } from "@/lib/types/vcs";
   import { commitPreviewSource } from "@/lib/vcs/commit-preview-source";
   import FileList from "@/lib/vcs/commitModal/FileList.svelte";
   import FilePreviewPane from "@/lib/vcs/commitModal/FilePreviewPane.svelte";

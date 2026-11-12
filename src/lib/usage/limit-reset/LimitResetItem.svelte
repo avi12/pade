@@ -3,7 +3,7 @@
   // many are left, when the first expires and what it clears, with its own
   // button - greyed out while there is nothing for it to clear.
   import { askToResetLimits } from "@/lib/stores/usage/limitReset.svelte";
-  import type { LimitReset } from "@/lib/types";
+  import type { LimitReset } from "@/lib/types/usage";
   import { limitResetExpiry, limitResetKind, NOTHING_TO_RESET } from "@/lib/usage/limit-reset/limit-reset-kind";
   import { formatCount } from "@/lib/util/format";
 

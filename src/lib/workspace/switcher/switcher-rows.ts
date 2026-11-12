@@ -3,7 +3,7 @@
 // view-transition names each row carries, and the window rows re-ordered the
 // way a drag left them.
 
-import type { WindowInfo } from "@/lib/types";
+import type { WindowInfo } from "@/lib/types/window";
 import { displayName, normalizePath } from "@/lib/util/paths";
 
 // Anything a popover id or view-transition-name can't carry.

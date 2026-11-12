@@ -3,7 +3,8 @@
   import { cardView } from "@/lib/feed/preview/card-view";
   import type { FeedPreviews } from "@/lib/feed/preview/feed-previews";
   import PreviewBody from "@/lib/feed/preview/PreviewBody.svelte";
-  import type { ChangeEvent, Ide } from "@/lib/types";
+  import type { Ide } from "@/lib/types/editor";
+  import type { ChangeEvent } from "@/lib/types/feed";
   import { baseName } from "@/lib/util/paths";
   import DiffPreview from "@/panels/feed/preview/DiffPreview.svelte";
 

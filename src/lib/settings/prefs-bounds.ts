@@ -1,9 +1,9 @@
 // Single authoritative home for the numeric bounds of user preferences. Both the
-// zod schema that validates the persisted value (lib/types) and the UI that lets
+// zod schema that validates the persisted value (lib/types/settings) and the UI that lets
 // the user change it (the Config font-size stepper, the side-panel drag/clamp in WorkspaceScreen)
 // read these - so a bound can never say one thing in the schema and another in
 // the control. Kept as a plain leaf module (no runes, no type imports) so the
-// schema in lib/types can import it without a cycle.
+// schema in lib/types/settings can import it without a cycle.
 
 /** Side-panel width (Feed/Git/Tasks/Config) in pixels. Default matches the design
  *  mockup's `panelW:380` and its double-click reset. */

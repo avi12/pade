@@ -6,7 +6,7 @@
 
 import { sessionsOfProject } from "@/lib/session/chats/session-projects";
 import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/session/panes/reorder";
-import type { AgentSession } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
 
 /** The workspace's tab and pane state, as the shell's `windowSessions` holds it. */
 export interface PaneLayout {

@@ -1,7 +1,7 @@
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import { settings } from "@/lib/settings/settings.svelte";
-import type { EditorKind, Ide } from "@/lib/types";
+import type { EditorKind, Ide } from "@/lib/types/editor";
 
 /** The machine's editors as the picker knows them: the detected editors, the
  *  project kinds the rules engine shows (straight from the backend registry, its

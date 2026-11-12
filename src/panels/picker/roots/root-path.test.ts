@@ -1,5 +1,5 @@
-import { EMPTY_PATH_PROBE } from "@/lib/types";
-import type { PathProbe } from "@/lib/types";
+import { EMPTY_PATH_PROBE } from "@/lib/types/workspace";
+import type { PathProbe } from "@/lib/types/workspace";
 import { assessRootPath } from "@/panels/picker/roots/root-path";
 import { describe, expect, it } from "vitest";
 

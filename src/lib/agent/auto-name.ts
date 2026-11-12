@@ -11,8 +11,9 @@
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
-import { ChangeKind, LabelSource } from "@/lib/types";
-import type { ChangeEvent } from "@/lib/types";
+import { ChangeKind } from "@/lib/types/feed";
+import type { ChangeEvent } from "@/lib/types/feed";
+import { LabelSource } from "@/lib/types/workspace";
 import { isTemporaryWorkspace, normalizePath } from "@/lib/util/paths";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 

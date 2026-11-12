@@ -4,7 +4,7 @@
 
 import { IDLE_MS } from "@/lib/terminal/activity/activity-timing";
 import { ENTER } from "@/lib/terminal/input/terminal-sequences";
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
 
 // A resize makes the agent repaint; output within this window after one is
 // treated as that repaint's echo, not fresh activity - so revealing a hidden

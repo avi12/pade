@@ -1,4 +1,4 @@
-import { RelocateStep } from "@/lib/types";
+import { RelocateStep } from "@/lib/types/workspace";
 
 /** What a prompt waiting on a folder move says at each of its steps. */
 export const RELOCATE_STEP_TEXT = {

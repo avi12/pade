@@ -7,7 +7,7 @@ import { registerPaneShortcuts } from "@/lib/session/panes/pane-shortcuts";
 import { ADD_SESSION_MENU_ID } from "@/lib/session/SessionTabs.svelte";
 import { registerTabShortcuts } from "@/lib/session/tab-shortcuts";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
-import type { Agent, AgentSession } from "@/lib/types";
+import type { Agent, AgentSession } from "@/lib/types/agent";
 import { onMount } from "svelte";
 
 export function registerSessionShortcuts({ windowSessions, isWorkspaceShown, fallbackAgent, closeSession }: {

@@ -9,7 +9,7 @@
 // the session's own share - what it spent was the session's turn.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import type { AgentSession, SessionTokenUsage } from "@/lib/types";
+import type { AgentSession, SessionTokenUsage } from "@/lib/types/agent";
 import { MILLISECONDS_PER_MINUTE } from "@/lib/usage/pacing/pacing-policy";
 import { weightedTokens } from "@/lib/usage/pacing/token-price";
 

@@ -1,4 +1,4 @@
-import type { TaggedPathProbe } from "@/lib/types";
+import type { TaggedPathProbe } from "@/lib/types/workspace";
 
 /** What Ctrl+Space fills a folder field with: the probe's completion (the next
  *  path segment as far as every folder on disk agrees), but only once the

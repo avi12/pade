@@ -2,7 +2,8 @@
 // what is happening to it - who updates it when PADE does not, or whether a
 // newer release is ready.
 
-import { Updater, type UpdateStatus } from "@/lib/types";
+import { Updater } from "@/lib/types/update";
+import type { UpdateStatus } from "@/lib/types/update";
 
 const OTHER_UPDATER_NOTES = {
   [Updater.enum.windows]: "installed from its Windows package, so updates come through Windows",

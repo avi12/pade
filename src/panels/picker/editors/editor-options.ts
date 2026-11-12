@@ -1,4 +1,4 @@
-import type { Ide } from "@/lib/types";
+import type { Ide } from "@/lib/types/editor";
 
 /** The detected editors that suit a project kind, in the backend's priority
  *  order. An unknown kind (no entry) falls back to every editor rather than

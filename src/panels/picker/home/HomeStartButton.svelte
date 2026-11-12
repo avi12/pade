@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { OpenTarget } from "@/lib/types";
+  import type { OpenTarget } from "@/lib/types/window";
   import type { HomeStart } from "@/panels/picker/home/home-composer";
   import { startFromHome } from "@/panels/picker/home/new-project";
   import type { CreateTarget } from "@/panels/picker/home/new-project";

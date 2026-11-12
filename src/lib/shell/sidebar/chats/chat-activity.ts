@@ -5,7 +5,7 @@
 
 import type { SidebarChat } from "@/lib/session/chats/chat-registry";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
 
 export const ChatActivity = {
   Working: "working",

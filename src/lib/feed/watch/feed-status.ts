@@ -5,7 +5,7 @@
 // the sentence that names which one it is (pure, so it is tested rather than
 // eyeballed).
 
-import type { WatchStatus } from "@/lib/types";
+import type { WatchStatus } from "@/lib/types/feed";
 import { formatAge, formatCount } from "@/lib/util/format";
 import { baseName, normalizePath } from "@/lib/util/paths";
 

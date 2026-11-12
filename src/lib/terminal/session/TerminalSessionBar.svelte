@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import ModelChip from "@/lib/model/readout/ModelChip.svelte";
   import SessionBadge from "@/lib/session/SessionBadge.svelte";
-  import type { AgentSession, SessionStatus } from "@/lib/types";
+  import type { AgentSession, SessionStatus } from "@/lib/types/agent";
   import { Axis, beginReorder } from "@/lib/ui/drag/drag-reorder";
   import type { DragHint } from "@/lib/ui/drag/drag-reorder";
 

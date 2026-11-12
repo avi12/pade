@@ -17,7 +17,7 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
 import { SvelteMap } from "svelte/reactivity";
 import { z } from "zod";
 

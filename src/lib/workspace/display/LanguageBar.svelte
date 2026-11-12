@@ -3,7 +3,7 @@
     observeProjectLanguages,
     projectLanguageShares
   } from "@/lib/stores/workspace/project-rows/projectLanguages.svelte";
-  import type { LanguageShare } from "@/lib/types";
+  import type { LanguageShare } from "@/lib/types/editor";
   import {
     isEnteringAfterCount,
     isLanguageMix,

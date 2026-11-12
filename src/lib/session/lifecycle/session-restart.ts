@@ -7,7 +7,7 @@
 // sessions a config change affects, and HOW the pane layout re-keys - are pure
 // functions here so they can be reasoned about and unit-tested on their own.
 
-import type { AgentSession, McpChange } from "@/lib/types";
+import type { AgentSession, McpChange } from "@/lib/types/agent";
 import { normalizePath } from "@/lib/util/paths";
 
 /** The sessions an MCP-config change should hand off: those running an agent the

@@ -1,5 +1,5 @@
 import { Command } from "@/lib/ipc/messaging";
-import type { AgentSession, ModelTokenUsage, SessionTokenUsage } from "@/lib/types";
+import type { AgentSession, ModelTokenUsage, SessionTokenUsage } from "@/lib/types/agent";
 import { measuredBurn, splitBurn } from "@/lib/usage/pacing/measured-burn";
 import {
   beforeEach,

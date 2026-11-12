@@ -7,7 +7,7 @@ import {
   resumeRecordedConversation
 } from "@/lib/session/chats/project-entry";
 import type { ProjectEntryHost } from "@/lib/session/chats/project-entry";
-import type { RecordedConversation } from "@/lib/types";
+import type { RecordedConversation } from "@/lib/types/chat-storage";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {

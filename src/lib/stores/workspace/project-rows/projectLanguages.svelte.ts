@@ -12,7 +12,7 @@ import {
   createVisiblePathBatch,
   PROJECT_ROW_CACHE_LIMIT
 } from "@/lib/stores/workspace/project-rows/visiblePathBatch.svelte";
-import type { LanguageShare } from "@/lib/types";
+import type { LanguageShare } from "@/lib/types/editor";
 import { untrack } from "svelte";
 
 /** Rows scroll past in bursts; the watch follows them once the list settles. */

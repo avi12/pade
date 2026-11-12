@@ -1,5 +1,6 @@
-import { CreditsState, NoReadingReason, SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
-import type { AccountUsage, UsageWindow } from "@/lib/types";
+import { SHELL_AGENT_ID } from "@/lib/types/agent";
+import { CreditsState, NoReadingReason, UsageWindowKind } from "@/lib/types/usage";
+import type { AccountUsage, UsageWindow } from "@/lib/types/usage";
 import {
   buildGroups,
   buildKindLegend,

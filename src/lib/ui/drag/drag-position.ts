@@ -1,4 +1,4 @@
-import type { DragPosition } from "@/lib/types";
+import type { DragPosition } from "@/lib/types/window";
 
 /** Anything with a layout box - a DOM element, or a stand-in in a test. */
 interface Measurable {

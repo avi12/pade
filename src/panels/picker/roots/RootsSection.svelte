@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { AddRootOutcome, Ide, ProjectEntry } from "@/lib/types";
+  import type { Ide } from "@/lib/types/editor";
+  import type { AddRootOutcome, ProjectEntry } from "@/lib/types/workspace";
   import AddRootForm from "@/panels/picker/roots/AddRootForm.svelte";
   import RootProjects from "@/panels/picker/roots/RootProjects.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";

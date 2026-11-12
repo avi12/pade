@@ -1,6 +1,7 @@
 import { groupChanges, GroupRole } from "@/lib/feed/change-groups";
-import { ChangeKind } from "@/lib/types";
-import type { ChangeEvent, WorkspaceMember } from "@/lib/types";
+import { ChangeKind } from "@/lib/types/feed";
+import type { ChangeEvent } from "@/lib/types/feed";
+import type { WorkspaceMember } from "@/lib/types/workspace";
 import { describe, expect, it } from "vitest";
 
 let idCounter = 0;

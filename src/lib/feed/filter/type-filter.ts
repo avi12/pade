@@ -3,7 +3,7 @@
 // selection means "no filter - show every type".
 
 import { fileExtension } from "@/lib/feed/filter/file-type";
-import type { ChangeEvent } from "@/lib/types";
+import type { ChangeEvent } from "@/lib/types/feed";
 import { formatCount } from "@/lib/util/format";
 
 export interface ExtensionCount {

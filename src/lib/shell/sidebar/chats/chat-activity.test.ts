@@ -1,5 +1,5 @@
 import { activityCounts, ChatActivity, chatActivity, shownChats } from "@/lib/shell/sidebar/chats/chat-activity";
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
 import { describe, expect, it } from "vitest";
 
 function chats(count: number) {

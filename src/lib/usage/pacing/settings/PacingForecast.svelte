@@ -1,6 +1,6 @@
 <script lang="ts">
   import { agentForecast, slowedSessionCount } from "@/lib/stores/usage/usagePacing.svelte";
-  import type { PacedWindowKind } from "@/lib/types";
+  import type { PacedWindowKind } from "@/lib/types/pacing";
   import { pacingPreview } from "@/lib/usage/pacing/pacing-policy";
   import { formatPercent } from "@/lib/util/format";
 

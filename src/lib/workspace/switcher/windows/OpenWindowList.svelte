@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { WindowInfo } from "@/lib/types";
+  import type { WindowInfo } from "@/lib/types/window";
   import { isTemporaryWorkspace, shortDisplayName } from "@/lib/util/paths";
   import ProjectKindIcon from "@/lib/workspace/display/ProjectKindIcon.svelte";
   import TempBadge from "@/lib/workspace/display/TempBadge.svelte";

@@ -2,8 +2,8 @@
   // One session in the usage panel's list of paced subagents: its name, whether
   // it may start new subagents, and each running subagent's step.
 
-  import { SubagentStepKind } from "@/lib/types";
-  import type { SubagentStep } from "@/lib/types";
+  import { SubagentStepKind } from "@/lib/types/pacing";
+  import type { SubagentStep } from "@/lib/types/pacing";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import type { ThrottledSession } from "@/lib/usage/pacing/account-round";
 

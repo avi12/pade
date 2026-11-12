@@ -6,73 +6,23 @@
 // `onMessage(EventType.x, ({ data }) => ...)` directly.
 
 import { defineTauriMessaging } from "@/lib/ipc/define-tauri-messaging";
-import {
-  AccountReading,
-  AddRootOutcome,
-  Agent,
-  ChangeEvent,
-  ChatStorage,
-  ClaudeKeybindings,
-  Commit,
-  CommitDetail,
-  ConfigFile,
-  DesignTool,
-  DragDropPayload,
-  DragOverPayload,
-  EditorKind,
-  FeedDiff,
-  FeedImage,
-  FeedVideo,
-  Ide,
-  LanguageShare,
-  LaunchContext,
-  LimitReset,
-  LimitResetOutcome,
-  McpChange,
-  ModelOption,
-  PathProbe,
-  ProjectEntry,
-  PtyChunk,
-  PtyExit,
-  PtyHistory,
-  PtySession,
-  PullOutcome,
-  RecordedConversation,
-  RecordedConversationsChanged,
-  RelocateProgress,
-  RestoreCandidate,
-  RunnerData,
-  RunnerExit,
-  RunnerInfo,
-  RunningModel,
-  RunningModelChanged,
-  SaveMigration,
-  Scheme,
-  SessionContext,
-  SessionTokenUsage,
-  Settings,
-  StatusEntry,
-  SwitchOutcome,
-  TaskGroup,
-  TaskManifestDescriptor,
-  TerminalScheme,
-  UpdateStatus,
-  Usage,
-  WatchedRootEvent,
-  WatchStatus,
-  WindowInfo,
-  WorkspaceMember
-} from "@/lib/types";
-import type {
-  LabelSource,
-  ModelChoice,
-  PacingControlPartKind,
-  PacingRestUntil,
-  PacingThrottle,
-  Prefs,
-  WindowDirection,
-  WindowMode
-} from "@/lib/types";
+import { Agent, ClaudeKeybindings, McpChange, ModelOption, RunningModel, RunningModelChanged, SessionContext, SessionTokenUsage, SwitchOutcome } from "@/lib/types/agent";
+import { ChatStorage, RecordedConversation, RecordedConversationsChanged } from "@/lib/types/chat-storage";
+import { DesignTool, EditorKind, Ide, LanguageShare } from "@/lib/types/editor";
+import { ChangeEvent, FeedDiff, FeedImage, FeedVideo, WatchedRootEvent, WatchStatus } from "@/lib/types/feed";
+import { ConfigFile, Settings } from "@/lib/types/settings";
+import { PtyChunk, PtyExit, PtyHistory, PtySession, RunnerData, RunnerExit, RunnerInfo, TaskGroup, TaskManifestDescriptor } from "@/lib/types/terminal";
+import { Scheme, TerminalScheme } from "@/lib/types/theme";
+import { UpdateStatus } from "@/lib/types/update";
+import { AccountReading, LimitReset, LimitResetOutcome, Usage } from "@/lib/types/usage";
+import { Commit, CommitDetail, PullOutcome, RestoreCandidate, StatusEntry } from "@/lib/types/vcs";
+import { DragDropPayload, DragOverPayload, LaunchContext, WindowInfo } from "@/lib/types/window";
+import { AddRootOutcome, PathProbe, ProjectEntry, RelocateProgress, SaveMigration, WorkspaceMember } from "@/lib/types/workspace";
+import type { ModelChoice } from "@/lib/types/agent";
+import type { PacingControlPartKind, PacingRestUntil, PacingThrottle } from "@/lib/types/pacing";
+import type { Prefs } from "@/lib/types/settings";
+import type { WindowDirection, WindowMode } from "@/lib/types/window";
+import type { LabelSource } from "@/lib/types/workspace";
 import { ShadowSummary } from "@/lib/usage/pacing/pacing-report";
 import type { PacingReport } from "@/lib/usage/pacing/pacing-report";
 import { z } from "zod";

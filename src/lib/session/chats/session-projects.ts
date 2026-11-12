@@ -3,7 +3,7 @@
 // session) and which sessions belong to a project - the tab strip shows only
 // the front project's, while every session stays mounted.
 
-import type { AgentSession } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
 import { normalizePath } from "@/lib/util/paths";
 
 /** Whether two project paths name the same folder. */

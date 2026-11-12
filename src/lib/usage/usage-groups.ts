@@ -11,15 +11,10 @@
 
 import { agentIconName } from "@/lib/agent/agent-icon";
 import type { IconName } from "@/lib/Icon.svelte";
-import { CreditsState, SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
-import type {
-  AccountUsage,
-  Agent,
-  AgentSession,
-  CreditBalance,
-  NoReading,
-  UsageWindow
-} from "@/lib/types";
+import { SHELL_AGENT_ID } from "@/lib/types/agent";
+import type { Agent, AgentSession } from "@/lib/types/agent";
+import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
+import type { AccountUsage, CreditBalance, NoReading, UsageWindow } from "@/lib/types/usage";
 import { formatPercent } from "@/lib/util/format";
 
 /** Consumption severity, applied as a CSS class: blue while there's room, amber

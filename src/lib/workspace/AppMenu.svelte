@@ -1,7 +1,8 @@
 <script lang="ts">
   import RelabelDialog from "@/lib/dialogs/RelabelDialog.svelte";
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
-  import type { AddRootOutcome, WindowInfo } from "@/lib/types";
+  import type { WindowInfo } from "@/lib/types/window";
+  import type { AddRootOutcome } from "@/lib/types/workspace";
   import { ToggleState } from "@/lib/ui/controls/toggle-state";
   import { arrowFocus } from "@/lib/ui/keyboard/roving-menu";
   import SaveWorkspaceCard from "@/lib/workspace/save/SaveWorkspaceCard.svelte";

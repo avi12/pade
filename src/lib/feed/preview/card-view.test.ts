@@ -1,6 +1,6 @@
 import { cardView, CardViewKind } from "@/lib/feed/preview/card-view";
 import { PreviewPane } from "@/lib/feed/preview/feed-previews";
-import { FeedVideoKind } from "@/lib/types";
+import { FeedVideoKind } from "@/lib/types/feed";
 import { describe, expect, it } from "vitest";
 
 const NOTHING_CACHED = {

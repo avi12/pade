@@ -17,7 +17,8 @@ import {
   TERMINAL_CURSOR_TOKEN,
   TERMINAL_SELECTION_TOKEN
 } from "@/lib/terminal/theme/terminal-theme";
-import { Scheme, type TerminalScheme } from "@/lib/types";
+import { Scheme } from "@/lib/types/theme";
+import type { TerminalScheme } from "@/lib/types/theme";
 
 /** The syntax roles, each named by the terminal token whose colour it takes -
  *  the ANSI slot a palette already spends on that role. The code viewers paint

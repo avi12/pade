@@ -6,7 +6,7 @@
 // the output sniffers fill) and decides what one tick of a session does.
 
 import { measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
-import type { AgentSession } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 /** What the app shell provides to every recovery loop. */

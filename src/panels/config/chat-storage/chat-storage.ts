@@ -1,8 +1,9 @@
 // The chat-storage limits the Config panel offers, each with the label its
 // option prints, and the words for what a limit would delete.
 
-import { CHAT_SIZE_LIMIT_CHOICES, CHAT_STORAGE_LIMIT_CHOICES } from "@/lib/types";
-import type { Agent, ChatStorage, DeletedChat } from "@/lib/types";
+import type { Agent } from "@/lib/types/agent";
+import type { ChatStorage, DeletedChat } from "@/lib/types/chat-storage";
+import { CHAT_SIZE_LIMIT_CHOICES, CHAT_STORAGE_LIMIT_CHOICES } from "@/lib/types/settings";
 import {
   BYTES_PER_MEGABYTE,
   formatAge,

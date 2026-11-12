@@ -1,5 +1,6 @@
-import { CreditsState, PacedWindowKind, UsageWindowKind } from "@/lib/types";
-import type { UsageWindow } from "@/lib/types";
+import { PacedWindowKind } from "@/lib/types/pacing";
+import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
+import type { UsageWindow } from "@/lib/types/usage";
 import {
   assessPace,
   burnRate,

@@ -7,8 +7,8 @@ import {
   parseLimitHit,
   parseResetClock
 } from "@/lib/stores/usage/usageResume.svelte";
-import { CreditsState, UsageWindowKind } from "@/lib/types";
-import type { AccountUsage } from "@/lib/types";
+import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
+import type { AccountUsage } from "@/lib/types/usage";
 import { describe, expect, it } from "vitest";
 
 // A fixed "now": 2026-07-17 10:00 local time.

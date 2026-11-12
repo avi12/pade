@@ -2,7 +2,8 @@
   import { AgentId } from "@/lib/agent/agent-icon";
   import { fetchAccountReading, latestAccount } from "@/lib/stores/usage/accountReadings.svelte";
   import { limitResetOffers, refreshLimitResetOffers } from "@/lib/stores/usage/limitReset.svelte";
-  import type { AccountUsage, AgentSession, NoReading } from "@/lib/types";
+  import type { AgentSession } from "@/lib/types/agent";
+  import type { AccountUsage, NoReading } from "@/lib/types/usage";
   import { limitResetTotal } from "@/lib/usage/limit-reset/limit-reset-kind";
   import LimitResetConfirm from "@/lib/usage/limit-reset/LimitResetConfirm.svelte";
   import { noReadingsOf, pendingResetBoundaries, withLastGoodReadings } from "@/lib/usage/meter/usage-meter";

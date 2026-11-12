@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import type { Prefs } from "@/lib/types";
+  import type { Prefs } from "@/lib/types/settings";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
 
   // Editors located by executable path - listed so a stale one can be dropped

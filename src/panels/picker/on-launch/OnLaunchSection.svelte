@@ -1,7 +1,7 @@
 <script lang="ts">
   import { globalNaming } from "@/lib/agent/ai-naming-scope";
   import { effective } from "@/lib/settings/prefs.svelte";
-  import type { Prefs, StartMode } from "@/lib/types";
+  import type { Prefs, StartMode } from "@/lib/types/settings";
   import ChoiceRow from "@/panels/picker/on-launch/ChoiceRow.svelte";
   import ExplorerContextMenuToggle from "@/panels/picker/on-launch/ExplorerContextMenuToggle.svelte";
   import { START_MODE_CHOICES, TEMP_CLEANUP_CHOICES } from "@/panels/picker/on-launch/on-launch";

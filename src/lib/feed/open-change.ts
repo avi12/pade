@@ -4,7 +4,7 @@
 
 import { isBinaryPath } from "@/lib/feed/preview/preview";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import type { Ide } from "@/lib/types";
+import type { Ide } from "@/lib/types/editor";
 
 /** The verb on a card's open button - the one source its tooltip and its
  *  enabled state read, so both follow the same editor-or-folder decision. Empty

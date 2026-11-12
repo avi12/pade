@@ -1,7 +1,7 @@
 import { AgentId } from "@/lib/agent/agent-icon";
 import { interruptKeysOf } from "@/lib/agent/interrupt-keys";
 import { ESCAPE } from "@/lib/terminal/input/terminal-sequences";
-import type { ClaudeKeybindings } from "@/lib/types";
+import type { ClaudeKeybindings } from "@/lib/types/agent";
 import { describe, expect, it } from "vitest";
 
 const CONTROL_X = String.fromCharCode(0x18);

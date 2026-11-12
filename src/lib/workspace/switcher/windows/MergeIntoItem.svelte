@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { MERGE_INTO_TOOLTIP, mergeMenuItemLabel, mergeTargets } from "@/lib/shell/handoff/window-handoff";
-  import type { WindowInfo } from "@/lib/types";
+  import type { WindowInfo } from "@/lib/types/window";
 
   // The one menu item below the open-window list that merges this window into
   // the only other one. With several other windows each of their rows carries

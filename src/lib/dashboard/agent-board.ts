@@ -7,7 +7,7 @@
 // watching (and only then spend a model call summarizing their agents); a row
 // click asks the owning window to bring that session's tab forward.
 
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
 import { formatAge, formatQuantity } from "@/lib/util/format";
 import { z } from "zod";
 

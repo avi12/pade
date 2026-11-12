@@ -2,7 +2,7 @@ import { createAutoNamer } from "@/lib/agent/auto-name";
 import { EventType } from "@/lib/ipc/messaging";
 import { createTaskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { frontProject, setFrontProjectSource } from "@/lib/stores/workspace/active-project/frontProject.svelte";
-import { ChangeKind } from "@/lib/types";
+import { ChangeKind } from "@/lib/types/feed";
 import { describe, expect, it, vi } from "vitest";
 
 const TEMP = "C:/Users/me/.pade/workspaces/temp-1";

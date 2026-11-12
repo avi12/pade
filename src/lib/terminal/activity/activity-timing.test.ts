@@ -1,6 +1,6 @@
 import { SUBMIT_VERIFY_MS } from "@/lib/terminal/activity/activity-timing";
 import { createSessionActivity } from "@/lib/terminal/activity/sessionActivity.svelte";
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
 import {
   afterEach,
   beforeEach,

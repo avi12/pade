@@ -2,7 +2,7 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { PROJECT_SEARCH_ID, runWindowShortcut } from "@/lib/shell/shortcuts/window-shortcut-actions";
 import { WindowShortcut } from "@/lib/shell/shortcuts/window-shortcuts";
 import { toastText } from "@/lib/stores/ui/toast.svelte";
-import { WindowMode } from "@/lib/types";
+import { WindowMode } from "@/lib/types/window";
 import {
   afterEach,
   beforeEach,

@@ -1,5 +1,5 @@
 import { settings } from "@/lib/settings/settings.svelte";
-import type { Ide } from "@/lib/types";
+import type { Ide } from "@/lib/types/editor";
 import { createEditorCatalog } from "@/panels/picker/editors/editorCatalog.svelte";
 import {
   beforeEach,

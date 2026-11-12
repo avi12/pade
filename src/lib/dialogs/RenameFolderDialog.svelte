@@ -1,7 +1,7 @@
 <script lang="ts">
   import NameDialog from "@/lib/dialogs/NameDialog.svelte";
   import { EventType, onMessage } from "@/lib/ipc/messaging";
-  import type { RelocateStep } from "@/lib/types";
+  import type { RelocateStep } from "@/lib/types/workspace";
   import { baseName, normalizePath } from "@/lib/util/paths";
   import { ProjectName } from "@/lib/validate";
   import { RELOCATE_STEP_TEXT } from "@/lib/workspace/relocate/relocate-steps";

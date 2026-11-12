@@ -8,7 +8,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
-import type { Ide } from "@/lib/types";
+import type { Ide } from "@/lib/types/editor";
 import { settledValue } from "@/lib/util/async/settled";
 import { SvelteMap } from "svelte/reactivity";
 

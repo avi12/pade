@@ -1,4 +1,4 @@
-import { EMPTY_PATH_PROBE } from "@/lib/types";
+import { EMPTY_PATH_PROBE } from "@/lib/types/workspace";
 import { nextSegmentCompletion } from "@/panels/picker/path-field/path-completion";
 import { describe, expect, it } from "vitest";
 

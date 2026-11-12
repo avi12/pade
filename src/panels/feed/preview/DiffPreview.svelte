@@ -2,7 +2,7 @@
   import type { DiffLine } from "@/lib/code/diff";
   import DiffView from "@/lib/code/DiffView.svelte";
   import { openChangedFile } from "@/lib/feed/open-change";
-  import type { Ide } from "@/lib/types";
+  import type { Ide } from "@/lib/types/editor";
   import { Key } from "@/lib/ui/keyboard/keys";
 
   // An open card's diff. Clicking it (or Enter on it) opens the file in the

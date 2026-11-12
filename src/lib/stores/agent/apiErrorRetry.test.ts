@@ -5,7 +5,7 @@ import {
   observeApiError,
   parseApiError
 } from "@/lib/stores/agent/apiErrorRetry.svelte";
-import type { AgentSession } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
 import {
   afterEach,
   describe,

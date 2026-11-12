@@ -4,7 +4,7 @@ import {
   terminalPaletteProperties
 } from "@/lib/terminal/theme/terminal-palette";
 import { ANSI_COLOR_TOKENS } from "@/lib/terminal/theme/terminal-theme";
-import type { TerminalScheme } from "@/lib/types";
+import type { TerminalScheme } from "@/lib/types/theme";
 import { describe, expect, it } from "vitest";
 
 /** Solarized Dark's palette, as Windows Terminal ships it. */

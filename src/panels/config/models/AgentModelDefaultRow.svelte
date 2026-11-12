@@ -6,7 +6,7 @@
   import Icon from "@/lib/Icon.svelte";
   import EffortPicker from "@/lib/model/menu/EffortPicker.svelte";
   import { modelOption, modelOptions, refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
-  import type { Agent, ModelChoice } from "@/lib/types";
+  import type { Agent, ModelChoice } from "@/lib/types/agent";
   import Select from "@/lib/ui/controls/Select.svelte";
 
   const { agent, chosen, fallbackLabel, scope, onsave }: {

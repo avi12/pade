@@ -75,8 +75,10 @@ import { createAccountRound } from "@/lib/stores/usage/usageAccountRound.svelte"
 import { adaptedChoice, adaptedSteps, createUsageAdapter } from "@/lib/stores/usage/usageAdapt.svelte";
 import type { AdaptHost } from "@/lib/stores/usage/usageAdapt.svelte";
 import { hasUsageLimit, readAccount } from "@/lib/stores/usage/usageResume.svelte";
-import { PacedWindowKind, PacingStep, SessionStatus } from "@/lib/types";
-import type { AccountUsage, AgentSession, UsageWindow } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
+import type { AgentSession } from "@/lib/types/agent";
+import { PacedWindowKind, PacingStep } from "@/lib/types/pacing";
+import type { AccountUsage, UsageWindow } from "@/lib/types/usage";
 import { isThrottling } from "@/lib/usage/pacing/account-round";
 import type { RoundPlan, SessionReport } from "@/lib/usage/pacing/account-round";
 import {

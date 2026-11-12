@@ -1,8 +1,8 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import { EMPTY_PATH_PROBE } from "@/lib/types";
-  import type { TaggedPathProbe } from "@/lib/types";
+  import { EMPTY_PATH_PROBE } from "@/lib/types/workspace";
+  import type { TaggedPathProbe } from "@/lib/types/workspace";
   import { Key } from "@/lib/ui/keyboard/keys";
   import { collapseRow, expandRow, flipDuration } from "@/lib/ui/motion";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";

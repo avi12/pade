@@ -1,4 +1,4 @@
-import type { Ide } from "@/lib/types";
+import type { Ide } from "@/lib/types/editor";
 import { editorSelectId, editorsForKind } from "@/panels/picker/editors/editor-options";
 import { describe, expect, it } from "vitest";
 

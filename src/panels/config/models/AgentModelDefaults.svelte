@@ -13,7 +13,7 @@
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
   import { modelOption, modelOptions, refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
-  import type { Agent, ModelChoice } from "@/lib/types";
+  import type { Agent, ModelChoice } from "@/lib/types/agent";
   import AgentModelDefaultRow from "@/panels/config/models/AgentModelDefaultRow.svelte";
   import { onMount } from "svelte";
 

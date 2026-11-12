@@ -1,4 +1,4 @@
-import { UsageWindowKind } from "@/lib/types";
+import { UsageWindowKind } from "@/lib/types/usage";
 import {
   costWeight,
   lightestToRestore,

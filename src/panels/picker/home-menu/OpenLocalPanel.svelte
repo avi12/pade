@@ -1,8 +1,9 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { EventType, onMessage } from "@/lib/ipc/messaging";
-  import { EMPTY_PATH_PROBE } from "@/lib/types";
-  import type { DragPosition, OpenTarget, TaggedPathProbe } from "@/lib/types";
+  import type { DragPosition, OpenTarget } from "@/lib/types/window";
+  import { EMPTY_PATH_PROBE } from "@/lib/types/workspace";
+  import type { TaggedPathProbe } from "@/lib/types/workspace";
   import { isDragOverElement } from "@/lib/ui/drag/drag-position";
   import { FolderPath, parseInput } from "@/lib/validate";
   import PathCombobox from "@/panels/picker/path-field/PathCombobox.svelte";

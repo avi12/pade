@@ -4,7 +4,7 @@
 
 import { AgentId } from "@/lib/agent/agent-icon";
 import { CONTROL_SEQUENCE_INTRODUCER } from "@/lib/terminal/input/terminal-sequences";
-import { Scheme } from "@/lib/types";
+import { Scheme } from "@/lib/types/theme";
 
 const COLOR_SCHEME_STATUS = "?997";
 const COLOR_SCHEME_NOTIFICATIONS = "?2031h";

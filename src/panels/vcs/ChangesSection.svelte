@@ -3,8 +3,9 @@
   import DiffView from "@/lib/code/DiffView.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { effective } from "@/lib/settings/prefs.svelte";
-  import { DiffStyle, VcsKind } from "@/lib/types";
-  import type { StatusEntry } from "@/lib/types";
+  import { DiffStyle } from "@/lib/types/theme";
+  import { VcsKind } from "@/lib/types/vcs";
+  import type { StatusEntry } from "@/lib/types/vcs";
   import { formatCount } from "@/lib/util/format";
   import { baseName } from "@/lib/util/paths";
 

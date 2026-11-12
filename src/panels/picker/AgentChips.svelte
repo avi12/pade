@@ -1,7 +1,7 @@
 <script lang="ts">
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
-  import type { Agent } from "@/lib/types";
+  import type { Agent } from "@/lib/types/agent";
 
   // A radiogroup of agent choice-chips - one pill per agent, its brand glyph
   // leading the label, the selected one edged in primary over its container.

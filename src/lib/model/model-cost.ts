@@ -8,7 +8,7 @@
 // a coding turn from a docs one, so it never swaps below the coding floor.
 
 import { bareModel, lowerEffort } from "@/lib/model/model-label";
-import type { ModelChoice, ModelOption } from "@/lib/types";
+import type { ModelChoice, ModelOption } from "@/lib/types/agent";
 
 /** Family words by cost tier, cheapest tier first. */
 const COST_TIERS = [

@@ -12,7 +12,7 @@
 // the inherited value, which would silently freeze this project at whatever the
 // global happened to be that day.
 
-import type { Prefs } from "@/lib/types";
+import type { Prefs } from "@/lib/types/settings";
 import { withRecordEntry } from "@/lib/util/data/record-entry";
 
 /** Naming is opt-in - it spends agent turns, so nothing names until asked. */

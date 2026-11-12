@@ -1,5 +1,5 @@
-import { CHAT_SIZE_LIMIT_CHOICES, CHAT_STORAGE_LIMIT_CHOICES } from "@/lib/types";
-import type { ChatStorage } from "@/lib/types";
+import type { ChatStorage } from "@/lib/types/chat-storage";
+import { CHAT_SIZE_LIMIT_CHOICES, CHAT_STORAGE_LIMIT_CHOICES } from "@/lib/types/settings";
 import {
   agentShares,
   CHAT_SIZE_CHOICES,

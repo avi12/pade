@@ -2,7 +2,7 @@
 // the engine only compares what it would decide with what this window decided).
 // The wire shapes are the contract with src-tauri/src/pacing/facts.rs.
 
-import { PacedWindowKind } from "@/lib/types";
+import { PacedWindowKind } from "@/lib/types/pacing";
 import { SubagentReport } from "@/lib/usage/pacing/account-round";
 import { z } from "zod";
 

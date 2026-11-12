@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { TaskManifestDescriptor } from "@/lib/types";
+  import type { TaskManifestDescriptor } from "@/lib/types/terminal";
 
   // What an empty Tasks panel says: no runnable tasks yet, and the manifests
   // that would bring some.

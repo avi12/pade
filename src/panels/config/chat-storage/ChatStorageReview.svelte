@@ -1,7 +1,8 @@
 <script lang="ts">
   // How many chats the saved limits flag, with the button that opens their
   // review - shown only while there are some.
-  import type { Agent, ChatStorage } from "@/lib/types";
+  import type { Agent } from "@/lib/types/agent";
+  import type { ChatStorage } from "@/lib/types/chat-storage";
   import { formatQuantity } from "@/lib/util/format";
   import ChatStorageConfirm from "@/panels/config/chat-storage/ChatStorageConfirm.svelte";
 

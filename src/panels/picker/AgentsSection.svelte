@@ -1,8 +1,8 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import { realAgents as toRealAgents } from "@/lib/types";
-  import type { Agent } from "@/lib/types";
+  import { realAgents as toRealAgents } from "@/lib/types/agent";
+  import type { Agent } from "@/lib/types/agent";
   import { formatCount } from "@/lib/util/format";
   import AgentChips from "@/panels/picker/AgentChips.svelte";
 

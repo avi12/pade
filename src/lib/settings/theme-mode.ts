@@ -9,7 +9,8 @@
 // Pure and testable on purpose: `lib/settings/prefs` owns the DOM and the OS listeners,
 // this owns the rule.
 
-import { type Scheme, ThemeMode, ThemePalette } from "@/lib/types";
+import { ThemeMode, ThemePalette } from "@/lib/types/theme";
+import type { Scheme } from "@/lib/types/theme";
 
 /** What the document root wears: the concrete scheme and the palette over it. */
 type Appearance = {

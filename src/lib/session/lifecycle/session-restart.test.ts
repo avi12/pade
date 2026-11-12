@@ -1,5 +1,5 @@
 import { mcpRestartTargets, rekeyLayout } from "@/lib/session/lifecycle/session-restart";
-import type { AgentSession, McpChange } from "@/lib/types";
+import type { AgentSession, McpChange } from "@/lib/types/agent";
 import { describe, expect, it } from "vitest";
 
 const claude = {

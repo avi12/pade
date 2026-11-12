@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { WindowMode } from "@/lib/types";
+  import { WindowMode } from "@/lib/types/window";
   import { isNewWindowClick } from "@/lib/workspace/open-windows";
 
   // The left rail's window-level actions: open the full picker, start a

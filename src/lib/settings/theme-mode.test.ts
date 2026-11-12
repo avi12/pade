@@ -4,7 +4,8 @@ import {
   PALETTE_MONOSPACE_FACE,
   resolveAppearance
 } from "@/lib/settings/theme-mode";
-import { Settings, ThemeMode, ThemePalette } from "@/lib/types";
+import { Settings } from "@/lib/types/settings";
+import { ThemeMode, ThemePalette } from "@/lib/types/theme";
 import { describe, expect, it } from "vitest";
 
 describe("resolveAppearance", () => {

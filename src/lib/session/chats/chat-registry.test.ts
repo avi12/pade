@@ -8,8 +8,8 @@ import {
   sidebarProjects,
   type StoredChatRegistry
 } from "@/lib/session/chats/chat-registry";
-import { SessionStatus } from "@/lib/types";
-import type { AgentSession } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
+import type { AgentSession } from "@/lib/types/agent";
 import {
   afterEach,
   describe,

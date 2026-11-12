@@ -19,8 +19,9 @@ import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/s
 import { sessionModel } from "@/lib/stores/agent/context.svelte";
 import { ensureModelOptions, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
 import { setControlPart } from "@/lib/stores/usage/pacingControl.svelte";
-import { ModelChoice, PacingControlPartKind, PacingStep } from "@/lib/types";
-import type { AgentSession } from "@/lib/types";
+import { ModelChoice } from "@/lib/types/agent";
+import type { AgentSession } from "@/lib/types/agent";
+import { PacingControlPartKind, PacingStep } from "@/lib/types/pacing";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { SvelteMap } from "svelte/reactivity";
 import { z } from "zod";

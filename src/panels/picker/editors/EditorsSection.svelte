@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import type { EditorKind, Ide, Prefs } from "@/lib/types";
+  import type { EditorKind, Ide } from "@/lib/types/editor";
+  import type { Prefs } from "@/lib/types/settings";
   import { formatQuantity } from "@/lib/util/format";
   import { languageIcon } from "@/lib/workspace/display/language-icon";
   import { editorsForKind } from "@/panels/picker/editors/editor-options";

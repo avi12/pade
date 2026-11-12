@@ -27,7 +27,8 @@ import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/s
 import { appearance } from "@/lib/settings/prefs.svelte";
 import { isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
-import type { AgentSession, Scheme } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
+import type { Scheme } from "@/lib/types/theme";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);

@@ -12,7 +12,7 @@
 
 import { costTier, NO_TIER } from "@/lib/model/model-cost";
 import type { CostTiers } from "@/lib/model/model-cost";
-import type { ModelTokenUsage } from "@/lib/types";
+import type { ModelTokenUsage } from "@/lib/types/agent";
 
 /** One number per cost tier, in the tiers' own order. */
 type PerTier<Tiers extends readonly unknown[]> = { readonly [Tier in keyof Tiers]: number };

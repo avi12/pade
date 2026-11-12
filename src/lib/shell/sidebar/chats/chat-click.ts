@@ -5,7 +5,9 @@
 
 import type { ElsewhereSession } from "@/lib/dashboard/agent-board";
 import type { WindowHandoff } from "@/lib/shell/handoff/window-handoff";
-import type { AgentSession, OpenTarget, RecordedConversation } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
+import type { RecordedConversation } from "@/lib/types/chat-storage";
+import type { OpenTarget } from "@/lib/types/window";
 
 /** A chat row picked in the rail. */
 export interface ChatPick {

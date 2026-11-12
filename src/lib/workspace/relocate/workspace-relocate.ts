@@ -13,8 +13,9 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { CommandProtocolMap } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
-import { SessionStatus } from "@/lib/types";
-import type { Agent, AgentSession, ModelChoice, Settings } from "@/lib/types";
+import { SessionStatus } from "@/lib/types/agent";
+import type { Agent, AgentSession, ModelChoice } from "@/lib/types/agent";
+import type { Settings } from "@/lib/types/settings";
 import { normalizePath } from "@/lib/util/paths";
 
 /** What a resumed session that was mid-turn is told, so its turn goes on. */
@@ -214,14 +215,14 @@ export function createRelocator(host: RelocateHost) {
     }
   }
 
-  function move(target: Parameters<CommandProtocolMap[Command.workspaceMove]>[0]) {
+  function move(target: Parameters<CommandProtocolMap[typeof Command.workspaceMove]>[0]) {
     return relocate({
       from: target.from,
       run: () => sendMessage(Command.workspaceMove, target)
     });
   }
 
-  function rename(target: Parameters<CommandProtocolMap[Command.workspaceRename]>[0]) {
+  function rename(target: Parameters<CommandProtocolMap[typeof Command.workspaceRename]>[0]) {
     return relocate({
       from: target.from,
       run: () => sendMessage(Command.workspaceRename, target)
@@ -230,7 +231,7 @@ export function createRelocator(host: RelocateHost) {
 
   /** Rename a workspace's folder where it stands - any project, not only a
    *  temp one. */
-  function renameFolder(target: Parameters<CommandProtocolMap[Command.workspaceRenameFolder]>[0]) {
+  function renameFolder(target: Parameters<CommandProtocolMap[typeof Command.workspaceRenameFolder]>[0]) {
     return relocate({
       from: target.from,
       run: () => sendMessage(Command.workspaceRenameFolder, target)

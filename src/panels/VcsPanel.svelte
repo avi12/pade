@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
-  import type { Commit, StatusEntry } from "@/lib/types";
+  import type { Commit, StatusEntry } from "@/lib/types/vcs";
   import ChangesSection from "@/panels/vcs/ChangesSection.svelte";
   import "@/panels/vcs/chrome.css";
   import CommitLog from "@/panels/vcs/CommitLog.svelte";

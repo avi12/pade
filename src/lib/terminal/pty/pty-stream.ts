@@ -4,7 +4,7 @@
 // missing. Each chunk carries its position in the stream, so once the history is
 // in, the ones it already contains can be dropped and the rest written in order.
 
-import type { PtyChunk } from "@/lib/types";
+import type { PtyChunk } from "@/lib/types/terminal";
 
 export function createPtyStream(consume: (chunk: PtyChunk) => void) {
   const pendingChunks: PtyChunk[] = [];

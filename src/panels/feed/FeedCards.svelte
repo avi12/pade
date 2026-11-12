@@ -2,7 +2,7 @@
   import type { ChangeGroup } from "@/lib/feed/change-groups";
   import type { FeedPreviews } from "@/lib/feed/preview/feed-previews";
   import { isVideoPath } from "@/lib/feed/preview/preview";
-  import type { DiffStyle } from "@/lib/types";
+  import type { DiffStyle } from "@/lib/types/theme";
   import ChangeCard from "@/panels/feed/card/ChangeCard.svelte";
   import ChangeDetail from "@/panels/feed/card/ChangeDetail.svelte";
   import GroupHeader from "@/panels/feed/GroupHeader.svelte";

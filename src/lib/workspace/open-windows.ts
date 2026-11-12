@@ -1,6 +1,6 @@
 // Questions about the other PADE windows that are open right now.
 
-import type { WindowInfo } from "@/lib/types";
+import type { WindowInfo } from "@/lib/types/window";
 import { normalizePath } from "@/lib/util/paths";
 
 /** The other window that has this project open, if any. */

@@ -10,7 +10,7 @@
   import { workspaceMembers as storedMembers } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
   import { feedStore } from "@/lib/stores/workspace/change-feed/feed.svelte";
   import { onWatchesArmed } from "@/lib/stores/workspace/change-feed/project-watch";
-  import type { ChangeEvent, WatchStatus } from "@/lib/types";
+  import type { ChangeEvent, WatchStatus } from "@/lib/types/feed";
   import FeedCards from "@/panels/feed/FeedCards.svelte";
   import FeedEmptyState from "@/panels/feed/FeedEmptyState.svelte";
   import FeedToolbar from "@/panels/feed/toolbar/FeedToolbar.svelte";

@@ -5,7 +5,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { bareModel } from "@/lib/model/model-label";
-import type { ModelOption } from "@/lib/types";
+import type { ModelOption } from "@/lib/types/agent";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 const optionsByAgent = new SvelteMap<string, ModelOption[]>();

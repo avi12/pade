@@ -15,7 +15,9 @@ import {
 } from "@/lib/session/chats/chat-restore";
 import type { ChatRestoreHost } from "@/lib/session/chats/chat-restore";
 import { sessionToFocus } from "@/lib/session/chats/session-projects";
-import type { AgentSession, OpenTarget, RecordedConversation } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
+import type { RecordedConversation } from "@/lib/types/chat-storage";
+import type { OpenTarget } from "@/lib/types/window";
 
 type RestoreLaunchOptions = Parameters<ChatRestoreHost["launch"]>[0];
 

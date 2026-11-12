@@ -3,7 +3,7 @@
   import type { RunnerRow } from "@/lib/stores/tasks/runners.svelte";
   import { openTerminalLink } from "@/lib/terminal/links/open-terminal-link";
   import { parseAnsi } from "@/lib/terminal/output/ansi";
-  import { RunnerStream } from "@/lib/types";
+  import { RunnerStream } from "@/lib/types/terminal";
 
   // A spawned runner's streamed output, its SGR styling kept and stderr tinted,
   // pinned to the newest line as it arrives.

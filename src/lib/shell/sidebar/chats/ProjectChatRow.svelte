@@ -8,7 +8,7 @@
   import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/chats/ProjectChatMenu.svelte";
   import { sessionModel } from "@/lib/stores/agent/context.svelte";
   import { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
-  import type { RecordedConversation } from "@/lib/types";
+  import type { RecordedConversation } from "@/lib/types/chat-storage";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { spokenTime } from "@/lib/usage/pacing/pacing-policy";
   import { formatAge } from "@/lib/util/format";

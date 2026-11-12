@@ -1,6 +1,6 @@
 // The rules, colours and words behind a project row's GitHub-style language bar.
 
-import type { LanguageShare } from "@/lib/types";
+import type { LanguageShare } from "@/lib/types/editor";
 import { formatPercent } from "@/lib/util/format";
 
 const PER_MILLE_PER_PERCENT = 10;

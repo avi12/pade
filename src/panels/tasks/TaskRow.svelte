@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { RunnerTask } from "@/lib/stores/tasks/runners.svelte";
   import { isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
-  import type { TaskGroup } from "@/lib/types";
+  import type { TaskGroup } from "@/lib/types/terminal";
   import RunningMarker from "@/panels/tasks/RunningMarker.svelte";
 
   // One runnable task of a manifest's group: its name, marked while it runs,

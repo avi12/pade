@@ -4,7 +4,7 @@
 // catalog, so what the agent fetched since shows up.
 
 import { refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
-import type { AgentSession } from "@/lib/types";
+import type { AgentSession } from "@/lib/types/agent";
 
 /** The menu popover every model chip opens by this id. */
 export const MODEL_MENU_ID = "model-menu";

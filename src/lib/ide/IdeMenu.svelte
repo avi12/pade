@@ -3,7 +3,7 @@
   import { ideBrand, ideIcon } from "@/lib/ide/ide-icon";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { chooseEditor, editorsFor, refreshEditors } from "@/lib/stores/workspace/active-project/editors.svelte";
-  import type { Ide } from "@/lib/types";
+  import type { Ide } from "@/lib/types/editor";
 
   // Opens the active project in an external editor. The ranked list comes from
   // the shared editors store (SSOT - the same list the Change Feed's reveal

@@ -1,4 +1,4 @@
-import type { ConfigFile } from "@/lib/types";
+import type { ConfigFile } from "@/lib/types/settings";
 import { normalizePath } from "@/lib/util/paths";
 
 /** Whether a changed path is one of the listed config files. A file is listed by

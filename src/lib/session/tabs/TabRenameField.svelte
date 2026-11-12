@@ -5,7 +5,7 @@
   import AgentStatusGlyph from "@/lib/session/AgentStatusGlyph.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
-  import type { AgentSession } from "@/lib/types";
+  import type { AgentSession } from "@/lib/types/agent";
   import { Key } from "@/lib/ui/keyboard/keys";
   import { parseInput, SessionName } from "@/lib/validate";
   import { untrack } from "svelte";

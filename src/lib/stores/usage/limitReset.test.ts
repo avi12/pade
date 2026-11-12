@@ -8,7 +8,7 @@ import {
   limitResetOffers,
   refreshLimitResetOffers
 } from "@/lib/stores/usage/limitReset.svelte";
-import type { LimitReset } from "@/lib/types";
+import type { LimitReset } from "@/lib/types/usage";
 import {
   beforeEach,
   describe,

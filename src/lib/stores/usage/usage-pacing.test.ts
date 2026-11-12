@@ -1,5 +1,5 @@
 import { isStoppingMidTurn, pacingNote } from "@/lib/stores/usage/usagePacing.svelte";
-import { UsageWindowKind } from "@/lib/types";
+import { UsageWindowKind } from "@/lib/types/usage";
 import { describe, expect, it } from "vitest";
 
 const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();

@@ -3,7 +3,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { effective } from "@/lib/settings/prefs.svelte";
   import { terminalSchemes } from "@/lib/stores/ui/terminalSchemes.svelte";
-  import { Scheme } from "@/lib/types";
+  import { Scheme } from "@/lib/types/theme";
 
   // Says when a face's terminal-scheme pick fights the app scheme it paints - a
   // dark scheme parked on Light, or a light one on Dark.
