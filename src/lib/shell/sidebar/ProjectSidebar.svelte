@@ -8,9 +8,13 @@
   import { PROJECT_SEARCH_ID } from "@/lib/shell/shortcuts/window-shortcut-actions";
   import { activityCounts, chatActivity, chatStatus } from "@/lib/shell/sidebar/chats/chat-activity";
   import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chats/chat-click";
-  import { firstListedProject, sidebarProjectOrder, sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
+  import {
+    firstListedProject,
+    sidebarProjectOrder,
+    sidebarSections
+  } from "@/lib/shell/sidebar/projects/sidebar-sections";
+  import SidebarProjectList from "@/lib/shell/sidebar/projects/SidebarProjectList.svelte";
   import SidebarHeader from "@/lib/shell/sidebar/SidebarHeader.svelte";
-  import SidebarProjectList from "@/lib/shell/sidebar/SidebarProjectList.svelte";
   import { recordedConversations, refreshRecordedConversations } from "@/lib/stores/session/recordedConversations.svelte";
   import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
   import { invalidateProjectBranches } from "@/lib/stores/workspace/project-rows/projectBranches.svelte";

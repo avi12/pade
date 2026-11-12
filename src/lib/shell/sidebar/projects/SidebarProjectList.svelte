@@ -1,9 +1,9 @@
 <script lang="ts">
   import type { SidebarProject } from "@/lib/session/chats/chat-registry";
   import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chats/chat-click";
-  import { sidebarArrowKeys } from "@/lib/shell/sidebar/sidebar-keyboard";
-  import type { sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
-  import SidebarProjectGroup, { PIN_ID_ATTRIBUTE } from "@/lib/shell/sidebar/SidebarProjectGroup.svelte";
+  import { sidebarArrowKeys } from "@/lib/shell/sidebar/projects/sidebar-keyboard";
+  import type { sidebarSections } from "@/lib/shell/sidebar/projects/sidebar-sections";
+  import SidebarProjectGroup, { PIN_ID_ATTRIBUTE } from "@/lib/shell/sidebar/projects/SidebarProjectGroup.svelte";
   import type { WindowInfo } from "@/lib/types";
   import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";
   import ProjectSection from "@/lib/workspace/switcher/projects/ProjectSection.svelte";
