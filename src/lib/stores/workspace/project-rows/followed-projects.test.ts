@@ -1,4 +1,4 @@
-import { isFollowedProject, watchedProjectPaths } from "@/lib/stores/workspace/followed-projects";
+import { isFollowedProject, watchedProjectPaths } from "@/lib/stores/workspace/project-rows/followed-projects";
 import { describe, expect, it } from "vitest";
 
 describe("watchedProjectPaths", () => {

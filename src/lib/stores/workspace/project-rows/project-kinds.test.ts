@@ -3,7 +3,7 @@ import {
   refreshProjectKind,
   requestProjectKind,
   revalidateProjectKinds
-} from "@/lib/stores/workspace/projectKinds.svelte";
+} from "@/lib/stores/workspace/project-rows/projectKinds.svelte";
 import {
   beforeEach,
   describe,

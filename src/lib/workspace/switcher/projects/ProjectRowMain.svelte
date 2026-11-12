@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { observeProjectBranch, projectBranch } from "@/lib/stores/workspace/projectBranches.svelte";
+  import { observeProjectBranch, projectBranch } from "@/lib/stores/workspace/project-rows/projectBranches.svelte";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { displayName } from "@/lib/util/paths";
   import LanguageBar from "@/lib/workspace/display/LanguageBar.svelte";

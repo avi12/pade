@@ -23,8 +23,8 @@ import { refreshEditors } from "@/lib/stores/workspace/active-project/editors.sv
 import { keepFeedsOf } from "@/lib/stores/workspace/change-feed/feed.svelte";
 import { frontProject, setFrontProjectSource } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import { heldProjects, watchHeldProjects } from "@/lib/stores/workspace/change-feed/project-watch";
-import { projectKind, requestProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
-import { onFrontProjectLanguagesChange } from "@/lib/stores/workspace/projectLanguages.svelte";
+import { projectKind, requestProjectKind } from "@/lib/stores/workspace/project-rows/projectKinds.svelte";
+import { onFrontProjectLanguagesChange } from "@/lib/stores/workspace/project-rows/projectLanguages.svelte";
 import { activeMemberIn, refreshMemberBranches } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
 import { registerSendShortcut, unregisterSendShortcut } from "@/lib/terminal/input/send-shortcut";
 import { coalesced } from "@/lib/util/async/coalesce";

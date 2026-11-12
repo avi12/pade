@@ -2,7 +2,7 @@
 // the visible-row batch (see visiblePathBatch), so only rows on screen are probed.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import { createVisiblePathBatch, PROJECT_ROW_CACHE_LIMIT } from "@/lib/stores/workspace/visiblePathBatch.svelte";
+import { createVisiblePathBatch, PROJECT_ROW_CACHE_LIMIT } from "@/lib/stores/workspace/project-rows/visiblePathBatch.svelte";
 
 const projectKinds = createVisiblePathBatch<string>({
   load: paths => sendMessage(Command.ideProjectKinds, { paths }),

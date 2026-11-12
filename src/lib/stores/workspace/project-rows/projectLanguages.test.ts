@@ -51,7 +51,7 @@ async function freshStore() {
 
     return () => undefined;
   });
-  const store = await import("@/lib/stores/workspace/projectLanguages.svelte");
+  const store = await import("@/lib/stores/workspace/project-rows/projectLanguages.svelte");
   return {
     store,
     announceChange(path: string) {

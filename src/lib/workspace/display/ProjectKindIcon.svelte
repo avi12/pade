@@ -1,8 +1,8 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
-  import { observeProjectKind, projectKind } from "@/lib/stores/workspace/projectKinds.svelte";
-  import { observeProjectLanguages, projectLanguageShares } from "@/lib/stores/workspace/projectLanguages.svelte";
+  import { observeProjectKind, projectKind } from "@/lib/stores/workspace/project-rows/projectKinds.svelte";
+  import { observeProjectLanguages, projectLanguageShares } from "@/lib/stores/workspace/project-rows/projectLanguages.svelte";
   import { languageIcon, languageIconOf } from "@/lib/workspace/display/language-icon";
 
   // A project row's language icon: the logo of the language most of its source

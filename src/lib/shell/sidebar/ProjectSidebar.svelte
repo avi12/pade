@@ -13,9 +13,9 @@
   import SidebarProjectList from "@/lib/shell/sidebar/SidebarProjectList.svelte";
   import { recordedConversations, refreshRecordedConversations } from "@/lib/stores/session/recordedConversations.svelte";
   import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-  import { invalidateProjectBranches } from "@/lib/stores/workspace/projectBranches.svelte";
-  import { revalidateProjectKinds } from "@/lib/stores/workspace/projectKinds.svelte";
-  import { revalidateProjectLanguages } from "@/lib/stores/workspace/projectLanguages.svelte";
+  import { invalidateProjectBranches } from "@/lib/stores/workspace/project-rows/projectBranches.svelte";
+  import { revalidateProjectKinds } from "@/lib/stores/workspace/project-rows/projectKinds.svelte";
+  import { revalidateProjectLanguages } from "@/lib/stores/workspace/project-rows/projectLanguages.svelte";
   import { WindowMode } from "@/lib/types";
   import type { AgentSession, WindowInfo } from "@/lib/types";
   import { isNewWindowClick, otherWindowWith } from "@/lib/workspace/open-windows";
