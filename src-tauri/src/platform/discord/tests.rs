@@ -1,4 +1,3 @@
-
 use super::{
     activity_payload, encode_frame, read_frame, ActivityFields, DiscordError, Opcode,
     FRAME_HEADER_LENGTH,
