@@ -28,6 +28,12 @@ import { SvelteMap } from "svelte/reactivity";
 
 /** How long a session's hook has to take the stop on its next tool call. */
 const HOOK_GRACE_MS = 10_000;
+/** How long a session's hook has to note it is holding a resting session's
+ *  call. Longer than the stop's: a session thinking or writing a long answer
+ *  makes no tool call for a while, and falling back too soon would kill an
+ *  agent a hold was meant to spare. A session that predates the hold simply
+ *  works on for this long before the stop takes over. */
+const REST_HOOK_GRACE_MS = 45_000;
 /** How long the keys get to stop a subagent before its transcript is read. */
 const VERIFY_GRACE_MS = 15_000;
 /** Between the keystrokes of one chord - each its own write, as a person types
@@ -125,7 +131,7 @@ export async function isRestIgnoredByHook({ conversationId, restWrittenAt, isWor
   restWrittenAt: number;
   isWorking: () => boolean;
 }) {
-  await afterDelay(HOOK_GRACE_MS);
+  await afterDelay(REST_HOOK_GRACE_MS);
   return isHoldFallbackDue({
     isWorking: isWorking(),
     stopSeenAt: await hookStopSeenAt(conversationId),
