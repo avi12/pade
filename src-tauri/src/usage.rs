@@ -528,7 +528,23 @@ pub struct AccountReading {
     no_reading: Option<NoReading>,
 }
 
+impl AccountUsage {
+    /// The billing account's identity as the wire names it (`anthropic`), or
+    /// `None` when the adapter can't name the account - the key pacing shares an
+    /// account's burn by.
+    pub(crate) fn billing_identity(&self) -> Option<String> {
+        let identity = serde_json::to_value(self.account?).ok()?;
+        identity.as_str().map(ToString::to_string)
+    }
+}
+
 impl AccountReading {
+    /// The reading, when the latest ask brought one - for the backend's own
+    /// consumers (the pacing engine) of what `usage_account_agent` answers.
+    pub(crate) fn into_account(self) -> Option<AccountUsage> {
+        self.account
+    }
+
     /// The answer for an agent PADE has no usage adapter for.
     const fn no_source() -> Self {
         Self {
