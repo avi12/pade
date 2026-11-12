@@ -2,7 +2,7 @@
 
 import { effective } from "@/lib/settings/prefs.svelte";
 import { openTerminalLink } from "@/lib/terminal/links/open-terminal-link";
-import { registerWrappedLinkProvider } from "@/lib/terminal/links/terminal-links";
+import { registerWrappedLinkProvider } from "@/lib/terminal/links/wrapped-url/wrapped-link-provider";
 import { rootTokenReader, xtermTheme } from "@/lib/terminal/theme/terminal-theme";
 import { Terminal } from "@xterm/xterm";
 
@@ -57,7 +57,7 @@ export function createTerminal(host: HTMLElement) {
   // Make URLs in the output clickable - the agent's OAuth sign-in links, docs
   // pointers. xterm's stock web-links addon only rejoins soft-wrapped rows, so
   // a URL a fullscreen agent hard-wraps at the edge would open truncated; this
-  // provider stitches those rows too (see terminal-links). The default handler
+  // provider stitches those rows too (see terminal-links in `terminal/links/wrapped-url`). The default handler
   // is window.open, which a Tauri WebView won't turn into a browser tab, so
   // route the whole URL through the bridge to the system browser instead.
   registerWrappedLinkProvider({

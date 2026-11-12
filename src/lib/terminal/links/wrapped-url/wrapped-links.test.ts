@@ -1,4 +1,5 @@
-import { computeLinks, registerWrappedLinkProvider } from "@/lib/terminal/links/terminal-links";
+import { computeLinks } from "@/lib/terminal/links/wrapped-url/wrapped-lines";
+import { registerWrappedLinkProvider } from "@/lib/terminal/links/wrapped-url/wrapped-link-provider";
 import type { ILink, ILinkProvider } from "@xterm/xterm";
 import { describe, expect, it } from "vitest";
 
