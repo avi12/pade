@@ -20,6 +20,12 @@
 // request is typed only into running work, and "continue" only into work that
 // pacing stopped.
 //
+// A rest an agent's hook can hold through pauses, never kills: the hook holds
+// each tool call of the session and its subagents until the rest ends
+// (lib/usage/pacing/rest-hold), so no key is pressed and no "continue" typed.
+// A session whose hook ignores the rest (it predates the hold) falls back to
+// the stop.
+//
 // Every step undoes itself as room comes back, and all of it reverts as the
 // window is about to reset. The user can override any agent from its tab badge
 // (`easePacing`, `skipPacing`, `resumePacing`): ease one step, leave it alone for
@@ -38,6 +44,7 @@
 // (lib/stores/usage/pacingControl), which the agent's hook reads on every tool
 // call; a stop is written there too, so it lands mid-turn, not only at its end.
 
+import { interruptKeys } from "@/lib/agent/interrupt-keys";
 import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
 import { windowLabel } from "@/lib/ipc/platform";
 import { cheaperModelChoice, lowerEffortChoice } from "@/lib/model/model-cost";
@@ -49,11 +56,18 @@ import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { latestAccount } from "@/lib/stores/usage/accountReadings.svelte";
-import { NO_THROTTLE, setStopPart, setThrottlePart, throttledSessions } from "@/lib/stores/usage/pacingControl.svelte";
+import {
+  NO_THROTTLE,
+  setRestPart,
+  setStopPart,
+  setThrottlePart,
+  throttledSessions
+} from "@/lib/stores/usage/pacingControl.svelte";
 import type { ControlTarget } from "@/lib/stores/usage/pacingControl.svelte";
 import {
   forgetTerminalStop,
   hasRunningSubagents,
+  isRestIgnoredByHook,
   stopThroughTerminal
 } from "@/lib/stores/usage/pacingInterrupt.svelte";
 import { createAccountRound } from "@/lib/stores/usage/usageAccountRound.svelte";
@@ -74,6 +88,7 @@ import {
 import { measuredBurn } from "@/lib/usage/pacing/measured-burn";
 import type { MeasuredBurn } from "@/lib/usage/pacing/measured-burn";
 import { MILLISECONDS_PER_MINUTE, PACING_STEP_ORDER, pacingMargin, spokenTime } from "@/lib/usage/pacing/pacing-policy";
+import { canHoldRest, heldRestUntil } from "@/lib/usage/pacing/rest-hold";
 import {
   assessPace,
   burnRate,
@@ -173,7 +188,11 @@ const PaceState = z.object({
    *  `restMs` once it has - its step can outlast the whole rest. */
   restUntil: z.number().nullable().default(null),
   /** How long a resting session rests, counted from when it actually stops. */
-  restMs: z.number().nullable().default(null)
+  restMs: z.number().nullable().default(null),
+  /** The rest is held, not stopped: the agent's hook holds each tool call until
+   *  `restUntil`, so the session stays "working" while blocked inside one and
+   *  nothing is stopped or continued. */
+  isHeld: z.boolean().default(false)
 });
 type PaceState = z.infer<typeof PaceState>;
 
@@ -636,6 +655,9 @@ export function createUsagePacing(host: PacingHost) {
   /** The sessions whose control says they are being stopped. */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per change, never rendered
   const stopping = new Map<string, ControlTarget>();
+  /** The sessions whose control says they are resting, their tool calls held. */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per change, never rendered
+  const resting = new Map<string, ControlTarget>();
   /** Paused sessions a scan found back on pace, by account - only one of each
    *  account's is let go (`releaseOnePerAccount`). */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's bookkeeping, never rendered
@@ -715,21 +737,26 @@ export function createUsagePacing(host: PacingHost) {
     // Already idle - its turn ended since it was judged - so it is simply held:
     // nothing to stop, and no request typed in, which would only spend a turn.
     const isIdle = !await isRunningWork(session);
+    const isHeld = canHoldRest({
+      keys: await interruptKeys(session.agent.command),
+      restMs: restUntil === null ? null : restUntil - now
+    });
     setPace({
       id: session.id,
       state: {
-        phase: isIdle ? PacePhase.enum.paused : PacePhase.enum.pausing,
+        phase: isIdle || isHeld ? PacePhase.enum.paused : PacePhase.enum.pausing,
         windowKind: kind,
         utilization: window.utilization,
         pausedAt: now,
         readyAt,
         continueAt,
-        hasStoppedWork: !isIdle,
+        hasStoppedWork: !isIdle && !isHeld,
         rates: {
           [window.key]: rate
         },
         restUntil,
-        restMs: restUntil === null ? null : restUntil - now
+        restMs: restUntil === null ? null : restUntil - now,
+        isHeld
       }
     });
     record({
@@ -740,20 +767,90 @@ export function createUsagePacing(host: PacingHost) {
       })}`
     });
     await syncStops();
+    enforcePause({
+      session,
+      pausedAt: now,
+      isHeld,
+      isIdle
+    });
+  }
+
+  // What follows a pause once its control is written: a held rest is watched
+  // for a hook that ignores it, running work is stopped, an idle agent is left.
+  function enforcePause({ session, pausedAt, isHeld, isIdle }: {
+    session: AgentSession;
+    pausedAt: number;
+    isHeld: boolean;
+    isIdle: boolean;
+  }) {
+    if (isHeld) {
+      stopIfRestIgnored({
+        session,
+        pausedAt
+      });
+      return;
+    }
 
     if (isIdle) {
       return;
     }
 
-    // No request typed in - it would spend a turn: the hook refuses the next
-    // tool call, delegated work's included, and the terminal stop presses the
-    // agent's interrupt keys (`pacingInterrupt`).
-    stopThroughTerminal({
+    stopRunningSession({
       session,
-      stopWrittenAt: now,
+      stopWrittenAt: pausedAt
+    });
+  }
+
+  // No request typed in - it would spend a turn: the hook refuses the next
+  // tool call, delegated work's included, and the terminal stop presses the
+  // agent's interrupt keys (`pacingInterrupt`).
+  function stopRunningSession({ session, stopWrittenAt }: {
+    session: AgentSession;
+    stopWrittenAt: number;
+  }) {
+    return stopThroughTerminal({
+      session,
+      stopWrittenAt,
       isStillStopping: () => isStoppingMidTurn(paced.get(session.id)),
       isWorking: () => isWorking(session.id),
       hasBackgroundAgents: () => backgroundAgentCount(session.id) > 0
+    });
+  }
+
+  // A hook that predates the hold ignores the rest and the session keeps
+  // working while pacing thinks it rests: that rest becomes a stop after all.
+  async function stopIfRestIgnored({ session, pausedAt }: {
+    session: AgentSession;
+    pausedAt: number;
+  }) {
+    const isIgnored = await isRestIgnoredByHook({
+      conversationId: session.conversationId,
+      restWrittenAt: pausedAt,
+      isWorking: () => isWorking(session.id)
+    });
+    const state = paced.get(session.id);
+    const isSameRestStillHeld = state?.isHeld === true && state.pausedAt === pausedAt;
+    if (!isIgnored || state === undefined || !isSameRestStillHeld) {
+      return;
+    }
+
+    setPace({
+      id: session.id,
+      state: {
+        ...state,
+        phase: PacePhase.enum.pausing,
+        hasStoppedWork: true,
+        isHeld: false
+      }
+    });
+    record({
+      id: session.id,
+      text: "its hook can't hold a rest - stopped instead"
+    });
+    await syncStops();
+    await stopRunningSession({
+      session,
+      stopWrittenAt: Date.now()
     });
   }
 
@@ -791,8 +888,9 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
-  // End a pause: the hook stops refusing the session's tool calls and any
-  // terminal stop still pending is called off.
+  // End a pause: the hook stops refusing or holding the session's tool calls
+  // (`syncStops` clears the stop and the rest) and any terminal stop still
+  // pending is called off.
   async function liftPause(id: string) {
     forgetPace(id);
     forgetTerminalStop(id);
@@ -890,7 +988,9 @@ export function createUsagePacing(host: PacingHost) {
     releasable.clear();
   }
 
-  // Still over pace: note the step finishing, or the user taking over.
+  // Still over pace: note the step finishing, or the user taking over. A held
+  // session looks working - it is blocked inside a tool call - and is not
+  // taken over; its user's prompt lifts the hold itself (`takeOver`).
   function hold({ id, state, kind, window, rate, readyAt, continueAt }: {
     id: string;
     state: PaceState;
@@ -906,7 +1006,7 @@ export function createUsagePacing(host: PacingHost) {
         ...state,
         ...heldPhase({
           state,
-          isWorkingNow: isWorking(id)
+          isWorkingNow: isWorking(id) && !state.isHeld
         }),
         windowKind: kind,
         utilization: window.utilization,
@@ -1184,6 +1284,9 @@ export function createUsagePacing(host: PacingHost) {
   // ones this instance stopped: a stop written before the window reloaded is
   // in no one's memory, and was left blocking every tool call for good. The
   // writes skip an unchanged value, so this costs nothing once settled.
+  //
+  // The rest is reconciled the same way: a held pause hands its end to the
+  // hook, every other open session - and any that closed - is told none.
   async function syncStops() {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one sync's lookup, never rendered
     const isStopping = new Map<string, ControlTarget>();
@@ -1192,6 +1295,16 @@ export function createUsagePacing(host: PacingHost) {
         command: session.agent.command,
         conversationId: session.conversationId
       };
+      const restUntil = heldRestUntil(paced.get(session.id));
+      if (restUntil !== null) {
+        resting.set(session.id, target);
+      }
+
+      await setRestPart({
+        target,
+        restUntil
+      });
+
       if (isStoppingMidTurn(paced.get(session.id))) {
         isStopping.set(session.id, target);
       } else {
@@ -1216,6 +1329,16 @@ export function createUsagePacing(host: PacingHost) {
         await setStopPart({
           target,
           isStopped: false
+        });
+      }
+    }
+
+    for (const [id, target] of resting) {
+      if (heldRestUntil(paced.get(id)) === null) {
+        resting.delete(id);
+        await setRestPart({
+          target,
+          restUntil: null
         });
       }
     }

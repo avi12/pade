@@ -14,6 +14,7 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import type { AgentSession } from "@/lib/types";
 import { RUNNING_SUBAGENT_MS, subagentsWrittenSince } from "@/lib/usage/pacing/measured-burn";
+import { isHoldFallbackDue } from "@/lib/usage/pacing/rest-hold";
 import {
   interruptPresses,
   isHookTakingStop,
@@ -114,6 +115,22 @@ async function hookStopSeenAt(conversationId: string | undefined) {
     console.warn("pade: could not read whether the hook took the stop", error);
     return null;
   }
+}
+
+/** Wait out the grace, then whether a rest the hook should hold through is
+ *  ignored by it: the session still works and its hook noted no held call since
+ *  the rest was written (`restWrittenAt`, epoch ms) - it predates the hold. */
+export async function isRestIgnoredByHook({ conversationId, restWrittenAt, isWorking }: {
+  conversationId: string | undefined;
+  restWrittenAt: number;
+  isWorking: () => boolean;
+}) {
+  await afterDelay(HOOK_GRACE_MS);
+  return isHoldFallbackDue({
+    isWorking: isWorking(),
+    stopSeenAt: await hookStopSeenAt(conversationId),
+    restWrittenAt
+  });
 }
 
 /** What a terminal stop works from. The probes are re-read at every step, so
