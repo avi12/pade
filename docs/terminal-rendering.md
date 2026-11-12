@@ -342,7 +342,7 @@ Three things to know before changing it:
   this exists to fix.
 
 Programming fonts carry no Arabic or Hebrew at all, so the overlay appends
-`--font-rtl-fallback` (theme.css) after the terminal stack rather than leaving the
+`--font-rtl-fallback` (styles/color-schemes.css) after the terminal stack rather than leaving the
 platform to pick.
 
 ### Claude Code already did it, so the overlay stands down
