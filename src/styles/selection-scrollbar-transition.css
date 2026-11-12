@@ -1,0 +1,45 @@
+/* Text selection in the primary's hue (from the design file) - the fixed
+   mid-tone blue reads on both schemes. */
+::selection {
+  background: hsl(var(--seed-hue) 90% 55% / 35%);
+}
+
+/* Chromium/WebView scrollbar - thin, subtle; xterm's viewport otherwise shows
+   the chunky default. Scrolling is preserved. */
+::-webkit-scrollbar {
+  block-size: 10px;
+  inline-size: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: var(--radius-full);
+  background-color: color-mix(in sRGB, currentColor 28%, transparent);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* SPA phase changes (onboarding ↔ picker ↔ workspace) cross-fade via the View
+   Transitions API - styled here in pure CSS on the M3 emphasized easing. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  /* The `*` reset can't reach the view-transition pseudo-tree - disable it here. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
