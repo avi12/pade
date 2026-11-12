@@ -1,6 +1,8 @@
+use super::catalog::model_option;
+use super::switch::{hold_open, revert_switch_keys};
 use super::{
-    effort_for_model, hold_open, merge_settings, model_option, newest_effort_set,
-    newest_ultracode_entry, revert_switch_keys, ULTRACODE_ENTER, ULTRACODE_EXIT,
+    effort_for_model, merge_settings, newest_effort_set, newest_ultracode_entry, ULTRACODE_ENTER,
+    ULTRACODE_EXIT,
 };
 
 #[cfg(windows)]
