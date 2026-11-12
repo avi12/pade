@@ -22,7 +22,7 @@ pub fn iso(time: EpochMilliseconds) -> String {
         .to_string()
         .parse()
         .expect("a whole number of seconds");
-    crate::usage::unix_seconds_to_iso8601(seconds)
+    crate::usage::window_time::unix_seconds_to_iso8601(seconds)
 }
 
 fn window(

@@ -12,7 +12,9 @@ use std::ffi::c_void;
 #[cfg(windows)]
 use windows::Wdk::System::Threading::{NtQueryInformationProcess, ProcessCommandLineInformation};
 #[cfg(windows)]
-use windows::Win32::Foundation::{CloseHandle, HANDLE, STATUS_INFO_LENGTH_MISMATCH, UNICODE_STRING};
+use windows::Win32::Foundation::{
+    CloseHandle, HANDLE, STATUS_INFO_LENGTH_MISMATCH, UNICODE_STRING,
+};
 #[cfg(windows)]
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
@@ -72,12 +74,19 @@ pub fn processes() -> windows::core::Result<Vec<ProcessEntry>> {
 pub fn command_line(process_id: u32) -> Option<String> {
     // SAFETY: opening a process for limited queries has no preconditions; the
     // handle is owned and closed by `OwnedHandle`.
-    let process =
-        OwnedHandle(unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) }.ok()?);
+    let process = OwnedHandle(
+        unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) }.ok()?,
+    );
     let mut length = 0u32;
     // SAFETY: a zero-length query writes nothing but the length it needs.
     let status = unsafe {
-        NtQueryInformationProcess(process.0, ProcessCommandLineInformation, std::ptr::null_mut(), 0, &raw mut length)
+        NtQueryInformationProcess(
+            process.0,
+            ProcessCommandLineInformation,
+            std::ptr::null_mut(),
+            0,
+            &raw mut length,
+        )
     };
     if status != STATUS_INFO_LENGTH_MISMATCH {
         return None;
@@ -104,7 +113,10 @@ pub fn command_line(process_id: u32) -> Option<String> {
     // points `Length` bytes of UTF-16 further into this same buffer.
     let text = unsafe {
         let header = &*buffer.as_ptr().cast::<UNICODE_STRING>();
-        std::slice::from_raw_parts(header.Buffer.0, usize::from(header.Length) / size_of::<u16>())
+        std::slice::from_raw_parts(
+            header.Buffer.0,
+            usize::from(header.Length) / size_of::<u16>(),
+        )
     };
     Some(String::from_utf16_lossy(text))
 }
