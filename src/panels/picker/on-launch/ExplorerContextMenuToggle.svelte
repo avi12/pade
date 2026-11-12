@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import { setExplorerContextMenu } from "@/panels/picker/explorer-context-menu";
-  import ToggleRow from "@/panels/picker/ToggleRow.svelte";
+  import { setExplorerContextMenu } from "@/panels/picker/on-launch/explorer-context-menu";
+  import ToggleRow from "@/panels/picker/on-launch/ToggleRow.svelte";
   import { onMount } from "svelte";
 
   // Explorer "Open in PADE" folder context menu (Windows-only, per-user). Self-

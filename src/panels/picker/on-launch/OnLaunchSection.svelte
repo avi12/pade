@@ -2,10 +2,10 @@
   import { globalNaming } from "@/lib/agent/ai-naming-scope";
   import { effective } from "@/lib/settings/prefs.svelte";
   import type { Prefs, StartMode } from "@/lib/types";
-  import ChoiceRow from "@/panels/picker/ChoiceRow.svelte";
-  import ExplorerContextMenuToggle from "@/panels/picker/ExplorerContextMenuToggle.svelte";
-  import { START_MODE_CHOICES, TEMP_CLEANUP_CHOICES } from "@/panels/picker/on-launch";
-  import ToggleRow from "@/panels/picker/ToggleRow.svelte";
+  import ChoiceRow from "@/panels/picker/on-launch/ChoiceRow.svelte";
+  import ExplorerContextMenuToggle from "@/panels/picker/on-launch/ExplorerContextMenuToggle.svelte";
+  import { START_MODE_CHOICES, TEMP_CLEANUP_CHOICES } from "@/panels/picker/on-launch/on-launch";
+  import ToggleRow from "@/panels/picker/on-launch/ToggleRow.svelte";
 
   // "On launch" preferences: the no-project start mode, unused-temp cleanup,
   // temp auto-naming, and the Windows Explorer "Open in PADE" context-menu

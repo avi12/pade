@@ -1226,12 +1226,12 @@ Shared rune state, grouped like the modules that read it.
 | `clone/CloneUrlField.svelte` | The repository URL field with its live reachability verdict under it (the probe lives in `CloneForm`) |
 | `clone/CloneCredentials.svelte` | The SSH→HTTPS fallback: an SSH-style URL with no key on disk (`vcs_has_ssh_key`) asks for HTTPS credentials instead |
 | `clone/clone-repository.ts` | `cloneRepository`: runs `vcs_clone`, sending an HTTPS credential only when the SSH URL has no key to use and leaving a blank or invalid value out |
-| `OnLaunchSection.svelte` | "On launch" preferences: start-mode toggle, unused-temp cleanup, auto-name checkbox and the Explorer context-menu toggle (`ExplorerContextMenuToggle`), the two choices each a `ChoiceRow`, the checkboxes each a `ToggleRow` |
-| `ChoiceRow.svelte` | One home for the On-launch single-choice row: a caption beside a roving pill tablist over labelled choices |
-| `on-launch.ts` | The On-launch choices with the label each pill prints: the start modes and the temp-cleanup days (Off for never) |
-| `ToggleRow.svelte` | One home for the On-launch checkbox row: the box chrome, the tick and the caption |
-| `ExplorerContextMenuToggle.svelte` | The Windows-only Explorer "Open in PADE" toggle, self-contained over the per-user registry (`explorer-context-menu`); waits for the registry's answer so the box is born showing the real state |
-| `explorer-context-menu.ts` | `setExplorerContextMenu`: add or remove the Explorer folder menu, resolving to the failure's message (empty on success) - the modern Win11 entry needs Developer Mode |
+| `on-launch/OnLaunchSection.svelte` | "On launch" preferences: start-mode toggle, unused-temp cleanup, auto-name checkbox and the Explorer context-menu toggle (`ExplorerContextMenuToggle`), the two choices each a `ChoiceRow`, the checkboxes each a `ToggleRow` |
+| `on-launch/ChoiceRow.svelte` | One home for the On-launch single-choice row: a caption beside a roving pill tablist over labelled choices |
+| `on-launch/on-launch.ts` | The On-launch choices with the label each pill prints: the start modes and the temp-cleanup days (Off for never) |
+| `on-launch/ToggleRow.svelte` | One home for the On-launch checkbox row: the box chrome, the tick and the caption |
+| `on-launch/ExplorerContextMenuToggle.svelte` | The Windows-only Explorer "Open in PADE" toggle, self-contained over the per-user registry (`explorer-context-menu`); waits for the registry's answer so the box is born showing the real state |
+| `on-launch/explorer-context-menu.ts` | `setExplorerContextMenu`: add or remove the Explorer folder menu, resolving to the failure's message (empty on success) - the modern Win11 entry needs Developer Mode |
 | `RecentSection.svelte` | Recent rows with tags (`TempBadge` for a temp workspace) + inline-rename form; a removed row collapses out (`motion.collapseRow`) |
 | `AgentsSection.svelte` | Default-agent chooser (shared `AgentChips`) with rescan/skeleton states |
 | `AgentChips.svelte` | Shared agent choice-chip radiogroup - one pill per installed agent (brand glyph + label), the selected one edged in primary over its container; the `AgentsSection` default-agent choice |

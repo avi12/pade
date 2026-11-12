@@ -1,4 +1,4 @@
-import { setExplorerContextMenu } from "@/panels/picker/explorer-context-menu";
+import { setExplorerContextMenu } from "@/panels/picker/on-launch/explorer-context-menu";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({

@@ -1,6 +1,6 @@
 <script generics="Value" lang="ts">
   import { rovingTablist } from "@/lib/ui/keyboard/roving-tabs";
-  import type { LabelledChoice } from "@/panels/picker/on-launch";
+  import type { LabelledChoice } from "@/panels/picker/on-launch/on-launch";
 
   // One home for the On-launch single-choice row: a caption beside a pill
   // tablist, the picked pill the one Tab stop (arrows move between them).
