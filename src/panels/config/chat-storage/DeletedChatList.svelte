@@ -6,7 +6,7 @@
   import type { Agent, ChatStorage } from "@/lib/types";
   import Checkbox from "@/lib/ui/controls/Checkbox.svelte";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
-  import { deletedChatRow, unlistedChats } from "@/panels/config/chat-storage";
+  import { deletedChatRow, unlistedChats } from "@/panels/config/chat-storage/chat-storage";
 
   const { cleanup, agents, ticked, isLocked, ontoggle }: {
     cleanup: ChatStorage["cleanup"];

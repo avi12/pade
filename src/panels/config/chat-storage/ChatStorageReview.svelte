@@ -3,7 +3,7 @@
   // review - shown only while there are some.
   import type { Agent, ChatStorage } from "@/lib/types";
   import { formatQuantity } from "@/lib/util/format";
-  import ChatStorageConfirm from "@/panels/config/ChatStorageConfirm.svelte";
+  import ChatStorageConfirm from "@/panels/config/chat-storage/ChatStorageConfirm.svelte";
 
   let { storage, agents, storageLimitMegabytes, ondelete, isOpen = $bindable() }: {
     /** The chats measured against the saved limits. */

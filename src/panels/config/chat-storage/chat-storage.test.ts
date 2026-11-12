@@ -10,7 +10,7 @@ import {
   storageSummary,
   tickedCleanup,
   unlistedChats
-} from "@/panels/config/chat-storage";
+} from "@/panels/config/chat-storage/chat-storage";
 import { describe, expect, it } from "vitest";
 
 const MEGABYTE = 1024 * 1024;

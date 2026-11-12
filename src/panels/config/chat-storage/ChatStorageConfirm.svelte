@@ -6,8 +6,8 @@
   import ConfirmDialog from "@/lib/dialogs/ConfirmDialog.svelte";
   import type { Agent, ChatStorage } from "@/lib/types";
   import { errorMessage } from "@/lib/util/errors/errors";
-  import { cleanupSummary, keptAboveLimit, tickedCleanup } from "@/panels/config/chat-storage";
-  import DeletedChatList from "@/panels/config/DeletedChatList.svelte";
+  import { cleanupSummary, keptAboveLimit, tickedCleanup } from "@/panels/config/chat-storage/chat-storage";
+  import DeletedChatList from "@/panels/config/chat-storage/DeletedChatList.svelte";
   import { SvelteSet } from "svelte/reactivity";
 
   const { preview, agents, storageLimitMegabytes, ondelete, oncancel }: {

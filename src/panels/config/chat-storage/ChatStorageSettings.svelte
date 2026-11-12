@@ -14,10 +14,10 @@
     CHAT_STORAGE_CHOICES,
     keptAboveLimit,
     storageSummary
-  } from "@/panels/config/chat-storage";
-  import type { ChatStorageLimits } from "@/panels/config/chat-storage";
-  import ChatLimitRow from "@/panels/config/ChatLimitRow.svelte";
-  import ChatStorageReview from "@/panels/config/ChatStorageReview.svelte";
+  } from "@/panels/config/chat-storage/chat-storage";
+  import type { ChatStorageLimits } from "@/panels/config/chat-storage/chat-storage";
+  import ChatLimitRow from "@/panels/config/chat-storage/ChatLimitRow.svelte";
+  import ChatStorageReview from "@/panels/config/chat-storage/ChatStorageReview.svelte";
   import { onMount } from "svelte";
 
   const { agents }: {
