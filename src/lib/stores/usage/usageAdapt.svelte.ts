@@ -99,6 +99,12 @@ export function adaptedChoice(id: string) {
   };
 }
 
+/** What the session ran before pacing first stepped it, null when pacing
+ *  hasn't (reactive). */
+export function originalChoice(id: string) {
+  return adapted.get(id)?.trail[0].previous ?? null;
+}
+
 /** What the session runs, as its agent last reported it. */
 function runningChoice(id: string) {
   const running = sessionModel(id);

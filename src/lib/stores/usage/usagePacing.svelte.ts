@@ -70,6 +70,7 @@ import {
   isRestIgnoredByHook,
   stopThroughTerminal
 } from "@/lib/stores/usage/pacingInterrupt.svelte";
+import { markJudged, recordObserved, sendPacingReport } from "@/lib/stores/usage/pacingReport.svelte";
 import { createAccountRound } from "@/lib/stores/usage/usageAccountRound.svelte";
 import { adaptedChoice, adaptedSteps, createUsageAdapter } from "@/lib/stores/usage/usageAdapt.svelte";
 import type { AdaptHost } from "@/lib/stores/usage/usageAdapt.svelte";
@@ -88,6 +89,9 @@ import {
 import { measuredBurn } from "@/lib/usage/pacing/measured-burn";
 import type { MeasuredBurn } from "@/lib/usage/pacing/measured-burn";
 import { MILLISECONDS_PER_MINUTE, PACING_STEP_ORDER, pacingMargin, spokenTime } from "@/lib/usage/pacing/pacing-policy";
+import { ObservedKind, PacePhase } from "@/lib/usage/pacing/pacing-report";
+import { paceFactsOf } from "@/lib/usage/pacing/report-facts";
+import type { OwnedFacts } from "@/lib/usage/pacing/report-facts";
 import { canHoldRest, heldRestUntil } from "@/lib/usage/pacing/rest-hold";
 import {
   assessPace,
@@ -159,10 +163,6 @@ const STEP_HISTORY_TEXT: Partial<Record<PacingStep, string>> = {
   [PacingStep.enum.effort]: "effort turned down",
   [PacingStep.enum.model]: "moved to a cheaper model"
 };
-
-/** Where a paced session is: asked to stop and still finishing its step,
- *  stopped and waiting for room, or restarted by the user while over pace. */
-const PacePhase = z.enum(["pausing", "paused", "overridden"]);
 
 /** One paused session, as remembered across a reload of its window. */
 const PaceState = z.object({
@@ -766,6 +766,10 @@ export function createUsagePacing(host: PacingHost) {
         now
       })}`
     });
+    recordObserved({
+      sessionId: session.id,
+      kind: restUntil === null ? ObservedKind.enum.stop : ObservedKind.enum.rest
+    });
     await syncStops();
     enforcePause({
       session,
@@ -846,6 +850,10 @@ export function createUsagePacing(host: PacingHost) {
     record({
       id: session.id,
       text: "its hook can't hold a rest - stopped instead"
+    });
+    recordObserved({
+      sessionId: session.id,
+      kind: ObservedKind.enum.stop
     });
     await syncStops();
     await stopRunningSession({
@@ -959,6 +967,10 @@ export function createUsagePacing(host: PacingHost) {
 
     if (state.phase === PacePhase.enum.overridden) {
       forgetPace(id);
+      recordObserved({
+        sessionId: id,
+        kind: ObservedKind.enum.release
+      });
       return;
     }
 
@@ -981,6 +993,10 @@ export function createUsagePacing(host: PacingHost) {
       ) : null;
       if (id !== null) {
         lastReleaseAt.set(accountKey, now);
+        recordObserved({
+          sessionId: id,
+          kind: ObservedKind.enum.release
+        });
         await resume(id);
       }
     }
@@ -1041,6 +1057,10 @@ export function createUsagePacing(host: PacingHost) {
     record({
       id: session.id,
       text: `${STEP_HISTORY_TEXT[step]} - now ${adaptedChoice(session.id)?.current ?? ""}`
+    });
+    recordObserved({
+      sessionId: session.id,
+      kind: step === PacingStep.enum.effort ? ObservedKind.enum.stepEffortDown : ObservedKind.enum.stepModelDown
     });
     return true;
   }
@@ -1252,6 +1272,10 @@ export function createUsagePacing(host: PacingHost) {
         id,
         text: "stepped back up"
       });
+      recordObserved({
+        sessionId: id,
+        kind: ObservedKind.enum.stepUp
+      });
     }
   }
 
@@ -1373,9 +1397,17 @@ export function createUsagePacing(host: PacingHost) {
   }) {
     if (state.phase === PacePhase.enum.overridden) {
       forgetPace(id);
+      recordObserved({
+        sessionId: id,
+        kind: ObservedKind.enum.release
+      });
       return;
     }
 
+    recordObserved({
+      sessionId: id,
+      kind: ObservedKind.enum.resume
+    });
     await resume(id);
   }
 
@@ -1484,8 +1516,29 @@ export function createUsagePacing(host: PacingHost) {
   // Skipped by the user, mid model switch, the user's own run, or a handoff
   // successor still reading: pacing doesn't touch the session this scan.
   function isLeftAlone(id: string) {
-    const isSkipped = (skippedUntil.get(id) ?? 0) > Date.now();
-    return isSkipped || isModelSwitchApplying(id) || isContinuedRun(id) || isShielded(id);
+    return isSkipped(id) || isModelSwitchApplying(id) || isContinuedRun(id) || isShielded(id);
+  }
+
+  function isSkipped(id: string) {
+    return (skippedUntil.get(id) ?? 0) > Date.now();
+  }
+
+  // What the loop alone knows of a session, for the backend engine's report.
+  // Reads only - the shields' own checks (`isContinuedRun`, `isShielded`)
+  // move their state on, and are made once per scan by `paceSession`.
+  function ownedFactsOf(session: AgentSession): OwnedFacts {
+    const id = session.id;
+    return {
+      isWorking: isWorking(id),
+      isSkipped: isSkipped(id),
+      isContinuedRun: continuedAnyway.has(id),
+      isShielded: shieldedUntil.has(id),
+      workingSince: workingSince.get(id) ?? null,
+      workingShare: workingShares.get(id) ?? 0,
+      ownLoad: ownLoads.get(id) ?? loadOf(session),
+      subagents: runningSubagents.get(id) ?? [],
+      pace: paceFactsOf(paced.get(id))
+    };
   }
 
   async function paceSession({ session, account, accountKey }: {
@@ -1504,6 +1557,7 @@ export function createUsagePacing(host: PacingHost) {
       return null;
     }
 
+    markJudged(id);
     const state = paced.get(id);
     if (state === undefined) {
       return isWorking(id) ? assessWorking({
@@ -1703,6 +1757,13 @@ export function createUsagePacing(host: PacingHost) {
       sessions: [...assessed.values()].map(assessment => reportOf(assessment))
     });
     await releaseOnePerAccount();
+    await sendPacingReport({
+      sessions,
+      at: now,
+      isPacingOn: host.isOn(),
+      isHandingOff: id => host.isHandingOff(id),
+      ownedOf: ownedFactsOf
+    });
   }
 
   // Pacing turned off for the session's project: let it be if paused, and put
