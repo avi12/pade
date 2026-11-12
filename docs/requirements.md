@@ -324,10 +324,14 @@ writes.
   level at a time, to the bottom of its ladder), **cheaper model**
   (`lib/model/model-cost.ts`, via the same switch a tab's model pick uses),
   **rests between work** (sized so work and rest average out to a lasting pace
-  - rest = stretch × (time left / runway − 1), at least 5 minutes and at most
-  10 minutes, where the runway is how long what is left lasts at the measured
-  working burn, for the weekly window too, not the round-the-clock even spend
-  - while that needs no more rest than work; after a rest it works at least 5
+  - the account can afford a duty of runway / time left, where the runway is
+  how long what is left lasts at the measured working burn, for the weekly
+  window too, not the round-the-clock even spend. A cycle of work then rest =
+  work × (1 / duty − 1) does the same total work whatever its length, so the
+  shortest waits come from the shortest useful work stretch, 5 minutes; a rest
+  under 5 minutes is all interruption, so a high duty lengthens the stretch
+  instead. Waits get long only when the account can afford little work, which
+  no rest length changes - while that needs no more rest than work; after a rest it works at least 5
   minutes before the next, so a "continue" is never cut off at once), and
   **stop until there's room**, after which the agent continues on its own. The
   5-hour window stops when a rest would outlast the work; the weekly window

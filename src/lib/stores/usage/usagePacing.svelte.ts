@@ -82,12 +82,12 @@ import {
   hasRoomToSpare,
   isRestEnough,
   MINIMUM_RATE_SPAN_MS,
-  MINIMUM_WORK_STRETCH_MS,
   paceForecasts,
   RATE_HISTORY_MS,
   slowRestUntil,
   windowName,
-  workingRunway
+  workingRunway,
+  workRhythm
 } from "@/lib/usage/pacing/usage-pace";
 import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/usage-pace";
 import { afterDelay } from "@/lib/util/async/delay";
@@ -125,7 +125,7 @@ type PaceBinding = NonNullable<ReturnType<typeof assessPace>>;
 /** Whether a rest is the step to take: the rest step, while resting needs no
  *  more rest than work - past that, a stop takes over. A weekly window never
  *  stops: a stop until it is back on an even spend can last half a day, so it
- *  rests in short bursts instead, each rest capped (`slowRestUntil`). */
+ *  rests in short bursts instead (`workRhythm`). */
 function shouldRest({ step, binding }: {
   step: PacingStep;
   binding: PaceBinding;
@@ -710,7 +710,6 @@ export function createUsagePacing(host: PacingHost) {
       }),
       readyAt,
       continueAt,
-      stretch: now - (workingSince.get(session.id) ?? now - MINIMUM_RATE_SPAN_MS),
       now
     }) : null;
     // Already idle - its turn ended since it was judged - so it is simply held:
@@ -970,10 +969,14 @@ export function createUsagePacing(host: PacingHost) {
         binding
       });
       // A rest right after the last one ended would buy a "continue" only to
-      // cut off the first thing it started - so the session works a stretch
-      // at least as long as the shortest rest before it rests again.
+      // cut off the first thing it started - so the session works its rhythm's
+      // stretch (`workRhythm`) before it rests again.
       const workedFor = Date.now() - (workingSince.get(session.id) ?? Date.now());
-      const isBetweenRests = isResting && workedFor < MINIMUM_WORK_STRETCH_MS;
+      const { stretch } = workRhythm({
+        runway: workingRunway(binding),
+        timeLeft: binding.continueAt - Date.now()
+      });
+      const isBetweenRests = isResting && workedFor < stretch;
       if (isBetweenRests) {
         return;
       }

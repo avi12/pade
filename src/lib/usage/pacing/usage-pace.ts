@@ -51,13 +51,9 @@ export const RATE_HISTORY_MS = 45 * 60_000;
 /** The shortest rest a slowed session takes - a rest of seconds is all
  *  interruption and no saving. */
 const MINIMUM_REST_MS = 5 * 60_000;
-/** The longest a slowed session rests at once - a break, not a stop: the user
- *  would rather lose ten minutes at a time than hours, even where that saves
- *  a little less. */
-const MAXIMUM_REST_MS = 10 * 60_000;
 /** The shortest stretch a slowed session works between two rests - as long as
  *  the shortest rest, so a rest never follows the last one at once. */
-export const MINIMUM_WORK_STRETCH_MS = MINIMUM_REST_MS;
+const MINIMUM_WORK_STRETCH_MS = MINIMUM_REST_MS;
 /** How long a weekly window runs, start to reset - the length its even spend
  *  is drawn over. */
 export const WEEKLY_WINDOW_MS = 7 * 24 * 60 * 60_000;
@@ -469,27 +465,66 @@ export function hasRoomToSpare({ account, now, marginOf, rateOf }: {
   return true;
 }
 
-/** When a slowed session's rest ends. Working a stretch at its burn rate, then
- *  resting, averages out to the pace that lasts until the reset when
+/** The shortest waits that still get all the work the account can afford done:
+ *  how long to work, then how long to rest, in a cycle that repeats.
  *
- *     rest = stretch × (time left / runway - 1)
+ *  What is left lasts `runway` of work, and there is `timeLeft` to cover, so
+ *  the account can work a share of that time:
  *
- *  with time left and runway both measured to the grace period. Never shorter
- *  than MINIMUM_REST_MS, never longer than MAXIMUM_REST_MS - a long turn would
- *  otherwise earn a rest of hours - and never past the moment a full stop
- *  would end. */
-export function slowRestUntil({ runway, readyAt, continueAt, stretch, now }: {
+ *     duty = runway / timeLeft
+ *
+ *  A cycle of work `stretch` then rest averages out to that duty when
+ *
+ *     rest = stretch × (1 / duty - 1)
+ *
+ *  for any stretch - so the total work done is the same, and the waits are
+ *  shortest with the shortest stretch worth starting (MINIMUM_WORK_STRETCH_MS).
+ *  A rest under MINIMUM_REST_MS is all interruption and no saving, so with a
+ *  high duty the stretch grows instead, keeping the rest at its minimum and
+ *  the duty intact. The rest is long only when the account can afford little
+ *  work (a small duty), which no choice of rest length changes. */
+export function workRhythm({ runway, timeLeft }: {
+  /** `workingRunway`. */
+  runway: number;
+  timeLeft: number;
+}) {
+  const duty = timeLeft > 0 && runway > 0 ? Math.min(1, runway / timeLeft) : 0;
+  if (duty === 0) {
+    return {
+      stretch: MINIMUM_WORK_STRETCH_MS,
+      rest: Math.max(MINIMUM_REST_MS, timeLeft)
+    };
+  }
+
+  if (duty === 1) {
+    return {
+      stretch: MINIMUM_WORK_STRETCH_MS,
+      rest: MINIMUM_REST_MS
+    };
+  }
+
+  const restPerWork = 1 / duty - 1;
+  const stretch = Math.max(MINIMUM_WORK_STRETCH_MS, MINIMUM_REST_MS / restPerWork);
+  return {
+    stretch,
+    rest: stretch * restPerWork
+  };
+}
+
+/** When a slowed session's rest ends: its rhythm's rest from now, never past the
+ *  moment a full stop would end. */
+export function slowRestUntil({ runway, readyAt, continueAt, now }: {
   /** `workingRunway`. */
   runway: number;
   readyAt: number;
   continueAt: number;
-  /** How long the session has just worked. */
-  stretch: number;
   now: number;
 }) {
-  const timeLeft = continueAt - now;
-  const rest = runway > 0 ? stretch * (timeLeft / runway - 1) : timeLeft;
-  return Math.min(readyAt, now + Math.min(MAXIMUM_REST_MS, Math.max(MINIMUM_REST_MS, rest)));
+  const { rest } = workRhythm({
+    runway,
+    timeLeft: continueAt - now
+  });
+  return Math.min(readyAt, now + rest);
 }
 
 /** What picks a paused agent back up - pacing's own resume and the user's

@@ -11,7 +11,8 @@ import {
   RESET_GRACE_MS,
   slowRestUntil,
   WEEKLY_WINDOW_MS,
-  workingRunway
+  workingRunway,
+  workRhythm
 } from "@/lib/usage/pacing/usage-pace";
 import type { UsageSample } from "@/lib/usage/pacing/usage-pace";
 import { describe, expect, it } from "vitest";
@@ -534,14 +535,14 @@ describe("workingRunway", () => {
         }),
         readyAt,
         continueAt,
-        stretch: 20 * MINUTE_MS,
         now: NOW
       }) - NOW;
     }
-    // The even spend's 40-hour runway asked for 7 minutes after 20 of work;
-    // working at 1% an hour, the 24 hours of work left needs about 25.
-    expect(rest({ rate: 0 })).toBeLessThan(8 * MINUTE_MS);
-    expect(rest({ rate: perHour(1) })).toBeGreaterThan(24 * MINUTE_MS);
+    // The even spend's 40-hour runway asks for no more than the 5-minute
+    // minimum; working at 1% an hour, the 24 hours of work left needs about 6
+    // after each 5.
+    expect(rest({ rate: 0 })).toBe(5 * MINUTE_MS);
+    expect(rest({ rate: perHour(1) })).toBeGreaterThan(6 * MINUTE_MS);
   });
 });
 
@@ -578,50 +579,81 @@ describe("hasRoomToSpare", () => {
   });
 });
 
-describe("slowRestUntil", () => {
-  it("rests long enough that work and rest average out to a lasting pace", () => {
-    // Runway 1h against 2h left: rest as long as it just worked.
+describe("workRhythm", () => {
+  it("works the shortest stretch and rests what keeps the duty the account can afford", () => {
+    // 1h of work affordable in 4h: a duty of a quarter, so 5m of work earns 15m of rest.
     expect(
-      slowRestUntil({
+      workRhythm({
         runway: HOUR_MS,
-        readyAt: NOW + HOUR_MS,
-        continueAt: NOW + 2 * HOUR_MS,
-        stretch: 20 * MINUTE_MS,
-        now: NOW
+        timeLeft: 4 * HOUR_MS
       })
-    ).toBe(NOW + 20 * MINUTE_MS);
+    ).toEqual({
+      stretch: 5 * MINUTE_MS,
+      rest: 15 * MINUTE_MS
+    });
   });
 
-  it("rests at most ten minutes, however long the turn it follows", () => {
+  it("does the same total work whatever the stretch: work over cycle length stays the duty", () => {
+    const { stretch, rest } = workRhythm({
+      runway: 3 * HOUR_MS,
+      timeLeft: 10 * HOUR_MS
+    });
+    expect(stretch / (stretch + rest)).toBeCloseTo(0.3);
+  });
+
+  it("works longer, not rests less, when the duty is high", () => {
+    // 9h of work affordable in 10h: a rest under five minutes is all
+    // interruption, so the stretch grows to keep the duty at 90%.
+    const { stretch, rest } = workRhythm({
+      runway: 9 * HOUR_MS,
+      timeLeft: 10 * HOUR_MS
+    });
+    expect(rest).toBe(5 * MINUTE_MS);
+    expect(stretch).toBeCloseTo(45 * MINUTE_MS);
+  });
+
+  it("rests the minimum when the account can afford all the work", () => {
+    expect(
+      workRhythm({
+        runway: 5 * HOUR_MS,
+        timeLeft: 2 * HOUR_MS
+      })
+    ).toEqual({
+      stretch: 5 * MINUTE_MS,
+      rest: 5 * MINUTE_MS
+    });
+  });
+
+  it("rests for hours only when the account can afford little work", () => {
+    // 6 minutes of work affordable in 10h: a duty of 1%.
+    const { rest } = workRhythm({
+      runway: 6 * MINUTE_MS,
+      timeLeft: 10 * HOUR_MS
+    });
+    expect(rest).toBeGreaterThan(HOUR_MS);
+  });
+});
+
+describe("slowRestUntil", () => {
+  it("ends the rest where the rhythm says, however long the session had worked", () => {
     expect(
       slowRestUntil({
         runway: HOUR_MS,
         readyAt: NOW + 12 * HOUR_MS,
-        continueAt: NOW + 31 * HOUR_MS,
-        stretch: 4 * HOUR_MS,
+        continueAt: NOW + 4 * HOUR_MS,
         now: NOW
       })
-    ).toBe(NOW + 10 * MINUTE_MS);
+    ).toBe(NOW + 15 * MINUTE_MS);
   });
 
-  it("rests at least five minutes, and never past where a full stop would end", () => {
+  it("never rests past where a full stop would end", () => {
     expect(
       slowRestUntil({
-        runway: 90 * MINUTE_MS,
-        readyAt: NOW + 30 * MINUTE_MS,
-        continueAt: NOW + 2 * HOUR_MS,
-        stretch: MINUTE_MS,
+        runway: HOUR_MS,
+        readyAt: NOW + 8 * MINUTE_MS,
+        continueAt: NOW + 4 * HOUR_MS,
         now: NOW
       })
-    ).toBe(NOW + 5 * MINUTE_MS);
-    expect(
-      slowRestUntil({
-        runway: 30 * MINUTE_MS,
-        readyAt: NOW + 30 * MINUTE_MS,
-        continueAt: NOW + HOUR_MS,
-        stretch: 2 * HOUR_MS,
-        now: NOW
-      })
-    ).toBe(NOW + 30 * MINUTE_MS);
+    ).toBe(NOW + 8 * MINUTE_MS);
   });
 });
