@@ -95,6 +95,24 @@ export interface UsageSample {
   resetsAt?: string | null;
 }
 
+/** A vendor re-stamps a window's reset a little differently on each read
+ *  (sub-second jitter in the same window); a new window moves it by hours. */
+const RESET_JITTER_MS = 60_000;
+
+/** Whether two readings are of the same window - by its reset, within the
+ *  jitter, never by the strings, which differ read to read. */
+function isSameReset({ previous, current }: {
+  previous: UsageSample;
+  current: UsageSample;
+}) {
+  const difference = Math.abs(usageResetTime(current.resetsAt) - usageResetTime(previous.resetsAt));
+  if (Number.isNaN(difference)) {
+    return current.resetsAt === previous.resetsAt;
+  }
+
+  return difference < RESET_JITTER_MS;
+}
+
 /** How fast a window is being spent while its agents work, in percent per
  *  millisecond: the rise across consecutive readings of the same window, over
  *  the working time between them. Null until enough working time is behind it. */
@@ -105,7 +123,10 @@ export function burnRate(samples: readonly UsageSample[]) {
     const previous = samples[i - 1];
     const current = samples[i];
     const gap = current.at - previous.at;
-    const isSameWindow = current.resetsAt === previous.resetsAt;
+    const isSameWindow = isSameReset({
+      previous,
+      current
+    });
     const isWorkingStretch = gap > 0 && gap <= MAXIMUM_SAMPLE_GAP_MS;
     const rise = current.utilization - previous.utilization;
     if (!isSameWindow || !isWorkingStretch || rise < 0) {

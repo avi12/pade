@@ -104,6 +104,32 @@ describe("burnRate", () => {
     ).toBeNull();
   });
 
+  it("counts readings whose reset time differs only by the vendor's jitter as one window", () => {
+    const jittered = readings({
+      minutes: 12,
+      rise: 0.5,
+      resetsAt: "2026-11-14T00:59:59.533870+00:00"
+    }).map((sample, i) => ({
+      ...sample,
+      resetsAt: `2026-11-14T00:59:59.${String(500000 + i * 7919).padStart(6, "0")}+00:00`
+    }));
+    expect(percentPerHour(jittered)).toBeCloseTo(30);
+  });
+
+  it("still tells a new window from the old one by hours", () => {
+    const old = readings({
+      minutes: 10,
+      rise: 0.5,
+      resetsAt: "2026-11-14T00:59:59.533870+00:00"
+    });
+    const next = {
+      at: (old.at(-1)?.at ?? NOW) + MINUTE_MS,
+      utilization: 1,
+      resetsAt: "2026-11-14T05:59:59.533870+00:00"
+    };
+    expect(percentPerHour([...old, next])).toBeCloseTo(30);
+  });
+
   it("leaves idle gaps and a new window out of the measure", () => {
     const working = readings({
       minutes: 10,
