@@ -1,31 +1,16 @@
 import { ROOT, run } from "./environment.mjs";
-import { releaseUrl } from "./github.mjs";
-import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { releasePageUrl } from "./github.mjs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const UPDATE_MANIFEST = join(ROOT, "docs", "updates.json");
 
-function sha256Of(file) {
-  return createHash("sha256").update(readFileSync(file)).digest("hex");
-}
-
-/** Write the manifest self-updating copies poll, commit it and push it. */
-export function publishUpdateManifest({ version, tag, files }) {
+/** Write the manifest unpackaged copies poll for their "install the MSIX"
+ *  notice, commit it and push it. */
+export function publishUpdateManifest({ version, tag }) {
   const manifest = {
     version,
-    url: releaseUrl({
-      tag,
-      assetName: files.assetName
-    }),
-    sha256: sha256Of(files.asset),
-    installer: {
-      url: releaseUrl({
-        tag,
-        assetName: files.installerName
-      }),
-      sha256: sha256Of(files.installer)
-    }
+    releaseUrl: releasePageUrl(tag)
   };
   writeFileSync(UPDATE_MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
   run({
@@ -40,5 +25,4 @@ export function publishUpdateManifest({ version, tag, files }) {
     command: "git",
     args: ["push", "origin", "main"]
   });
-  return manifest;
 }

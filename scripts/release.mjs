@@ -1,7 +1,6 @@
 import {
   CARGO_MANIFEST,
   MSIX_ONLY_FLAG,
-  NO_WINGET_FLAG,
   read,
   REPOSITORY
 } from "./release-pipeline/environment.mjs";
@@ -11,12 +10,11 @@ import { buildReleaseFiles } from "./release-pipeline/release-files.mjs";
 import { checkSigningCertificate, findSigningTools } from "./release-pipeline/signing.mjs";
 import { publishUpdateManifest } from "./release-pipeline/update-manifest.mjs";
 import { checkReleaseArguments, PACKAGE_VERSION_LINE } from "./release-pipeline/version.mjs";
-import { submitToWinget } from "./release-pipeline/winget.mjs";
-// Cut a PADE release: a portable exe, an MSI and a signed MSIX on GitHub, and
-// the update manifest every self-updating copy polls (`docs/updates.json`, read
-// by `src-tauri/src/update.rs`).
+// Cut a PADE release: a signed MSIX on GitHub, and the update manifest every
+// unpackaged copy polls for its "install the MSIX" notice (`docs/updates.json`,
+// read by `src-tauri/src/update.rs`).
 //
-//   node scripts/release.mjs <version> <notes-file> [--no-winget]
+//   node scripts/release.mjs <version> <notes-file>
 //   node scripts/release.mjs --msix-only <version>
 //
 // The notes file holds the changelog highlights, written for users; the script
@@ -26,31 +24,23 @@ import { submitToWinget } from "./release-pipeline/winget.mjs";
 //      certificate are here, before anything is changed;
 //   2. set the version in `src-tauri/Cargo.toml` - its one home; Tauri and the
 //      exe read it from there;
-//   3. build the Windows 11 context-menu handler, then PADE itself and its MSI
-//      installer (`src-tauri/windows/installer.wxs`), embedding the handler so
-//      the exe stands alone. The MSI is linked here with WiX's validation
-//      skipped: its ICE checks run on VBScript, which Windows no longer ships
-//      by default, so CI runs them instead (`.github/workflows/installer.yml`);
+//   3. build the Windows 11 context-menu handler, then PADE itself, embedding
+//      the handler (the MSIX packs the exe; nothing else is bundled);
 //   4. lay out, pack and sign the MSIX (`packaging/msix`), export the public
 //      certificate that trusts it, and fill its `.appinstaller` update feed;
 //   5. commit `chore(release): <version>`, tag `v<version>` and push both;
-//   6. create the GitHub release with the portable exe attached as
-//      `PADE-<version>.exe`, the installer as `PADE-<version>-setup.msi`, the
-//      package as `PADE-<version>.msix` and under the stable `PADE.msix` the feed
-//      points at, plus `PADE.cer` and `PADE.appinstaller`;
-//   7. write the manifest from the exe's and the MSI's SHA-256 and push it -
-//      last, so an installed copy never sees a release whose files aren't
-//      uploaded yet;
-//   8. fill the winget manifests (`packaging/winget`), validate them and open
-//      the pull request to `microsoft/winget-pkgs` with `wingetcreate`, so a
-//      winget install sees the release once winget's reviewers merge it.
-//      `--no-winget` (after the notes file) skips this step.
+//   6. create the GitHub release with the package as `PADE-<version>.msix` and
+//      under the stable `PADE.msix` the feed points at, plus `PADE.cer` and
+//      `PADE.appinstaller`;
+//   7. write the manifest (the version and the release page) and push it -
+//      last, so an unpackaged copy never sees a release whose files aren't
+//      uploaded yet.
 //
 // `--msix-only <version>` runs step 4 alone, from what `src-tauri/target/release`
-// already holds, into `release/` - no version bump, git, GitHub or winget.
+// already holds, into `release/` - no version bump, git or GitHub.
 import { readFileSync, writeFileSync } from "node:fs";
 
-function release({ version, notesFile, isWingetSkipped }) {
+function release({ version, notesFile }) {
   const cargoManifest = checkReleaseArguments({
     version,
     notesFile
@@ -80,25 +70,20 @@ function release({ version, notesFile, isWingetSkipped }) {
     highlights,
     files
   });
-  const manifest = publishUpdateManifest({
+  publishUpdateManifest({
     version,
-    tag,
-    files
+    tag
   });
-  if (!isWingetSkipped) {
-    submitToWinget(manifest);
-  }
 
   console.log(`Released ${tag}: https://github.com/${REPOSITORY}/releases/tag/${tag}`);
 }
 
-const [firstArgument, secondArgument, ...flags] = process.argv.slice(2);
+const [firstArgument, secondArgument] = process.argv.slice(2);
 if (firstArgument === MSIX_ONLY_FLAG) {
   packMsixOnly(secondArgument);
 } else {
   release({
     version: firstArgument,
-    notesFile: secondArgument,
-    isWingetSkipped: flags.includes(NO_WINGET_FLAG)
+    notesFile: secondArgument
   });
 }

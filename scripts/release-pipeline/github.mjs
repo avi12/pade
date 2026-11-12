@@ -8,8 +8,9 @@ import {
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-export function releaseUrl({ tag, assetName }) {
-  return `https://github.com/${REPOSITORY}/releases/download/${tag}/${assetName}`;
+/** The release's page, where its MSIX is downloaded from. */
+export function releasePageUrl(tag) {
+  return `https://github.com/${REPOSITORY}/releases/tag/${tag}`;
 }
 
 /** The address GitHub redirects to that file in the newest release. */
@@ -47,6 +48,6 @@ export function createGitHubRelease({ version, tag, previousTag, highlights, fil
   writeFileSync(releaseNotesFile, releaseNotes);
   run({
     command: "gh",
-    args: ["release", "create", tag, files.asset, files.installer, ...files.msixFiles, "--title", `PADE ${version}`, "--notes-file", releaseNotesFile]
+    args: ["release", "create", tag, ...files, "--title", `PADE ${version}`, "--notes-file", releaseNotesFile]
   });
 }

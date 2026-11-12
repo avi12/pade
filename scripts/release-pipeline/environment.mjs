@@ -20,7 +20,6 @@ const IS_WINDOWS = process.platform === "win32";
  *  start. Their arguments here never hold a space, so the shell can't split one. */
 const SHIM_COMMANDS = new Set(["pnpm"]);
 
-export const NO_WINGET_FLAG = "--no-winget";
 export const MSIX_ONLY_FLAG = "--msix-only";
 
 /** Environment variable names are case-blind on Windows; compared lowercased. */

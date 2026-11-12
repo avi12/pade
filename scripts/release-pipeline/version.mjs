@@ -1,4 +1,4 @@
-import { CARGO_MANIFEST, fail, NO_WINGET_FLAG, read } from "./environment.mjs";
+import { CARGO_MANIFEST, fail, read } from "./environment.mjs";
 import { readFileSync } from "node:fs";
 
 export const PACKAGE_VERSION_LINE = /^version = "(\d+\.\d+\.\d+)"$/m;
@@ -37,7 +37,7 @@ function checkWorkingTreeClean() {
 export function checkReleaseArguments({ version, notesFile }) {
   const isUsageRight = Boolean(version && notesFile) && VERSION_PATTERN.test(version);
   if (!isUsageRight) {
-    fail(`usage: node scripts/release.mjs <major.minor.patch> <notes-file> [${NO_WINGET_FLAG}]`);
+    fail(`usage: node scripts/release.mjs <major.minor.patch> <notes-file>`);
   }
 
   checkWorkingTreeClean();
