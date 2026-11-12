@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
-  import { watchedDirectories } from "@/panels/picker/project-roots";
+  import { watchedDirectories } from "@/panels/picker/roots/project-roots";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, untrack } from "svelte";
 

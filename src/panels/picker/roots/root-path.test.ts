@@ -1,6 +1,6 @@
 import { EMPTY_PATH_PROBE } from "@/lib/types";
 import type { PathProbe } from "@/lib/types";
-import { assessRootPath } from "@/panels/picker/root-path";
+import { assessRootPath } from "@/panels/picker/roots/root-path";
 import { describe, expect, it } from "vitest";
 
 const TYPED = "C:\\repositories\\avi";

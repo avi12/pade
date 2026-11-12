@@ -5,7 +5,7 @@
   import HomeProjectSuggestions from "@/panels/picker/home/HomeProjectSuggestions.svelte";
   import type { ProjectOption } from "@/panels/picker/home/project-suggestions";
   import { matchingProjects, suggestionKeyStep, SuggestionStepKind } from "@/panels/picker/home/project-suggestions";
-  import RootSelect from "@/panels/picker/RootSelect.svelte";
+  import RootSelect from "@/panels/picker/roots/RootSelect.svelte";
 
   // The composer's project slot while a new project is picked: the trigger
   // turns into the name field itself, so the path reads as one line - the

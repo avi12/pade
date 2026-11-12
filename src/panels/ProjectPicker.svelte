@@ -17,9 +17,9 @@
   import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";
   import "@/panels/picker/project-form.css";
-  import { popularRoot, watchedDirectories } from "@/panels/picker/project-roots";
+  import { popularRoot, watchedDirectories } from "@/panels/picker/roots/project-roots";
   import RecentSection from "@/panels/picker/RecentSection.svelte";
-  import RootsSection from "@/panels/picker/RootsSection.svelte";
+  import RootsSection from "@/panels/picker/roots/RootsSection.svelte";
   import WorkspaceDialogs from "@/panels/picker/WorkspaceDialogs.svelte";
   import { onDestroy, onMount } from "svelte";
 

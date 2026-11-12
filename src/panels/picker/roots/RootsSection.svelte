@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { AddRootOutcome, Ide, ProjectEntry } from "@/lib/types";
-  import AddRootForm from "@/panels/picker/AddRootForm.svelte";
+  import AddRootForm from "@/panels/picker/roots/AddRootForm.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
-  import RootProjects from "@/panels/picker/RootProjects.svelte";
+  import RootProjects from "@/panels/picker/roots/RootProjects.svelte";
 
   // Root folders: add one (a typed path with live validation + directory
   // autocomplete, or the native folder picker), remove one, and browse the

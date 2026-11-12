@@ -1,4 +1,4 @@
-import { popularRoot, watchedDirectories } from "@/panels/picker/project-roots";
+import { popularRoot, watchedDirectories } from "@/panels/picker/roots/project-roots";
 import { describe, expect, it } from "vitest";
 
 const REPOSITORIES = "C:\\repositories";
