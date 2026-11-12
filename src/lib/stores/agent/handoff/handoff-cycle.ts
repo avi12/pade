@@ -18,7 +18,7 @@ import { hasEnoughUsage, pickHandoffSuccessor } from "@/lib/stores/agent/handoff
 import { shieldHandoffSuccessor } from "@/lib/stores/usage/usagePacing.svelte";
 import type { Agent, AgentSession } from "@/lib/types/agent";
 
-export function docNameFor({ context, sessionId }: {
+function docNameFor({ context, sessionId }: {
   context: HandoffContext;
   sessionId: string;
 }) {

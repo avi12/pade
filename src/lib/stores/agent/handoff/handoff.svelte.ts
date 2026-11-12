@@ -22,7 +22,7 @@ import { handoff, writeHandoffDoc } from "@/lib/stores/agent/handoff/handoff-cyc
 import type { HandoffContext } from "@/lib/stores/agent/handoff/handoff-doc-request";
 import type { HandoffHost } from "@/lib/stores/agent/handoff/handoff-host";
 import type { HandoffReason } from "@/lib/stores/agent/handoff/handoff-prompts";
-import { HandoffState } from "@/lib/stores/agent/handoff/handoff-state.svelte";
+import { createHandoffState } from "@/lib/stores/agent/handoff/handoff-state.svelte";
 import { createHandoffTimers } from "@/lib/stores/agent/handoff/handoff-timers";
 import { forceHandoff, restartForConfiguration, scanForHandoffs } from "@/lib/stores/agent/handoff/handoff-trigger";
 import type { AgentSession } from "@/lib/types/agent";
@@ -31,7 +31,7 @@ import type { AgentSession } from "@/lib/types/agent";
  *  `check()` from a `$effect` and `dispose()` on destroy; `note` is the status
  *  line to show while a handoff is in flight ("" when idle). */
 export function createAutoHandoff(host: HandoffHost) {
-  const state = new HandoffState();
+  const state = createHandoffState();
   const timers = createHandoffTimers();
   const context: HandoffContext = {
     host,

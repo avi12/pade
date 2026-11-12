@@ -10,32 +10,51 @@ import {
 } from "@/lib/stores/agent/handoff/handoff-markers";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
-export class HandoffState {
-  handingOff = new SvelteSet<string>();
-  /** The status line while a handoff is in flight ("" when idle). */
-  note = $state("");
+export function createHandoffState() {
+  const handingOff = new SvelteSet<string>();
+  const handoffAttempts = new SvelteMap<string, number>();
+  let note = $state("");
   // The scan's own line for a session over threshold that it holds back because
   // the agent still has work running; an in-flight handoff's `note` wins over it.
-  deferredNote = $state("");
-  handoffAttempts = new SvelteMap<string, number>();
+  let deferredNote = $state("");
 
-  markHandingOff(sessionId: string) {
-    this.handingOff.add(sessionId);
+  function markHandingOff(sessionId: string) {
+    handingOff.add(sessionId);
     storePersistentMarker(sessionId);
   }
 
-  unmarkHandingOff(sessionId: string) {
-    this.handingOff.delete(sessionId);
+  function unmarkHandingOff(sessionId: string) {
+    handingOff.delete(sessionId);
     clearPersistentMarker(sessionId);
   }
 
-  isHandingOff(sessionId: string) {
-    return this.handingOff.has(sessionId) || hasPersistentMarker(sessionId);
-  }
-
-  // Give up on this handoff for now, leaving the session free for a later scan.
-  abandonHandoff(sessionId: string) {
-    this.unmarkHandingOff(sessionId);
-    this.note = "";
-  }
+  return {
+    handingOff,
+    handoffAttempts,
+    /** The status line while a handoff is in flight ("" when idle). */
+    get note() {
+      return note;
+    },
+    set note(next) {
+      note = next;
+    },
+    get deferredNote() {
+      return deferredNote;
+    },
+    set deferredNote(next) {
+      deferredNote = next;
+    },
+    markHandingOff,
+    unmarkHandingOff,
+    isHandingOff(sessionId: string) {
+      return handingOff.has(sessionId) || hasPersistentMarker(sessionId);
+    },
+    // Give up on this handoff for now, leaving the session free for a later scan.
+    abandonHandoff(sessionId: string) {
+      unmarkHandingOff(sessionId);
+      note = "";
+    }
+  };
 }
+
+export type HandoffState = ReturnType<typeof createHandoffState>;
