@@ -7,7 +7,7 @@ export const REPOSITORY = "avi12/pade";
 
 export const CARGO_MANIFEST = join(ROOT, "src-tauri", "Cargo.toml");
 export const CARGO_LOCK = join(ROOT, "src-tauri", "Cargo.lock");
-export const RELEASE_TARGET = join(ROOT, "src-tauri", "target", "release");
+const RELEASE_TARGET = join(ROOT, "src-tauri", "target", "release");
 export const OUTPUT_DIRECTORY = join(ROOT, "release");
 
 export const CONTEXT_MENU_HANDLER_FILE = "contextmenu_handler.dll";
