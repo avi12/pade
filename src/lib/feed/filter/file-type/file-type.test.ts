@@ -1,4 +1,5 @@
-import { fileExtension, FileTone, fileTypeBadge } from "@/lib/feed/filter/file-type";
+import { FileTone } from "@/lib/feed/filter/file-type/badge-model";
+import { fileExtension, fileTypeBadge } from "@/lib/feed/filter/file-type/file-type";
 import { describe, expect, it } from "vitest";
 
 describe("fileExtension", () => {

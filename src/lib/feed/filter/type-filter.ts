@@ -2,7 +2,7 @@
 // lists, the label its chip reads, and the narrowing it applies. An empty
 // selection means "no filter - show every type".
 
-import { fileExtension } from "@/lib/feed/filter/file-type";
+import { fileExtension } from "@/lib/feed/filter/file-type/file-type";
 import type { ChangeEvent } from "@/lib/types/feed";
 import { formatCount } from "@/lib/util/format";
 
