@@ -59,8 +59,7 @@ PaceFacts   { phase: "pausing"|"paused"|"overridden", windowKind: "session"|"wee
               rates: Record<string, f64> }     // ADDED (rust agent): window key -> burn rate (percent per ms) when it last held the session
 
 ObservedDecision { sessionId: string, at: EpochMs, kind: ObservedKind }
-ObservedKind  = "stepEffortDown" | "stepModelDown" | "stepUp" | "rest" | "stop" | "resume" | "release" | "restoreChoice" | "none"
-                // "restoreChoice" ADDED (rust agent): adapter.restoreSession / adapter.restore (back to the user's own choice)
+ObservedKind  = "stepEffortDown" | "stepModelDown" | "stepUp" | "rest" | "stop" | "resume" | "release" | "none"
 ```
 
 Meaning of each kind (the TS call site it stands for; the engine's `Decision` maps one to one):
@@ -72,7 +71,6 @@ Meaning of each kind (the TS call site it stands for; the engine's `Decision` ma
 | `rest` / `stop` | `pause` with a rest / a stop |
 | `resume` | `resume`: lifted a pause, from `releaseOnePerAccount`, `continueAtReset` or a stand-down |
 | `release` | `forgetPace` without a continue: an overridden session released, or one owned elsewhere |
-| `restoreChoice` | `adapter.restoreSession`: back on the user's own model and effort (window about to reset, or pacing off) |
 | `none` | the session was looked at and nothing was decided (ignored by the comparison) |
 
 `isRestPending` in the TS (`phase == pausing && restMs !== null`) is `phase == pausing && restUntil !== null`
@@ -129,3 +127,17 @@ Shadow mode means: NO control-file writes, NO events that change behaviour, NO P
 - Frontend: tests for the report builder (pure part) and the recorder.
 - All gates green: `pnpm check`, `pnpm lint` (clippy -D warnings, cargo fmt, fallow), `pnpm test`.
 - ARCHITECTURE.md module map + docs/requirements.md note (shadow phase) in the same change.
+
+## Shadow comparison and summary (as built)
+- `Decision::RestoreChoice` (back on the user's own model and effort) and `Decision::Throttle` have no `ObservedKind`:
+  the TypeScript records nothing for them, so neither is compared.
+- Comparison is a multiset of (session, kind) per tick. A step the TypeScript took that the engine did not decide is a
+  disagreement at once (`decided: null`). A step the engine decided that no window has reported yet waits ONE tick: if
+  the same step shows up observed by then it agrees (with lag), otherwise it is a disagreement (`observed: null`). An
+  observed `none` is never counted on its own.
+- `pacing_shadow_summary` replies `{ counts: { <ObservedKind>: { agree, disagree } }, lastDisagreements: [{ at, sessionId,
+  observed, decided }] }`: `counts` omits kinds with no samples, `lastDisagreements` keeps the latest 20. Counts live in
+  memory (reset on restart); the JSONL log under the data dir (`pacing-shadow.jsonl`, rotated at 1 MiB to
+  `pacing-shadow.1.jsonl`) is the durable record, one line per tick that compared anything.
+- `pacing_report` and `pacing_shadow_summary` are synchronous commands: each is an in-memory lookup (AGENTS.md allows it).
+- The burn samples (`pacing-samples.json`) are one book for the whole backend, not one per window.
