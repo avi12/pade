@@ -12,6 +12,7 @@
     "app": "node scripts/app-dev.mjs",
     "app:build": "tauri build --no-bundle",
     "release": "node scripts/release.mjs",
+    "pacing:fixtures": "node scripts/pacing-fixtures.mjs",
     "check": "svelte-check --tsgo --tsconfig ./tsconfig.json",
     "lint:js": "node scripts/oxlint-tsrs.mjs --type-aware --fix && eslint --fix .",
     "lint:css": "stylelint --fix \"src/**/*.{css,svelte}\"",

@@ -3,5 +3,7 @@
   // Referenced by name from .stylelintrc.json (customSyntax: "postcss-html"),
   // and by path from scripts/oxlint-tsrs.mjs (tsrs-lint, oxlint's type-aware
   // backend), which dependency scanning can't see through.
-  "ignoreDependencies": ["postcss-html", "tsrs"]
+  "ignoreDependencies": ["postcss-html", "tsrs"],
+  // Loaded by path through Vite's module loader from scripts/pacing-fixtures.mjs.
+  "entry": ["scripts/pacing-fixtures.ts"]
 }
