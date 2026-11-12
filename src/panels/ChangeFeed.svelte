@@ -7,9 +7,9 @@
   import { effective } from "@/lib/settings/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
+  import { workspaceMembers as storedMembers } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
   import { feedStore } from "@/lib/stores/workspace/change-feed/feed.svelte";
   import { onWatchesArmed } from "@/lib/stores/workspace/change-feed/project-watch";
-  import { workspaceMembers as storedMembers } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
   import type { ChangeEvent, WatchStatus } from "@/lib/types";
   import FeedCards from "@/panels/feed/FeedCards.svelte";
   import FeedEmptyState from "@/panels/feed/FeedEmptyState.svelte";

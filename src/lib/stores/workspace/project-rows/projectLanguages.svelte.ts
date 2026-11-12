@@ -6,9 +6,12 @@
 // change is counted again once the burst settles.
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
-import { isFollowedProject, watchedProjectPaths } from "@/lib/stores/workspace/project-rows/followed-projects";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
-import { createVisiblePathBatch, PROJECT_ROW_CACHE_LIMIT } from "@/lib/stores/workspace/project-rows/visiblePathBatch.svelte";
+import { isFollowedProject, watchedProjectPaths } from "@/lib/stores/workspace/project-rows/followed-projects";
+import {
+  createVisiblePathBatch,
+  PROJECT_ROW_CACHE_LIMIT
+} from "@/lib/stores/workspace/project-rows/visiblePathBatch.svelte";
 import type { LanguageShare } from "@/lib/types";
 import { untrack } from "svelte";
 

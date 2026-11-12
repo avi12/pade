@@ -2,7 +2,11 @@
   import { GroupRole } from "@/lib/feed/change-groups";
   import type { ChangeGroup } from "@/lib/feed/change-groups";
   import Icon from "@/lib/Icon.svelte";
-  import { branchOfMember, pathOfMember, workspaceMembers } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
+  import {
+    branchOfMember,
+    pathOfMember,
+    workspaceMembers
+  } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
   import { formatCount } from "@/lib/util/format";
   import { repositoryOfGroup } from "@/lib/workspace/members/workspace-members";

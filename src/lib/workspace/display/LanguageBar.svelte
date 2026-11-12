@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { observeProjectLanguages, projectLanguageShares } from "@/lib/stores/workspace/project-rows/projectLanguages.svelte";
+  import {
+    observeProjectLanguages,
+    projectLanguageShares
+  } from "@/lib/stores/workspace/project-rows/projectLanguages.svelte";
   import type { LanguageShare } from "@/lib/types";
   import {
     isEnteringAfterCount,

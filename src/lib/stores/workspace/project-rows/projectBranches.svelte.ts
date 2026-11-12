@@ -4,7 +4,10 @@
 // as cheap to open as a short one.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import { createVisiblePathBatch, PROJECT_ROW_CACHE_LIMIT } from "@/lib/stores/workspace/project-rows/visiblePathBatch.svelte";
+import {
+  createVisiblePathBatch,
+  PROJECT_ROW_CACHE_LIMIT
+} from "@/lib/stores/workspace/project-rows/visiblePathBatch.svelte";
 
 const projectBranches = createVisiblePathBatch<string>({
   load: paths => sendMessage(Command.vcsBranchOf, { paths }),
