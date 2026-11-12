@@ -15,6 +15,7 @@ use super::{
 use crate::util::{home_directory, now_milliseconds, read_json};
 use std::path::PathBuf;
 
+/// The local Claude Code credentials file, `~/.claude/.credentials.json`.
 const CLAUDE_CREDENTIALS_RELATIVE_PATH: &str = ".claude/.credentials.json";
 
 fn claude_credentials_path() -> Option<PathBuf> {

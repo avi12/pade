@@ -241,8 +241,6 @@ pub(super) const COPILOT_PLAN: &str = "Copilot";
 pub(super) const ANTIGRAVITY_PLAN: &str = "Antigravity";
 pub(super) const CURSOR_PLAN: &str = "Cursor";
 
-/// The local Claude Code credentials file, `~/.claude/.credentials.json`.
-
 /// How long one reading of a usage endpoint is reused. They are rate-limited per
 /// token and safe at ~180s intervals, so every adapter (and the limit-reset
 /// offer, read off the same endpoint) caches its answer this long.
