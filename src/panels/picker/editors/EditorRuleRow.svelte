@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import type { Ide } from "@/lib/types";
-  import EditorSelect from "@/panels/picker/EditorSelect.svelte";
+  import EditorSelect from "@/panels/picker/editors/EditorSelect.svelte";
 
   // One row of the editor-rules engine: a project kind (logo, label and the
   // manifest signals PADE looks for) mapped to the editor it opens in. With no

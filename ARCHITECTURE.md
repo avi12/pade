@@ -1235,14 +1235,14 @@ Shared rune state, grouped like the modules that read it.
 | `RecentSection.svelte` | Recent rows with tags (`TempBadge` for a temp workspace) + inline-rename form; a removed row collapses out (`motion.collapseRow`) |
 | `AgentsSection.svelte` | Default-agent chooser (shared `AgentChips`) with rescan/skeleton states |
 | `AgentChips.svelte` | Shared agent choice-chip radiogroup - one pill per installed agent (brand glyph + label), the selected one edged in primary over its container; the `AgentsSection` default-agent choice |
-| `EditorsSection.svelte` | Editor-rules engine - kinds fetched from the backend `ide_kinds` registry (web/python/java/go/rust/android plus C/C++, C#/.NET, PHP, Ruby) - one `EditorRuleRow` per kind plus the fallback row, then `EditorAddition`; rule/fallback persistence goes back through the picker |
-| `EditorRuleRow.svelte` | One rule row: a project kind (language logo via `language-icon`, label, the manifest signals PADE looks for) mapped to its editor through an `EditorSelect`; with no signals, the dashed catch-all fallback row |
-| `EditorSelect.svelte` | One rule's native-popover editor menu, trigger and options carrying the editor's brand mark (`ide-icon`); a rule pointing at an editor no longer installed reads "Choose…" |
-| `editor-options.ts` | The detected editors that suit a project kind, in the backend's priority order (an unknown kind falls back to every editor), and each select's menu id |
-| `editorCatalog.svelte.ts` | The machine's editors as the picker knows them - detected editors, the project kinds the rules engine shows (from the backend registry) and the editors that suit each kind - one instance per picker |
-| `EditorAddition.svelte` | "Add editor…": locate an editor PADE didn't detect on PATH (`AddEditorForm`), with an ok/error status line, and the manually added ones listed below (`AddedEditorsList`) |
-| `AddEditorForm.svelte` | The inline add-editor form: an executable path, typed or browsed, validated and persisted, reporting the outcome back |
-| `AddedEditorsList.svelte` | The editors located by executable path, listed so a stale one can be dropped from every menu |
+| `editors/EditorsSection.svelte` | Editor-rules engine - kinds fetched from the backend `ide_kinds` registry (web/python/java/go/rust/android plus C/C++, C#/.NET, PHP, Ruby) - one `EditorRuleRow` per kind plus the fallback row, then `EditorAddition`; rule/fallback persistence goes back through the picker |
+| `editors/EditorRuleRow.svelte` | One rule row: a project kind (language logo via `language-icon`, label, the manifest signals PADE looks for) mapped to its editor through an `EditorSelect`; with no signals, the dashed catch-all fallback row |
+| `editors/EditorSelect.svelte` | One rule's native-popover editor menu, trigger and options carrying the editor's brand mark (`ide-icon`); a rule pointing at an editor no longer installed reads "Choose…" |
+| `editors/editor-options.ts` | The detected editors that suit a project kind, in the backend's priority order (an unknown kind falls back to every editor), and each select's menu id |
+| `editors/editorCatalog.svelte.ts` | The machine's editors as the picker knows them - detected editors, the project kinds the rules engine shows (from the backend registry) and the editors that suit each kind - one instance per picker |
+| `editors/EditorAddition.svelte` | "Add editor…": locate an editor PADE didn't detect on PATH (`AddEditorForm`), with an ok/error status line, and the manually added ones listed below (`AddedEditorsList`) |
+| `editors/AddEditorForm.svelte` | The inline add-editor form: an executable path, typed or browsed, validated and persisted, reporting the outcome back |
+| `editors/AddedEditorsList.svelte` | The editors located by executable path, listed so a stale one can be dropped from every menu |
 | `roots/RootsSection.svelte` | Root folders: the add row (`AddRootForm`) over one `RootProjects` per root; root persistence reaches shared settings through the picker |
 | `roots/AddRootForm.svelte` | The add-root row: a typed path with live, existence-driven validation (`root-path`) via the shared `PathCombobox` directory autocomplete, or the native folder picker |
 | `roots/root-path.ts` | `assessRootPath`: what adding the typed path will do - add an existing folder, create a missing one, or reject a file - as the row's status banner |

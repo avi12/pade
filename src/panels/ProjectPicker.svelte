@@ -11,8 +11,8 @@
   import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
-  import { createEditorCatalog } from "@/panels/picker/editorCatalog.svelte";
-  import EditorsSection from "@/panels/picker/EditorsSection.svelte";
+  import { createEditorCatalog } from "@/panels/picker/editors/editorCatalog.svelte";
+  import EditorsSection from "@/panels/picker/editors/EditorsSection.svelte";
   import HomeSection from "@/panels/picker/home/HomeSection.svelte";
   import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";

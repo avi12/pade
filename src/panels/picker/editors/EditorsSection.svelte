@@ -4,9 +4,9 @@
   import type { EditorKind, Ide, Prefs } from "@/lib/types";
   import { formatQuantity } from "@/lib/util/format";
   import { languageIcon } from "@/lib/workspace/display/language-icon";
-  import { editorsForKind } from "@/panels/picker/editor-options";
-  import EditorAddition from "@/panels/picker/EditorAddition.svelte";
-  import EditorRuleRow from "@/panels/picker/EditorRuleRow.svelte";
+  import { editorsForKind } from "@/panels/picker/editors/editor-options";
+  import EditorAddition from "@/panels/picker/editors/EditorAddition.svelte";
+  import EditorRuleRow from "@/panels/picker/editors/EditorRuleRow.svelte";
 
   // Editor-rules engine - the project kinds come from the backend registry
   // (`ide_kinds`, priority order), one row per kind. A rule maps a kind to an

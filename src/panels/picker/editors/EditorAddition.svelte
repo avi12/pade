@@ -2,8 +2,8 @@
   import Icon from "@/lib/Icon.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import type { Prefs } from "@/lib/types";
-  import AddedEditorsList from "@/panels/picker/AddedEditorsList.svelte";
-  import AddEditorForm from "@/panels/picker/AddEditorForm.svelte";
+  import AddedEditorsList from "@/panels/picker/editors/AddedEditorsList.svelte";
+  import AddEditorForm from "@/panels/picker/editors/AddEditorForm.svelte";
 
   // "Add editor…" - locate an editor PADE didn't auto-detect on PATH: reveal an
   // inline path field, validate & persist the executable through the backend,
