@@ -357,7 +357,8 @@ writes.
   Enter, or PADE's own handoff request - takes it over at once: that turn keeps
   the slower model and effort, but a pause lifts, the hook lets every tool call
   through (its subagents' included, and new subagents may start), and pacing
-  leaves the run alone until the agent goes quiet, then paces it again. The
+  leaves the run alone until the agent goes quiet - background agents it
+  launched included, not just its main turn - then paces it again. The
   fresh agent a handoff starts is left alone while it reads the handoff doc -
   its first two minutes of work, or its first turn if that ends sooner - so
   pacing can stop it mid-task, but never before it knows what it continues.

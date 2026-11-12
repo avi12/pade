@@ -1310,14 +1310,17 @@ export function createUsagePacing(host: PacingHost) {
   }
 
   // A run the user continued anyway is theirs until the agent goes quiet again -
-  // its background work included - so pacing doesn't pause it on the next scan.
+  // its background work included: the main turn often ends within seconds of
+  // launching the agents that do the job, and pacing must not cut those off
+  // five minutes later as if they were its own to judge.
   function isContinuedRun(id: string) {
     const isUnderway = continuedAnyway.get(id);
     if (isUnderway === undefined) {
       return false;
     }
 
-    if (isWorking(id)) {
+    const isRunActive = isWorking(id) || backgroundAgentCount(id) > 0;
+    if (isRunActive) {
       continuedAnyway.set(id, true);
       return true;
     }
