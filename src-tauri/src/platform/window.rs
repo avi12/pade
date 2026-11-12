@@ -7,104 +7,46 @@
 //! a window that loads the app with the right query. New windows clone the main
 //! window's sizing/decorations so they feel identical.
 
+pub(crate) mod order;
+#[cfg(test)]
+mod tests;
+pub(crate) mod theme;
+
+use self::order::order_key;
+use self::theme::surface_for;
+use crate::util::{comparable_path, same_path};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
-
-use serde::{Deserialize, Serialize};
-use tauri::window::Color;
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalSize, Theme, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder, Window, Wry,
 };
 
-use crate::terminal::theming::Scheme;
-use crate::util::{comparable_path, same_path};
-
 /// The window the app starts with (see `tauri.conf.json`).
 pub(crate) const MAIN_WINDOW_LABEL: &str = "main";
+
 /// Every app window's title.
 const WINDOW_TITLE: &str = "PADE";
+
 /// The smallest an app window may be resized to, in logical pixels.
 const MINIMUM_WINDOW_WIDTH: f64 = 720.0;
+
 const MINIMUM_WINDOW_HEIGHT: f64 = 480.0;
+
 /// The label prefix of every spawned window (`w-1`, `w-2`, …).
 const SPAWNED_LABEL_PREFIX: &str = "w-";
+
 /// The agents dashboard's label. There is only ever one: asking for it again
 /// brings the open one up. `capabilities/default.json` lists it by this name
 /// beside `main` and `w-*`, so it gets the same permissions.
 const DASHBOARD_LABEL: &str = "dashboard";
+
 /// The `mode` a window spawned to receive a hand-off asks for.
 const HANDOFF_MODE: &str = "handoff";
 
-/// M3 surface colors, mirroring `--surface` in `src/theme.css` for the light and
-/// dark schemes. Painted as the webview background at window creation so a window
-/// opens already in-theme: `WebView2` otherwise shows an unthemed white surface
-/// until the HTML/CSS first paints, flashing white on a dark desktop. This is the
-/// native side of the token - Rust can't read the CSS custom property - so keep
-/// the two in sync.
-const SURFACE_LIGHT: Color = Color(248, 250, 251, 255); // hsl(210deg 30% 98%)
-const SURFACE_DARK: Color = Color(14, 20, 27, 255); // hsl(214deg 30% 8%)
-
-/// The frontend's `appearance.scheme` for a resolved OS theme. The one mapping
-/// the startup read, the flip event and the surface paint all go through, so a
-/// window can never start on one scheme and flip to another.
-fn scheme_for(theme: Theme) -> Scheme {
-    match theme {
-        Theme::Dark => Scheme::Dark,
-        // `Theme` is `#[non_exhaustive]`; treat light and anything new as light.
-        _ => Scheme::Light,
-    }
-}
-
-/// The surface color matching a resolved OS theme.
-fn surface_for(theme: Theme) -> Color {
-    match scheme_for(theme) {
-        Scheme::Light => SURFACE_LIGHT,
-        Scheme::Dark => SURFACE_DARK,
-    }
-}
-
-/// Paint `window`'s webview with the themed surface so it shows in-theme before
-/// the frontend renders. Best-effort - a failed theme probe leaves the default.
-pub fn paint_surface(window: &WebviewWindow) {
-    if let Ok(theme) = window.theme() {
-        let _ = window.set_background_color(Some(surface_for(theme)));
-    }
-}
-
 /// The frontend event carrying an OS theme flip's authoritative scheme.
 pub const THEME_CHANGED_EVENT: &str = "theme://changed";
-
-/// This window's OS theme right now, for the frontend to seed its scheme with at
-/// startup.
-///
-/// `WebView2`'s `prefers-color-scheme` can still answer *light* while the window
-/// is already dark - it resolves after the first script runs - and the flip event
-/// above only fires on a genuine *change*, so nothing ever corrects that first
-/// answer. A session spawned in that window then themes its agent for the wrong
-/// scheme for the life of the process (Claude reads `$COLORFGBG` at spawn; see
-/// `theming`). Reading the native theme closes the gap. Pure registry lookup, so
-/// it stays sync.
-#[tauri::command]
-pub fn window_theme(window: Window) -> Scheme {
-    window.theme().map_or(Scheme::Light, scheme_for)
-}
-
-/// React to a runtime OS theme flip. `WebView2` does not reliably deliver the
-/// `prefers-color-scheme` change to a window that stays *focused/visible* - the
-/// frontend's media query can go stale with no visibility/focus transition to
-/// reconcile off - so the native `ThemeChanged` window event is the trustworthy
-/// signal. Repaint the surface in-theme and hand the resolved scheme to that
-/// window's frontend, which follows it verbatim (see prefs.svelte). Emitted only
-/// to the window that changed, so each window re-themes from its own OS theme.
-pub fn on_theme_changed(window: &Window, theme: Theme) {
-    if let Some(webview) = window.get_webview_window(window.label()) {
-        let _ = webview.set_background_color(Some(surface_for(theme)));
-    }
-
-    let _ = window.emit_to(window.label(), THEME_CHANGED_EVENT, scheme_for(theme));
-}
 
 /// What a new app window copies from an existing one so it opens looking
 /// identical: its theme (for the surface paint), size and decorations. Each part
@@ -314,150 +256,6 @@ pub fn window_focus_project(
     false
 }
 
-/// Which neighbouring window to cycle to. Mirrors the frontend
-/// `focusRelative("previous" | "next")` - one authoritative home for the two
-/// names. `pub` because it appears in a `#[tauri::command]` signature.
-#[derive(Deserialize, Clone, Copy)]
-#[serde(rename_all = "lowercase")]
-pub enum CycleDirection {
-    Previous,
-    Next,
-}
-
-/// Stable creation-order sort key: the startup main window first (0), then each
-/// spawned `w-{n}` by its sequence number. An unrecognised label sorts last so a
-/// stray window never breaks the cycle. Lexicographic sorting would misplace
-/// `w-10` before `w-2`; the numeric parse keeps them in creation order.
-fn order_key(label: &str) -> u32 {
-    if label == MAIN_WINDOW_LABEL {
-        return 0;
-    }
-    label
-        .strip_prefix(SPAWNED_LABEL_PREFIX)
-        .and_then(|sequence| sequence.parse::<u32>().ok())
-        .unwrap_or(u32::MAX)
-}
-
-/// The one sort key both the switcher list and the `Ctrl+Alt+[`/`]` cycle read, so
-/// they never diverge. Windows the user has explicitly ordered (drag-reorder) come
-/// first, in that order; any live window not yet in the explicit order follows, in
-/// stable creation order. The label breaks remaining ties deterministically. A
-/// label recorded in the explicit order but no longer live simply never gets a key
-/// (only live windows are enumerated), so it drops out.
-fn window_sort_key(label: &str, order: &[String]) -> (usize, u32, String) {
-    let explicit = order
-        .iter()
-        .position(|ordered| ordered == label)
-        .unwrap_or(usize::MAX);
-    (explicit, order_key(label), label.to_string())
-}
-
-/// Every live window's label, in switcher order.
-fn sorted_live_labels(app: &AppHandle, state: &WindowProjects) -> Vec<String> {
-    let order = state.order_snapshot();
-    let mut labels: Vec<String> = app.webview_windows().into_keys().collect();
-    labels.sort_by_cached_key(|label| window_sort_key(label, &order));
-    labels
-}
-
-/// Record the user's explicit "Open windows" order (the drag-reordered labels) so
-/// both `window_list` and `window_focus_relative` sort by it - one source of truth
-/// for the switcher's order and the `Ctrl+Alt+[`/`]` cycle. Session-scoped: labels
-/// are ephemeral per app run, so there's nothing meaningful to persist to disk.
-#[tauri::command]
-pub fn window_reorder(app: AppHandle, state: tauri::State<WindowProjects>, labels: Vec<String>) {
-    if let Ok(mut order) = state.order.lock() {
-        *order = labels;
-    }
-    broadcast_windows_changed(&app);
-}
-
-/// The index `direction` lands on from `current` among `count` windows, wrapping
-/// around at both ends.
-fn cycled_index(current: usize, count: usize, direction: CycleDirection) -> usize {
-    match direction {
-        CycleDirection::Next => (current + 1) % count,
-        CycleDirection::Previous => (current + count - 1) % count,
-    }
-}
-
-/// Focus the previous/next open PADE window, wrapping around at the ends, in the
-/// user's explicit switcher order (drag-reordered via `window_reorder`) and
-/// creation order for any window not yet reordered - the same order the switcher's
-/// "Open windows" list shows. Returns true when another window was focused (false
-/// when this is the only window). The calling window is injected as `window`, so
-/// the frontend passes only a direction; live windows are re-enumerated each press,
-/// so a closed window simply drops out of the cycle.
-#[tauri::command]
-pub fn window_focus_relative(
-    app: AppHandle,
-    window: WebviewWindow,
-    state: tauri::State<WindowProjects>,
-    direction: CycleDirection,
-) -> bool {
-    let labels = sorted_live_labels(&app, &state);
-    let Some(current) = labels.iter().position(|label| label == window.label()) else {
-        return false;
-    };
-    let is_only_window = labels.len() < 2;
-    if is_only_window {
-        return false;
-    }
-
-    let target_label = &labels[cycled_index(current, labels.len(), direction)];
-    app.get_webview_window(target_label)
-        .is_some_and(|target| bring_to_front(&target))
-}
-
-/// One open PADE window and the project it has: its unique `label` (the id the
-/// frontend focuses by), the project path, and whether it is the calling window.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WindowInfo {
-    label: String,
-    path: String,
-    is_current: bool,
-}
-
-/// Every open PADE window that has a project, in the user's explicit switcher order
-/// (drag-reordered via `window_reorder`, falling back to creation order for any not
-/// yet reordered), flagging the caller as the current window. Windows with no
-/// registered project (an empty or picker window) are omitted. Drives the
-/// switcher's "Open windows" section, so its order matches the `Ctrl+Alt+[`/`]`
-/// cycle order - both read the one explicit order.
-#[tauri::command]
-pub fn window_list(
-    app: AppHandle,
-    window: WebviewWindow,
-    state: tauri::State<WindowProjects>,
-) -> Vec<WindowInfo> {
-    let projects = state
-        .projects
-        .lock()
-        .map(|guard| guard.clone())
-        .unwrap_or_default();
-    sorted_live_labels(&app, &state)
-        .into_iter()
-        .filter_map(|label| {
-            let path = projects.get(&label)?.clone();
-            let is_current = label == window.label();
-            Some(WindowInfo {
-                label,
-                path,
-                is_current,
-            })
-        })
-        .collect()
-}
-
-/// Focus a specific open PADE window by label - the switcher's "Open windows"
-/// rows. Returns true when that window existed and took focus.
-#[tauri::command]
-pub fn window_focus_label(app: AppHandle, label: String) -> bool {
-    app.get_webview_window(&label)
-        .is_some_and(|target| bring_to_front(&target))
-}
-
 /// The next spawned window's sequence number (`w-1`, `w-2`, …). Labels must be
 /// unique per app run; a simple atomic is enough and needs no dependency.
 static NEXT_WINDOW_SEQUENCE: AtomicU32 = AtomicU32::new(1);
@@ -659,111 +457,5 @@ fn reserve_sequences_past(labels: &[String]) {
         .max();
     if let Some(highest) = highest {
         NEXT_WINDOW_SEQUENCE.fetch_max(highest.saturating_add(1), Ordering::Relaxed);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        cycled_index, labels_to_recreate, order_key, reserve_sequences_past, window_sort_key,
-        CycleDirection, LaunchMode, NEXT_WINDOW_SEQUENCE,
-    };
-
-    #[test]
-    fn only_missing_windows_other_than_main_are_recreated_once_each_in_order() {
-        let owners = ["w-10", "main", "w-2", "w-2", "w-3", "dashboard"];
-        let live = vec!["main".to_string(), "w-3".to_string()];
-        assert_eq!(
-            labels_to_recreate(owners.into_iter(), &live),
-            ["w-2", "w-10", "dashboard"]
-        );
-        crate::test_support::assert_empty(&labels_to_recreate(["main"].into_iter(), &[]));
-    }
-
-    #[test]
-    fn new_windows_number_past_every_recreated_one() {
-        reserve_sequences_past(&["w-40".to_string(), "dashboard".to_string()]);
-        assert!(NEXT_WINDOW_SEQUENCE.load(std::sync::atomic::Ordering::Relaxed) > 40);
-    }
-
-    /// Sort the live window labels the way `window_list`/`window_focus_relative` do,
-    /// given the user's explicit order - the behaviour both commands share.
-    fn sorted(live: &[&str], order: &[&str]) -> Vec<String> {
-        let order: Vec<String> = order.iter().map(|label| (*label).to_string()).collect();
-        let mut labels: Vec<String> = live.iter().map(|label| (*label).to_string()).collect();
-        labels.sort_by_cached_key(|label| window_sort_key(label, &order));
-        labels
-    }
-
-    #[test]
-    fn explicit_order_wins_over_creation_order() {
-        // Creation order alone would be main, w-1, w-2; the explicit order overrides it.
-        assert_eq!(
-            sorted(&["main", "w-1", "w-2"], &["w-2", "main", "w-1"]),
-            ["w-2", "main", "w-1"]
-        );
-    }
-
-    #[test]
-    fn unknown_windows_fall_back_to_creation_order() {
-        // Only w-2 is explicitly ordered; the rest follow in creation order - and
-        // w-2 (numeric 2) precedes w-10, which lexicographic sorting would misplace.
-        assert_eq!(
-            sorted(&["main", "w-2", "w-10"], &["w-2"]),
-            ["w-2", "main", "w-10"]
-        );
-    }
-
-    #[test]
-    fn removed_label_is_ignored() {
-        // w-9 sits in the explicit order but is no longer live, so it never appears;
-        // the remaining live windows keep the explicit order.
-        assert_eq!(
-            sorted(&["main", "w-1"], &["w-1", "w-9", "main"]),
-            ["w-1", "main"]
-        );
-    }
-
-    #[test]
-    fn creation_order_key_parses_sequence_numerically() {
-        assert_eq!(order_key("main"), 0);
-        assert!(order_key("w-2") < order_key("w-10"));
-    }
-
-    #[test]
-    fn cycling_wraps_around_at_both_ends() {
-        assert_eq!(cycled_index(2, 3, CycleDirection::Next), 0);
-        assert_eq!(cycled_index(0, 3, CycleDirection::Previous), 2);
-        assert_eq!(cycled_index(1, 3, CycleDirection::Next), 2);
-    }
-
-    #[test]
-    fn a_path_always_opens_that_project_whatever_the_mode() {
-        assert_eq!(LaunchMode::resolve("temp", None).query(), "w=temp");
-        assert_eq!(LaunchMode::resolve("empty", None).query(), "w=empty");
-        assert_eq!(LaunchMode::resolve("anything", None).query(), "w=empty");
-        assert_eq!(
-            LaunchMode::resolve("temp", Some(r"C:\my project")).query(),
-            "w=open&path=C%3A%5Cmy%20project"
-        );
-    }
-
-    #[test]
-    fn a_handoff_window_boots_its_own_route_only_with_a_project() {
-        assert_eq!(
-            LaunchMode::resolve("handoff", Some(r"C:\work")).query(),
-            "w=handoff&path=C%3A%5Cwork"
-        );
-        assert_eq!(LaunchMode::resolve("handoff", None).query(), "w=empty");
-    }
-
-    #[test]
-    fn the_dashboard_always_takes_its_one_label() {
-        let dashboard = LaunchMode::resolve("dashboard", None);
-        assert_eq!(dashboard.query(), "w=dashboard");
-        assert_eq!(dashboard.label(), dashboard.label());
-        assert!(LaunchMode::resolve("empty", None).label().starts_with("w-"));
-        assert!(dashboard.has_browser_zoom());
-        assert!(!LaunchMode::resolve("empty", None).has_browser_zoom());
     }
 }

@@ -121,7 +121,7 @@ pub fn run() {
             // change for a window that stays focused; the native ThemeChanged does.
             match event {
                 tauri::WindowEvent::ThemeChanged(theme) => {
-                    platform::window::on_theme_changed(window, *theme);
+                    platform::window::theme::on_theme_changed(window, *theme);
                 }
                 tauri::WindowEvent::Destroyed => platform::window::on_destroyed(window),
                 _ => {}
@@ -145,7 +145,7 @@ pub fn run() {
             // doesn't flash a white webview before the UI first renders. The window
             // is created hidden (see tauri.conf.json) and shown here once themed.
             if let Some(main) = app.get_webview_window(platform::window::MAIN_WINDOW_LABEL) {
-                platform::window::paint_surface(&main);
+                platform::window::theme::paint_surface(&main);
                 let _ = main.show();
                 // Crash recovery arms from the FRONTEND (`recovery_arm` with
                 // its live location.href) - a backend capture here raced
@@ -183,11 +183,11 @@ pub fn run() {
             platform::window::window_create,
             platform::window::window_register_project,
             platform::window::window_focus_project,
-            platform::window::window_focus_relative,
-            platform::window::window_list,
-            platform::window::window_reorder,
-            platform::window::window_focus_label,
-            platform::window::window_theme,
+            platform::window::order::window_focus_relative,
+            platform::window::order::window_list,
+            platform::window::order::window_reorder,
+            platform::window::order::window_focus_label,
+            platform::window::theme::window_theme,
             platform::window_handoff::window_hand_off,
             platform::window_handoff::window_take_handoffs,
             terminal::pty::pty_spawn,
