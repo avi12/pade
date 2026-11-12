@@ -370,6 +370,10 @@ writes.
   fresh agent a handoff starts is left alone while it reads the handoff doc -
   its first two minutes of work, or its first turn if that ends sooner - so
   pacing can stop it mid-task, but never before it knows what it continues.
+  **Shadow phase of the backend engine:** each scan also reports the window's
+  sessions and the decisions the loop took to the backend, which computes what
+  it would decide and logs how often that agrees; it changes nothing yet. The
+  loop stays the one that decides until the engine is switched on.
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface agent-native project config: `CLAUDE.md`, `AGENTS.md`,
