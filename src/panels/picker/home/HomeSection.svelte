@@ -7,6 +7,7 @@
   import { displayName } from "@/lib/util/paths";
   import { nameError } from "@/lib/validate";
   import RootedName from "@/lib/workspace/display/RootedName.svelte";
+  import HomeProjectMenu from "@/panels/picker/home-menu/HomeProjectMenu.svelte";
   import {
     newProjectNameProblem,
     ProjectChoice,
@@ -15,7 +16,6 @@
   } from "@/panels/picker/home/home-composer";
   import HomeAgentMenu from "@/panels/picker/home/HomeAgentMenu.svelte";
   import HomeNewProjectField from "@/panels/picker/home/HomeNewProjectField.svelte";
-  import HomeProjectMenu from "@/panels/picker/home-menu/HomeProjectMenu.svelte";
   import HomeStartButton from "@/panels/picker/home/HomeStartButton.svelte";
   import type { CreateTarget } from "@/panels/picker/home/new-project";
   import type { ProjectOption } from "@/panels/picker/home/project-suggestions";

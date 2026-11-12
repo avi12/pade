@@ -967,7 +967,7 @@ flowchart LR
 | Module | Responsibility | Collaborators |
 | --- | --- | --- |
 | `src/lib/ide/IdeMenu.svelte` | Split launcher for the project: opens the project's editor - resolved through the shared `stores/workspace/editors` ranking (SSOT with the Change Feed's reveal), GUI editors via the OS, console editors handed back to the shell for a terminal tab - and always exposes a drop-down whose final action reveals the project in the file explorer; picking from the list persists an explicit per-project choice (`ide_choose_editor`) that then leads the ranking everywhere | `stores/workspace/editors`, `ipc/messaging`, `settings-requests` |
-| `src/lib/ide/ide-icon.ts` | The editors PADE detects (`IdeId`, mirroring `ide.rs`) and each one's brand mark | `IdeMenu`, `picker/EditorSelect` |
+| `src/lib/ide/ide-icon.ts` | The editors PADE detects (`IdeId`, mirroring `ide.rs`) and each one's brand mark | `IdeMenu`, `picker/editors/EditorSelect` |
 
 ### Task runners (`src/lib/runners/`)
 
@@ -1201,6 +1201,8 @@ Shared rune state, grouped like the modules that read it.
 | `CommitLog.svelte` | Recent commits with keyboard navigation, provider-aware remote links (the backing remote URL re-read live on `git://state`, so a `remote add`/`remove` flips the links in place) and the detail modal |
 
 ### Project-picker sections (`src/panels/picker/`)
+
+Grouped by feature: `home/` (the composer card), `home-menu/` (its project popover and New / Open / Clone foot), `clone/`, `roots/`, `path-field/`, `editors/`, `on-launch/` and `workspace-rows/` (the row menu, rename/move/delete lifecycle and dialogs); the shared chrome stylesheets and the agent chooser stay at the top.
 
 | Module | Responsibility |
 | --- | --- |

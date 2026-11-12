@@ -2,8 +2,8 @@
   import Icon from "@/lib/Icon.svelte";
   import { directoryPrefix } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/display/RootedName.svelte";
-  import { THROWAWAY_LABEL } from "@/panels/picker/home/home-composer";
   import { HomeMenuList } from "@/panels/picker/home-menu/home-menu-tabs";
+  import { THROWAWAY_LABEL } from "@/panels/picker/home/home-composer";
 
   // The composer menu's New tab: a new project under each root, or a
   // throwaway workspace.

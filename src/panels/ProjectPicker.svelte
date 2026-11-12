@@ -14,12 +14,12 @@
   import { createEditorCatalog } from "@/panels/picker/editors/editorCatalog.svelte";
   import EditorsSection from "@/panels/picker/editors/EditorsSection.svelte";
   import HomeSection from "@/panels/picker/home/HomeSection.svelte";
-  import { createWorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/on-launch/OnLaunchSection.svelte";
   import "@/panels/picker/project-form.css";
   import { popularRoot, watchedDirectories } from "@/panels/picker/roots/project-roots";
-  import RecentSection from "@/panels/picker/workspace-rows/RecentSection.svelte";
   import RootsSection from "@/panels/picker/roots/RootsSection.svelte";
+  import { createWorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";
+  import RecentSection from "@/panels/picker/workspace-rows/RecentSection.svelte";
   import WorkspaceDialogs from "@/panels/picker/workspace-rows/WorkspaceDialogs.svelte";
   import { onDestroy, onMount } from "svelte";
 
