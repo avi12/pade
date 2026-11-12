@@ -686,7 +686,8 @@ flowchart LR
 | `src/lib/shell/app/chatRegistry.svelte.ts` | The persisted chat registry the left rail remembers: keeps it in step with the live sessions, forgets a chat closed for good, and adopts another window's saved copy | `App`, `app/appBoot`, `app/projectFlow`, `app/chatActions` |
 | `src/lib/shell/app/windowLeave.svelte.ts` | Deliberate leaves: one at a time (a second is dropped), stop every runner and close every session gracefully, and the title-bar X intercept that runs the same leave | `App`, `app/projectFlow` |
 | `src/lib/shell/app/projectFlow.svelte.ts` | How a project is entered in this window (`openProject` joins beside open sessions or starts in an empty window, focusing another window that already has it), the temp workspace start, a new chat in a project, and the way back to the picker | `App`, `app/appBoot`, `app/chatActions` |
-| `src/lib/shell/app/appBoot.svelte.ts` | The window's cold start on mount: reload re-attach, the spawned window's `w=` route, the launch context, the last project, or a throwaway workspace - and the picker as the fallback when boot fails | `App` |
+| `src/lib/shell/app/appBoot.svelte.ts` | The window's cold start on mount: runs the boot steps and falls back to the picker when boot fails | `App`, `app/app-boot-steps` |
+| `src/lib/shell/app/app-boot-steps.ts` | The boot decision order: reload re-attach, the spawned window's `w=` route, the launch context, the last project, or a throwaway workspace | `appBoot` |
 | `src/lib/shell/app/chatActions.svelte.ts` | The left rail's chat actions: pick a chat or a recorded conversation (via `chat-click`), stop, delete, and closing a session through its tab so it animates out | `App` |
 
 ### Core (`src/lib/`)
