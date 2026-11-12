@@ -1,10 +1,16 @@
 import { CreditsState, NoReadingReason, UsageWindowKind } from "@/lib/types/usage";
 import { SHELL_AGENT_ID } from "@/lib/types/agent";
 import type { AccountUsage, UsageWindow } from "@/lib/types/usage";
-import { buildGroups } from "@/lib/usage/groups/usage-groups";
-import { buildKindLegend, findSpotlight, justResetLimits, limitPercentages, severityBreakdown } from "@/lib/usage/groups/usage-spotlight";
 import { usageResetTime } from "@/lib/usage/groups/reset-time";
+import { buildGroups } from "@/lib/usage/groups/usage-groups";
 import type { Level } from "@/lib/usage/groups/usage-model";
+import {
+  buildKindLegend,
+  findSpotlight,
+  justResetLimits,
+  limitPercentages,
+  severityBreakdown
+} from "@/lib/usage/groups/usage-spotlight";
 import type { SeveritySlice } from "@/lib/usage/groups/usage-spotlight";
 import { formatPercent } from "@/lib/util/format";
 import { describe, expect, it } from "vitest";

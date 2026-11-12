@@ -1,6 +1,13 @@
 // Name-rule badge data for the file-type lookup in file-type.ts.
 
-import { BUILD_BADGE, CONFIG_BADGE, DOCKER_BADGE, FileTone, GRADLE_BADGE, LOCK_BADGE } from "@/lib/feed/filter/file-type/badge-model";
+import {
+  BUILD_BADGE,
+  CONFIG_BADGE,
+  DOCKER_BADGE,
+  FileTone,
+  GRADLE_BADGE,
+  LOCK_BADGE
+} from "@/lib/feed/filter/file-type/badge-model";
 import type { FileTypeBadge } from "@/lib/feed/filter/file-type/badge-model";
 
 const NPM_BADGE: FileTypeBadge = {

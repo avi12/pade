@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { type AgentGroup } from "@/lib/usage/groups/usage-model";
+  import { findSpotlight } from "@/lib/usage/groups/usage-spotlight";
   import LimitResetCard from "@/lib/usage/limit-reset/LimitResetCard.svelte";
   import { USAGE_MENU_ANCHOR, USAGE_MENU_ID, USAGE_PANEL_LABEL } from "@/lib/usage/meter/usage-meter";
   import UsageAgentCard from "@/lib/usage/meter/UsageAgentCard.svelte";
@@ -6,8 +8,6 @@
   import UsageSpotlight from "@/lib/usage/meter/UsageSpotlight.svelte";
   import UsageSummary from "@/lib/usage/meter/UsageSummary.svelte";
   import UsagePacingSettings from "@/lib/usage/pacing/settings/UsagePacingSettings.svelte";
-  import { type AgentGroup } from "@/lib/usage/groups/usage-model";
-  import { findSpotlight } from "@/lib/usage/groups/usage-spotlight";
 
   // The meter's details popover: the summary, Claude's free usage resets, usage
   // pacing's settings (the one

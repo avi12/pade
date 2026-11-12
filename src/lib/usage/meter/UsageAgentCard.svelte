@@ -1,9 +1,9 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
+  import type { AgentGroup } from "@/lib/usage/groups/usage-model";
   import { groupSeverityClass, isJustReset, planCaption } from "@/lib/usage/meter/usage-meter";
   import UsageLimitRow from "@/lib/usage/meter/UsageLimitRow.svelte";
-  import type { AgentGroup } from "@/lib/usage/groups/usage-model";
 
   // One agent in the details panel: its name and plan, then a full-width bar row
   // per active limit.

@@ -3,8 +3,8 @@
 // Language-agnostic - an unrecognised extension still yields a chip (its own
 // uppercased extension), so every row is tagged even without a logo.
 
-import { EXTENSION_BADGES } from "@/lib/feed/filter/file-type/extension-badges";
 import { FileTone } from "@/lib/feed/filter/file-type/badge-model";
+import { EXTENSION_BADGES } from "@/lib/feed/filter/file-type/extension-badges";
 import { NAME_RULES, NameMatch } from "@/lib/feed/filter/file-type/name-rule-badges";
 import type { NameRule } from "@/lib/feed/filter/file-type/name-rule-badges";
 import { baseName } from "@/lib/util/paths";

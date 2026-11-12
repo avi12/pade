@@ -1,13 +1,13 @@
 // Registers the wrapped-URL link provider with xterm: overrides the OSC-8 and addon
 // URL links, and paints the whole-URL hover underline.
 
-import type { ILink, ILinkProvider } from "@xterm/xterm";
-import { z } from "zod";
-import { URL_PATTERN, isUrl } from "@/lib/terminal/links/wrapped-url/url-pattern";
 import { cellText } from "@/lib/terminal/links/wrapped-url/row-content";
 import type { LinkBuffer, LinkTerminal } from "@/lib/terminal/links/wrapped-url/row-content";
+import { isUrl, URL_PATTERN } from "@/lib/terminal/links/wrapped-url/url-pattern";
 import { computeLinks } from "@/lib/terminal/links/wrapped-url/wrapped-lines";
 import type { RowSpan, WrappedLink } from "@/lib/terminal/links/wrapped-url/wrapped-lines";
+import type { ILink, ILinkProvider } from "@xterm/xterm";
+import { z } from "zod";
 
 // The slice of xterm's `Terminal` this registration needs: what `computeLinks`
 // reads, plus `registerLinkProvider` and the DOM/geometry the hover overlay uses

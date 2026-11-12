@@ -1,9 +1,9 @@
 // Cross-agent views of the groups: the severity breakdown, the spotlighted limit,
 // just-reset detection and the kind legend.
 
-import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-model";
 import { outranks, worstLimit, worstRanked } from "@/lib/usage/groups/limit-ranking";
 import type { RankedLimit } from "@/lib/usage/groups/limit-ranking";
+import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-model";
 
 // ── Panel view-model ────────────────────────────────────────────────────────
 // Worst-first severity buckets: how many agents sit at crit / near / healthy, by

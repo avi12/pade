@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import type { AgentGroup } from "@/lib/usage/groups/usage-model";
   import {
     NO_READING,
     triggerPillGroups,
@@ -9,7 +10,6 @@
   } from "@/lib/usage/meter/usage-meter";
   import UsageAgentPill from "@/lib/usage/meter/UsageAgentPill.svelte";
   import UsageOverflowChip from "@/lib/usage/meter/UsageOverflowChip.svelte";
-  import type { AgentGroup } from "@/lib/usage/groups/usage-model";
   import { formatCount } from "@/lib/util/format";
 
   // The meter's always-visible face: one pill per agent, a "+N" chip for the

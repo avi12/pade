@@ -9,10 +9,10 @@
 // Everything here is deterministic: a fixed clock and a seeded generator, so a
 // rerun with the TypeScript unchanged rewrites byte-identical files.
 
-import { usagePaceFixture } from "./pacing-fixtures/usage-pace-fixture";
+import { roundScenarios } from "./pacing-fixtures/account-round-fixture";
 import { loadSheddingFixture } from "./pacing-fixtures/load-shedding-fixture";
 import { subagentStepsFixture } from "./pacing-fixtures/subagent-steps-fixture";
-import { roundScenarios } from "./pacing-fixtures/account-round-fixture";
+import { usagePaceFixture } from "./pacing-fixtures/usage-pace-fixture";
 
 /** Every fixture file's contents, by the name it is written under
  *  (`src-tauri/src/pacing/fixtures/<name>.json`, by `pacing-fixtures.mjs`). */

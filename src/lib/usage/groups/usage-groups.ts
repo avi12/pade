@@ -14,10 +14,10 @@ import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
 import { SHELL_AGENT_ID } from "@/lib/types/agent";
 import type { AccountUsage, CreditBalance, NoReading, UsageWindow } from "@/lib/types/usage";
 import type { Agent, AgentSession } from "@/lib/types/agent";
-import { formatPercent } from "@/lib/util/format";
-import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-model";
-import { hasResetPassed, resetCountdown, resetTimestamp } from "@/lib/usage/groups/reset-time";
 import { worstLimit } from "@/lib/usage/groups/limit-ranking";
+import { hasResetPassed, resetCountdown, resetTimestamp } from "@/lib/usage/groups/reset-time";
+import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-model";
+import { formatPercent } from "@/lib/util/format";
 
 const WARNING_PERCENTAGE = 75;
 

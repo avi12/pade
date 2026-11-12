@@ -35,15 +35,21 @@
 // `--msix-only <version>` runs step 4 alone, from what `src-tauri/target/release`
 // already holds, into `release/` - no version bump, git, GitHub or winget.
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { CARGO_MANIFEST, MSIX_ONLY_FLAG, NO_WINGET_FLAG, REPOSITORY, read } from "./release/environment.mjs";
-import { PACKAGE_VERSION_LINE, checkReleaseArguments } from "./release/version.mjs";
-import { checkSigningCertificate, findSigningTools } from "./release/signing.mjs";
+import {
+  CARGO_MANIFEST,
+  MSIX_ONLY_FLAG,
+  NO_WINGET_FLAG,
+  read,
+  REPOSITORY
+} from "./release/environment.mjs";
+import { commitAndTag, createGitHubRelease } from "./release/github.mjs";
 import { packMsixOnly } from "./release/msix.mjs";
 import { buildReleaseFiles } from "./release/release-files.mjs";
-import { commitAndTag, createGitHubRelease } from "./release/github.mjs";
+import { checkSigningCertificate, findSigningTools } from "./release/signing.mjs";
 import { publishUpdateManifest } from "./release/update-manifest.mjs";
+import { checkReleaseArguments, PACKAGE_VERSION_LINE } from "./release/version.mjs";
 import { submitToWinget } from "./release/winget.mjs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 function release({ version, notesFile, isWingetSkipped }) {
   const cargoManifest = checkReleaseArguments({

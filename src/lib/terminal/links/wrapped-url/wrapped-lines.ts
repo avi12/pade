@@ -25,10 +25,10 @@
 //
 // The registration with xterm lives in wrapped-link-provider.ts.
 
-import type { ILink } from "@xterm/xterm";
-import { URL_PATTERN_GLOBAL, findUrls, hasScheme, isBareToken } from "@/lib/terminal/links/wrapped-url/url-pattern";
 import { reachesRightEdge, rowContent, rowGlyphs } from "@/lib/terminal/links/wrapped-url/row-content";
 import type { CellPosition, LinkBuffer, LinkTerminal } from "@/lib/terminal/links/wrapped-url/row-content";
+import { findUrls, hasScheme, isBareToken, URL_PATTERN_GLOBAL } from "@/lib/terminal/links/wrapped-url/url-pattern";
+import type { ILink } from "@xterm/xterm";
 
 // Ceiling on how many characters we stitch across, matching the addon's own
 // guard so a runaway match can't scan the whole scrollback.

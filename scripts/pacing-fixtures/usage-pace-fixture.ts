@@ -1,13 +1,33 @@
 // The usage-pace fixture: a grid and a seeded scatter of windows, forecasts, rest
 // and weekly-window cases swept through `usage-pace` and `pacing-policy`.
 
+import {
+  between,
+  DAY,
+  HOUR,
+  MINUTE,
+  NOW,
+  perHour,
+  pick,
+  random
+} from "./fixture-primitives";
 import { PacedWindowKind } from "@/lib/types/pacing";
 import { UsageWindowKind } from "@/lib/types/usage";
 import type { AccountUsage, UsageWindow } from "@/lib/types/usage";
 import { pacingMargin } from "@/lib/usage/pacing/pacing-policy";
-import { assessPace, burnRate, evenSpendReachedAt, hasRoomToSpare, isForecastOverPace, isRestEnough, paceForecasts, slowRestUntil, workingRunway, workRhythm } from "@/lib/usage/pacing/usage-pace";
+import {
+  assessPace,
+  burnRate,
+  evenSpendReachedAt,
+  hasRoomToSpare,
+  isForecastOverPace,
+  isRestEnough,
+  paceForecasts,
+  slowRestUntil,
+  workingRunway,
+  workRhythm
+} from "@/lib/usage/pacing/usage-pace";
 import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/usage-pace";
-import { DAY, HOUR, MINUTE, NOW, between, perHour, pick, random } from "./fixture-primitives";
 
 export function windowOf({ kind, utilization, resetsIn }: {
   kind: UsageWindow["kind"];

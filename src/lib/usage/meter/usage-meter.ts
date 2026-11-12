@@ -2,10 +2,10 @@
 // the meter itself all read it from one place (usage-groups.ts builds the data).
 
 import { type AccountReading, type AccountUsage, type NoReading, NoReadingReason, UsageWindowKind } from "@/lib/types/usage";
+import { worstLimit } from "@/lib/usage/groups/limit-ranking";
+import { usageResetTime } from "@/lib/usage/groups/reset-time";
 import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-model";
 import { limitKey, type SeveritySlice } from "@/lib/usage/groups/usage-spotlight";
-import { usageResetTime } from "@/lib/usage/groups/reset-time";
-import { worstLimit } from "@/lib/usage/groups/limit-ranking";
 
 /** How many per-agent pills the trigger shows before collapsing the rest into a
  *  trailing "+N" overflow chip. Every agent renders as a pill - a single agent

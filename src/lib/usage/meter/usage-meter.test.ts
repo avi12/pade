@@ -1,5 +1,6 @@
-import { NoReadingReason, UsageWindowKind } from "@/lib/types/usage";
-import type { AccountUsage, NoReading } from "@/lib/types/usage";
+import { type AccountUsage, type NoReading, NoReadingReason, UsageWindowKind } from "@/lib/types/usage";
+import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-model";
+import { limitKey } from "@/lib/usage/groups/usage-spotlight";
 import {
   groupSeverityClass,
   isJustReset,
@@ -18,8 +19,6 @@ import {
   usageAriaLabel,
   withLastGoodReadings
 } from "@/lib/usage/meter/usage-meter";
-import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-model";
-import { limitKey } from "@/lib/usage/groups/usage-spotlight";
 import { describe, expect, it } from "vitest";
 
 function makeLimit({ label, level }: {

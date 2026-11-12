@@ -1,10 +1,18 @@
 // The load-shedding fixture: cost weights, shed fractions and shedding plans.
 
+import {
+  between,
+  HOUR,
+  MINUTE,
+  NOW,
+  perHour,
+  pick,
+  random
+} from "./fixture-primitives";
+import { windowOf } from "./usage-pace-fixture";
 import { UsageWindowKind } from "@/lib/types/usage";
 import { costWeight, planShedding, shedFraction } from "@/lib/usage/pacing/load-shedding";
 import type { ShedCandidate } from "@/lib/usage/pacing/load-shedding";
-import { HOUR, MINUTE, NOW, between, perHour, pick, random } from "./fixture-primitives";
-import { windowOf } from "./usage-pace-fixture";
 
 const MODELS = [
   "claude-haiku-5-5",

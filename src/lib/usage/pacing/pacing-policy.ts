@@ -12,9 +12,9 @@
 import { PacedWindowKind, PacingStep } from "@/lib/types/pacing";
 import type { Prefs } from "@/lib/types/settings";
 import type { UsageWindowKind } from "@/lib/types/usage";
+import { resetCountdown } from "@/lib/usage/groups/reset-time";
 import { isForecastOverPace, windowName } from "@/lib/usage/pacing/usage-pace";
 import type { PaceForecast } from "@/lib/usage/pacing/usage-pace";
-import { resetCountdown } from "@/lib/usage/groups/reset-time";
 import { formatCount, formatPercent } from "@/lib/util/format";
 
 /** Every step, in the order pacing climbs them. */

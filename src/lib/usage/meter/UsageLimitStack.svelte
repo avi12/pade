@@ -1,5 +1,6 @@
 <script lang="ts">
   import { growInline } from "@/lib/ui/motion";
+  import type { AgentGroup } from "@/lib/usage/groups/usage-model";
   import {
     isJustReset,
     limitTooltip,
@@ -7,7 +8,6 @@
     noReadingFace,
     severityClass
   } from "@/lib/usage/meter/usage-meter";
-  import type { AgentGroup } from "@/lib/usage/groups/usage-model";
 
   // One agent's limits as compact stacks - the mono kind letter over its
   // percent, coloured by how close it is - or a dash with no reading. Shared by
