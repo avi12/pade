@@ -13,6 +13,7 @@
 //! `model_cost` and `token_price`.
 
 pub mod account_round;
+pub mod facts;
 #[cfg(test)]
 mod golden_fixtures;
 pub mod load_shedding;
