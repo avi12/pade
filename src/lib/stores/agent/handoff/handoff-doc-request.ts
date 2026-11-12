@@ -27,10 +27,11 @@ export interface HandoffContext {
   host: HandoffHost;
   state: HandoffState;
   timers: ReturnType<typeof createHandoffTimers>;
-  /** Run the whole handoff again - what a late-arriving doc finishes. */
+  /** Run the whole handoff - from a trigger, or again once a late doc arrives. */
   runHandoff: (request: {
     session: AgentSession;
     reason: HandoffReason;
+    isMidTurn?: boolean;
   }) => Promise<void>;
 }
 

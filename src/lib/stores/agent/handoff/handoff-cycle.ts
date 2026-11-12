@@ -4,6 +4,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import {
+  askForDoc,
   docPathOf,
   isStillOpen,
   requestHandoffDoc,
@@ -12,8 +13,7 @@ import {
 import type { HandoffContext } from "@/lib/stores/agent/handoff/handoff-doc-request";
 import { waitForFirstTurn } from "@/lib/stores/agent/handoff/handoff-first-turn";
 import { handingOffNote } from "@/lib/stores/agent/handoff/handoff-notes";
-import { handoffDocName, successorPrompt } from "@/lib/stores/agent/handoff/handoff-prompts";
-import type { HandoffReason } from "@/lib/stores/agent/handoff/handoff-prompts";
+import { handoffDocName, HandoffReason, successorPrompt } from "@/lib/stores/agent/handoff/handoff-prompts";
 import { hasEnoughUsage, pickHandoffSuccessor } from "@/lib/stores/agent/handoff/handoff-successor";
 import { shieldHandoffSuccessor } from "@/lib/stores/usage/usagePacing.svelte";
 import type { Agent, AgentSession } from "@/lib/types/agent";
@@ -164,4 +164,28 @@ export async function handoff({ context, session, reason, isMidTurn }: {
     doc,
     successorAgent
   });
+}
+
+// Ask `session`'s agent to write its handoff doc and resolve once the doc is on
+// disk - the reusable core of the handoff, WITHOUT the kill/launch. The
+// workspace-save flow uses it: the doc is written into the temp workspace, rides
+// along in the copy to the saved project, and the successor there is seeded to
+// continue from it. Returns the doc's file name, or null when the agent never
+// produced it (the caller falls back to a plain restart). A doc a prior attempt
+// already wrote is reused, not re-requested.
+export async function writeHandoffDoc({ context, session }: {
+  context: HandoffContext;
+  session: AgentSession;
+}) {
+  const doc = docNameFor({
+    context,
+    sessionId: session.id
+  });
+  const isWritten = await askForDoc({
+    context,
+    session,
+    doc,
+    reason: HandoffReason.Save
+  });
+  return isWritten ? doc : null;
 }
