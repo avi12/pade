@@ -4,7 +4,7 @@
 //! decision reaches the work already running inside one.
 //!
 //! PADE keeps one small control file per paced conversation, rewritten as
-//! pacing decides and removed once nothing in it applies. Three parts, each
+//! pacing decides and removed once nothing in it applies. Four parts, each
 //! written by its own owner and replaced whole (`agent_set_pacing_control`):
 //!
 //!   * `cap` - the model a subagent may spawn on while the session is stepped
@@ -12,6 +12,10 @@
 //!   * `isStopped` - the session is being stopped (pacing's stop or rest step):
 //!     every tool call of the session and of each of its subagents is denied
 //!     until it is let go, so the stop lands mid-turn, not only at its end;
+//!   * `restUntil` - the session is resting until then (epoch ms): every tool
+//!     call of the session and of each of its subagents is held, not refused,
+//!     until the rest ends or is lifted, so the work pauses where it stands and
+//!     nothing is killed;
 //!   * `throttle` - the account-wide round's per-subagent steps (hold before
 //!     each tool call, or wrap up) and whether new spawns are refused.
 //!
@@ -59,10 +63,42 @@ const CLAUDE_STOPPING_TOOLS: [&str; 3] = ["TaskStop", "KillShell", "KillBash"];
 /// The hook event Claude asks before running a tool.
 pub(super) const PRE_TOOL_USE: &str = "PreToolUse";
 /// How long Claude waits for the `PreToolUse` hook, in seconds - well past the
-/// longest hold, so a held call is never cut off as a failed hook.
-pub(super) const PRE_TOOL_USE_TIMEOUT_SECONDS: u64 = 2 * MAXIMUM_HOLD_SECONDS;
+/// longest rest hold plus a subagent's own hold, so a held call is never cut
+/// off as a failed hook.
+pub(super) const PRE_TOOL_USE_TIMEOUT_SECONDS: u64 =
+    MAXIMUM_REST_HOLD_SECONDS + 2 * MAXIMUM_HOLD_SECONDS;
+const _: () = assert!(
+    PRE_TOOL_USE_TIMEOUT_SECONDS > MAXIMUM_REST_HOLD_SECONDS + MAXIMUM_HOLD_SECONDS,
+    "the hook timeout must outlast the longest hold"
+);
 /// The longest a subagent is held before one tool call, whatever the file says.
 const MAXIMUM_HOLD_SECONDS: u64 = 60;
+/// The longest one tool call is held through a rest, whatever the file says.
+/// Mirrored by `MAXIMUM_REST_HOLD_MS` in `usagePacing.svelte.ts`, which writes
+/// no longer rest.
+const MAXIMUM_REST_HOLD_SECONDS: u64 = 55 * 60;
+/// How often a held call re-reads the control, so a lifted rest or a stop wakes
+/// it within this long.
+const REST_POLL_INTERVAL: Duration = Duration::from_secs(1);
+const MAXIMUM_REST_HOLD: Duration = Duration::from_secs(MAXIMUM_REST_HOLD_SECONDS);
+
+/// A moment as epoch milliseconds - the unit pacing writes a rest's end in and
+/// the control file keeps it in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct EpochMilliseconds(u64);
+
+impl EpochMilliseconds {
+    fn now() -> Self {
+        Self(now_milliseconds())
+    }
+
+    /// This moment pushed on by `duration`, saturating at the far end of time.
+    fn after(self, duration: Duration) -> Self {
+        let milliseconds = u64::try_from(duration.as_millis()).unwrap_or(u64::MAX);
+        Self(self.0.saturating_add(milliseconds))
+    }
+}
 /// The spawn input field naming the subagent's model.
 const MODEL_FIELD: &str = "model";
 /// Claude's spawn tool takes a model family, not a model id.
@@ -123,6 +159,8 @@ impl Throttle {
 pub enum ControlPart {
     Cap(Option<SubagentCapRequest>),
     Stop(bool),
+    /// Resting until this epoch ms; `None` lifts the rest.
+    Rest(Option<EpochMilliseconds>),
     Throttle(Throttle),
 }
 
@@ -140,12 +178,27 @@ pub(super) struct SubagentCap {
 pub(super) struct PacingControl {
     cap: Option<SubagentCap>,
     is_stopped: bool,
+    rest_until: Option<EpochMilliseconds>,
     throttle: Throttle,
 }
 
 impl PacingControl {
     fn is_empty(&self) -> bool {
-        self.cap.is_none() && !self.is_stopped && self.throttle.is_empty()
+        self.cap.is_none()
+            && !self.is_stopped
+            && self.rest_until.is_none()
+            && self.throttle.is_empty()
+    }
+
+    /// Whether a rest is on at `now` (epoch ms).
+    fn is_resting(&self, now: EpochMilliseconds) -> bool {
+        self.rest_until.is_some_and(|until| until > now)
+    }
+
+    /// Whether `tool`'s call waits out the rest: a stopping session denies
+    /// instead, and the tools that stop work are never held.
+    fn is_holding(&self, tool: &str, now: EpochMilliseconds) -> bool {
+        !self.is_stopped && self.is_resting(now) && !CLAUDE_STOPPING_TOOLS.contains(&tool)
     }
 
     /// This control with `part` replaced, spelled for `command`'s agent.
@@ -156,6 +209,7 @@ impl PacingControl {
                 ..self
             },
             ControlPart::Stop(is_stopped) => Self { is_stopped, ..self },
+            ControlPart::Rest(rest_until) => Self { rest_until, ..self },
             ControlPart::Throttle(throttle) => Self { throttle, ..self },
         }
     }
@@ -182,7 +236,7 @@ pub async fn agent_set_pacing_control(
         let next = read_control(&conversation_id)
             .unwrap_or_default()
             .with_part(&command, part);
-        if !next.is_stopped {
+        if !next.is_stopped && next.rest_until.is_none() {
             forget_stop_seen(&conversation_id);
         }
         if next.is_empty() {
@@ -228,7 +282,21 @@ impl ToolAnswer {
 /// or one of its subagents. The no-op path - no control file - reads one
 /// missing file and returns.
 pub(super) fn answer_tool_use(conversation_id: &str, report: &serde_json::Value) {
-    let Some(control) = read_control(conversation_id) else {
+    let Some(first) = read_control(conversation_id) else {
+        return;
+    };
+    if first.is_holding(&tool_name(report), EpochMilliseconds::now()) {
+        stamp_stop_seen(conversation_id);
+    }
+    let Some(control) = hold_through_rest(
+        first,
+        &tool_name(report),
+        &mut RestClock {
+            now: EpochMilliseconds::now,
+            pause: std::thread::sleep,
+            reread: || read_control(conversation_id),
+        },
+    ) else {
         return;
     };
     let decision = decide(&control, report);
@@ -241,6 +309,46 @@ pub(super) fn answer_tool_use(conversation_id: &str, report: &serde_json::Value)
     if let Some(answer) = decision.answer {
         println!("{answer}");
     }
+}
+
+/// How a held call tells the time, waits a slice and re-reads the control -
+/// each swappable so the hold is testable without sleeping.
+struct RestClock<Now, Pause, Reread> {
+    now: Now,
+    pause: Pause,
+    reread: Reread,
+}
+
+/// `control` once `tool`'s call is no longer held: at once when no rest holds
+/// it, else after the rest ends, is lifted, turns into a stop, or the longest
+/// hold passes. `None` when the control file went away meanwhile.
+fn hold_through_rest(
+    mut control: PacingControl,
+    tool: &str,
+    clock: &mut RestClock<
+        impl FnMut() -> EpochMilliseconds,
+        impl FnMut(Duration),
+        impl FnMut() -> Option<PacingControl>,
+    >,
+) -> Option<PacingControl> {
+    let give_up_at = (clock.now)().after(MAXIMUM_REST_HOLD);
+    loop {
+        let now = (clock.now)();
+        let is_held = control.is_holding(tool, now) && now < give_up_at;
+        if !is_held {
+            return Some(control);
+        }
+        (clock.pause)(REST_POLL_INTERVAL);
+        control = (clock.reread)()?;
+    }
+}
+
+fn tool_name(report: &serde_json::Value) -> String {
+    report
+        .get("tool_name")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_string()
 }
 
 /// Where the session's control lives - also handed to the `OpenCode` plugin.
@@ -309,10 +417,8 @@ fn read_control(conversation_id: &str) -> Option<PacingControl> {
 /// nothing; a held subagent waits; a spawn is refused while spawns are
 /// blocked, else moved onto the cap.
 fn decide(control: &PacingControl, report: &serde_json::Value) -> ToolAnswer {
-    let tool = report
-        .get("tool_name")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default();
+    let tool = tool_name(report);
+    let tool = tool.as_str();
     if control.is_stopped && !CLAUDE_STOPPING_TOOLS.contains(&tool) {
         return ToolAnswer::deny(STOP_REASON);
     }
@@ -418,10 +524,12 @@ fn capped_input(input: &serde_json::Value, cap: &SubagentCap) -> Option<serde_js
 #[cfg(test)]
 mod tests {
     use super::{
-        capped_input, decide, spawn_cap, ControlPart, PacingControl, SubagentCap,
-        SubagentCapRequest, SubagentStep, Throttle, ToolAnswer, MAXIMUM_HOLD_SECONDS, SPAWN_REASON,
-        STOP_REASON, WRAP_UP_REASON,
+        capped_input, decide, hold_through_rest, spawn_cap, ControlPart, EpochMilliseconds,
+        PacingControl, RestClock, SubagentCap, SubagentCapRequest, SubagentStep, Throttle,
+        ToolAnswer, MAXIMUM_HOLD_SECONDS, MAXIMUM_REST_HOLD, SPAWN_REASON, STOP_REASON,
+        WRAP_UP_REASON,
     };
+    use std::cell::Cell;
     use std::collections::BTreeMap;
     use std::time::Duration;
 
@@ -669,5 +777,135 @@ mod tests {
             decide(&control, &call("TaskStop", None)),
             ToolAnswer::RUN_AS_ASKED
         );
+    }
+
+    const NOW: EpochMilliseconds = EpochMilliseconds(1_000_000);
+    const SLICE: Duration = Duration::from_secs(1);
+    const SHORT_REST: Duration = Duration::from_millis(3500);
+    const LONG_REST: Duration = Duration::from_mins(50);
+
+    fn resting_until(rest_until: EpochMilliseconds) -> PacingControl {
+        PacingControl {
+            rest_until: Some(rest_until),
+            ..PacingControl::default()
+        }
+    }
+
+    fn resting_for(rest: Duration) -> PacingControl {
+        resting_until(NOW.after(rest))
+    }
+
+    /// Hold a `Bash` call against `control`, re-reading `rereads` in turn (a
+    /// `None` is a vanished file); returns the outcome and how long it waited.
+    fn held_for(
+        control: PacingControl,
+        rereads: Vec<Option<PacingControl>>,
+    ) -> (Option<PacingControl>, Duration) {
+        let elapsed = Cell::new(Duration::ZERO);
+        let mut pending = rereads.into_iter();
+        let outcome = hold_through_rest(
+            control,
+            "Bash",
+            &mut RestClock {
+                now: || NOW.after(elapsed.get()),
+                pause: |slice| elapsed.set(elapsed.get() + slice),
+                reread: || pending.next().unwrap_or(Some(resting_for(SHORT_REST))),
+            },
+        );
+        (outcome, elapsed.get())
+    }
+
+    #[test]
+    fn the_rest_part_has_its_wire_shape_and_round_trips() {
+        let part: ControlPart =
+            serde_json::from_value(serde_json::json!({ "part": "rest", "value": 5000 }))
+                .expect("parsed");
+        assert_eq!(part, ControlPart::Rest(Some(EpochMilliseconds(5000))));
+        let lifted: ControlPart =
+            serde_json::from_value(serde_json::json!({ "part": "rest", "value": null }))
+                .expect("parsed");
+        assert_eq!(lifted, ControlPart::Rest(None));
+
+        let control = PacingControl::default().with_part("claude", part);
+        let text = serde_json::to_string(&control).expect("serialized");
+        assert!(text.contains(r#""restUntil":5000"#));
+        let read: PacingControl = serde_json::from_str(&text).expect("read back");
+        assert_eq!(read, control);
+    }
+
+    #[test]
+    fn a_rest_keeps_the_control_alive_until_lifted() {
+        let control = resting_until(NOW);
+        assert!(!control.is_empty());
+        assert!(control.is_resting(EpochMilliseconds(0)));
+        assert!(control
+            .with_part("claude", ControlPart::Rest(None))
+            .is_empty());
+    }
+
+    #[test]
+    fn only_a_live_rest_holds_and_never_the_tools_that_stop_work() {
+        let control = resting_for(Duration::from_millis(1));
+        assert!(control.is_holding("Bash", NOW));
+        assert!(!control.is_holding("Bash", NOW.after(Duration::from_millis(1))));
+        assert!(!control.is_holding("TaskStop", NOW));
+        let stopped = PacingControl {
+            is_stopped: true,
+            ..control
+        };
+        assert!(!stopped.is_holding("Bash", NOW));
+    }
+
+    #[test]
+    fn a_held_call_waits_out_the_rest_then_runs() {
+        let (control, waited) = held_for(resting_for(SHORT_REST), vec![]);
+        assert_eq!(waited, Duration::from_secs(4));
+        assert!(control.is_some_and(|control| !control.is_resting(NOW.after(waited))));
+    }
+
+    #[test]
+    fn a_lifted_rest_wakes_a_held_call_at_once() {
+        let (control, waited) =
+            held_for(resting_for(LONG_REST), vec![Some(PacingControl::default())]);
+        assert_eq!(waited, SLICE);
+        assert_eq!(control, Some(PacingControl::default()));
+    }
+
+    #[test]
+    fn a_stop_wakes_a_held_call_to_be_denied() {
+        let stopped = PacingControl {
+            is_stopped: true,
+            rest_until: Some(NOW.after(LONG_REST)),
+            ..PacingControl::default()
+        };
+        let (control, waited) = held_for(resting_for(LONG_REST), vec![Some(stopped.clone())]);
+        assert_eq!(waited, SLICE);
+        assert_eq!(control.as_ref(), Some(&stopped));
+        assert_eq!(
+            denial(&decide(&stopped, &call("Edit", None))),
+            Some(STOP_REASON)
+        );
+    }
+
+    #[test]
+    fn a_vanished_control_file_ends_the_hold_with_nothing_to_answer() {
+        let (control, _) = held_for(resting_for(LONG_REST), vec![None]);
+        assert_eq!(control, None);
+    }
+
+    #[test]
+    fn no_hold_outlasts_the_maximum() {
+        let endless = resting_until(EpochMilliseconds(u64::MAX));
+        let rereads = vec![Some(endless.clone()); 4000];
+        let (control, waited) = held_for(endless, rereads);
+        assert!(control.is_some());
+        assert_eq!(waited, MAXIMUM_REST_HOLD);
+    }
+
+    #[test]
+    fn a_call_no_rest_holds_runs_without_waiting() {
+        let (control, waited) = held_for(PacingControl::default(), vec![]);
+        assert_eq!(waited, Duration::ZERO);
+        assert_eq!(control, Some(PacingControl::default()));
     }
 }
