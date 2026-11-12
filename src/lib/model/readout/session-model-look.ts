@@ -3,7 +3,7 @@
 // ranked on the model's own effort ladder from its agent's catalog. Reads
 // reactive stores, so a component's `$derived` re-runs when either changes.
 
-import { runningModelLook } from "@/lib/model/running-model";
+import { runningModelLook } from "@/lib/model/readout/running-model";
 import { sessionModel } from "@/lib/stores/agent/context.svelte";
 import { modelOption } from "@/lib/stores/model/modelOptions.svelte";
 

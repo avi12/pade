@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import ModelChip from "@/lib/model/ModelChip.svelte";
+  import ModelChip from "@/lib/model/readout/ModelChip.svelte";
   import SessionBadge from "@/lib/session/SessionBadge.svelte";
   import type { AgentSession, SessionStatus } from "@/lib/types";
   import { Axis, beginReorder } from "@/lib/ui/drag/drag-reorder";

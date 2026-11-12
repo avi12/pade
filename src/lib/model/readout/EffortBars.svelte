@@ -4,7 +4,7 @@
   // the chip it sits in names the level in words. The chip sizes it through
   // `--effort-bars-height` and `--effort-bar-width`.
 
-  import type { runningModelLook } from "@/lib/model/running-model";
+  import type { runningModelLook } from "@/lib/model/readout/running-model";
 
   const { bars }: { bars: ReturnType<typeof runningModelLook>["bars"] } = $props();
 </script>

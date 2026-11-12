@@ -4,7 +4,7 @@
   // close button. The strip owns the pill element itself, its drag and collapse.
 
   import Icon from "@/lib/Icon.svelte";
-  import ModelTag from "@/lib/model/ModelTag.svelte";
+  import ModelTag from "@/lib/model/readout/ModelTag.svelte";
   import AgentStatusGlyph from "@/lib/session/AgentStatusGlyph.svelte";
   import TabRenameField from "@/lib/session/tabs/TabRenameField.svelte";
   import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";

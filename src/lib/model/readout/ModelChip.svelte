@@ -7,8 +7,8 @@
 
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
-  import EffortBars from "@/lib/model/EffortBars.svelte";
-  import { sessionModelLook } from "@/lib/model/session-model-look";
+  import EffortBars from "@/lib/model/readout/EffortBars.svelte";
+  import { sessionModelLook } from "@/lib/model/readout/session-model-look";
   import { MODEL_MENU_ID, modelMenuAnchor, ModelMenuOpener, openModelMenu } from "@/lib/stores/model/modelMenu.svelte";
   import type { AgentSession } from "@/lib/types";
 

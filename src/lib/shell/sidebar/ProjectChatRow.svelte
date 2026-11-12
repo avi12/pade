@@ -1,7 +1,7 @@
 <script lang="ts">
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
-  import { runningModelLook } from "@/lib/model/running-model";
+  import { runningModelLook } from "@/lib/model/readout/running-model";
   import AgentStatusGlyph from "@/lib/session/AgentStatusGlyph.svelte";
   import type { SidebarChat } from "@/lib/session/chats/chat-registry";
   import { ChatActivity, chatActivity, chatStatus, NEEDS_YOU } from "@/lib/shell/sidebar/chat-activity";

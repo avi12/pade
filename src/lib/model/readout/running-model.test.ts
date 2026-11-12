@@ -1,4 +1,4 @@
-import { runningModelLook } from "@/lib/model/running-model";
+import { runningModelLook } from "@/lib/model/readout/running-model";
 import { describe, expect, it } from "vitest";
 
 const OPUS = {
