@@ -18,361 +18,29 @@
 // handoff exists to keep, so the request goes in mid-turn - the agent picks it
 // up between steps - and the session ends once the doc is on disk.
 
-import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
-import { Command, sendMessage } from "@/lib/ipc/messaging";
-import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActivity.svelte";
-import { isFileOnDisk, waitForFile } from "@/lib/stores/agent/handoff/handoff-doc-wait";
-import { waitForFirstTurn } from "@/lib/stores/agent/handoff/handoff-first-turn";
+import { docNameFor, handoff } from "@/lib/stores/agent/handoff/handoff-cycle";
+import { askForDoc } from "@/lib/stores/agent/handoff/handoff-doc-request";
+import type { HandoffContext } from "@/lib/stores/agent/handoff/handoff-doc-request";
 import type { HandoffHost } from "@/lib/stores/agent/handoff/handoff-host";
-import {
-  clearPersistentMarker,
-  hasPersistentMarker,
-  storePersistentMarker
-} from "@/lib/stores/agent/handoff/handoff-markers";
-import { handingOffNote, waitingForWorkNote } from "@/lib/stores/agent/handoff/handoff-notes";
-import {
-  handoffDocName,
-  HandoffReason,
-  handoffRequestBody,
-  successorPrompt
-} from "@/lib/stores/agent/handoff/handoff-prompts";
+import { waitingForWorkNote } from "@/lib/stores/agent/handoff/handoff-notes";
+import { HandoffReason } from "@/lib/stores/agent/handoff/handoff-prompts";
 import { ScanVerdict, scanVerdict } from "@/lib/stores/agent/handoff/handoff-scan";
-import { hasEnoughUsage, pickHandoffSuccessor } from "@/lib/stores/agent/handoff/handoff-successor";
+import { HandoffState } from "@/lib/stores/agent/handoff/handoff-state.svelte";
 import { createHandoffTimers } from "@/lib/stores/agent/handoff/handoff-timers";
-import { shieldHandoffSuccessor, takeOverPacing } from "@/lib/stores/usage/usagePacing.svelte";
 import type { AgentSession } from "@/lib/types/agent";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
-
-// How many times a session may be re-asked for its handoff doc. Each retry
-// only happens once the session reads ready again, so this bounds the
-// prompt-noise for an agent that answers without ever writing the file;
-// after the last attempt the session stays marked and keeps running.
-const HANDOFF_ATTEMPT_LIMIT = 3;
-/** How often a session out of attempts is checked for a doc that turned up late. */
-const LATE_DOC_POLL_MS = 15_000;
 
 /** The auto-handoff machinery, scoped to one app shell. The shell calls
  *  `check()` from a `$effect` and `dispose()` on destroy; `note` is the status
  *  line to show while a handoff is in flight ("" when idle). */
 export function createAutoHandoff(host: HandoffHost) {
-  const handingOff = new SvelteSet<string>();
-  let note = $state("");
-  // The scan's own line for a session over threshold that it holds back because
-  // the agent still has work running; an in-flight handoff's `note` wins over it.
-  let deferredNote = $state("");
-
-  function markHandingOff(sessionId: string) {
-    handingOff.add(sessionId);
-    storePersistentMarker(sessionId);
-  }
-
-  function unmarkHandingOff(sessionId: string) {
-    handingOff.delete(sessionId);
-    clearPersistentMarker(sessionId);
-  }
-
-  function isHandingOff(sessionId: string) {
-    return handingOff.has(sessionId) || hasPersistentMarker(sessionId);
-  }
-
-  // Give up on this handoff for now, leaving the session free for a later scan.
-  function abandonHandoff(sessionId: string) {
-    unmarkHandingOff(sessionId);
-    note = "";
-  }
-
-  function docNameFor(sessionId: string) {
-    return handoffDocName({
-      source: host.slugSource(),
-      sessionId
-    });
-  }
-
-  const handoffAttempts = new SvelteMap<string, number>();
+  const state = new HandoffState();
   const timers = createHandoffTimers();
-  const { trackTimer } = timers;
-
-  function docPathOf({ session, name }: {
-    session: AgentSession;
-    name: string;
-  }) {
-    return `${host.projectDirectory(session)}/${name}`;
-  }
-
-  async function submitHandoffRequest({ session, doc, reason }: {
-    session: AgentSession;
-    doc: string;
-    reason: HandoffReason;
-  }) {
-    // Pacing may be stopping the session as it fills up: a refused write would
-    // lose the handoff doc.
-    await takeOverPacing(session.id);
-    await submitPastedPrompt({
-      id: session.id,
-      // The full path, never the bare name: an agent resolves a bare name
-      // against its own working directory - a workspace member, a worktree, a
-      // folder it picks - while PADE looks for the doc in the project root.
-      text: handoffRequestBody({
-        doc: docPathOf({
-          session,
-          name: doc
-        }),
-        reason
-      }),
-      wait: timers.afterDelay
-    });
-  }
-
-  // Hold the handoff until the agent reports no work in flight, so ending the
-  // session never severs a workflow or background agent it is still running.
-  // Resolves whether the session is still here to hand off.
-  async function waitForRunningWork({ session, reason }: {
-    session: AgentSession;
-    reason: HandoffReason;
-  }) {
-    if (agentReportsBusy(session.id)) {
-      note = waitingForWorkNote({
-        session,
-        reason
-      });
-      await whenAgentSettled(session.id);
-    }
-
-    return isStillOpen(session.id);
-  }
-
-  // The same gate, skipped when the handoff has to beat the agent's own
-  // compaction: then the running turn is exactly what it must not wait for.
-  async function waitForRunningWorkUnlessMidTurn({ session, reason, isMidTurn }: {
-    session: AgentSession;
-    reason: HandoffReason;
-    isMidTurn: boolean;
-  }) {
-    if (isMidTurn) {
-      return isStillOpen(session.id);
-    }
-
-    return waitForRunningWork({
-      session,
-      reason
-    });
-  }
-
-  function isStillOpen(sessionId: string) {
-    return host.sessions().some(candidate => candidate.id === sessionId);
-  }
-
-  // Ask for the handoff doc and resolve whether it is on disk - unless a
-  // previous attempt already produced it: a request sent to a busy agent gets
-  // queued and answered long after the wait below expired, so a retry must
-  // consume the doc that late answer wrote instead of asking for a second one.
-  async function askForDoc({ session, doc, reason }: {
-    session: AgentSession;
-    doc: string;
-    reason: HandoffReason;
-  }) {
-    const docPath = docPathOf({
-      session,
-      name: doc
-    });
-    if (await isFileOnDisk(docPath)) {
-      return true;
-    }
-
-    await submitHandoffRequest({
-      session,
-      doc,
-      reason
-    });
-
-    // The watcher can simply have missed the write (an ignored path, a
-    // torn-down subscription), so a timeout gets one direct disk probe before
-    // giving up.
-    return await waitForFile({
-      timers,
-      isStillOpen,
-      sessionId: session.id,
-      docPath,
-      name: doc
-    }) || await isFileOnDisk(docPath);
-  }
-
-  // Never cycle without the doc actually on disk: killing the session and
-  // seeding a successor onto a file that was never written strands the
-  // successor with nothing to read (and the conversation it was meant to
-  // continue is gone). On a genuine no-doc, leave the session running but
-  // UNMARK it: the request usually sits queued in a busy agent, and the next
-  // scan that finds the session ready again retries - askForDoc's first probe
-  // then short-circuits onto the doc the late answer wrote, so the cycle
-  // completes instead of dying here forever.
-  async function requestHandoffDoc({ session, doc, reason }: {
-    session: AgentSession;
-    doc: string;
-    reason: HandoffReason;
-  }) {
-    if (await askForDoc({
-      session,
-      doc,
-      reason
-    })) {
-      return true;
-    }
-
-    if (!isStillOpen(session.id)) {
-      abandonHandoff(session.id);
-      return false;
-    }
-
-    const attempts = (handoffAttempts.get(session.id) ?? 0) + 1;
-    handoffAttempts.set(session.id, attempts);
-
-    if (attempts < HANDOFF_ATTEMPT_LIMIT) {
-      unmarkHandingOff(session.id);
-    } else {
-      watchForLateDoc({
-        session,
-        doc,
-        reason
-      });
-    }
-
-    return false;
-  }
-
-  // Out of attempts, the session stays marked and is never asked again - but the
-  // doc can still appear: an answer queued behind a long turn, or the user moving
-  // a doc the agent wrote somewhere else into place. A slow disk look picks it up
-  // and finishes the handoff, as long as the session is still open.
-  function watchForLateDoc({ session, doc, reason }: {
-    session: AgentSession;
-    doc: string;
-    reason: HandoffReason;
-  }) {
-    const docPath = docPathOf({
-      session,
-      name: doc
-    });
-    async function look() {
-      if (!isStillOpen(session.id)) {
-        return;
-      }
-
-      if (!await isFileOnDisk(docPath)) {
-        trackTimer({
-          handler: look,
-          delayMs: LATE_DOC_POLL_MS
-        });
-        return;
-      }
-
-      handoffAttempts.delete(session.id);
-      await runHandoff({
-        session,
-        reason
-      });
-    }
-
-    trackTimer({
-      handler: look,
-      delayMs: LATE_DOC_POLL_MS
-    });
-  }
-
-  async function handoff({ session, reason, isMidTurn }: {
-    session: AgentSession;
-    reason: HandoffReason;
-    isMidTurn: boolean;
-  }) {
-    const isStillHereBeforeRequest = await waitForRunningWorkUnlessMidTurn({
-      session,
-      reason,
-      isMidTurn
-    });
-    if (!isStillHereBeforeRequest) {
-      abandonHandoff(session.id);
-      return;
-    }
-
-    // Same agent while it still has headroom; otherwise cross over to the first
-    // other available agent that does. No agent with headroom → stay marked so we
-    // don't re-check each tick; skip this cycle.
-    const successorAgent = await pickHandoffSuccessor({
-      reason,
-      current: session.agent,
-      available: host.availableAgents(),
-      hasHeadroom: hasEnoughUsage
-    });
-    if (!successorAgent) {
-      return;
-    }
-
-    const doc = docNameFor(session.id);
-    note = handingOffNote({
-      session,
-      reason,
-      isMidTurn,
-      successorAgent
-    });
-
-    // 1. Ask the agent to write the handoff doc, then wait for it to land.
-    const hasDoc = await requestHandoffDoc({
-      session,
-      doc,
-      reason
-    });
-    if (!hasDoc) {
-      note = "";
-      return;
-    }
-
-    // 2. End the session - once the agent has finished the handoff turn and
-    // anything it started meanwhile - 3. start the successor seeded to continue.
-    const isStillHereBeforeEnd = await waitForRunningWorkUnlessMidTurn({
-      session,
-      reason,
-      isMidTurn
-    });
-    if (!isStillHereBeforeEnd) {
-      abandonHandoff(session.id);
-      return;
-    }
-
-    const { cwd } = session;
-    await host.endSession(session.id);
-    // Launched before the predecessor is removed, which forgets everything kept
-    // for it - the successor takes over its project, model and ✦ naming first.
-    const successorId = host.launchSuccessor({
-      agent: successorAgent,
-      cwd,
-      initialPrompt: successorPrompt(
-        docPathOf({
-          session,
-          name: doc
-        })
-      ),
-      predecessorId: session.id
-    });
-    shieldHandoffSuccessor(successorId);
-    host.removeSession(session.id);
-    unmarkHandingOff(session.id);
-    note = "";
-
-    // 4. The doc's job ends once the successor has really used it, so consumed
-    // handoffs never litter the project. Anything short of that keeps the doc:
-    // losing a handoff nobody read costs the whole session's work, where a
-    // leftover file costs one `rm`.
-    const isConsumed = await waitForFirstTurn({
-      timers,
-      isStillOpen,
-      id: successorId
-    });
-    if (isConsumed) {
-      await sendMessage(Command.handoffDocDelete, {
-        dir: host.projectDirectory(session),
-        name: doc
-      });
-    }
-  }
+  const context: HandoffContext = {
+    host,
+    state,
+    timers,
+    runHandoff
+  };
 
   // Ask `session`'s agent to write its handoff doc and resolve once the doc is on
   // disk - the reusable core of the handoff, WITHOUT the kill/launch. The
@@ -382,8 +50,12 @@ export function createAutoHandoff(host: HandoffHost) {
   // produced it (the caller falls back to a plain restart). A doc a prior attempt
   // already wrote is reused, not re-requested.
   async function writeHandoffDoc(session: AgentSession) {
-    const doc = docNameFor(session.id);
+    const doc = docNameFor({
+      context,
+      sessionId: session.id
+    });
     const isWritten = await askForDoc({
+      context,
       session,
       doc,
       reason: HandoffReason.Save
@@ -402,13 +74,14 @@ export function createAutoHandoff(host: HandoffHost) {
   }) {
     try {
       await handoff({
+        context,
         session,
         reason,
         isMidTurn
       });
     } catch (error) {
       console.warn(`pade: handoff of ${session.agent.label} failed, a later scan retries`, error);
-      abandonHandoff(session.id);
+      state.abandonHandoff(session.id);
     }
   }
 
@@ -416,7 +89,7 @@ export function createAutoHandoff(host: HandoffHost) {
   // whose earlier handoff was interrupted before it could reset.
   function check() {
     if (host.isOptedOut()) {
-      deferredNote = "";
+      state.deferredNote = "";
       return;
     }
 
@@ -424,7 +97,7 @@ export function createAutoHandoff(host: HandoffHost) {
     for (const session of host.sessions()) {
       const verdict = scanVerdict({
         session,
-        isHandingOffHere: handingOff.has(session.id),
+        isHandingOffHere: state.handingOff.has(session.id),
         thresholdPercentage: host.thresholdPercentage()
       });
       if (verdict === ScanVerdict.HoldBack) {
@@ -436,7 +109,7 @@ export function createAutoHandoff(host: HandoffHost) {
       }
 
       if (verdict === ScanVerdict.HandOff || verdict === ScanVerdict.HandOffMidTurn) {
-        markHandingOff(session.id);
+        state.markHandingOff(session.id);
         runHandoff({
           session,
           reason: HandoffReason.ContextLimit,
@@ -445,7 +118,7 @@ export function createAutoHandoff(host: HandoffHost) {
       }
     }
 
-    deferredNote = heldBackNote;
+    state.deferredNote = heldBackNote;
   }
 
   // Hand a session off right now - the usage-resume flow calls this at window
@@ -454,11 +127,11 @@ export function createAutoHandoff(host: HandoffHost) {
   // already decided this session must cycle. It still waits for the agent's
   // running work to finish before asking for the doc (see handoff).
   function force(session: AgentSession) {
-    if (isHandingOff(session.id)) {
+    if (state.isHandingOff(session.id)) {
       return;
     }
 
-    markHandingOff(session.id);
+    state.markHandingOff(session.id);
     runHandoff({
       session,
       reason: HandoffReason.ContextLimit
@@ -469,11 +142,11 @@ export function createAutoHandoff(host: HandoffHost) {
   // reads the new configuration. Unlike a context-limit handoff, this bypasses
   // quota-based crossover while retaining the document-first safety sequence.
   async function restartForConfiguration(session: AgentSession) {
-    if (isHandingOff(session.id)) {
+    if (state.isHandingOff(session.id)) {
       return;
     }
 
-    markHandingOff(session.id);
+    state.markHandingOff(session.id);
     await runHandoff({
       session,
       reason: HandoffReason.ConfigurationChange
@@ -484,11 +157,11 @@ export function createAutoHandoff(host: HandoffHost) {
     /** Status line shown while a handoff is in flight or held back for the agent's
      *  running work ("" when idle). */
     get note() {
-      return note || deferredNote;
+      return state.note || state.deferredNote;
     },
     check,
     force,
-    isHandingOff,
+    isHandingOff: (sessionId: string) => state.isHandingOff(sessionId),
     restartForConfiguration,
     writeHandoffDoc,
     dispose: timers.dispose
