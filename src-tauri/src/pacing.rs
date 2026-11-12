@@ -12,5 +12,8 @@
 //! on every account), and the model reads they price by - `model_label`,
 //! `model_cost` and `token_price`.
 
+pub mod model_cost;
+pub mod model_label;
 pub mod reset_time;
+pub mod token_price;
 pub mod units;
