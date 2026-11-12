@@ -1,0 +1,181 @@
+/* ── Shared M3 Expressive motion ─────────────────────────────────────────────
+   One authoritative home for the animation vocabulary (DRY). Components
+   reference these by name; the reduced-motion block above already disables them
+   all via the global `*` reset. */
+
+/* Cards, panels, hero surfaces rise up and settle with a slight overshoot. */
+@keyframes rise {
+  0% {
+    opacity: 0%;
+    translate: 0 12px;
+  }
+
+  60% {
+    opacity: 100%;
+    translate: 0 -3px;
+  }
+
+  100% {
+    opacity: 100%;
+    translate: 0 0;
+  }
+}
+
+/* A just-arrived item pops in (feed cards on push, toasts). */
+@keyframes pop-in {
+  0% {
+    opacity: 0%;
+    scale: 0.9;
+    translate: 0 -8px;
+  }
+
+  60% {
+    opacity: 100%;
+    scale: 1.03;
+    translate: 0 0;
+  }
+
+  100% {
+    opacity: 100%;
+    scale: 1;
+  }
+}
+
+/* Chips / session tabs spring in from small. */
+@keyframes spring-in {
+  0% {
+    opacity: 0%;
+    scale: 0.7;
+  }
+
+  60% {
+    opacity: 100%;
+    scale: 1.08;
+  }
+
+  100% {
+    opacity: 100%;
+    scale: 1;
+  }
+}
+
+/* The side panel slides in from the right edge. */
+@keyframes panel-in {
+  0% {
+    opacity: 0%;
+    translate: 22px 0;
+  }
+
+  60% {
+    opacity: 100%;
+    translate: -5px 0;
+  }
+
+  100% {
+    opacity: 100%;
+    translate: 0 0;
+  }
+}
+
+/* Swapping panel contents (Feed ↔ Git ↔ Tasks ↔ Config). */
+@keyframes panel-swap {
+  from {
+    opacity: 0%;
+    translate: 0 6px;
+  }
+
+  to {
+    opacity: 100%;
+    translate: 0 0;
+  }
+}
+
+/* A pane springing into the split: it slides in from its trailing edge and
+   reveals left-to-right (clip-path) with a soft overshoot, so an added pane
+   reads as arriving rather than snapping into the flex row. Fired imperatively
+   on the added slot only (App.animatePaneIn) - a plain tab switch stays
+   instant. */
+@keyframes pane-enter {
+  0% {
+    clip-path: inset(0 0 0 40%);
+    opacity: 0%;
+    scale: 0.97;
+    translate: 14px 0;
+  }
+
+  60% {
+    opacity: 100%;
+  }
+
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 100%;
+    scale: 1;
+    translate: 0 0;
+  }
+}
+
+/* Terminal / runner output lines fade up as they stream in. */
+@keyframes line-in {
+  from {
+    opacity: 0%;
+    translate: 0 4px;
+  }
+
+  to {
+    opacity: 100%;
+    translate: 0 0;
+  }
+}
+
+/* Custom checkbox check pops when toggled. */
+@keyframes check-pop {
+  0% {
+    scale: 0.8;
+  }
+
+  55% {
+    scale: 1.16;
+  }
+
+  100% {
+    scale: 1.06;
+  }
+}
+
+/* The "working" status dot breathes. */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 100%;
+  }
+
+  50% {
+    opacity: 30%;
+  }
+}
+
+/* Terminal cursor. */
+@keyframes blink {
+  50% {
+    opacity: 0%;
+  }
+}
+
+/* Refresh / rescan spinner. */
+@keyframes spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* Backdrop / plain fade (modal scrim, toast). */
+@keyframes fadein {
+  from {
+    opacity: 0%;
+  }
+
+  to {
+    opacity: 100%;
+  }
+}
