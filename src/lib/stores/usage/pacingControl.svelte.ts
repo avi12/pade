@@ -2,7 +2,8 @@
 // agent's hook reads on every tool call (agents/running_model/pacing_control).
 // Each part has one owner: the session's own window writes its subagent cap
 // (lib/stores/usage/usageAdapt) and whether it is being stopped
-// (lib/stores/usage/usagePacing); the account-wide round's leader writes every
+// (lib/stores/usage/usagePacing), and when its rest ends, which holds its tool
+// calls; the account-wide round's leader writes every
 // session's throttle (lib/stores/usage/usageAccountRound). A part is sent only
 // when it changes, so a round that repeats itself writes nothing.
 //
@@ -12,7 +13,7 @@
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { CommandProtocolMap } from "@/lib/ipc/messaging";
 import { PacingControlPartKind } from "@/lib/types";
-import type { AgentSession, PacingThrottle } from "@/lib/types";
+import type { AgentSession, PacingRestUntil, PacingThrottle } from "@/lib/types";
 import type { ThrottledSession } from "@/lib/usage/pacing/account-round";
 
 /** One part of a session's control, as the backend takes it. */
@@ -78,6 +79,21 @@ export async function setStopPart({ target, isStopped }: {
     part: {
       part: PacingControlPartKind.enum.stop,
       value: isStopped
+    }
+  });
+}
+
+/** Set when a session's rest ends, its tool calls held until then; null lifts
+ *  the rest. */
+export async function setRestPart({ target, restUntil }: {
+  target: ControlTarget;
+  restUntil: PacingRestUntil;
+}) {
+  await setControlPart({
+    target,
+    part: {
+      part: PacingControlPartKind.enum.rest,
+      value: restUntil
     }
   });
 }

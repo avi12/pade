@@ -33,7 +33,8 @@ describe("interruptKeysOf", () => {
         keystrokes: [CONTROL_X, CONTROL_K],
         presses: 2
       },
-      hasMidTurnStopHook: true
+      hasMidTurnStopHook: true,
+      canHoldToolCalls: true
     });
   });
 

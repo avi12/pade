@@ -939,7 +939,12 @@ const PacingThrottle = z.object({
 export type PacingThrottle = z.infer<typeof PacingThrottle>;
 
 /** The parts of a session's pacing control, each written by its own owner. */
-export const PacingControlPartKind = z.enum(["cap", "stop", "throttle"]);
+export const PacingControlPartKind = z.enum(["cap", "stop", "rest", "throttle"]);
+
+/** When a rest ends (epoch ms) - the hook holds the session's tool calls until
+ *  then; null lifts the rest. */
+const PacingRestUntil = z.number().int().nonnegative().nullable();
+export type PacingRestUntil = z.infer<typeof PacingRestUntil>;
 
 /** The user's own Claude Code shortcuts (`~/.claude/keybindings.json`): blocks
  *  of chord → action per context, a null action unbinding the chord. */

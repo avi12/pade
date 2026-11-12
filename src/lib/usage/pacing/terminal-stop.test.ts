@@ -20,7 +20,8 @@ const STOP_ALL_PRESS = {
 const CLAUDE_KEYS: InterruptKeys = {
   interrupt: ESCAPE_PRESS,
   stopAll: STOP_ALL_PRESS,
-  hasMidTurnStopHook: true
+  hasMidTurnStopHook: true,
+  canHoldToolCalls: true
 };
 
 describe("isHookTakingStop", () => {

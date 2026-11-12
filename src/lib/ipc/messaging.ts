@@ -67,6 +67,7 @@ import type {
   LabelSource,
   ModelChoice,
   PacingControlPartKind,
+  PacingRestUntil,
   PacingThrottle,
   Prefs,
   WindowDirection,
@@ -288,7 +289,8 @@ export interface CommandProtocolMap {
   }) => SwitchOutcome;
   /** Replace one part of a paced session's control, read by the agent's hook
    *  on every tool call: the model its subagents may spawn on (`cap`, null
-   *  lifts it), whether it is being stopped (`stop`), or the account-wide
+   *  lifts it), whether it is being stopped (`stop`), when its rest ends
+   *  (`rest`, epoch ms - its tool calls are held until then, null lifts it), or the account-wide
    *  round's per-subagent steps and spawn block (`throttle`). */
   [Command.agentSetPacingControl]: (data: {
     command: string;
@@ -302,6 +304,9 @@ export interface CommandProtocolMap {
     } | {
       part: typeof PacingControlPartKind.enum.stop;
       value: boolean;
+    } | {
+      part: typeof PacingControlPartKind.enum.rest;
+      value: PacingRestUntil;
     } | {
       part: typeof PacingControlPartKind.enum.throttle;
       value: PacingThrottle;

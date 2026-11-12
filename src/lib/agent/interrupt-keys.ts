@@ -39,6 +39,9 @@ interface AgentInterruptShortcuts {
   /** Whether the agent can take pacing's stop mid-turn on its own (a hook or
    *  plugin refusing its tool calls) - else the terminal is the only way. */
   hasMidTurnStopHook: boolean;
+  /** Whether the agent's hook can hold each tool call through a rest (pause
+   *  without killing anything) - else a rest stops the session. */
+  canHoldToolCalls: boolean;
 }
 
 const ESCAPE_CHORD = "escape";
@@ -68,7 +71,8 @@ const AGENT_INTERRUPT_SHORTCUTS: Readonly<Partial<Record<string, AgentInterruptS
         context: CLAUDE_CHAT_CONTEXT
       }
     },
-    hasMidTurnStopHook: true
+    hasMidTurnStopHook: true,
+    canHoldToolCalls: true
   },
   [AgentId.Opencode]: {
     interrupt: {
@@ -76,17 +80,20 @@ const AGENT_INTERRUPT_SHORTCUTS: Readonly<Partial<Record<string, AgentInterruptS
       presses: 2
     },
     stopAll: null,
-    hasMidTurnStopHook: true
+    hasMidTurnStopHook: true,
+    canHoldToolCalls: false
   },
   [AgentId.Codex]: {
     interrupt: ESCAPE_ONCE,
     stopAll: null,
-    hasMidTurnStopHook: false
+    hasMidTurnStopHook: false,
+    canHoldToolCalls: false
   },
   [AgentId.Copilot]: {
     interrupt: ESCAPE_ONCE,
     stopAll: null,
-    hasMidTurnStopHook: false
+    hasMidTurnStopHook: false,
+    canHoldToolCalls: false
   }
 };
 
@@ -164,7 +171,8 @@ export function interruptKeysOf({ command, keybindings }: {
       shortcut: shortcuts.stopAll,
       keybindings
     }),
-    hasMidTurnStopHook: shortcuts.hasMidTurnStopHook
+    hasMidTurnStopHook: shortcuts.hasMidTurnStopHook,
+    canHoldToolCalls: shortcuts.canHoldToolCalls
   };
 }
 
