@@ -706,6 +706,17 @@ pub fn now_milliseconds() -> u64 {
     milliseconds_since_unix_epoch(SystemTime::now())
 }
 
+/// Days from 1970-01-01 to a calendar date, using Howard Hinnant's
+/// `days_from_civil` algorithm (years start in March, so leap days fall last).
+pub fn days_since_epoch(year: i64, month: i64, day: i64) -> i64 {
+    let shifted_year = if month <= 2 { year - 1 } else { year };
+    let era = shifted_year.div_euclid(400);
+    let year_of_era = shifted_year - era * 400;
+    let day_of_year = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
+}
+
 /// The user's home directory, cross-platform, without pulling in a dependency
 /// (`USERPROFILE` on Windows, `HOME` elsewhere).
 pub fn home_directory() -> Option<PathBuf> {
