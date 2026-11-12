@@ -16,6 +16,7 @@ pub mod model_cost;
 pub mod model_label;
 pub mod policy;
 pub mod reset_time;
+pub mod subagent_steps;
 #[cfg(test)]
 mod test_support;
 pub mod token_price;
