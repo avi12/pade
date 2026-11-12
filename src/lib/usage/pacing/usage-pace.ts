@@ -29,7 +29,7 @@
 
 import { PacedWindowKind } from "@/lib/types/pacing";
 import type { AccountUsage, UsageWindow, UsageWindowKind } from "@/lib/types/usage";
-import { usageResetTime } from "@/lib/usage/usage-groups";
+import { usageResetTime } from "@/lib/usage/groups/reset-time";
 
 /** Below this much of a window spent, no one is paced however fast it burns. */
 export const PACE_FLOOR_PERCENTAGE = 60;

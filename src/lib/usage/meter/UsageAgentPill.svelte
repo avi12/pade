@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { groupSeverityClass } from "@/lib/usage/meter/usage-meter";
   import UsageLimitStack from "@/lib/usage/meter/UsageLimitStack.svelte";
-  import type { AgentGroup } from "@/lib/usage/usage-groups";
+  import type { AgentGroup } from "@/lib/usage/groups/usage-model";
 
   // One agent in the trigger: icon + short name, then a stack per limit (the
   // mono kind letter over its percent).

@@ -10,7 +10,8 @@
   import type { KeptReading } from "@/lib/usage/meter/usage-meter";
   import UsagePanel from "@/lib/usage/meter/UsagePanel.svelte";
   import UsageTrigger from "@/lib/usage/meter/UsageTrigger.svelte";
-  import { buildGroups, justResetLimits, limitPercentages } from "@/lib/usage/usage-groups";
+  import { buildGroups } from "@/lib/usage/groups/usage-groups";
+  import { justResetLimits, limitPercentages } from "@/lib/usage/groups/usage-spotlight";
   import { settledValue } from "@/lib/util/async/settled";
   import { onDestroy, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";

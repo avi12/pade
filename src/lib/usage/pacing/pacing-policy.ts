@@ -14,7 +14,7 @@ import type { Prefs } from "@/lib/types/settings";
 import type { UsageWindowKind } from "@/lib/types/usage";
 import { isForecastOverPace, windowName } from "@/lib/usage/pacing/usage-pace";
 import type { PaceForecast } from "@/lib/usage/pacing/usage-pace";
-import { resetCountdown } from "@/lib/usage/usage-groups";
+import { resetCountdown } from "@/lib/usage/groups/reset-time";
 import { formatCount, formatPercent } from "@/lib/util/format";
 
 /** Every step, in the order pacing climbs them. */

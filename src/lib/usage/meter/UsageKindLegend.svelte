@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { type AgentGroup, buildKindLegend } from "@/lib/usage/usage-groups";
+  import { type AgentGroup } from "@/lib/usage/groups/usage-model";
+  import { buildKindLegend } from "@/lib/usage/groups/usage-spotlight";
 
   // Decodes the mono kind codes the pills and rows use ("S" Session, "W"
   // Weekly, …) - only the codes actually in play.

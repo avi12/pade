@@ -6,7 +6,8 @@
   import UsageSpotlight from "@/lib/usage/meter/UsageSpotlight.svelte";
   import UsageSummary from "@/lib/usage/meter/UsageSummary.svelte";
   import UsagePacingSettings from "@/lib/usage/pacing/settings/UsagePacingSettings.svelte";
-  import { type AgentGroup, findSpotlight } from "@/lib/usage/usage-groups";
+  import { type AgentGroup } from "@/lib/usage/groups/usage-model";
+  import { findSpotlight } from "@/lib/usage/groups/usage-spotlight";
 
   // The meter's details popover: the summary, Claude's free usage resets, usage
   // pacing's settings (the one

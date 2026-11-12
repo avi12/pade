@@ -18,7 +18,8 @@ import {
   usageAriaLabel,
   withLastGoodReadings
 } from "@/lib/usage/meter/usage-meter";
-import { type AgentGroup, Level, type Limit, limitKey } from "@/lib/usage/usage-groups";
+import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-model";
+import { limitKey } from "@/lib/usage/groups/usage-spotlight";
 import { describe, expect, it } from "vitest";
 
 function makeLimit({ label, level }: {

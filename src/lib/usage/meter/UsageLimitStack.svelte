@@ -7,7 +7,7 @@
     noReadingFace,
     severityClass
   } from "@/lib/usage/meter/usage-meter";
-  import type { AgentGroup } from "@/lib/usage/usage-groups";
+  import type { AgentGroup } from "@/lib/usage/groups/usage-model";
 
   // One agent's limits as compact stacks - the mono kind letter over its
   // percent, coloured by how close it is - or a dash with no reading. Shared by

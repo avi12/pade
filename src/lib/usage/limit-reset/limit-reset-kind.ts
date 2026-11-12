@@ -3,7 +3,7 @@
 // gives each kind its words.
 
 import type { LimitReset } from "@/lib/types/usage";
-import { resetCountdown } from "@/lib/usage/usage-groups";
+import { resetCountdown } from "@/lib/usage/groups/reset-time";
 import { formatCount } from "@/lib/util/format";
 
 type ResetKind = LimitReset["kind"];

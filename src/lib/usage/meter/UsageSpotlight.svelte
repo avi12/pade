@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { isJustReset, NO_READING, severityClass } from "@/lib/usage/meter/usage-meter";
-  import type { Spotlight } from "@/lib/usage/usage-groups";
+  import type { Spotlight } from "@/lib/usage/groups/usage-spotlight";
 
   // The single limit closest to its cap across all agents, as a big number over
   // a full-width track, with its countdown.

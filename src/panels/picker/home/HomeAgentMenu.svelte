@@ -5,7 +5,7 @@
   import type { AccountReading } from "@/lib/types/usage";
   import { noReadingsOf } from "@/lib/usage/meter/usage-meter";
   import UsageLimitStack from "@/lib/usage/meter/UsageLimitStack.svelte";
-  import { buildAgentGroup } from "@/lib/usage/usage-groups";
+  import { buildAgentGroup } from "@/lib/usage/groups/usage-groups";
   import { settledValue } from "@/lib/util/async/settled";
 
   // The composer's LLM menu: every installed coding agent, its usage limits
