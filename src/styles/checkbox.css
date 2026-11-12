@@ -1,0 +1,74 @@
+/* ── Custom checkbox - shared M3 control ──────────────────────────────────────
+   One authoritative home (DRY) so any panel can reuse `<span class="checkbox">`. The
+   box fills primary and the tick draws itself on check; reuses the check-pop
+   keyframe above. */
+.checkbox {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  block-size: 20px;
+  inline-size: 20px;
+
+  input {
+    position: absolute;
+    inset: 0;
+    block-size: 100%;
+    inline-size: 100%;
+    margin: 0;
+    opacity: 0%;
+    cursor: pointer;
+  }
+
+  .box {
+    display: grid;
+    place-items: center;
+    block-size: 20px;
+    inline-size: 20px;
+    border: 2px solid var(--outline);
+    border-radius: 7px;
+    background: var(--surface-2);
+    transition:
+      background 250ms var(--ease),
+      border-color 250ms var(--ease),
+      scale 300ms var(--spring);
+
+    svg {
+      display: block;
+      block-size: 13px;
+      inline-size: 13px;
+    }
+
+    path {
+      fill: none;
+      stroke: var(--on-primary);
+      stroke-dasharray: 22;
+      stroke-dashoffset: 22;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 3;
+      transition: stroke-dashoffset 240ms var(--ease) 60ms;
+    }
+  }
+
+  input:checked + .box {
+    border-color: var(--primary);
+    background: var(--primary);
+    scale: 1.06;
+    animation: check-pop 360ms var(--spring);
+
+    path {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  input:focus-visible + .box {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    box-shadow: var(--focus-glow);
+  }
+
+  input:not(:checked):hover + .box {
+    border-color: var(--primary);
+  }
+}
