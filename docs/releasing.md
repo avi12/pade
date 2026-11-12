@@ -97,7 +97,7 @@ Every push to `main` is released (see `CLAUDE.md`). With the work committed:
    pnpm release <major.minor.patch> <notes-file>
    ```
 
-`scripts/release.mjs` then:
+`scripts/release.mjs` (the thin entry; each stage lives in `scripts/release/`: `version`, `signing`, `build`, `msix`, `release-files`, `github`, `update-manifest`, `winget`, over the shared `environment`) then:
 
 1. checks that `makeappx`, `signtool` and the signing certificate are there,
    before it changes anything;

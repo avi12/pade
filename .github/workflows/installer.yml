@@ -11,12 +11,14 @@ on:
       - src-tauri/windows/**
       - src-tauri/tauri.conf.json
       - scripts/release.mjs
+      - scripts/release/**
       - .github/workflows/installer.yml
   pull_request:
     paths:
       - src-tauri/windows/**
       - src-tauri/tauri.conf.json
       - scripts/release.mjs
+      - scripts/release/**
       - .github/workflows/installer.yml
   workflow_dispatch:
 
