@@ -10,10 +10,10 @@
 // through its per-agent account entry - no agent is special-cased here.
 
 import { agentIconName } from "@/lib/agent/agent-icon";
-import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
 import { SHELL_AGENT_ID } from "@/lib/types/agent";
-import type { AccountUsage, CreditBalance, NoReading, UsageWindow } from "@/lib/types/usage";
 import type { Agent, AgentSession } from "@/lib/types/agent";
+import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
+import type { AccountUsage, CreditBalance, NoReading, UsageWindow } from "@/lib/types/usage";
 import { worstLimit } from "@/lib/usage/groups/limit-ranking";
 import { hasResetPassed, resetCountdown, resetTimestamp } from "@/lib/usage/groups/reset-time";
 import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-model";

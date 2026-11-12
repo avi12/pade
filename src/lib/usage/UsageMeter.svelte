@@ -2,8 +2,8 @@
   import { AgentId } from "@/lib/agent/agent-icon";
   import { fetchAccountReading, latestAccount } from "@/lib/stores/usage/accountReadings.svelte";
   import { limitResetOffers, refreshLimitResetOffers } from "@/lib/stores/usage/limitReset.svelte";
+  import type { AgentSession } from "@/lib/types/agent";
   import type { AccountUsage, NoReading } from "@/lib/types/usage";
-import type { AgentSession } from "@/lib/types/agent";
   import { buildGroups } from "@/lib/usage/groups/usage-groups";
   import { justResetLimits, limitPercentages } from "@/lib/usage/groups/usage-spotlight";
   import { limitResetTotal } from "@/lib/usage/limit-reset/limit-reset-kind";

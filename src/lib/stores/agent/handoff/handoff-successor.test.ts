@@ -1,7 +1,7 @@
 import { HandoffReason } from "@/lib/stores/agent/handoff/handoff-prompts";
 import { hasUsageHeadroom, pickHandoffSuccessor, pickSuccessor } from "@/lib/stores/agent/handoff/handoff-successor";
-import { CreditsState } from "@/lib/types/usage";
 import type { Agent } from "@/lib/types/agent";
+import { CreditsState } from "@/lib/types/usage";
 import { describe, expect, it } from "vitest";
 
 describe("hasUsageHeadroom", () => {

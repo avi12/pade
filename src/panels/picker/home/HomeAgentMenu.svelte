@@ -1,8 +1,8 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { fetchAccountReading, latestAccount } from "@/lib/stores/usage/accountReadings.svelte";
+  import type { Agent } from "@/lib/types/agent";
   import type { AccountReading } from "@/lib/types/usage";
-import type { Agent } from "@/lib/types/agent";
   import { buildAgentGroup } from "@/lib/usage/groups/usage-groups";
   import { noReadingsOf } from "@/lib/usage/meter/usage-meter";
   import UsageLimitStack from "@/lib/usage/meter/UsageLimitStack.svelte";

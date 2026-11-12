@@ -1,9 +1,9 @@
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { HandoffReason } from "@/lib/stores/agent/handoff/handoff-prompts";
 import { fetchAccountReading } from "@/lib/stores/usage/accountReadings.svelte";
-import { CreditsState } from "@/lib/types/usage";
 import type { Agent } from "@/lib/types/agent";
-import { USAGE_SPENT_PERCENTAGE } from "@/lib/usage/usage-groups";
+import { CreditsState } from "@/lib/types/usage";
+import { USAGE_SPENT_PERCENTAGE } from "@/lib/usage/groups/limit-ranking";
 import { settledValue } from "@/lib/util/async/settled";
 
 /** Whether an agent can still do work: its headline quota isn't spent, or usage
