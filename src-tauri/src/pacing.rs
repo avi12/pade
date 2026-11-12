@@ -24,6 +24,7 @@ pub mod policy;
 pub mod registry;
 pub mod reset_time;
 pub mod samples;
+pub mod shadow;
 pub mod subagent_steps;
 #[cfg(test)]
 mod test_support;
