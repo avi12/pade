@@ -661,7 +661,7 @@ which the agent's next paint covers, instead of the terminal.
 ## Still open
 
 - **Resume properly on relaunch.** When a session is resumed (green-dot resume,
-  `workspace-relocate.ts`, `stores/agent/handoff.svelte.ts`), PADE seeds the literal prompt
+  `workspace-relocate.ts`, `stores/agent/handoff/handoff.svelte.ts`), PADE seeds the literal prompt
   `"continue\r"` into a *fresh* conversation, which loses the context. It should
   launch the agent with its native resume flag instead - a `resume` column in the
   `agents.rs` registry (claude → `--continue`), mirroring `oneshot` and `env`.

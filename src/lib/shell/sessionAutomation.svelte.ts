@@ -11,7 +11,7 @@ import { effective } from "@/lib/settings/prefs.svelte";
 import { settings } from "@/lib/settings/settings.svelte";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { createApiErrorRetry } from "@/lib/stores/agent/apiErrorRetry.svelte";
-import { createAutoHandoff } from "@/lib/stores/agent/handoff.svelte";
+import { createAutoHandoff } from "@/lib/stores/agent/handoff/handoff.svelte";
 import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/agent/mcpReload.svelte";
 import { choiceForSuccessor, createModelSwitcher } from "@/lib/stores/model/modelSwitch.svelte";
 import { reconcileChoiceAttention } from "@/lib/stores/session/sessionAttention.svelte";

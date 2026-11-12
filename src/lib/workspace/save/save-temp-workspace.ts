@@ -4,7 +4,7 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
-import { successorPrompt } from "@/lib/stores/agent/handoff.svelte";
+import { successorPrompt } from "@/lib/stores/agent/handoff/handoff-prompts";
 import { startRunner } from "@/lib/stores/tasks/runners.svelte";
 import type { Agent, AgentSession } from "@/lib/types/agent";
 import { TaskGroup } from "@/lib/types/terminal";

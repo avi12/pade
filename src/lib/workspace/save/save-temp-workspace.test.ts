@@ -52,7 +52,7 @@ vi.mock("@/lib/stores/tasks/runners.svelte", () => ({
   })
 }));
 
-vi.mock("@/lib/stores/agent/handoff.svelte", () => ({
+vi.mock("@/lib/stores/agent/handoff/handoff-prompts", () => ({
   successorPrompt: (doc: string) => `continue from ${doc}`
 }));
 
