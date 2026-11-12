@@ -5,7 +5,7 @@
   import type { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
   import SidePanelSwitch from "@/lib/shell/screen/SidePanelSwitch.svelte";
   import { Side } from "@/lib/shell/side-panels";
-  import { activeMemberIn, refreshMemberBranches } from "@/lib/stores/workspace/workspaceMembers.svelte";
+  import { activeMemberIn, refreshMemberBranches } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
   import type { AgentSession } from "@/lib/types";
   import UsageMeter from "@/lib/usage/UsageMeter.svelte";
   import BranchSwitcher from "@/lib/vcs/BranchSwitcher.svelte";

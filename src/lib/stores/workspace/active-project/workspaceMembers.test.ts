@@ -1,4 +1,4 @@
-import { activeMemberIn, loadWorkspaceMembers, selectMember } from "@/lib/stores/workspace/workspaceMembers.svelte";
+import { activeMemberIn, loadWorkspaceMembers, selectMember } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
 import {
   beforeEach,
   describe,

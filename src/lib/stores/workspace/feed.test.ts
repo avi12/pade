@@ -1,6 +1,6 @@
 import { Command, EventType } from "@/lib/ipc/messaging";
 import { feedStore, keepFeedsOf } from "@/lib/stores/workspace/feed.svelte";
-import { setFrontProjectSource } from "@/lib/stores/workspace/frontProject.svelte";
+import { setFrontProjectSource } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import { ChangeKind } from "@/lib/types";
 import type { ChangeEvent } from "@/lib/types";
 import {

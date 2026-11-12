@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { ideBrand, ideIcon } from "@/lib/ide/ide-icon";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import { chooseEditor, editorsFor, refreshEditors } from "@/lib/stores/workspace/editors.svelte";
+  import { chooseEditor, editorsFor, refreshEditors } from "@/lib/stores/workspace/active-project/editors.svelte";
   import type { Ide } from "@/lib/types";
 
   // Opens the active project in an external editor. The ranked list comes from

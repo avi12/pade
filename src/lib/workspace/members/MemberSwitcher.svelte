@@ -19,7 +19,7 @@
     pathOfMember,
     selectMember,
     workspaceMembers
-  } from "@/lib/stores/workspace/workspaceMembers.svelte";
+  } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
   import { hasSeveralMembers, memberLabel } from "@/lib/workspace/members/workspace-members";
 
   const { root }: {

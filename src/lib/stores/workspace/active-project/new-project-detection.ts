@@ -3,7 +3,7 @@
 // remain responsible for their own cached state.
 
 import { EventType, onMessage } from "@/lib/ipc/messaging";
-import { refreshEditors } from "@/lib/stores/workspace/editors.svelte";
+import { refreshEditors } from "@/lib/stores/workspace/active-project/editors.svelte";
 import { refreshProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
 import { ChangeKind } from "@/lib/types";
 import { isUnderDirectory } from "@/lib/workspace/relocate/workspace-relocate";

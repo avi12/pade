@@ -10,7 +10,7 @@
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
-import { frontProject } from "@/lib/stores/workspace/frontProject.svelte";
+import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import { ChangeKind, LabelSource } from "@/lib/types";
 import type { ChangeEvent } from "@/lib/types";
 import { isTemporaryWorkspace, normalizePath } from "@/lib/util/paths";

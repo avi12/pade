@@ -9,7 +9,7 @@
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import { feedStore } from "@/lib/stores/workspace/feed.svelte";
   import { onWatchesArmed } from "@/lib/stores/workspace/project-watch";
-  import { workspaceMembers as storedMembers } from "@/lib/stores/workspace/workspaceMembers.svelte";
+  import { workspaceMembers as storedMembers } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
   import type { ChangeEvent, WatchStatus } from "@/lib/types";
   import FeedCards from "@/panels/feed/FeedCards.svelte";
   import FeedEmptyState from "@/panels/feed/FeedEmptyState.svelte";

@@ -2,7 +2,7 @@ import { Command, EventType } from "@/lib/ipc/messaging";
 import { projectRunnerRows, runnerRows, stopRunner } from "@/lib/stores/tasks/runners.svelte";
 import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { adoptRunningTasks, initTaskRunDetection, isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
-import { setFrontProjectSource } from "@/lib/stores/workspace/frontProject.svelte";
+import { setFrontProjectSource } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import type { RunnerInfo } from "@/lib/types";
 import {
   beforeEach,

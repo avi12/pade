@@ -3,7 +3,7 @@
 // the same accepted TaskGroup[] rather than fetching or reconstructing it.
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
-import { frontProject } from "@/lib/stores/workspace/frontProject.svelte";
+import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import { ManifestMatch } from "@/lib/types";
 import type { ChangeEvent, TaskGroup, TaskManifestDescriptor } from "@/lib/types";
 import { baseName } from "@/lib/util/paths";

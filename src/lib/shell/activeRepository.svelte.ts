@@ -5,7 +5,7 @@
 // workspace with one member reads exactly as a plain project.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import { activeMemberIn } from "@/lib/stores/workspace/workspaceMembers.svelte";
+import { activeMemberIn } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
 import { settledValue } from "@/lib/util/async/settled";
 
 export function createActiveRepository({ project }: {

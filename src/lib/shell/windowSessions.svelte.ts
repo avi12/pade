@@ -19,7 +19,7 @@ import { setPendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
 import { applyNamingToAll, isNaming, setNaming } from "@/lib/stores/session/sessionNaming.svelte";
 import { isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
-import { activeMemberIn } from "@/lib/stores/workspace/workspaceMembers.svelte";
+import { activeMemberIn } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
 import type { Agent, AgentSession, ModelChoice } from "@/lib/types";
 import { untrack } from "svelte";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";

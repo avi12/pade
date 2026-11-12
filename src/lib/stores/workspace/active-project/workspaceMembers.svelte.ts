@@ -11,7 +11,7 @@
 // The pure half (where a member lives, what to call it) is `lib/workspace/members/workspace-members`.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
-import { frontProject } from "@/lib/stores/workspace/frontProject.svelte";
+import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import type { WorkspaceMember } from "@/lib/types";
 import { settledValue } from "@/lib/util/async/settled";
 import { memberPath } from "@/lib/workspace/members/workspace-members";

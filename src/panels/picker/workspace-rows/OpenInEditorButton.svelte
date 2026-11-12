@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import { hasWindowedEditor, refreshEditors, windowedEditorFor } from "@/lib/stores/workspace/editors.svelte";
+  import { hasWindowedEditor, refreshEditors, windowedEditorFor } from "@/lib/stores/workspace/active-project/editors.svelte";
   import type { Ide } from "@/lib/types";
 
   // A picker row's "open this project in your editor" button. It stays a plain,

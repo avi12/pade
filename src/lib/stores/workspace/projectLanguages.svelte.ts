@@ -7,7 +7,7 @@
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { isFollowedProject, watchedProjectPaths } from "@/lib/stores/workspace/followed-projects";
-import { frontProject } from "@/lib/stores/workspace/frontProject.svelte";
+import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import { createVisiblePathBatch, PROJECT_ROW_CACHE_LIMIT } from "@/lib/stores/workspace/visiblePathBatch.svelte";
 import type { LanguageShare } from "@/lib/types";
 import { untrack } from "svelte";

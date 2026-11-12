@@ -6,7 +6,7 @@
   import { isMediaPath, isRenderablePath } from "@/lib/feed/preview/preview";
   import ViewToggles from "@/lib/feed/preview/ViewToggles.svelte";
   import Icon from "@/lib/Icon.svelte";
-  import { windowedEditorFor } from "@/lib/stores/workspace/editors.svelte";
+  import { windowedEditorFor } from "@/lib/stores/workspace/active-project/editors.svelte";
   import { DiffStyle } from "@/lib/types";
   import type { ChangeEvent } from "@/lib/types";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";

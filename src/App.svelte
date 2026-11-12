@@ -46,7 +46,7 @@
     armNewProjectDetection,
     disposeNewProjectDetection,
     initNewProjectDetection
-  } from "@/lib/stores/workspace/new-project-detection";
+  } from "@/lib/stores/workspace/active-project/new-project-detection";
   import { StartMode, realAgents as toRealAgents } from "@/lib/types";
   import type { Agent, AgentSession, OpenTarget } from "@/lib/types";
   import OverflowTooltipLayer from "@/lib/ui/tooltip/OverflowTooltipLayer.svelte";
