@@ -4,480 +4,106 @@
 // math lives in `@/lib/session/panes/pane-layout`, the policy for an emptied
 // workspace stays with the shell (`onEmptied`).
 
-import { Command, sendMessage } from "@/lib/ipc/messaging";
-import { frontProject, sessionsOfProject } from "@/lib/session/chats/session-projects";
-import { didFailToStart } from "@/lib/session/lifecycle/session-exit";
-import { rekeyLayout } from "@/lib/session/lifecycle/session-restart";
-import { forgetSession, rekeySession } from "@/lib/session/lifecycle/session-scope";
-import { layoutWithoutSession, layoutWithoutSessions, wrappedIndex } from "@/lib/session/panes/pane-layout";
 import type { PaneLayout } from "@/lib/session/panes/pane-layout";
-import { newSession } from "@/lib/shell/session-launch";
 import type { LaunchOptions } from "@/lib/shell/session-launch";
+import {
+  adoptSessions,
+  closeAllGracefully,
+  closeSession,
+  closeSessions,
+  launchSession,
+  removeHandedOff,
+  restartSessions,
+  sessionExited
+} from "@/lib/shell/window-session-lifecycle";
+import type { WindowSessionsHost } from "@/lib/shell/window-session-lifecycle";
+import { layoutAccessors, WindowLayout } from "@/lib/shell/windowLayout.svelte";
 import { createSessionNaming } from "@/lib/shell/windowSessionNaming.svelte";
 import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
-import { setPendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
-import { setNaming } from "@/lib/stores/session/sessionNaming.svelte";
-import { isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
-import { showToast } from "@/lib/stores/ui/toast.svelte";
-import type { Agent, AgentSession } from "@/lib/types/agent";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
-
-// How long a deliberate leave waits for a busy agent to reach an idle prompt
-// before killing it anyway - graceful, but never a trap behind a wedged agent.
-const GRACEFUL_LEAVE_TIMEOUT_MS = 30_000;
-
-/** What the shell lends its sessions. */
-interface WindowSessionsHost {
-  /** Spring a pane that just joined a split in. */
-  animateIn: (id: string) => void;
-  /** A session was launched - the workspace is on screen. */
-  onLaunched: () => void;
-  /** A session id left for good - closed by hand, quit on its own, replaced
-   *  by a handoff successor or re-keyed by a restart - rather than left with
-   *  the window or moved to another one. */
-  onRetired: (session: AgentSession) => void;
-  /** The window's last session just ended; the shell decides what next. */
-  onEmptied: (ended: {
-    agent: Agent;
-    project: string;
-    isFailedStart: boolean;
-  }) => void;
-}
+import type { AgentSession } from "@/lib/types/agent";
 
 export function createWindowSessions(host: WindowSessionsHost) {
-  let sessions = $state<AgentSession[]>([]);
-  // Which sessions are shown side by side in the terminal area. One id = the
-  // classic single pane; more = a split view. Always a subset of `sessions`.
-  let paneIds = $state<string[]>([]);
-  let activeId = $state<string | null>(null);
-  const activeSession = $derived(sessions.find(session => session.id === activeId));
-  // The project the window points at while no session is in front: the one
-  // it entered, or the one its last session left.
-  let fallbackProject = $state("");
-  // The window's one project context: the active session's project. Every
-  // project-scoped surface (top bar, Change Feed, repository, tasks, address)
-  // reads this, so switching sessions across projects switches them all.
-  const activeProject = $derived(
-    frontProject({
-      activeSession,
-      fallbackProject
-    })
-  );
-  // The front project's sessions - what the tab strip shows. Every session
-  // stays mounted (its terminal live) whichever project is in front.
-  const projectSessions = $derived(
-    sessionsOfProject({
-      sessions,
-      project: activeProject
-    })
-  );
-
-  // When each session launched, so a self-exit right after reads as a failed
-  // start (lib/session/lifecycle/session-exit) and is not respawned into a loop.
-  const sessionLaunchedAt = new SvelteMap<string, number>();
-  // A hand-close also kills the PTY, firing the exit event; the exit handler skips
-  // these so the two teardown paths don't race.
-  const closingByHand = new SvelteSet<string>();
-
-  // A pane that was one of several in a live split when its session detached
-  // collapses its width so the survivors glide across to fill (out:collapsePane).
-  // Every other removal - a sole-pane tab close above all - swaps instantly: with
-  // nothing beside it, a collapsing pane would only crush the surviving terminal
-  // to near-zero width and let it reflow back out, a needless squeeze. So just
-  // genuine split members are recorded here (and dropped again on `outroend`);
-  // the rest get a zero-duration outro.
-  const collapsingSplitPanes = new SvelteSet<string>();
-
-  const { namesWithAi, seedNaming } = createSessionNaming({ sessions: () => sessions });
-
-  function launch(options: LaunchOptions) {
-    const session = newSession({
-      options,
-      project: options.project ?? activeProject
+  const layout = new WindowLayout();
+  const { namesWithAi, seedNaming } = createSessionNaming({ sessions: () => layout.sessions });
+  const context = {
+    layout,
+    host,
+    namesWithAi,
+    seedNaming
+  };
+  function restart(targets: readonly AgentSession[]) {
+    return restartSessions({
+      context,
+      targets
     });
-    const iReplaced = sessions.findIndex(candidate => candidate.id === options.replacing);
-    const isReplacing = iReplaced !== -1;
-    if (isReplacing) {
-      sessions.splice(iReplaced + 1, 0, session);
-    } else {
-      sessions.push(session);
-    }
-
-    setPendingPrompt({
-      id: session.id,
-      prompt: options.initialPrompt
-    });
-    // A new tab is born under its project's setting - the same one the effect
-    // above applies to the tabs already open.
-    setNaming({
-      id: session.id,
-      agent: session.agent.command,
-      isOn: namesWithAi(session.project)
-    });
-    sessionLaunchedAt.set(session.id, Date.now());
-
-    if (isReplacing) {
-      paneIds = paneIds.map(paneId => paneId === options.replacing ? session.id : paneId);
-
-      if (activeId === options.replacing) {
-        activeId = session.id;
-      }
-
-      return session.id;
-    }
-
-    activeId = session.id;
-    paneIds = options.split ? [...paneIds, session.id] : [session.id];
-
-    if (options.split) {
-      host.animateIn(session.id);
-    }
-
-    host.onLaunched();
-    return session.id;
-  }
-
-  // A tab click shows that session as the sole pane (classic single view).
-  // Collapsing a split is deliberately instant (as the design is): a View
-  // Transition here would scale the surviving pane's snapshot as it grows to
-  // fill, ghosting the old half-width terminal text over the reflowed full-width
-  // grid - the platform morph can't track a terminal that repaints on resize.
-  function select(id: string) {
-    activeId = id;
-    paneIds = [id];
-  }
-
-  // Ctrl+Tab / Alt+Arrow - cycle the active tab among the front project's
-  // tabs (the ones the strip shows), wrapping at the ends.
-  function step(delta: number) {
-    if (projectSessions.length === 0) {
-      return;
-    }
-
-    const iNext = wrappedIndex({
-      index: projectSessions.findIndex(session => session.id === activeId),
-      delta,
-      count: projectSessions.length
-    });
-    select(projectSessions[iNext].id);
-  }
-
-  // The window keeps pointing at the project its last session leaves.
-  function keepProjectOfLastSession(id: string) {
-    const isLastSession = sessions.length === 1 && sessions[0].id === id;
-    if (isLastSession) {
-      fallbackProject = sessions[0].project;
-    }
-  }
-
-  // The caller kills the PTY and decides the empty-workspace policy.
-  function detach(id: string) {
-    if (paneIds.length > 1 && paneIds.includes(id)) {
-      collapsingSplitPanes.add(id);
-    }
-
-    keepProjectOfLastSession(id);
-
-    ({ sessions, paneIds, activeId } = layoutWithoutSession({
-      layout: {
-        sessions,
-        paneIds,
-        activeId
-      },
-      id
-    }));
-    forget(id);
-  }
-
-  // A session left this window - ended, re-keyed or moved away: everything
-  // kept for it goes, here and in every per-session store (session-scope).
-  function forget(id: string) {
-    sessionLaunchedAt.delete(id);
-    closingByHand.delete(id);
-    forgetSession(id);
-  }
-
-  // Kill these sessions' PTYs and detach them, claiming each exit event as a
-  // hand-close so the exit handler never respawns or re-routes over it.
-  async function closeSessions(ids: readonly string[]) {
-    for (const id of ids) {
-      closingByHand.add(id);
-    }
-
-    await Promise.all(ids.map(id => sendMessage(Command.ptyKill, { id })));
-
-    for (const id of ids) {
-      detach(id);
-    }
-  }
-
-  // A DELIBERATE leave (switching project, going back to the picker) ends every
-  // session - but gracefully: wait for each to reach an idle prompt first
-  // (sessionStatus ready, the output-quiet signal - never child-process
-  // counting, which mis-reads persistent MCP servers) so nothing mid-flight is
-  // severed; the agent auto-saves, so /resume covers continuity. The wait runs
-  // before any phase change, while the Terminals are still mounted and
-  // publishing status. An accidental reload records no leave - its sessions
-  // stay alive and the next boot re-attaches them (session-restore). Each PTY
-  // is then killed, reaping its child so the old workspace's cwd lock is
-  // released.
-  async function closeAllGracefully() {
-    const hasBusySession = sessions.some(session => !isSessionIdle(session.id));
-    if (hasBusySession) {
-      showToast("Waiting for the agent to finish before leaving…");
-    }
-
-    await Promise.all(
-      sessions.map(session => whenSessionIdle({
-        id: session.id,
-        timeoutMs: GRACEFUL_LEAVE_TIMEOUT_MS
-      }))
-    );
-    await closeSessions(sessions.map(session => session.id));
-  }
-
-  async function close(session: AgentSession) {
-    closingByHand.add(session.id);
-    await sendMessage(Command.ptyKill, { id: session.id });
-
-    // `pty_kill` yields to the event loop. During that gap a project switch (or
-    // another close) can already have detached this session and launched a
-    // replacement. A stale close must never send that live workspace back to
-    // onboarding.
-    const isStillOpen = sessions.some(current => current.id === session.id);
-    if (!isStillOpen) {
-      closingByHand.delete(session.id);
-      return;
-    }
-
-    detach(session.id);
-    host.onRetired(session);
-
-    // A hand-close is never a failed start: a real project replaces the
-    // window's final tab with a fresh one rather than dropping the user into
-    // onboarding. A project's last tab closing while other projects' sessions
-    // stay open just hands the front to one of them.
-    if (sessions.length === 0) {
-      host.onEmptied({
-        agent: session.agent,
-        project: session.project,
-        isFailedStart: false
-      });
-    }
-  }
-
-  // A self-exit right after launch is a failed start, never respawned into a loop.
-  function isFailedStart(id: string) {
-    return didFailToStart({
-      launchedAt: sessionLaunchedAt.get(id) ?? 0,
-      now: Date.now()
-    });
-  }
-
-  // The PTY exited on its own - e.g. the user pressed Ctrl-C to quit the agent.
-  async function exited(id: string) {
-    const session = sessions.find(candidate => candidate.id === id);
-    if (closingByHand.has(id) || !session) {
-      return;
-    }
-
-    const wasLastSession = sessions.length === 1;
-    const isExitFailedStart = isFailedStart(id);
-    detach(id);
-    // Reap the backend record; the child is already gone, so a failure is moot.
-    await Promise.allSettled([sendMessage(Command.ptyKill, { id })]);
-    host.onRetired(session);
-
-    if (wasLastSession) {
-      host.onEmptied({
-        agent: session.agent,
-        project: session.project,
-        isFailedStart: isExitFailedStart
-      });
-    }
-  }
-
-  // Kill the targets and re-key them to fresh ids in place - each terminal
-  // remounts, respawns its agent (resuming its conversation via the session id),
-  // and the pane layout follows. The shared core behind every in-place restart
-  // (spawn-time theme changes, a model switch).
-  async function restart(targets: readonly AgentSession[]) {
-    await Promise.all(
-      targets.map(target => {
-        closingByHand.add(target.id);
-        return sendMessage(Command.ptyKill, { id: target.id });
-      })
-    );
-
-    const rekeyed: Record<string, string> = {};
-    for (const target of targets) {
-      const restartedId = crypto.randomUUID();
-      rekeyed[target.id] = restartedId;
-      // What outlives a restart - the tab's name, its ✦ auto-naming - moves to
-      // the new id; everything else kept for the old one goes.
-      rekeySession({
-        fromId: target.id,
-        toId: restartedId
-      });
-      sessionLaunchedAt.delete(target.id);
-      closingByHand.delete(target.id);
-      sessionLaunchedAt.set(restartedId, Date.now());
-      host.onRetired(target);
-    }
-
-    const relaid = rekeyLayout({
-      sessions,
-      paneIds,
-      activeId,
-      rekeyed
-    });
-    sessions = relaid.sessions;
-    paneIds = relaid.paneIds;
-    activeId = relaid.activeId;
-  }
-
-  // Hand a session the args that resume its own conversation, so the restart
-  // that follows reopens it rather than starting a blank one.
-  function applyResumeArgs({ id, args }: {
-    id: string;
-    args: string[];
-  }) {
-    if (args.length === 0) {
-      return;
-    }
-
-    sessions = sessions.map(session => session.id === id ? {
-      ...session,
-      args
-    } : session);
   }
 
   // A terminal-scheme flip reaches the running agents through
   // lib/stores/agent/agentRetheme: Claude repaints in place, the spawn-themed agents
   // are respawned on their own conversation once idle.
   const agentRetheme = createAgentRetheme({
-    sessions: () => sessions,
-    applyResumeArgs,
+    sessions: () => layout.sessions,
+    applyResumeArgs: args => layout.applyResumeArgs(args),
     restartSessions: restart
   });
   $effect(() => agentRetheme.recordSpawnSchemes());
   $effect(() => agentRetheme.followSchemeChange());
 
-  return {
-    get sessions() {
-      return sessions;
-    },
-    set sessions(next) {
-      sessions = next;
-    },
-    get paneIds() {
-      return paneIds;
-    },
-    set paneIds(next) {
-      paneIds = next;
-    },
-    get activeId() {
-      return activeId;
-    },
-    set activeId(next) {
-      activeId = next;
-    },
-    get activeSession() {
-      return activeSession;
-    },
-    /** The window's project context - the active session's project. */
-    get activeProject() {
-      return activeProject;
-    },
-    /** The front project's sessions, as the tab strip shows them. */
-    get projectSessions() {
-      return projectSessions;
-    },
+  return Object.assign(layoutAccessors(layout), {
     /** Point the window at `project` while no session of it is in front yet -
      *  entering it, or going back to the picker (empty). */
     enter(project: string) {
-      fallbackProject = project;
+      layout.fallbackProject = project;
     },
-    collapsingSplitPanes,
-    launch,
-    select,
-    step,
-    close,
-    exited,
-    closeSessions,
-    closeAllGracefully,
+    launch: (options: LaunchOptions) => launchSession({
+      context,
+      options
+    }),
+    select: (id: string) => layout.select(id),
+    step: (delta: number) => layout.step(delta),
+    close: (session: AgentSession) => closeSession({
+      context,
+      session
+    }),
+    exited: (id: string) => sessionExited({
+      context,
+      id
+    }),
+    closeSessions: (ids: readonly string[]) => closeSessions({
+      layout,
+      ids
+    }),
+    closeAllGracefully: () => closeAllGracefully(layout),
     restart,
-    applyResumeArgs,
-    isOpen: (id: string) => sessions.some(session => session.id === id),
+    applyResumeArgs: (resume: Parameters<WindowLayout["applyResumeArgs"]>[0]) => layout.applyResumeArgs(resume),
+    isOpen: (id: string) => layout.isOpen(id),
     /** Re-attach the sessions a reload orphaned, stamped as launched-now so one
      *  that dies right after reads as a failed start (no respawn loop). */
-    restore(layout: PaneLayout) {
-      ({ sessions, paneIds, activeId } = layout);
-      for (const restored of layout.sessions) {
-        sessionLaunchedAt.set(restored.id, Date.now());
-      }
-    },
+    restore: (restored: PaneLayout) => layout.restore(restored),
     /** Claim these sessions' coming exit events as hand-closes. */
-    markClosing(ids: Iterable<string>) {
-      for (const id of ids) {
-        closingByHand.add(id);
-      }
-    },
+    markClosing: (ids: Iterable<string>) => layout.markClosing(ids),
     /** Drop sessions whose PTYs were killed under `markClosing`. */
-    removeClosed(ids: ReadonlySet<string>) {
-      ({ sessions, paneIds, activeId } = layoutWithoutSessions({
-        layout: {
-          sessions,
-          paneIds,
-          activeId
-        },
-        ids
-      }));
-
-      for (const id of ids) {
-        forget(id);
-      }
-    },
+    removeClosed: (ids: ReadonlySet<string>) => layout.removeClosed(ids),
     /** Let go of sessions another window now owns (moved there with their PTYs
      *  still running): dropped from this window without a kill, and without
      *  ending them - their chats live on in the receiving window. */
-    release(ids: readonly string[]) {
-      for (const id of ids) {
-        detach(id);
-      }
-    },
+    release: (ids: readonly string[]) => layout.release(ids),
     /** Take in sessions another window handed over, their PTYs already moved
-     *  here and still running: each terminal re-attaches through its usual
-     *  path (spawn is a no-op for a live session, `pty_history` replays it). */
-    adopt({ adopted, activeId: adoptedActiveId }: {
+     *  here and still running. */
+    adopt: ({ adopted, activeId }: {
       adopted: readonly AgentSession[];
       activeId: string | null;
-    }) {
-      const newcomers = adopted.filter(session => !sessions.some(current => current.id === session.id));
-      sessions.push(...newcomers);
-      for (const session of newcomers) {
-        sessionLaunchedAt.set(session.id, Date.now());
-        seedNaming(session);
-      }
-
-      const front = newcomers.find(session => session.id === adoptedActiveId) ?? newcomers.at(-1);
-      if (front !== undefined) {
-        select(front.id);
-        host.onLaunched();
-      }
-    },
+    }) => adoptSessions({
+      context,
+      adopted,
+      activeId
+    }),
     /** Drop one session handed off to a successor, leaving the active pane alone. */
-    removeHandedOff(id: string) {
-      const handedOff = sessions.find(session => session.id === id);
-      if (handedOff !== undefined) {
-        host.onRetired(handedOff);
-      }
-
-      sessions = sessions.filter(session => session.id !== id);
-      paneIds = paneIds.filter(paneId => paneId !== id);
-      forget(id);
-    }
-  };
+    removeHandedOff: (id: string) => removeHandedOff({
+      context,
+      id
+    })
+  });
 }
 
 export type WindowSessions = ReturnType<typeof createWindowSessions>;
