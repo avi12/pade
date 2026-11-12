@@ -37,32 +37,29 @@ pub(crate) use copilot::session_root as copilot_session_root;
 mod hook_sink;
 mod opencode;
 pub mod pacing_control;
+mod sink;
+mod state;
+mod watch;
 
-use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
+pub use sink::run_hook_sink_if_requested;
+pub(crate) use state::reported_transcript;
+pub use watch::init;
+
 use serde::{Deserialize, Serialize};
-use std::io::Read;
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::time::{Duration, SystemTime};
-use tauri::{AppHandle, Emitter, Manager};
+use std::path::Path;
+use tauri::{AppHandle, Manager};
 
 use crate::agents::{ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_OPENCODE};
-use crate::util::{days_since_epoch, milliseconds_since_unix_epoch, now_milliseconds};
+use crate::util::{days_since_epoch, milliseconds_since_unix_epoch};
+use sink::{hook_command, HookShell};
+use state::{
+    is_plain_id, newer, read_session_state, record_choice, state_directory, state_file, write_json,
+    Saved, SessionState, STATE_FILE_EXTENSION,
+};
 
-/// The first argument that turns `pade.exe` into the hook sink.
-const HOOK_SINK_FLAG: &str = "--agent-hook-sink";
 /// The variable naming the PADE conversation a launch belongs to, inherited by
 /// every hook and plugin the agent runs.
 const CONVERSATION_VARIABLE: &str = "PADE_CONVERSATION_ID";
-/// Tells every window a session's model or effort may have changed. The payload
-/// names the conversation, or is null when a settings file every session reads
-/// changed.
-const CHANGED_EVENT: &str = "agent-model://changed";
-/// How long after an agent saves its settings its transcript has caught up.
-const TRANSCRIPT_LOG_SETTLE: Duration = Duration::from_secs(1);
-/// A session file outlives its session so a resumed conversation still has its
-/// model; past this age nobody will resume it.
-const STATE_RETENTION: Duration = Duration::from_hours(14 * 24);
 /// Longest model id or effort level a choice may carry. Catalog ids are a few
 /// dozen characters; this only bounds what reaches a command line.
 const MAXIMUM_CHOICE_LENGTH: usize = 128;
@@ -74,12 +71,6 @@ const OPENCODE_MODEL_FLAG: &str = "-m";
 /// How Codex and `OpenCode` take the session id to resume.
 const CODEX_RESUME_SUBCOMMAND: &str = "resume";
 const OPENCODE_SESSION_FLAG: &str = "--session";
-/// PADE's data subfolder holding one state file per session, and that file's
-/// extension - the watcher reads the session id back off the name.
-const STATE_DIRECTORY_NAME: &str = "agent-model";
-const STATE_FILE_EXTENSION: &str = ".json";
-/// Where a state file is written before it is renamed into place.
-const PARTIAL_STATE_EXTENSION: &str = "json.partial";
 
 /// A session's model and effort as the agent reported them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -295,75 +286,6 @@ pub fn session_resume_arguments(command: &str, agent_session: String) -> Option<
     }
 }
 
-/// Run as the hook sink when PADE was launched as one, returning whether it
-/// did - the caller must then exit instead of starting the app. A failure goes
-/// to stderr, which the agent shows in its hook log; it never holds a session
-/// up.
-pub fn run_hook_sink_if_requested() -> bool {
-    let is_sink = std::env::args().nth(1).as_deref() == Some(HOOK_SINK_FLAG);
-    if !is_sink {
-        return false;
-    }
-
-    if let Err(error) = record_hook_report() {
-        eprintln!("pade: could not record the agent's hook report: {error}");
-    }
-    true
-}
-
-/// Watch every place a session's model or effort is written, telling the
-/// windows the moment one may have moved. Best-effort: without the watch a tab
-/// still catches up when its session next goes idle.
-pub fn init(app: &AppHandle) {
-    std::thread::spawn(hook_sink::refresh);
-    let Some(states) = state_directory() else {
-        return;
-    };
-    if let Err(error) = std::fs::create_dir_all(&states) {
-        eprintln!("pade: no agent model-state directory: {error}");
-        return;
-    }
-    prune_expired(&states);
-
-    let places = watched_places(states);
-    let emitter = app.clone();
-    let routes = places.clone();
-    let watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
-        let Ok(event) = result else { return };
-        for path in &event.paths {
-            let Some(payload) = changed_payload(path, &routes) else {
-                continue;
-            };
-            let is_shared_settings = payload.session_id.is_none();
-            let _ = emitter.emit(CHANGED_EVENT, payload.clone());
-            if is_shared_settings {
-                announce_again_once_logged(&emitter, payload);
-            }
-        }
-    });
-    let Ok(mut watcher) = watcher else {
-        return;
-    };
-    for (directory, place) in &places {
-        // Best-effort per place: an agent that isn't installed has no folder.
-        let _ = watcher.watch(directory, place.recursive_mode());
-    }
-    app.manage(ModelWatch {
-        _watcher: Mutex::new(watcher),
-    });
-}
-
-/// `/effort` saves the settings file and logs the level to the session's
-/// transcript, which can land a moment later and fires no event of its own -
-/// so a settings change is announced once more after that moment.
-fn announce_again_once_logged(emitter: &AppHandle, payload: ChangedPayload) {
-    let emitter = emitter.clone();
-    std::thread::spawn(move || {
-        std::thread::sleep(TRANSCRIPT_LOG_SETTLE);
-        let _ = emitter.emit(CHANGED_EVENT, payload);
-    });
-}
-
 fn read(command: &str, conversation_id: &str) -> Option<RunningModel> {
     if !is_plain_id(conversation_id) {
         return None;
@@ -421,224 +343,6 @@ fn model_and_effort_flags(
     model_flag.into_iter().chain(effort_flag).collect()
 }
 
-/// The sink's job: read the report the agent piped in and either answer it
-/// (a switch request) or fold it into the session's state file.
-fn record_hook_report() -> Result<(), String> {
-    let report = read_hook_report()?;
-    let conversation_id = reporting_conversation(&report).ok_or("the report names no session")?;
-
-    match hook_event(&report) {
-        Some(claude::PRE_MODEL_SWITCH) => {
-            answer_model_switch_request(&conversation_id);
-            return Ok(());
-        }
-        Some(pacing_control::PRE_TOOL_USE) => {
-            pacing_control::answer_tool_use(&conversation_id, &report);
-            return Ok(());
-        }
-        _ => {}
-    }
-
-    let path = state_file(&conversation_id).ok_or("no PADE data directory")?;
-    let next = fold(
-        read_state(&path).unwrap_or_default(),
-        &report,
-        now_milliseconds(),
-    );
-    write_json(&path, &next).map_err(|error| error.to_string())
-}
-
-fn read_hook_report() -> Result<serde_json::Value, String> {
-    let mut stdin = String::new();
-    std::io::stdin()
-        .read_to_string(&mut stdin)
-        .map_err(|error| error.to_string())?;
-    serde_json::from_str(&stdin).map_err(|error| error.to_string())
-}
-
-/// PADE's conversation id from the environment, else the agent's own session id
-/// from the report.
-fn reporting_conversation(report: &serde_json::Value) -> Option<String> {
-    std::env::var(CONVERSATION_VARIABLE)
-        .ok()
-        .or_else(|| report.get("session_id")?.as_str().map(str::to_string))
-}
-
-/// The event a hook report is for - some are questions to answer, not reports.
-fn hook_event(report: &serde_json::Value) -> Option<&str> {
-    report
-        .get("hook_event_name")
-        .and_then(serde_json::Value::as_str)
-}
-
-/// PADE answers only for a switch it started itself; any other one gets
-/// Claude's own prompt.
-fn answer_model_switch_request(conversation_id: &str) {
-    if claude::has_switch_permission(conversation_id) {
-        println!("{}", claude::ALLOW_MODEL_SWITCH);
-    }
-}
-
-/// Fold one hook report into a session's state. The fields are the ones Claude
-/// and Codex hooks share: `model` (or `to_model` on a model switch), an
-/// `effort.level`, and the `transcript_path`.
-fn fold(state: SessionState, report: &serde_json::Value, now: u64) -> SessionState {
-    let text = |pointer: &str| report.pointer(pointer).and_then(serde_json::Value::as_str);
-    let reported_model = text("/to_model").or_else(|| text("/model"));
-    let reported_effort = text("/effort/level");
-
-    let mut next = state;
-    // Only a different model is a switch: re-reporting the same one (every
-    // Codex hook, Claude's SessionStart after a launch with `--model`) must not
-    // date it later, or the saved effort would outrank the one it runs with.
-    let is_model_switch = reported_model.is_some_and(|model| next.model.as_deref() != Some(model));
-    if let Some(model) = reported_model.filter(|_| is_model_switch) {
-        next.model = Some(model.to_string());
-        next.model_at = now;
-    }
-    if let Some(effort) = reported_effort {
-        next.effort = Some(effort.to_string());
-        next.effort_at = now;
-    }
-    if let Some(transcript) = text("/transcript_path") {
-        next.transcript = Some(transcript.to_string());
-    }
-    if let Some(agent_session) = text("/session_id") {
-        next.agent_session = Some(agent_session.to_string());
-    }
-    next
-}
-
-/// The shell an agent runs its hook commands through - which decides how a
-/// quoted executable path must be invoked.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum HookShell {
-    /// A POSIX shell (Claude on Windows uses Git Bash): `"path" args`.
-    Posix,
-    /// `PowerShell` (Codex on Windows): a quoted path is only a string there, so
-    /// it takes the call operator - `& 'path' args`.
-    PowerShell,
-}
-
-/// The command a hook runs to reach the sink, written for `shell`: the stable
-/// sink the app keeps current (`hook_sink`), never the PTY host's own frozen
-/// copy. Forward slashes, because Git Bash reads a backslash as an escape and
-/// every shell accepts them.
-fn hook_command(shell: HookShell) -> Option<String> {
-    let executable = hook_sink::executable()?;
-    let path = executable.to_string_lossy().replace('\\', "/");
-    Some(match shell {
-        HookShell::Posix => format!("\"{path}\" {HOOK_SINK_FLAG}"),
-        HookShell::PowerShell => format!("& '{}' {HOOK_SINK_FLAG}", path.replace('\'', "''")),
-    })
-}
-
-/// What hooks and plugins have reported for one session, each value stamped
-/// with when it was reported (milliseconds since the epoch). This is the shape
-/// of the per-session JSON file.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-struct SessionState {
-    model: Option<String>,
-    model_at: u64,
-    effort: Option<String>,
-    effort_at: u64,
-    /// The agent's own transcript for this session, when its hooks name one.
-    transcript: Option<String>,
-    /// The agent's own id for this session (a Codex thread, an `OpenCode`
-    /// session) - what resuming it takes.
-    agent_session: Option<String>,
-}
-
-/// A value the agent saved to a settings file, dated by that file's last write.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Saved {
-    value: String,
-    saved_at: u64,
-}
-
-/// The newer of a reported value and a saved one. `saved_from` is the earliest
-/// moment the saved value can speak for this session - a model switch, say,
-/// adopts the new model's saved level at the switch. A tie goes to the report,
-/// which is about this session alone; the saved file is shared by every one.
-fn newer(reported: Option<(&str, u64)>, saved: Option<&Saved>, saved_from: u64) -> Option<String> {
-    let Some(saved) = saved else {
-        return reported.map(|(value, _)| value.to_string());
-    };
-    let saved_applies_at = saved.saved_at.max(saved_from);
-    match reported {
-        Some((value, reported_at)) if reported_at >= saved_applies_at => Some(value.to_string()),
-        _ => Some(saved.value.clone()),
-    }
-}
-
-/// A conversation id safe to use as a file name.
-fn is_plain_id(conversation_id: &str) -> bool {
-    !conversation_id.is_empty()
-        && conversation_id.chars().all(|character| {
-            character.is_ascii_alphanumeric() || character == '-' || character == '_'
-        })
-}
-
-/// Where the sink and plugins keep one file per session.
-fn state_directory() -> Option<PathBuf> {
-    Some(crate::util::pade_data_directory()?.join(STATE_DIRECTORY_NAME))
-}
-
-fn state_file(conversation_id: &str) -> Option<PathBuf> {
-    Some(state_directory()?.join(format!("{conversation_id}{STATE_FILE_EXTENSION}")))
-}
-
-fn read_state(path: &Path) -> Option<SessionState> {
-    serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
-}
-
-fn read_session_state(conversation_id: &str) -> Option<SessionState> {
-    read_state(&state_file(conversation_id)?)
-}
-
-/// The transcript the agent's own hooks last named for `conversation_id`,
-/// when it still exists. A resumed Claude session writes under a new id of its
-/// own, so this - not the id PADE pinned at launch - is where it really logs.
-pub(crate) fn reported_transcript(conversation_id: &str) -> Option<PathBuf> {
-    if !is_plain_id(conversation_id) {
-        return None;
-    }
-    let transcript = PathBuf::from(read_session_state(conversation_id)?.transcript?);
-    transcript.is_file().then_some(transcript)
-}
-
-/// Record a model / effort PADE itself put in place (at launch, or by a live
-/// switch) as the session's newest report.
-fn record_choice(conversation_id: &str, choice: &ModelChoice) {
-    let Some(path) = state_file(conversation_id) else {
-        return;
-    };
-    let now = now_milliseconds();
-    let mut state = read_state(&path).unwrap_or_default();
-    if let Some(model) = &choice.model {
-        state.model = Some(model.clone());
-        state.model_at = now;
-    }
-    if let Some(effort) = &choice.effort {
-        state.effort = Some(effort.clone());
-        state.effort_at = now;
-    }
-    if let Err(error) = write_json(&path, &state) {
-        eprintln!("pade: could not record the model choice: {error}");
-    }
-}
-
-/// Write through a sibling file and rename, so a reader never sees half a file.
-fn write_json(path: &Path, value: &impl Serialize) -> std::io::Result<()> {
-    if let Some(directory) = path.parent() {
-        std::fs::create_dir_all(directory)?;
-    }
-    let partial = path.with_extension(PARTIAL_STATE_EXTENSION);
-    std::fs::write(&partial, serde_json::to_vec(value)?)?;
-    std::fs::rename(partial, path)
-}
-
 pub(super) fn modified_milliseconds(path: &Path) -> Option<u64> {
     Some(milliseconds_since_unix_epoch(
         std::fs::metadata(path).ok()?.modified().ok()?,
@@ -667,98 +371,6 @@ fn three_numbers(text: &str, separator: char) -> Option<[i64; 3]> {
         parts.next()?.ok()?,
         parts.next()?.ok()?,
     ])
-}
-
-/// Keeps the watch alive for the app's lifetime; dropping it ends the watch.
-struct ModelWatch {
-    _watcher: Mutex<RecommendedWatcher>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ChangedPayload {
-    session_id: Option<String>,
-}
-
-/// What one watched place is, so a changed path can be told apart.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum WatchedPlace {
-    /// PADE's own per-session state files.
-    SessionStates,
-    /// A settings file every session of an agent reads.
-    SharedSettings,
-    /// An agent's own per-session folders (Copilot's session-state).
-    SessionFolders,
-}
-
-impl WatchedPlace {
-    /// Only per-session folders nest; everything else is one flat directory.
-    fn recursive_mode(self) -> RecursiveMode {
-        if self == Self::SessionFolders {
-            RecursiveMode::Recursive
-        } else {
-            RecursiveMode::NonRecursive
-        }
-    }
-}
-
-/// Every directory to watch: PADE's own state files, each agent's settings
-/// folder, and Copilot's session folders.
-fn watched_places(session_states: PathBuf) -> Vec<(PathBuf, WatchedPlace)> {
-    let mut places = vec![(session_states, WatchedPlace::SessionStates)];
-    let settings_directories = [claude::settings_directory(), codex::settings_directory()];
-    for directory in settings_directories.into_iter().flatten() {
-        places.push((directory, WatchedPlace::SharedSettings));
-    }
-    if let Some(root) = copilot::session_root() {
-        places.push((root, WatchedPlace::SessionFolders));
-    }
-    places
-}
-
-/// Which session a changed path speaks for, or `None` when it is noise.
-fn changed_payload(path: &Path, places: &[(PathBuf, WatchedPlace)]) -> Option<ChangedPayload> {
-    let name = path.file_name()?.to_str()?;
-    let place = places
-        .iter()
-        .find(|(directory, _)| path.starts_with(directory))
-        .map(|(_, place)| *place)?;
-    match place {
-        WatchedPlace::SessionStates => {
-            let session_id = name.strip_suffix(STATE_FILE_EXTENSION)?;
-            Some(ChangedPayload {
-                session_id: Some(session_id.to_string()),
-            })
-        }
-        WatchedPlace::SharedSettings => {
-            let is_settings = claude::is_settings_file(name) || codex::is_settings_file(name);
-            is_settings.then_some(ChangedPayload { session_id: None })
-        }
-        WatchedPlace::SessionFolders => {
-            let session_id = copilot::session_of_event_log(path)?;
-            Some(ChangedPayload {
-                session_id: Some(session_id),
-            })
-        }
-    }
-}
-
-fn prune_expired(directory: &Path) {
-    let Ok(entries) = std::fs::read_dir(directory) else {
-        return;
-    };
-    let now = SystemTime::now();
-    for entry in entries.flatten() {
-        let is_expired = entry
-            .metadata()
-            .and_then(|metadata| metadata.modified())
-            .ok()
-            .and_then(|modified| now.duration_since(modified).ok())
-            .is_some_and(|age| age > STATE_RETENTION);
-        if is_expired {
-            let _ = std::fs::remove_file(entry.path());
-        }
-    }
 }
 
 #[cfg(test)]

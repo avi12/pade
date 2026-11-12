@@ -1,5 +1,6 @@
+use super::state::fold;
 use super::{
-    days_since_epoch, fold, launch_arguments, newer, timestamp_milliseconds, ModelChoice, Saved,
+    days_since_epoch, launch_arguments, newer, timestamp_milliseconds, ModelChoice, Saved,
     SessionState,
 };
 
