@@ -29,6 +29,11 @@ These are non-negotiable for all work in this repo.
      drift-guard test fails until it does);
      a helper on top of `sendMessage` exists only when it adds behaviour (e.g.
      `sendSettingsMessage`), never as a pass-through wrapper.
+   - No file over ~500 lines of non-test code: split by concern into a semantic
+     subfolder (never one named `release/`, it is gitignored). `pnpm lint:size`
+     enforces it against `scripts/file-size-baseline.json`, which only shrinks -
+     a new file over the limit, or a baselined file that grows, fails; tighten
+     with `pnpm lint:size --update`.
 
 3. **Tree-shaking** - keep the bundle lean. Use named ESM imports (never
    `import * as`), no side-effectful barrel files, `import type` for types, and
@@ -474,7 +479,7 @@ Run these before calling work done (see `package.json` for the scripts):
 
 ```powershell
 pnpm check        # svelte-check type gate
-pnpm lint         # oxlint + eslint, stylelint, cargo clippy -D warnings + fmt, fallow audit
+pnpm lint         # oxlint + eslint, stylelint, cargo clippy -D warnings + fmt, file-size ratchet, fallow audit
 pnpm test         # vitest + cargo test
 ```
 
