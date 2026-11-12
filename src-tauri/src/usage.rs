@@ -29,7 +29,7 @@ use std::process::Stdio;
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::agents::{
     ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_MUSE, ID_OPENCODE,
@@ -322,7 +322,7 @@ const WEEKLY_WINDOW_KEY: &str = "seven_day";
 /// per-model caps under `limits[]`; we classify each so the meter can label it and
 /// the auto-resume scheduler can match the window a CLI named. A named window we
 /// don't recognize passes through as `Opaque` - surfaced honestly, never dropped.
-#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum UsageWindowKind {
     Session,
@@ -361,14 +361,14 @@ impl UsageWindowKind {
 /// ISO-8601 reset time when known. The generic shape the meter renders and the
 /// auto-resume scheduler matches against - one entry per window the endpoint
 /// actually returns, nothing invented.
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageWindow {
-    key: String,
-    kind: UsageWindowKind,
-    label: String,
-    utilization: f64,
-    resets_at: Option<String>,
+    pub(crate) key: String,
+    pub(crate) kind: UsageWindowKind,
+    pub(crate) label: String,
+    pub(crate) utilization: f64,
+    pub(crate) resets_at: Option<String>,
 }
 
 /// The top-level key under which Claude's account response describes its
@@ -455,7 +455,7 @@ pub enum BillingAccount {
 #[derive(Serialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountUsage {
-    windows: Vec<UsageWindow>,
+    pub(crate) windows: Vec<UsageWindow>,
     plan: String,
     source: String,
     /// Stable identity of the underlying billing account, so two agents on one
@@ -1373,7 +1373,7 @@ fn humanize_window_seconds(seconds: i64) -> String {
 /// frontend countdown parses ISO strings (like the Claude windows), so we
 /// normalize here. Pure `std` arithmetic - Howard Hinnant's `civil_from_days`,
 /// no date crate.
-fn unix_seconds_to_iso8601(seconds: i64) -> String {
+pub(crate) fn unix_seconds_to_iso8601(seconds: i64) -> String {
     // The algorithm counts from 0000-03-01, so leap days fall at a year's end.
     const DAYS_FROM_MARCH_ZERO_TO_UNIX_EPOCH: i64 = 719_468;
     const DAYS_PER_ERA: i64 = 146_097;
@@ -2375,7 +2375,7 @@ mod tests {
     fn a_non_usage_body_yields_no_windows() {
         let error_body = serde_json::json!({ "error": { "message": "unauthorized" } });
 
-        assert!(collect_windows(&error_body).is_empty());
+        assert_eq!(collect_windows(&error_body), Vec::<UsageWindow>::new());
     }
 
     #[test]
@@ -2457,7 +2457,7 @@ mod tests {
         let empty =
             serde_json::json!({ "plan_type": "plus", "rate_limit": serde_json::Value::Null });
 
-        assert!(collect_codex_windows(&empty).is_empty());
+        assert_eq!(collect_codex_windows(&empty), Vec::<UsageWindow>::new());
     }
 
     #[test]
@@ -2672,7 +2672,10 @@ mod tests {
         // A 401 error blob is not a usage response - no snapshots, no windows.
         let error_body = serde_json::json!({ "message": "Bad credentials" });
 
-        assert!(collect_copilot_windows(&error_body).is_empty());
+        assert_eq!(
+            collect_copilot_windows(&error_body),
+            Vec::<UsageWindow>::new()
+        );
     }
 
     #[test]
