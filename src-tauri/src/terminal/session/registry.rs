@@ -7,15 +7,23 @@
 //! lock itself is only ever held for a map lookup, never across process or PTY
 //! I/O, so a slow teardown cannot stall another pane's input.
 
+mod error;
+mod owner;
+mod pty_handle;
+mod teardown;
+
 use std::collections::HashMap;
-use std::io::Write;
-use std::sync::{Arc, Condvar, Mutex, PoisonError, RwLock, Weak};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
-use portable_pty::{Child, MasterPty};
 use serde::{Deserialize, Serialize};
 
 use crate::util::{owner_access, OwnerAccess};
+
+pub use self::error::SessionError;
+pub(super) use self::owner::SessionOwner;
+use self::pty_handle::Pty;
+use self::teardown::Teardowns;
 
 use super::launch::{launch_process, pty_size, SessionLaunch};
 use super::output::{spawn_output_pump, History, HistorySnapshot, OutputBuffers, SessionEvents};
@@ -31,178 +39,6 @@ pub(crate) const EXIT_TEARDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 /// How often each session's exit monitor checks whether its agent process has
 /// exited on its own (see `spawn_exit_monitor`).
 const CHILD_POLL_INTERVAL: Duration = Duration::from_millis(500);
-
-/// Why a session operation failed. Typed, because callers branch on it (a
-/// duplicate spawn that lost the race reports the owner check of the session
-/// that won), and serializable, because it crosses the PTY host's protocol.
-/// The messages are what the frontend has always been shown.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum SessionError {
-    /// The session belongs to another window.
-    Foreign,
-    /// The calling window already holds its maximum number of sessions.
-    WindowFull,
-    /// A move would take the receiving window past its maximum.
-    ReceivingWindowFull,
-    /// A move named a session that is not live.
-    Missing { id: String },
-    /// The operating system, the PTY or a poisoned lock refused.
-    Failed { message: String },
-}
-
-impl SessionError {
-    pub(crate) fn failed(error: impl std::fmt::Display) -> Self {
-        Self::Failed {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl std::fmt::Display for SessionError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Foreign => formatter.write_str("PTY belongs to another window"),
-            Self::WindowFull => {
-                formatter.write_str("this window has reached its PTY session limit")
-            }
-            Self::ReceivingWindowFull => {
-                formatter.write_str("the receiving window has reached its PTY session limit")
-            }
-            Self::Missing { id } => write!(formatter, "no live session {id} to move"),
-            Self::Failed { message } => formatter.write_str(message),
-        }
-    }
-}
-
-impl std::error::Error for SessionError {}
-
-impl<T> From<PoisonError<T>> for SessionError {
-    fn from(error: PoisonError<T>) -> Self {
-        Self::failed(error)
-    }
-}
-
-/// How many sessions are being ended off the calling thread right now. Ending
-/// every session waits for them: the app is about to exit, and a process-tree
-/// kill it cut short would leave that agent running with no window to reach it.
-#[derive(Debug, Default)]
-struct Teardowns {
-    running: Mutex<usize>,
-    finished: Condvar,
-}
-
-impl Teardowns {
-    fn begin(self: &Arc<Self>) -> Teardown {
-        *self.running.lock().unwrap_or_else(PoisonError::into_inner) += 1;
-        Teardown(Arc::clone(self))
-    }
-
-    /// Block until every teardown has finished, or `timeout` has passed.
-    fn wait_for_all(&self, timeout: Duration) {
-        let running = self.running.lock().unwrap_or_else(PoisonError::into_inner);
-        let _ = self
-            .finished
-            .wait_timeout_while(running, timeout, |running| *running > 0);
-    }
-}
-
-/// One teardown in flight, counted until it is dropped - after the sessions it
-/// ends, or on a panic, so the count can never stay up.
-struct Teardown(Arc<Teardowns>);
-
-impl Drop for Teardown {
-    fn drop(&mut self) {
-        let mut running = self
-            .0
-            .running
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        *running = running.saturating_sub(1);
-        self.0.finished.notify_all();
-    }
-}
-
-/// The window a session belongs to. Shared between the registry entry and the
-/// session's output pump, so moving a live session to another window
-/// (`transfer`) re-routes its output from the very next chunk without
-/// restarting anything.
-#[derive(Clone, Debug, Default)]
-pub(super) struct SessionOwner(Arc<RwLock<String>>);
-
-impl SessionOwner {
-    fn new(label: String) -> Self {
-        Self(Arc::new(RwLock::new(label)))
-    }
-
-    /// The owning window's label - empty when the lock is poisoned, which no
-    /// window label matches, so a poisoned owner reads as foreign to everyone.
-    pub(super) fn label(&self) -> String {
-        self.0.read().map(|label| label.clone()).unwrap_or_default()
-    }
-
-    fn is(&self, label: &str) -> bool {
-        self.0.read().is_ok_and(|owner| owner.as_str() == label)
-    }
-
-    fn set(&self, label: &str) -> Result<(), SessionError> {
-        let mut owner = self.0.write()?;
-        label.clone_into(&mut owner);
-        Ok(())
-    }
-}
-
-/// One live session.
-struct Pty {
-    /// The window allowed to re-adopt and control this session.
-    owner: SessionOwner,
-    master: Mutex<Box<dyn MasterPty + Send>>,
-    writer: Mutex<Box<dyn Write + Send>>,
-    /// The agent process itself. Held so that ending a session can end the
-    /// process - see `Drop`.
-    child: Mutex<Box<dyn Child + Send + Sync>>,
-    /// The command the spawn asked for (the agent's canonical name, e.g.
-    /// `claude`) - `None` when the spawn fell through to the default shell.
-    /// Kept so a reloaded frontend can learn what each session runs.
-    command: Option<String>,
-    /// The directory the session was spawned into - its workspace mapping.
-    cwd: Option<String>,
-    /// Rolling, ANSI-stripped tail of this session's output - the context the
-    /// AI session-namer reads. Its own lock so the read thread never contends
-    /// with the sessions map.
-    transcript: Arc<Mutex<String>>,
-    /// Everything the terminal would need to paint this session from scratch.
-    /// A PTY has no scrollback of its own: whatever the frontend never received,
-    /// or received and then threw away, is gone. So a terminal that attaches to a
-    /// session already in flight - a remounted component, a reloaded window, a
-    /// restarted app - has nothing to draw and sits blank while the agent, quite
-    /// happily, waits for input. Keeping the raw stream is what lets it catch up.
-    history: Arc<Mutex<History>>,
-}
-
-impl Drop for Pty {
-    /// Ending a session has to end its whole process *tree*. Dropping the PTY only
-    /// hangs the child up, and a shell (or an agent mid-task) can outlive that.
-    /// Worse, on Windows `Child::kill` terminates the immediate child alone, so
-    /// the agent's own descendants - the shell it runs under, a `node`, a tool it
-    /// spawned - survive and keep the working directory locked, and the workspace
-    /// can then be neither deleted nor moved ("used by another process", os error
-    /// 32). Kill the tree first (while it's still walkable from the child), then
-    /// reap the immediate child, so the folder is free the moment the session ends.
-    fn drop(&mut self) {
-        let child = self.child.get_mut().unwrap_or_else(PoisonError::into_inner);
-        #[cfg(windows)]
-        if let Some(process_id) = child.process_id() {
-            crate::terminal::process_tree::kill_process_tree(process_id);
-        }
-        let _ = child.kill();
-        let _ = child.wait();
-    }
-}
 
 /// One live session as a listing reports it: its owner window, what it runs
 /// (`command` - the spawn request's agent name, `None` for the default-shell
@@ -561,122 +397,4 @@ fn spawn_exit_monitor(registry: Weak<SessionRegistry>, id: String) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::mpsc;
-
-    #[test]
-    fn a_moved_owner_is_seen_by_every_clone() {
-        let owner = SessionOwner::new("w-1".to_string());
-        let pump_view = owner.clone();
-        owner.set("w-2").expect("set owner");
-        assert!(pump_view.is("w-2"));
-        assert!(!pump_view.is("w-1"));
-        assert_eq!(pump_view.label(), "w-2");
-    }
-
-    #[test]
-    fn exit_waits_for_a_teardown_still_running() {
-        let teardowns = Arc::new(Teardowns::default());
-        let teardown = teardowns.begin();
-        let is_finished = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let worker = {
-            let is_finished = Arc::clone(&is_finished);
-            std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(100));
-                is_finished.store(true, std::sync::atomic::Ordering::SeqCst);
-                drop(teardown);
-            })
-        };
-        teardowns.wait_for_all(Duration::from_secs(5));
-        assert!(is_finished.load(std::sync::atomic::Ordering::SeqCst));
-        worker.join().expect("worker thread");
-    }
-
-    #[test]
-    fn exit_never_waits_past_its_timeout() {
-        let teardowns = Arc::new(Teardowns::default());
-        let _stuck = teardowns.begin();
-        let started = std::time::Instant::now();
-        teardowns.wait_for_all(Duration::from_millis(50));
-        assert!(started.elapsed() < Duration::from_secs(2));
-    }
-
-    #[test]
-    fn errors_keep_the_messages_the_frontend_has_always_shown() {
-        assert_eq!(
-            SessionError::Foreign.to_string(),
-            "PTY belongs to another window"
-        );
-        assert_eq!(
-            SessionError::Missing { id: "a".into() }.to_string(),
-            "no live session a to move"
-        );
-        assert_eq!(
-            serde_json::to_value(SessionError::Missing { id: "a".into() }).expect("serializable"),
-            serde_json::json!({ "kind": "missing", "id": "a" })
-        );
-    }
-
-    /// What the engine handed on, in order - a sink with no transport.
-    #[derive(Debug, PartialEq)]
-    enum Event {
-        Output(String),
-        Exited,
-    }
-
-    struct Collector(Mutex<mpsc::Sender<Event>>);
-
-    impl SessionEvents for Collector {
-        fn output(&self, _owner: &str, _id: &str, data: &str, _sequence: u64) {
-            if let Ok(sender) = self.0.lock() {
-                let _ = sender.send(Event::Output(data.to_string()));
-            }
-        }
-
-        fn exited(&self, _owner: &str, _id: &str) {
-            if let Ok(sender) = self.0.lock() {
-                let _ = sender.send(Event::Exited);
-            }
-        }
-    }
-
-    /// The whole engine without a pipe: a real PTY runs a real command, its
-    /// output reaches the sink and the history, the owner check holds, and the
-    /// session drops out of the registry once the process exits on its own.
-    #[cfg(windows)]
-    #[test]
-    fn a_real_command_streams_into_history_and_is_reaped() {
-        let (sender, receiver) = mpsc::channel();
-        let registry = SessionRegistry::new(Arc::new(Collector(Mutex::new(sender))));
-        let launch = SessionLaunch {
-            command: Some("cmd".into()),
-            columns: 80,
-            rows: 24,
-            arguments: vec!["/c".into(), "echo pade-engine-test".into()],
-            ..SessionLaunch::default()
-        };
-        registry.spawn("s1", "main", &launch).expect("spawned");
-        assert_eq!(
-            registry.history("other", "s1"),
-            Err(SessionError::Foreign),
-            "another window is refused"
-        );
-
-        let mut said = String::new();
-        let deadline = std::time::Instant::now() + Duration::from_secs(20);
-        loop {
-            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-            match receiver.recv_timeout(remaining) {
-                Ok(Event::Output(data)) => said.push_str(&data),
-                Ok(Event::Exited) | Err(_) => break,
-            }
-        }
-        assert!(said.contains("pade-engine-test"), "output was: {said:?}");
-
-        while registry.count() > 0 && std::time::Instant::now() < deadline {
-            std::thread::sleep(CHILD_POLL_INTERVAL);
-        }
-        assert_eq!(registry.count(), 0, "the exited session is reaped");
-    }
-}
+mod tests;
