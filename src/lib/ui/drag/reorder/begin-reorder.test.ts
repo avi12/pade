@@ -5,18 +5,39 @@
 import { beginReorder } from "@/lib/ui/drag/reorder/drag-reorder";
 import { Axis } from "@/lib/ui/drag/reorder/reorder-types";
 import type { BeginReorderOptions } from "@/lib/ui/drag/reorder/reorder-types";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest";
 
 const SLOT_WIDTH = 100;
 const SLOT_HEIGHT = 20;
 const THRESHOLD = 5;
 
-const mocks = vi.hoisted(() => ({
-  hit: { isOutside: false, side: null as null | { id: string; side: string } },
-  shield: { remove: vi.fn() }
-}));
+const mocks = vi.hoisted(() => {
+  const hit: {
+    isOutside: boolean;
+    side: null | {
+      id: string;
+      side: string;
+    };
+  } = {
+    isOutside: false,
+    side: null
+  };
+  return {
+    hit,
+    shield: {
+      remove: vi.fn()
+    }
+  };
+});
 
-vi.mock("svelte", () => ({ tick: async () => {} }));
+vi.mock("svelte", () => ({ async tick() {} }));
 vi.mock("@/lib/ui/motion", () => ({ prefersReducedMotion: () => true }));
 vi.mock("@/lib/ui/drag/reorder/reorder-hit-test", () => ({
   hitElementAt: () => null,
@@ -36,7 +57,10 @@ vi.mock("@/lib/ui/drag/reorder/reorder-geometry", async importOriginal => {
   const original = await importOriginal<typeof import("@/lib/ui/drag/reorder/reorder-geometry")>();
   return {
     ...original,
-    measureSiblings: ({ elParent, idAttribute }: { elParent: FakeElement; idAttribute: string }) =>
+    measureSiblings: ({ elParent, idAttribute }: {
+      elParent: FakeElement;
+      idAttribute: string;
+    }) =>
       elParent.children.map((elItem, i) => ({
         id: elItem.getAttribute(idAttribute) ?? "",
         elItem,
@@ -64,17 +88,41 @@ class FakeElement {
 type Listener = (e: unknown) => void;
 const listeners = new Map<string, Set<Listener>>();
 
-function fire({ type, detail }: { type: string; detail: Record<string, unknown> }) {
-  for (const listener of [...(listeners.get(type) ?? [])]) {
+function fire({ type, detail }: {
+  type: string;
+  detail: Record<string, unknown>;
+}) {
+  for (const listener of listeners.get(type) ?? []) {
     listener(detail);
   }
 }
 
-function pointer({ type, x }: { type: string; x: number }) {
-  fire({ type, detail: { clientX: x, clientY: 0 } });
+function pointer({ type, x }: {
+  type: string;
+  x: number;
+}) {
+  fire({
+    type,
+    detail: {
+      clientX: x,
+      clientY: 0
+    }
+  });
 }
 
-function setUp() {
+function isReorderOptions(value: unknown): value is BeginReorderOptions {
+  return typeof value === "object" && value !== null && "e" in value;
+}
+
+function reorderOptions(value: unknown) {
+  if (!isReorderOptions(value)) {
+    throw new TypeError("not reorder options");
+  }
+
+  return value;
+}
+
+function setUp({ button = 0 } = {}) {
   const elParent = new FakeElement();
   const elItems = ["a", "b", "c"].map(id => new FakeElement({ "data-id": id }));
   for (const elItem of elItems) {
@@ -84,8 +132,13 @@ function setUp() {
   const onCommit = vi.fn();
   const onHint = vi.fn();
   const onDropOutside = vi.fn();
-  const options = {
-    e: { button: 0, target: elItems[0], clientX: 10, clientY: 0 },
+  const options = reorderOptions({
+    e: {
+      button,
+      target: elItems[0],
+      clientX: 10,
+      clientY: 0
+    },
     itemSelector: ".item",
     idAttribute: "data-id",
     axis: Axis.Horizontal,
@@ -93,18 +146,32 @@ function setUp() {
     onHint,
     onDropOutside,
     outsideSelector: ".outside"
-  } as unknown as BeginReorderOptions;
-  return { options, elItems, onCommit, onHint, onDropOutside };
+  });
+  return {
+    options,
+    elItems,
+    onCommit,
+    onHint,
+    onDropOutside
+  };
 }
 
-const flush = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+function flush() {
+  return new Promise<void>(resolve => setTimeout(resolve, 0));
+}
 
 beforeEach(() => {
   listeners.clear();
   mocks.hit.isOutside = false;
   mocks.hit.side = null;
   vi.stubGlobal("Element", FakeElement);
-  vi.stubGlobal("document", { body: { style: { userSelect: "auto" } } });
+  vi.stubGlobal("document", {
+    body: {
+      style: {
+        userSelect: "auto"
+      }
+    }
+  });
   vi.stubGlobal("addEventListener", (type: string, listener: Listener) => {
     listeners.set(type, (listeners.get(type) ?? new Set()).add(listener));
   });
@@ -114,7 +181,10 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  pointer({ type: "pointercancel", x: 0 });
+  pointer({
+    type: "pointercancel",
+    x: 0
+  });
   await flush();
   vi.unstubAllGlobals();
 });
@@ -123,7 +193,10 @@ describe("beginReorder", () => {
   it("commits nothing and reports nothing for a press that never moved", async () => {
     const { options, onCommit, onHint } = setUp();
     beginReorder(options);
-    pointer({ type: "pointerup", x: 10 });
+    pointer({
+      type: "pointerup",
+      x: 10
+    });
     await flush();
 
     expect(onCommit).not.toHaveBeenCalled();
@@ -141,8 +214,8 @@ describe("beginReorder", () => {
   });
 
   it("ignores a non-primary press", () => {
-    const { options } = setUp();
-    beginReorder({ ...options, e: { ...options.e, button: 1 } as PointerEvent });
+    const { options } = setUp({ button: 1 });
+    beginReorder(options);
 
     expect(listeners.get("pointermove")?.size ?? 0).toBe(0);
   });
@@ -150,7 +223,10 @@ describe("beginReorder", () => {
   it("slides the dragged item with the pointer and reports a hint", () => {
     const { options, elItems, onHint } = setUp();
     beginReorder(options);
-    pointer({ type: "pointermove", x: 10 + THRESHOLD + 40 });
+    pointer({
+      type: "pointermove",
+      x: 10 + THRESHOLD + 40
+    });
 
     expect(elItems[0].style.translate).toBe("45px 0px");
     expect(onHint).toHaveBeenLastCalledWith({
@@ -165,8 +241,14 @@ describe("beginReorder", () => {
   it("commits the moved order after a drop past a neighbour", async () => {
     const { options, onCommit, onHint } = setUp();
     beginReorder(options);
-    pointer({ type: "pointermove", x: 10 + 130 });
-    pointer({ type: "pointerup", x: 140 });
+    pointer({
+      type: "pointermove",
+      x: 10 + 130
+    });
+    pointer({
+      type: "pointerup",
+      x: 140
+    });
     await flush();
 
     expect(onCommit).toHaveBeenCalledWith(["b", "a", "c"]);
@@ -176,8 +258,14 @@ describe("beginReorder", () => {
   it("commits the unchanged order for a drop back in the same slot", async () => {
     const { options, onCommit } = setUp();
     beginReorder(options);
-    pointer({ type: "pointermove", x: 20 });
-    pointer({ type: "pointerup", x: 20 });
+    pointer({
+      type: "pointermove",
+      x: 20
+    });
+    pointer({
+      type: "pointerup",
+      x: 20
+    });
     await flush();
 
     expect(onCommit).toHaveBeenCalledWith(["a", "b", "c"]);
@@ -186,8 +274,17 @@ describe("beginReorder", () => {
   it("commits nothing on Escape and clears the hint", async () => {
     const { options, onCommit, onHint } = setUp();
     beginReorder(options);
-    pointer({ type: "pointermove", x: 140 });
-    fire({ type: "keydown", detail: { key: "Escape", preventDefault: vi.fn() } });
+    pointer({
+      type: "pointermove",
+      x: 140
+    });
+    fire({
+      type: "keydown",
+      detail: {
+        key: "Escape",
+        preventDefault: vi.fn()
+      }
+    });
     await flush();
 
     expect(onCommit).not.toHaveBeenCalled();
@@ -198,15 +295,27 @@ describe("beginReorder", () => {
     const { options, onCommit, onDropOutside, onHint } = setUp();
     beginReorder(options);
     mocks.hit.isOutside = true;
-    mocks.hit.side = { id: "pane", side: "left" };
-    pointer({ type: "pointermove", x: 60 });
-    pointer({ type: "pointerup", x: 60 });
+    mocks.hit.side = {
+      id: "pane",
+      side: "left"
+    };
+    pointer({
+      type: "pointermove",
+      x: 60
+    });
+    pointer({
+      type: "pointerup",
+      x: 60
+    });
     await flush();
 
     expect(onCommit).not.toHaveBeenCalled();
     expect(onDropOutside).toHaveBeenCalledWith({
       id: "a",
-      dropTarget: { id: "pane", side: "left" },
+      dropTarget: {
+        id: "pane",
+        side: "left"
+      },
       pointerX: 60,
       pointerY: 0
     });
@@ -216,8 +325,14 @@ describe("beginReorder", () => {
   it("allows a new drag once the previous one has settled", async () => {
     const first = setUp();
     beginReorder(first.options);
-    pointer({ type: "pointermove", x: 140 });
-    pointer({ type: "pointerup", x: 140 });
+    pointer({
+      type: "pointermove",
+      x: 140
+    });
+    pointer({
+      type: "pointerup",
+      x: 140
+    });
     await flush();
     const second = setUp();
     beginReorder(second.options);
