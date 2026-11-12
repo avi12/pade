@@ -2,7 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import type { OpenTarget } from "@/lib/types";
-  import CloneForm from "@/panels/picker/CloneForm.svelte";
+  import CloneForm from "@/panels/picker/clone/CloneForm.svelte";
   import { onMount } from "svelte";
 
   // The composer menu's Clone tab: git clone a repository into a root, gated

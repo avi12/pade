@@ -3,7 +3,7 @@
   import type { OpenTarget } from "@/lib/types";
   import { ToggleState } from "@/lib/ui/controls/toggle-state";
   import { rovingTablist } from "@/lib/ui/keyboard/roving-tabs";
-  import ClonePanel from "@/panels/picker/ClonePanel.svelte";
+  import ClonePanel from "@/panels/picker/clone/ClonePanel.svelte";
   import {
     HOME_MENU_TABS,
     homeMenuPanelId,

@@ -1,4 +1,4 @@
-import { cloneRepository } from "@/panels/picker/clone-repository";
+import { cloneRepository } from "@/panels/picker/clone/clone-repository";
 import {
   beforeEach,
   describe,

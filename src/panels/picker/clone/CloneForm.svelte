@@ -10,9 +10,9 @@
     ProjectName,
     repositoryFolderName
   } from "@/lib/validate";
-  import { cloneRepository } from "@/panels/picker/clone-repository";
-  import CloneCredentials from "@/panels/picker/CloneCredentials.svelte";
-  import CloneUrlField from "@/panels/picker/CloneUrlField.svelte";
+  import { cloneRepository } from "@/panels/picker/clone/clone-repository";
+  import CloneCredentials from "@/panels/picker/clone/CloneCredentials.svelte";
+  import CloneUrlField from "@/panels/picker/clone/CloneUrlField.svelte";
   import RootSelect from "@/panels/picker/RootSelect.svelte";
 
   // The Clone tab's form, once git is known to be installed: repository URL
