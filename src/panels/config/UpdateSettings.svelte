@@ -29,7 +29,11 @@
     </span>
   </label>
   {#if newer}
-    <button class="field-action" onclick={async () => await openLink(newer.releaseUrl)} type="button">Open release page</button>
+    <button
+      class="field-action"
+      onclick={async () => await openLink(newer.releaseUrl)}
+      type="button"
+    >Open release page</button>
   {:else}
     <button
       class="field-action"

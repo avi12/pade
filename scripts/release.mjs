@@ -1,9 +1,4 @@
-import {
-  CARGO_MANIFEST,
-  MSIX_ONLY_FLAG,
-  read,
-  REPOSITORY
-} from "./release-pipeline/environment.mjs";
+import { CARGO_MANIFEST, MSIX_ONLY_FLAG, read, REPOSITORY } from "./release-pipeline/environment.mjs";
 import { commitAndTag, createGitHubRelease } from "./release-pipeline/github.mjs";
 import { packMsixOnly } from "./release-pipeline/msix.mjs";
 import { buildReleaseFiles } from "./release-pipeline/release-files.mjs";
