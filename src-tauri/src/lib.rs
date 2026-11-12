@@ -138,6 +138,7 @@ pub fn run() {
             agents::running_model::init(handle);
             agents::conversation_watch::init(handle);
             update::init(handle);
+            pacing::init(handle);
             app.manage(platform::window::WindowProjects::default());
             app.manage(platform::discord::DiscordState::default());
             // Paint the main window in-theme before showing it, so a dark desktop
@@ -254,6 +255,8 @@ pub fn run() {
             usage::usage_account_agent,
             usage::limit_reset::limit_reset_offers,
             usage::limit_reset::limit_reset_claim,
+            pacing::pacing_report,
+            pacing::pacing_shadow_summary,
             agents::naming::project_autoname,
             agents::naming::session_generate_name,
             agents::summary::session_summarize,
