@@ -15,5 +15,8 @@
 pub mod model_cost;
 pub mod model_label;
 pub mod reset_time;
+#[cfg(test)]
+mod test_support;
 pub mod token_price;
 pub mod units;
+pub mod usage_pace;
