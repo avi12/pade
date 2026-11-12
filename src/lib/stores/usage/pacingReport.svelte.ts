@@ -3,7 +3,7 @@
 // what this window's loop actually decided (`recordObserved`); it acts on
 // nothing. Facts read from where they already live - the loop owns its own
 // (`OwnedFacts`), the rest comes from the app's stores - and the shaping is
-// lib/usage/pacing/report-facts.
+// lib/usage/pacing/shadow-report/report-facts.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
@@ -15,10 +15,10 @@ import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { adaptedChoice, adaptedSteps, originalChoice } from "@/lib/stores/usage/usageAdapt.svelte";
 import { hasUsageLimit } from "@/lib/stores/usage/usageResume.svelte";
 import type { AgentSession } from "@/lib/types/agent";
-import { createObservedRecorder } from "@/lib/usage/pacing/observed-decisions";
-import type { ObservedKind, PacingReport } from "@/lib/usage/pacing/pacing-report";
-import { choiceFactsOf, sessionFactsOf } from "@/lib/usage/pacing/report-facts";
-import type { OwnedFacts } from "@/lib/usage/pacing/report-facts";
+import { createObservedRecorder } from "@/lib/usage/pacing/shadow-report/observed-decisions";
+import type { ObservedKind, PacingReport } from "@/lib/usage/pacing/shadow-report/pacing-report";
+import { choiceFactsOf, sessionFactsOf } from "@/lib/usage/pacing/shadow-report/report-facts";
+import type { OwnedFacts } from "@/lib/usage/pacing/shadow-report/report-facts";
 
 const recorder = createObservedRecorder();
 

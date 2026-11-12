@@ -91,9 +91,9 @@ import {
 import { measuredBurn } from "@/lib/usage/pacing/session-control/measured-burn";
 import type { MeasuredBurn } from "@/lib/usage/pacing/session-control/measured-burn";
 import { MILLISECONDS_PER_MINUTE, PACING_STEP_ORDER, pacingMargin, spokenTime } from "@/lib/usage/pacing/engine/pacing-policy";
-import { ObservedKind, PacePhase } from "@/lib/usage/pacing/pacing-report";
-import { paceFactsOf } from "@/lib/usage/pacing/report-facts";
-import type { OwnedFacts } from "@/lib/usage/pacing/report-facts";
+import { ObservedKind, PacePhase } from "@/lib/usage/pacing/shadow-report/pacing-report";
+import { paceFactsOf } from "@/lib/usage/pacing/shadow-report/report-facts";
+import type { OwnedFacts } from "@/lib/usage/pacing/shadow-report/report-facts";
 import { canHoldRest, heldRestUntil } from "@/lib/usage/pacing/session-control/rest-hold";
 import {
   assessPace,

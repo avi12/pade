@@ -1,5 +1,5 @@
-import { createObservedRecorder } from "@/lib/usage/pacing/observed-decisions";
-import { ObservedKind } from "@/lib/usage/pacing/pacing-report";
+import { createObservedRecorder } from "@/lib/usage/pacing/shadow-report/observed-decisions";
+import { ObservedKind } from "@/lib/usage/pacing/shadow-report/pacing-report";
 import { describe, expect, it } from "vitest";
 
 const NOW = 1_000;

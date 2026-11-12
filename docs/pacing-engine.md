@@ -118,7 +118,7 @@ Shadow mode means: NO control-file writes, NO events that change behaviour, NO P
 - zod schemas next to the protocol (`@/lib/ipc/messaging` + `src/lib/types/<domain>.ts` conventions), types via
   `z.infer`; a drift-guard test must pass.
 - Minimal, surgical edits to `usagePacing.svelte.ts`: only call sites for the recorder + the report; no
-  behaviour change. Pure helpers in `src/lib/usage/pacing/`.
+  behaviour change. Pure helpers in `src/lib/usage/pacing/` (`engine/` is what Rust mirrors, `shadow-report/` the report shaping).
 
 ## Verification the work must include
 - Rust: unit tests for every `decide` branch (ported from the behaviours in `usage-pacing.test.ts`, the

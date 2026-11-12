@@ -14,8 +14,8 @@ import type { ModelChoice } from "@/lib/types/agent";
 import { ChatStorage, RecordedConversation, RecordedConversationsChanged } from "@/lib/types/chat-storage";
 import type { PacingControlPartKind, PacingRestUntil, PacingThrottle } from "@/lib/types/pacing";
 import type { Scheme } from "@/lib/types/theme";
-import { ShadowSummary } from "@/lib/usage/pacing/pacing-report";
-import type { PacingReport } from "@/lib/usage/pacing/pacing-report";
+import { ShadowSummary } from "@/lib/usage/pacing/shadow-report/pacing-report";
+import type { PacingReport } from "@/lib/usage/pacing/shadow-report/pacing-report";
 import { z } from "zod";
 
 export const AGENT_COMMANDS = {

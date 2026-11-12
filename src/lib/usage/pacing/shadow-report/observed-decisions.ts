@@ -1,5 +1,5 @@
-import { ObservedKind } from "@/lib/usage/pacing/pacing-report";
-import type { ObservedDecision } from "@/lib/usage/pacing/pacing-report";
+import { ObservedKind } from "@/lib/usage/pacing/shadow-report/pacing-report";
+import type { ObservedDecision } from "@/lib/usage/pacing/shadow-report/pacing-report";
 
 /** What the pacing loop decided, collected as it goes and handed over with the
  *  next report. A session the loop judged and took no step on reports `none`,
