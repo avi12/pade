@@ -8,8 +8,8 @@ module is added, split, or renamed.
 Two layers, one boundary: the Svelte frontend never talks to Tauri directly -
 every IPC call funnels through `src/lib/ipc/` (`sendMessage` / `onMessage` in
 `messaging.ts`), where every response and event payload is validated with zod.
-Shared payload schemas live in `src/lib/types.ts`; argument shapes live in the
-protocol maps beside the `Command` / `EventType` enums.
+Shared payload schemas live in `src/lib/types/<domain>.ts`; argument shapes live in the
+protocol maps beside the `Command` / `EventType` members, per domain in `src/lib/ipc/domains/`.
 
 ## How it works
 
@@ -686,10 +686,34 @@ flowchart LR
 
 | Module | Responsibility | Collaborators |
 | --- | --- | --- |
-| `src/lib/ipc/messaging.ts` | The single UI ↔ Rust boundary: the `Command` / `EventType` enums, the protocol maps (argument and reply/payload types), the zod schema records checked against them, and the `sendMessage` / `onMessage` every caller uses | `types`, `define-tauri-messaging`, everywhere |
+| `src/lib/ipc/messaging.ts` | The single UI ↔ Rust boundary: the `Command` / `EventType` objects and the protocol maps, response and payload schema records composed from each domain's pieces (`ipc/domains/*`), and the `sendMessage` / `onMessage` every caller uses | `ipc/domains/*`, `define-tauri-messaging`, everywhere |
+| `src/lib/ipc/domains/agent.ts` | Agent commands and events: detect, theme publish, models, pacing control, chat storage, conversations, session context and token usage, autoname | `types/agent`, `types/chat-storage`, `types/pacing` |
+| `src/lib/ipc/domains/editor.ts` | Editor, design-tool and external-open commands: `ide_*`, `design_*`, explorer, terminal, URL | `types/editor`, `types/window` |
+| `src/lib/ipc/domains/window.ts` | Window commands and events: create, register, focus, reorder, hand off, theme, restart, drag-and-drop, launch context | `types/window` |
+| `src/lib/ipc/domains/system.ts` | OS integration: clipboard image, Discord presence, Explorer context menu, the updater | `types/update` |
+| `src/lib/ipc/domains/terminal.ts` | PTY sessions, attached task runners, the task runner and the manifests that feed it: commands and `pty://` / `runner://` events | `types/terminal` |
+| `src/lib/ipc/domains/feed.ts` | The Change Feed and its watches: watch roots, directories, languages, previews, ignore state and the events about them | `types/feed` |
+| `src/lib/ipc/domains/vcs.ts` | Version control: status, log, diffs, branches, pull, commit, clone, worktrees, restore, and `git://state` | `types/vcs` |
+| `src/lib/ipc/domains/usage.ts` | Usage meter and limit-reset commands | `types/usage` |
+| `src/lib/ipc/domains/workspace.ts` | Workspace and project commands: roots, scan, open, create, move, rename, pin, delete, members, and `relocate://progress` | `types/workspace` |
+| `src/lib/ipc/domains/settings.ts` | Settings, prefs, default agent, config files, terminal schemes, and the `settings://` / `theme://` events | `types/settings`, `types/theme` |
+| `src/lib/ipc/domains/no-reply.ts` | The one schema for a unit-returning command (Rust `()` arrives as null) | `zod` |
+| `src/lib/ipc/domains/path-data.ts` | The `{ path }` argument shape several domains share | - |
 | `src/lib/ipc/define-tauri-messaging.ts` | Protocol-agnostic factory: `sendMessage` invokes a command and parses its reply, `onMessage` listens window-scoped and parses each payload | `ipc/platform`, `@tauri-apps/api` |
 | `src/lib/ipc/platform.ts` | The Tauri APIs that are not app commands: this window's label, title, focus and close request, the clipboard plugin | `@tauri-apps/api`, `@tauri-apps/plugin-clipboard-manager` |
-| `src/lib/types.ts` | Zod schemas + TS types for every IPC payload; shared enums | `ipc/messaging`, everywhere |
+| `src/lib/types/feed.ts` | Change Feed payloads: changes, previews (diff, image, video), watch status | `ipc/domains/*`, everywhere |
+| `src/lib/types/workspace.ts` | Workspace and project payloads: members, project entries, add-root outcome, path probe, relocate progress, save migration | `ipc/domains/*`, everywhere |
+| `src/lib/types/window.ts` | Window payloads: modes, directions, open targets, launch context, window info, drag-and-drop | `ipc/domains/*`, everywhere |
+| `src/lib/types/vcs.ts` | Version-control payloads: status, commits, restore candidates, pull outcome | `ipc/domains/*`, everywhere |
+| `src/lib/types/agent.ts` | Agent payloads: the agent record, sessions, context, token usage, models, MCP changes, Claude keybindings | `ipc/domains/*`, everywhere |
+| `src/lib/types/chat-storage.ts` | Recorded conversations and the chat storage report | `ipc/domains/*`, everywhere |
+| `src/lib/types/terminal.ts` | PTY and task-runner payloads, task groups and their manifest descriptors | `ipc/domains/*`, everywhere |
+| `src/lib/types/editor.ts` | Editors, language shares and design tools | `ipc/domains/*`, everywhere |
+| `src/lib/types/usage.ts` | Usage windows, credits, account readings and limit resets | `ipc/domains/*`, everywhere |
+| `src/lib/types/pacing.ts` | Pacing vocabulary: steps, paced windows, subagent steps, throttle, rest | `ipc/domains/*`, everywhere |
+| `src/lib/types/update.ts` | Updater kind and update status | `ipc/domains/*`, everywhere |
+| `src/lib/types/theme.ts` | Theme mode, palette, scheme, terminal scheme and diff style | `ipc/domains/*`, everywhere |
+| `src/lib/types/settings.ts` | `Prefs` and `Settings` (with the legacy-skin migration), their choice lists, start mode and config files | `ipc/domains/*`, everywhere |
 | `src/lib/validate.ts` | User-input schemas (trust boundary) + `parseInput` / `nameError`; owns the clone-URL shape knowledge - `CloneUrl` (https / ssh / scp-like), `GitUsername`, `GitSecret`, `isSshCloneUrl`, `repositoryFolderName` | form components |
 | `src/lib/Icon.svelte` | The one icon renderer: every glyph is a `.svg` in a semantic subfolder of `src/lib/icons/` (agents, editors, languages, actions, ...), found by its base name (a duplicate name fails loudly) and named in `ICON_NAMES` | everything |
 
@@ -988,7 +1012,7 @@ flowchart LR
 | `src/lib/settings/prefs.svelte.ts` | Effective preference defaults and browser appearance application; preference writes are queued field patches through `sendSettingsMessage` and every adopted settings response triggers appearance reapplication | `App`, panels, `settings.svelte` |
 | `src/lib/settings/prefs-bounds.ts` | The one home for preference numeric bounds (side-panel width min/max/default/max-fraction, UI-scale min/max/step). A plain leaf module so the `Prefs` zod schema (`types`), the Config stepper, and the side-panel clamp all validate against the same numbers instead of re-spelling them | `types`, `prefs.svelte`, `ui-scale`, `config/appearance/FontSizeStepper` |
 | `src/lib/settings/ui-scale.ts` | `steppedUiScale`: one A− / A+ step of the UI scale within its bounds, kept on a hundredths grid (1.05, never 1.0500000000000003) | `prefs-bounds`, `config/appearance/FontSizeStepper` |
-| `src/lib/settings/theme-mode.ts` | Pure resolution of the two picks - the theme mode and the skin - into the two things the document root wears: the light/dark `scheme` (`data-theme`) and the token set over it (`data-palette`). "Light"/"Dark" name a scheme and "Auto" takes the OS's; the skin (Default or Cyberpunk) lays over any of them, and a skin that ships a terminal face adopts it. A legacy `themeMode: "cyberpunk"` is read at the `Settings` schema (`lib/types`) as Auto with the Cyberpunk skin | `prefs.svelte`, `types` |
+| `src/lib/settings/theme-mode.ts` | Pure resolution of the two picks - the theme mode and the skin - into the two things the document root wears: the light/dark `scheme` (`data-theme`) and the token set over it (`data-palette`). "Light"/"Dark" name a scheme and "Auto" takes the OS's; the skin (Default or Cyberpunk) lays over any of them, and a skin that ships a terminal face adopts it. A legacy `themeMode: "cyberpunk"` is read at the `Settings` schema (`lib/types/settings`) as Auto with the Cyberpunk skin | `prefs.svelte`, `types` |
 
 ### UI primitives (`src/lib/ui/`)
 

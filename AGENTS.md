@@ -25,7 +25,8 @@ These are non-negotiable for all work in this repo.
      `onMessage(EventType.x, ({ data }) => …)` from `@/lib/ipc/messaging`, shaped
      like `@webext-core/messaging`. UI never talks to Tauri directly. A new Rust
      command or event gets its `Command` / `EventType` member, its protocol-map
-     entry and its zod schema there (the drift-guard test fails until it does);
+     entry and its zod schema in the `lib/ipc/domains/<domain>.ts` that owns it (the
+     drift-guard test fails until it does);
      a helper on top of `sendMessage` exists only when it adds behaviour (e.g.
      `sendSettingsMessage`), never as a pass-through wrapper.
 

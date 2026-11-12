@@ -15,7 +15,7 @@ nothing. Phase 2 (a later, separate change) switches the engine on and deletes t
 - SoC: a PURE decision core (no I/O, no clock, no threads, fully unit-testable) separate from adapters
   (IPC commands, the tick scheduler, persistence, the shadow log). `lib.rs` only wires.
 - Frontend rules: IPC only through `@/lib/ipc/messaging` (`Command`/`EventType` member + protocol-map entry +
-  zod schema; the drift-guard test fails until all exist), `@/` imports, no `void`, etc.
+  zod schema, all in its `ipc/domains/<domain>.ts`; the drift-guard test fails until all exist), `@/` imports, no `void`, etc.
 - Rust rules: invoke the `rust-best-practices` skill; commands that do non-trivial work are `async fn`;
   never hold the app-wide mutex across I/O.
 
@@ -115,7 +115,7 @@ Shadow mode means: NO control-file writes, NO events that change behaviour, NO P
   (reads from `usagePacing`'s own state - do not recompute anything that already has an owner) and sends
   it via `sendMessage(Command.pacingReport, ...)`. Records each decision the TS actually takes during the scan as
   `ObservedDecision`s (a small typed recorder the TS pacing loop calls at its decision points).
-- zod schemas next to the protocol (`@/lib/ipc/messaging` + `src/lib/types.ts` conventions), types via
+- zod schemas next to the protocol (`@/lib/ipc/messaging` + `src/lib/types/<domain>.ts` conventions), types via
   `z.infer`; a drift-guard test must pass.
 - Minimal, surgical edits to `usagePacing.svelte.ts`: only call sites for the recorder + the report; no
   behaviour change. Pure helpers in `src/lib/usage/pacing/`.
