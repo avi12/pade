@@ -76,7 +76,7 @@ export default defineConfig({
   },
   // Unit tests share this config, so `@/` resolves in tests exactly as in the app.
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
     environment: "node"
   }
 });
