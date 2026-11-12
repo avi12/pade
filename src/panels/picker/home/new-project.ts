@@ -2,7 +2,7 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { OpenTarget } from "@/lib/types";
 import { childPath } from "@/lib/util/paths";
 import { FirstPrompt, parseInput, ProjectName } from "@/lib/validate";
-import type { HomeStart } from "@/panels/picker/home-composer";
+import type { HomeStart } from "@/panels/picker/home/home-composer";
 
 /** What the disk holds at a would-be project path, tagged with that path so an
  *  out-of-order answer never gates the text currently typed. */

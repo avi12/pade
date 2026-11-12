@@ -1,10 +1,10 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { baseName, displaySeparator } from "@/lib/util/paths";
-  import { NEW_PROJECT_PLACEHOLDER } from "@/panels/picker/home-composer";
-  import HomeProjectSuggestions from "@/panels/picker/HomeProjectSuggestions.svelte";
-  import type { ProjectOption } from "@/panels/picker/project-suggestions";
-  import { matchingProjects, suggestionKeyStep, SuggestionStepKind } from "@/panels/picker/project-suggestions";
+  import { NEW_PROJECT_PLACEHOLDER } from "@/panels/picker/home/home-composer";
+  import HomeProjectSuggestions from "@/panels/picker/home/HomeProjectSuggestions.svelte";
+  import type { ProjectOption } from "@/panels/picker/home/project-suggestions";
+  import { matchingProjects, suggestionKeyStep, SuggestionStepKind } from "@/panels/picker/home/project-suggestions";
   import RootSelect from "@/panels/picker/RootSelect.svelte";
 
   // The composer's project slot while a new project is picked: the trigger

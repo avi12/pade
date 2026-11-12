@@ -4,7 +4,7 @@ import {
   ProjectChoice,
   projectTrigger,
   resolveHomeStart
-} from "@/panels/picker/home-composer";
+} from "@/panels/picker/home/home-composer";
 import { describe, expect, it } from "vitest";
 
 const ROOT = "C:\\repositories";

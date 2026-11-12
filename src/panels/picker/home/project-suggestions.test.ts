@@ -4,7 +4,7 @@ import {
   MAX_PROJECT_SUGGESTIONS,
   suggestionKeyStep,
   SuggestionStepKind
-} from "@/panels/picker/project-suggestions";
+} from "@/panels/picker/home/project-suggestions";
 import { describe, expect, it } from "vitest";
 
 const VISIBLE_THREE = {

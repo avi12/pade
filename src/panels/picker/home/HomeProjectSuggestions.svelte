@@ -4,7 +4,7 @@
   import { isTemporaryWorkspace, projectRootPrefix } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/display/RootedName.svelte";
   import TempBadge from "@/lib/workspace/display/TempBadge.svelte";
-  import type { ProjectOption } from "@/panels/picker/project-suggestions";
+  import type { ProjectOption } from "@/panels/picker/home/project-suggestions";
 
   // The existing projects a typed new-project name matches, under the name
   // field as a top-layer listbox anchored to it: one click (or arrows, then

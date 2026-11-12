@@ -12,13 +12,13 @@
     ProjectChoice,
     projectTrigger,
     resolveHomeStart
-  } from "@/panels/picker/home-composer";
-  import HomeAgentMenu from "@/panels/picker/HomeAgentMenu.svelte";
-  import HomeNewProjectField from "@/panels/picker/HomeNewProjectField.svelte";
+  } from "@/panels/picker/home/home-composer";
+  import HomeAgentMenu from "@/panels/picker/home/HomeAgentMenu.svelte";
+  import HomeNewProjectField from "@/panels/picker/home/HomeNewProjectField.svelte";
   import HomeProjectMenu from "@/panels/picker/HomeProjectMenu.svelte";
-  import HomeStartButton from "@/panels/picker/HomeStartButton.svelte";
-  import type { CreateTarget } from "@/panels/picker/new-project";
-  import type { ProjectOption } from "@/panels/picker/project-suggestions";
+  import HomeStartButton from "@/panels/picker/home/HomeStartButton.svelte";
+  import type { CreateTarget } from "@/panels/picker/home/new-project";
+  import type { ProjectOption } from "@/panels/picker/home/project-suggestions";
 
   // Home: the picker's composer card - one prompt field with a project menu on
   // its left and an LLM menu on its right, then Start. The project menu lists

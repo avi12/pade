@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { OpenTarget } from "@/lib/types";
-  import type { HomeStart } from "@/panels/picker/home-composer";
-  import { startFromHome } from "@/panels/picker/new-project";
-  import type { CreateTarget } from "@/panels/picker/new-project";
+  import type { HomeStart } from "@/panels/picker/home/home-composer";
+  import { startFromHome } from "@/panels/picker/home/new-project";
+  import type { CreateTarget } from "@/panels/picker/home/new-project";
 
   // The composer's Start: carries out what the composer resolved, busy while
   // a project is created or a throwaway workspace started. It submits its

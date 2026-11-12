@@ -1,6 +1,6 @@
 import type { PathProbe } from "@/lib/types";
 import { childPath } from "@/lib/util/paths";
-import { startTempWorkspace, submitNewProject } from "@/panels/picker/new-project";
+import { startTempWorkspace, submitNewProject } from "@/panels/picker/home/new-project";
 import {
   beforeEach,
   describe,

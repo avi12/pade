@@ -13,7 +13,7 @@
   import "@/panels/picker/chrome.css";
   import { createEditorCatalog } from "@/panels/picker/editorCatalog.svelte";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
-  import HomeSection from "@/panels/picker/HomeSection.svelte";
+  import HomeSection from "@/panels/picker/home/HomeSection.svelte";
   import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";
   import "@/panels/picker/project-form.css";
