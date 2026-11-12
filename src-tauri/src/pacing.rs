@@ -12,6 +12,7 @@
 //! on every account), and the model reads they price by - `model_label`,
 //! `model_cost` and `token_price`.
 
+pub mod load_shedding;
 pub mod model_cost;
 pub mod model_label;
 pub mod policy;
