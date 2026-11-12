@@ -1282,6 +1282,8 @@ flowchart TB
   end
   subgraph Pacing["pacing.rs + pacing/"]
     Pc1["pure usage-pacing math<br/>units · usage_pace · load_shedding<br/>subagent_steps · account_round"]
+    Pc2["shadow engine (phase 1)<br/>facts · registry · samples<br/>engine · shadow"]
+    Pc2 --> Pc1
   end
   Vcs["vcs/<br/>git backend"]
   Util["util.rs<br/>clock · shell · paths · IPC bounds · JSON"]
@@ -1392,7 +1394,7 @@ The pure half of usage pacing, ported 1:1 from `src/lib/usage/pacing/` so the ba
 
 | Module | Responsibility |
 | --- | --- |
-| `pacing.rs` | Declares the submodules below; holds nothing else |
+| `pacing.rs` | Declares the submodules below, and wires the shadow engine: the `PacingEngine` state (a lock per piece), the `pacing_report` and `pacing_shadow_summary` commands, and the 60 s tick (read each worked account once, record its burn, `engine::decide`, `shadow` comparison, then write the sample book and the log line off the lock) |
 | `pacing/units.rs` | The typed numbers the formula computes in - `EpochMilliseconds`, `SpanMilliseconds`, `Percentage`, `BurnRate`, `Fraction` - each a transparent `f64` newtype whose operators allow only the combinations the formula uses (a time minus a time is a span, a percentage over a span is a rate), with `Duration` conversions at the edge |
 | `pacing/reset_time.rs` | `usage_reset_time`: a window's reset string (microsecond stamp, `Z` or an offset) as an `EpochMilliseconds`, on `util::days_since_epoch`, no date crate |
 | `pacing/usage_pace.rs` | The pace formula (`usage-pace.ts`): `burn_rate`, `assess_pace`, `pace_forecasts`, `is_forecast_over_pace`, `has_room_to_spare`, `working_runway`, `is_rest_enough`, `work_rhythm`, `slow_rest_until`, and `PacedWindowKind`; reads the `usage.rs` window and account types rather than redefining them |
@@ -1400,6 +1402,11 @@ The pure half of usage pacing, ported 1:1 from `src/lib/usage/pacing/` so the ba
 | `pacing/load_shedding.rs` | Sharing an account's slowdown among its sessions (`load-shedding.ts`): `cost_weight`, `session_load`, `measured_per_estimated`, `shed_fraction`, `plan_shedding`, `lightest_to_restore`, and the `Load` / `CostWeight` units |
 | `pacing/subagent_steps.rs` | The holds on a running subagent (`subagent-steps.ts`): `SubagentStep` (gate or wrap up), `HoldSeconds`, `next_subagent_step`, `eased_subagent_step`, `is_blocking_spawns` |
 | `pacing/account_round.rs` | One round over every session on every account (`account-round.ts`): `plan_round`, the report, plan and `PacingMessage` wire types, `round_leader`, `fresh_reports`, `control_throttle` |
+| `pacing/facts.rs` | The engine's wire types (`docs/pacing-engine.md`): `PacingReport`, `SessionFacts`, `ChoiceFacts`, `PaceFacts`, `ObservedDecision`/`ObservedKind` and the engine's `Decision`, with `SessionId`/`AgentId`/`AccountKey`/`WindowLabel` identity newtypes |
+| `pacing/registry.rs` | The latest report of every window, live for `report_lifetime` (2.5 polls) - the backend's replacement for the windows' `BroadcastChannel`, with no leader; also queues each window's observed decisions for the shadow comparison |
+| `pacing/samples.rs` | `SampleBook`: each account window's recent working readings (45 min), the burn rate through `usage_pace::burn_rate`, persisted to `pacing-samples.json` so a restart keeps it |
+| `pacing/engine.rs` (+ `engine/tests.rs`) | The pure decision core, a port of `usagePacing.svelte.ts`'s decisions: `decide(&EngineInputs) -> EngineOutcome` over the reports, account readings, samples and the round's memory; reuses `usage_pace`, `load_shedding`, `account_round` and `policy`, reads no clock and does no I/O; `accounts_to_sample` says which accounts take a reading |
+| `pacing/shadow.rs` | Holds the engine's decisions against the TypeScript's observed ones (agreement, one tick of lag for the engine's own decisions), keeps the counts and the last disagreements for `pacing_shadow_summary`, and appends a size-bounded JSONL log (`pacing-shadow.jsonl`) |
 | `pacing/model_label.rs`, `model_cost.rs`, `token_price.rs` | The model reads pacing prices by: `bare_model` and `effort_step` (`model-label.ts`), `CostTier::of_model` (`model-cost.ts`), `price_ratio` (`token-price.ts`) |
 
 ### Git (`vcs/`)

@@ -375,6 +375,16 @@ writes.
   it would decide and logs how often that agrees; it changes nothing yet. The
   loop stays the one that decides until the engine is switched on.
 
+- R1.6a.5b 🚧 **Pacing engine, shadow phase** (`docs/pacing-engine.md`) - the
+  pacing decisions are being moved from each window's TypeScript into one Rust
+  engine. In this phase the engine only *watches*: every window reports its
+  sessions' facts each scan (`pacing_report`), a backend tick reads each account
+  once, decides what pacing would do (`src-tauri/src/pacing/engine.rs`) and
+  compares it with what the window actually did, writing a bounded log
+  (`pacing-shadow.jsonl`) and answering `pacing_shadow_summary`. It writes no
+  control file, presses no key and changes no behaviour; switching it on and
+  deleting the TypeScript copies is a later, separate change.
+
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface agent-native project config: `CLAUDE.md`, `AGENTS.md`,
   `.claude/settings*`, Claude/Copilot `.mcp.json`, Copilot `.github/mcp.json`,
