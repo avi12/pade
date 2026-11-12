@@ -42,6 +42,7 @@ describe("choiceFactsOf", () => {
       choiceFactsOf({
         running: null,
         original: null,
+        restoreAt: null,
         isSteppedDown: false,
         options: OPTIONS
       })
@@ -55,6 +56,7 @@ describe("choiceFactsOf", () => {
         effort: "high"
       },
       original: null,
+      restoreAt: null,
       isSteppedDown: false,
       options: OPTIONS
     });
@@ -86,6 +88,7 @@ describe("choiceFactsOf", () => {
         model: "claude-opus-5-5",
         effort: "high"
       },
+      restoreAt: 5000,
       isSteppedDown: true,
       options: OPTIONS
     });
@@ -101,6 +104,7 @@ describe("choiceFactsOf", () => {
         model: false
       },
       canStepUp: true,
+      restoreAt: 5000,
       effortSaving: 0,
       modelSaving: 0
     });
@@ -116,7 +120,10 @@ describe("paceFactsOf", () => {
     restUntil: null,
     hasStoppedWork: true,
     isHeld: false,
-    pausedAt: 1
+    pausedAt: 1,
+    rates: {
+      five_hour: 1
+    }
   };
 
   it("is null for a session that is not paused", () => {
@@ -126,10 +133,7 @@ describe("paceFactsOf", () => {
   it("carries only what the engine reads, leaving the loop's own bookkeeping behind", () => {
     const withBookkeeping = {
       ...state,
-      utilization: 80,
-      rates: {
-        five_hour: 1
-      }
+      utilization: 80
     };
     expect(paceFactsOf(withBookkeeping)).toEqual(state);
   });

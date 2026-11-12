@@ -40,9 +40,10 @@ function savingOf({ current, next }: {
 
 /** What stepping a session down by effort and by model would do - each kind
  *  priced by its cost weight, the way the account round prices a step. */
-export function choiceFactsOf({ running, original, isSteppedDown, options }: {
+export function choiceFactsOf({ running, original, restoreAt, isSteppedDown, options }: {
   running: RunningChoice | null;
   original: ChoiceFacts["original"];
+  restoreAt: ChoiceFacts["restoreAt"];
   isSteppedDown: boolean;
   options: readonly ModelOption[];
 }): ChoiceFacts | null {
@@ -72,6 +73,7 @@ export function choiceFactsOf({ running, original, isSteppedDown, options }: {
       [PacingStep.enum.model]: cheaperModel !== null
     },
     canStepUp: isSteppedDown,
+    restoreAt,
     effortSaving: savingOf({
       current,
       next: lowerEffort
@@ -98,7 +100,8 @@ export function paceFactsOf(state: PaceFacts | undefined): PaceFacts | null {
     restUntil: state.restUntil,
     hasStoppedWork: state.hasStoppedWork,
     isHeld: state.isHeld,
-    pausedAt: state.pausedAt
+    pausedAt: state.pausedAt,
+    rates: state.rates
   };
 }
 

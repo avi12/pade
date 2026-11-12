@@ -47,6 +47,8 @@ const ChoiceFacts = z.object({
     model: z.boolean()
   }),
   canStepUp: z.boolean(),
+  /** When the stepped-down choice is due back, null while unstepped. */
+  restoreAt: EpochMilliseconds.nullable(),
   /** The fraction of its own load the next step of each kind saves. */
   effortSaving: z.number(),
   modelSaving: z.number()
@@ -61,7 +63,9 @@ const PaceFacts = z.object({
   restUntil: EpochMilliseconds.nullable(),
   hasStoppedWork: z.boolean(),
   isHeld: z.boolean(),
-  pausedAt: EpochMilliseconds
+  pausedAt: EpochMilliseconds,
+  /** The burn rate measured when it paused, by usage window key. */
+  rates: z.record(z.string(), z.number())
 });
 export type PaceFacts = z.infer<typeof PaceFacts>;
 

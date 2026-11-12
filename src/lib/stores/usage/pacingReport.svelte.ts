@@ -12,7 +12,7 @@ import { sessionModel } from "@/lib/stores/agent/context.svelte";
 import { modelOptions } from "@/lib/stores/model/modelOptions.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-import { adaptedSteps, originalChoice } from "@/lib/stores/usage/usageAdapt.svelte";
+import { adaptedChoice, adaptedSteps, originalChoice } from "@/lib/stores/usage/usageAdapt.svelte";
 import { hasUsageLimit } from "@/lib/stores/usage/usageResume.svelte";
 import type { AgentSession } from "@/lib/types";
 import { createObservedRecorder } from "@/lib/usage/pacing/observed-decisions";
@@ -47,6 +47,7 @@ function choiceOf(session: AgentSession) {
       model: original.model ?? null,
       effort: original.effort ?? null
     },
+    restoreAt: adaptedChoice(session.id)?.restoreAt ?? null,
     isSteppedDown: adaptedSteps(session.id).length > 0,
     options: modelOptions(session.agent.command)
   });
