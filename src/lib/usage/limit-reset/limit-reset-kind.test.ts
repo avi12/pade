@@ -1,4 +1,5 @@
 import {
+  limitResetBadge,
   limitResetExpiry,
   limitResetKind,
   limitResetTotal,
@@ -11,6 +12,7 @@ describe("limitResetKind", () => {
     expect(limitResetKind("fable")).toEqual({
       name: "Fable reset",
       title: "Fable reset",
+      code: "F",
       scope: "Fable",
       effect: "Resets your Fable limit, and takes this week's Fable use off your weekly limit"
     });
@@ -68,6 +70,21 @@ describe("limitResetTotal", () => {
   it("counts every reset across the kinds", () => {
     expect(limitResetTotal([weekly, fable])).toBe(4);
     expect(limitResetTotal([])).toBe(0);
+  });
+});
+
+describe("limitResetBadge", () => {
+  it("shows each kind by its limit's letter and count, not one total", () => {
+    const badge = limitResetBadge([weekly, fable]);
+    expect(badge.segments.map(({ code, count }) => ({ code, count }))).toEqual([
+      { code: "W", count: 1 },
+      { code: "F", count: 3 }
+    ]);
+    expect(badge.description).toBe("1 weekly reset, 3 Fable resets");
+  });
+
+  it("is empty when no reset is held", () => {
+    expect(limitResetBadge([]).segments).toEqual([]);
   });
 });
 

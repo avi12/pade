@@ -12,9 +12,12 @@ type ResetKind = LimitReset["kind"];
  *  Fable today, as Claude Code itself labels this window. */
 const INCLUDED_MODEL_NAME = "Fable";
 
-function kind({ name, scope, effect }: {
+function kind({ name, code, scope, effect }: {
   /** As it reads mid-sentence ("your one weekly reset"). */
   name: string;
+  /** The limit's mono letter in the meter pills, so a reset reads against the
+   *  limit it clears. */
+  code: string;
   /** Which limits it works on, as a card's badge says it. */
   scope: string;
   /** What spending it does, in plain words. */
@@ -23,6 +26,7 @@ function kind({ name, scope, effect }: {
   return {
     name,
     title: name.charAt(0).toUpperCase() + name.slice(1),
+    code,
     scope,
     effect
   };
@@ -31,21 +35,25 @@ function kind({ name, scope, effect }: {
 const RESET_KINDS = {
   session: kind({
     name: "5-hour reset",
+    code: "S",
     scope: "5-hour",
     effect: "Resets your 5-hour limit"
   }),
   weekly: kind({
     name: "weekly reset",
+    code: "W",
     scope: "All models",
     effect: "Resets your weekly limit"
   }),
   fable: kind({
     name: `${INCLUDED_MODEL_NAME} reset`,
+    code: INCLUDED_MODEL_NAME.charAt(0),
     scope: INCLUDED_MODEL_NAME,
     effect: `Resets your ${INCLUDED_MODEL_NAME} limit, and takes this week's ${INCLUDED_MODEL_NAME} use off your weekly limit`
   }),
   full: kind({
     name: "full reset",
+    code: "SW",
     scope: "All limits",
     effect: "Resets your 5-hour and weekly limits"
   })
@@ -104,7 +112,26 @@ export function limitResetExpiry({ offer, now }: {
   };
 }
 
-/** Every reset the account holds, across its kinds - the meter's count. */
+/** What the meter's badge shows: each kind the account holds, by the letter of
+ *  the limit it clears and how many, with a tooltip phrase naming them all. */
+export function limitResetBadge(offers: readonly LimitReset[]) {
+  const held = offers.filter((offer) => offer.resetsLeft > 0);
+  return {
+    segments: held.map((offer) => ({
+      grantId: offer.grantId,
+      code: limitResetKind(offer.kind).code,
+      count: offer.resetsLeft
+    })),
+    description: held
+      .map((offer) => {
+        const { name } = limitResetKind(offer.kind);
+        return `${formatCount(offer.resetsLeft)} ${name}${offer.resetsLeft === 1 ? "" : "s"}`;
+      })
+      .join(", ")
+  };
+}
+
+/** Every reset the account holds, across its kinds. */
 export function limitResetTotal(offers: readonly LimitReset[]) {
   let total = 0;
   for (const offer of offers) {

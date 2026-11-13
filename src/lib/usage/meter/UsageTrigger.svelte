@@ -1,6 +1,8 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import type { LimitReset } from "@/lib/types/usage";
   import type { AgentGroup } from "@/lib/usage/groups/usage-model";
+  import { limitResetBadge } from "@/lib/usage/limit-reset/limit-reset-kind";
   import {
     NO_READING,
     triggerPillGroups,
@@ -15,12 +17,14 @@
   // The meter's always-visible face: one pill per agent, a "+N" chip for the
   // rest, and how many free usage resets wait - all opening the details panel,
   // where the resets are spent.
-  const { groups, justReset, resetCount }: {
+  const { groups, justReset, resetOffers }: {
     groups: AgentGroup[];
     justReset: ReadonlySet<string>;
-    /** Free usage resets the account holds, across their kinds. */
-    resetCount: number;
+    /** Free usage resets the account holds, one entry per kind. */
+    resetOffers: readonly LimitReset[];
   } = $props();
+
+  const resetBadge = $derived(limitResetBadge(resetOffers));
 </script>
 
 <button
@@ -40,9 +44,12 @@
       <UsageOverflowChip {groups} />
     </span>
   {/if}
-  {#if resetCount > 0}
-    <span class="reset-count" data-tooltip="{formatCount(resetCount)} usage resets available - open to use one">
-      <Icon name="refresh" size={11} />{formatCount(resetCount)}
+  {#if resetBadge.segments.length > 0}
+    <span class="reset-count" data-tooltip="{resetBadge.description} available - open to use one">
+      <Icon name="refresh" size={11} />
+      {#each resetBadge.segments as segment (segment.grantId)}
+        <span class="segment">{segment.code}<b>{formatCount(segment.count)}</b></span>
+      {/each}
     </span>
   {/if}
   <span class="caret">▾</span>
@@ -102,6 +109,12 @@
     line-height: 1.4;
     white-space: nowrap;
     animation: reset-arrive 1200ms var(--ease) 3;
+
+    .segment {
+      display: inline-flex;
+      gap: 1px;
+      align-items: baseline;
+    }
   }
 
   @keyframes reset-arrive {

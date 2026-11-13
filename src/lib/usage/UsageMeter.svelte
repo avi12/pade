@@ -6,7 +6,6 @@
   import type { AccountUsage, NoReading } from "@/lib/types/usage";
   import { buildGroups } from "@/lib/usage/groups/usage-groups";
   import { justResetLimits, limitPercentages } from "@/lib/usage/groups/usage-spotlight";
-  import { limitResetTotal } from "@/lib/usage/limit-reset/limit-reset-kind";
   import LimitResetConfirm from "@/lib/usage/limit-reset/LimitResetConfirm.svelte";
   import { noReadingsOf, pendingResetBoundaries, withLastGoodReadings } from "@/lib/usage/meter/usage-meter";
   import type { KeptReading } from "@/lib/usage/meter/usage-meter";
@@ -94,8 +93,6 @@
     return read.accounts;
   }
 
-  const resetCount = $derived(limitResetTotal(limitResetOffers()));
-
   // Each new Claude usage reading re-checks the free reset, so the offer follows
   // the meter's own refresh instead of keeping a timer of its own.
   const claudeAccount = $derived(accounts.get(AgentId.Claude));
@@ -178,7 +175,7 @@
 </script>
 
 <span class="usage-wrap menu-host">
-  <UsageTrigger {groups} {justReset} {resetCount} />
+  <UsageTrigger {groups} {justReset} resetOffers={limitResetOffers()} />
 
   <UsagePanel {agent} {groups} {justReset} />
 
