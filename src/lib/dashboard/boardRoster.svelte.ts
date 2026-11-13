@@ -27,6 +27,6 @@ export function createBoardRoster() {
     get sessions() {
       return sessions;
     },
-    focus: board.focus
+    focus: (target: Parameters<typeof board.focus>[0]) => board.focus(target)
   };
 }

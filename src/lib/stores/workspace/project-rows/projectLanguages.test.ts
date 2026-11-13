@@ -96,7 +96,8 @@ describe("followProjects", () => {
       const { paths } = LANGUAGES_ARGUMENTS.parse(data);
       return Object.fromEntries(paths.map(path => [path, [share(path === API ? apiLanguage : "Rust")]]));
     });
-    const { store, announceChange } = await freshStore();
+    const fresh = await freshStore();
+    const { store } = fresh;
     const onchange = vi.fn(async () => undefined);
     store.followProjects({
       paths: [APP, API],
@@ -105,8 +106,8 @@ describe("followProjects", () => {
     await vi.advanceTimersByTimeAsync(WATCH_SETTLE_MS);
 
     apiLanguage = "Go";
-    announceChange(API);
-    announceChange(API);
+    fresh.announceChange(API);
+    fresh.announceChange(API);
     await vi.advanceTimersByTimeAsync(RECOUNT_SETTLE_MS);
 
     expect(onchange).toHaveBeenCalledTimes(1);

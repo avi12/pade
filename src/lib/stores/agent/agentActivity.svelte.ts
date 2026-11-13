@@ -35,9 +35,12 @@ const GLYPH_SEPARATOR = " ";
 // A window-title escape: OSC 0 (icon + title) or OSC 2 (title), terminated by
 // BEL or ST (ESC \). Built from strings, like lib/terminal/output/ansi, so no raw control byte
 // sits in the source.
-const TITLE_SEQUENCE_RE = new RegExp("\\u001b\\][02];([^\\u0007\\u001b]*)(?:\\u0007|\\u001b\\\\)", "g");
+const ESCAPE_CODE = 27;
+const BELL_CODE = 7;
+const ESCAPE = String.fromCharCode(ESCAPE_CODE);
+const BELL = String.fromCharCode(BELL_CODE);
+const TITLE_SEQUENCE_RE = new RegExp(`${ESCAPE}\\][02];([^${BELL}${ESCAPE}]*)(?:${BELL}|${ESCAPE}\\\\)`, "g");
 const SEQUENCE_START = "]";
-const BELL = "";
 const STRING_TERMINATOR = "\\";
 /** An unterminated title longer than this is not a title - stop carrying it. */
 const MAXIMUM_CARRIED_LENGTH = 1024;

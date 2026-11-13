@@ -312,7 +312,7 @@ export function orderedWindows({
     order
   });
   return [...windows].sort(
-    (left, right) => compare(left, right) || left.projectLabel.localeCompare(right.projectLabel)
+    (first, second) => compare(first, second) || first.projectLabel.localeCompare(second.projectLabel)
   );
 }
 

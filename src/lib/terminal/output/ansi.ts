@@ -23,12 +23,16 @@ const ANSI_ESCAPE = new RegExp(
 // colour/weight sequence is interpreted; every other CSI (cursor moves, etc.) is
 // consumed and skipped. Built as a string (like the matcher above) so no raw
 // control byte sits in the source.
-const CSI_SGR = new RegExp("^\\u001b\\[([0-9;]*)m$");
+const ESCAPE_CODE = 27;
+
+const ESCAPE = String.fromCharCode(ESCAPE_CODE);
+
+const CSI_SGR = new RegExp(`^${ESCAPE}\\[([0-9;]*)m$`);
 
 // Cursor Forward (CUF): ESC [ <count> C. Claude's Ink renderer skips over a cell
 // that is already blank with this instead of printing a space, so on a fresh
 // screen every gap between words arrives as a cursor move.
-const CURSOR_FORWARD = new RegExp("\\u001b\\[(\\d*)C", "g");
+const CURSOR_FORWARD = new RegExp(`${ESCAPE}\\[(\\d*)C`, "g");
 const CURSOR_FORWARD_DEFAULT_COUNT = 1;
 // A ceiling on the gap one cursor move expands to, so a garbage count can't
 // allocate an unbounded string - wider than any real terminal row.

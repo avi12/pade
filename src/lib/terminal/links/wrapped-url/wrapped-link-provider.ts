@@ -266,7 +266,7 @@ function withHoverUnderline({ terminal, link }: { terminal: RegisterableTerminal
     text: link.text,
     range: link.range,
     decorations: link.decorations,
-    activate: link.activate,
+    activate: (event: MouseEvent, text: string) => link.activate(event, text),
     hover() {
       clear();
       elUnderlines = paintUnderline({

@@ -171,23 +171,36 @@ const BURN_GAPS = [30_000, MINUTE, MINUTE, 2 * MINUTE, 6 * MINUTE, 0];
 
 const BURN_RATE_CASE_COUNT = 30;
 
+function bothPauseStates(base: Omit<Parameters<typeof singleWindowCase>[0], "isPaused">) {
+  return BOTH_WAYS.map(isPaused =>
+    singleWindowCase({
+      ...base,
+      isPaused
+    })
+  );
+}
+
+function sessionRateCases({ utilization, resetsIn }: { utilization: number; resetsIn: number }) {
+  return SESSION_RATES.flatMap(rate =>
+    SESSION_GRID_MARGINS.flatMap(margin =>
+      bothPauseStates({
+        kind: PacedWindowKind.enum.session,
+        utilization,
+        resetsIn,
+        rate,
+        margin
+      })
+    )
+  );
+}
+
 function sessionGrid() {
   return SESSION_UTILIZATIONS.flatMap(utilization =>
     SESSION_RESETS_IN.flatMap(resetsIn =>
-      SESSION_RATES.flatMap(rate =>
-        SESSION_GRID_MARGINS.flatMap(margin =>
-          BOTH_WAYS.map(isPaused =>
-            singleWindowCase({
-              kind: PacedWindowKind.enum.session,
-              utilization,
-              resetsIn,
-              rate,
-              margin,
-              isPaused
-            })
-          )
-        )
-      )
+      sessionRateCases({
+        utilization,
+        resetsIn
+      })
     )
   );
 }
@@ -197,16 +210,13 @@ function weeklyGrid() {
   return WEEKLY_UTILIZATIONS.flatMap(utilization =>
     WEEKLY_RESETS_IN.flatMap(resetsIn =>
       margins.flatMap(margin =>
-        BOTH_WAYS.map(isPaused =>
-          singleWindowCase({
-            kind: PacedWindowKind.enum.weekly,
-            utilization,
-            resetsIn,
-            rate: perHour(2),
-            margin,
-            isPaused
-          })
-        )
+        bothPauseStates({
+          kind: PacedWindowKind.enum.weekly,
+          utilization,
+          resetsIn,
+          rate: perHour(2),
+          margin
+        })
       )
     )
   );
