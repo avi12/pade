@@ -109,7 +109,7 @@ export function relativeToRoot({ path, root }: { path: string; root: string }) {
 
 /** Whether `path` lies under `root` (not the root itself), compared the way
  *  `normalizePath` spells both. */
-export function isPathInside({ path, root }: { path: string; root: string }) {
+function isPathInside({ path, root }: { path: string; root: string }) {
   return normalizePath(path).startsWith(`${normalizePath(root)}/`);
 }
 

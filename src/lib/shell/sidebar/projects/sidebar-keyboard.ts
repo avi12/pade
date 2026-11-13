@@ -38,48 +38,48 @@ export function nextSidebarPosition({
 }) {
   const lastLine = lineLengths.length - 1;
   const lastItem = (lineLengths[position.line] ?? 1) - 1;
-  const isKeyEqualsSidebarKeyDOWNAnd = key === SidebarKey.DOWN && position.line < lastLine;
-  if (isKeyEqualsSidebarKeyDOWNAnd) {
+  const canMoveDown = key === SidebarKey.DOWN && position.line < lastLine;
+  if (canMoveDown) {
     return {
       line: position.line + 1,
       item: 0
     };
   }
 
-  const isKeyEqualsSidebarKeyUPAnd = key === SidebarKey.UP && position.line > 0;
-  if (isKeyEqualsSidebarKeyUPAnd) {
+  const canMoveUp = key === SidebarKey.UP && position.line > 0;
+  if (canMoveUp) {
     return {
       line: position.line - 1,
       item: 0
     };
   }
 
-  const isKeyEqualsSidebarKeyRIGHTAnd = key === SidebarKey.RIGHT && position.item < lastItem;
-  if (isKeyEqualsSidebarKeyRIGHTAnd) {
+  const canMoveRight = key === SidebarKey.RIGHT && position.item < lastItem;
+  if (canMoveRight) {
     return {
       line: position.line,
       item: position.item + 1
     };
   }
 
-  const isKeyEqualsSidebarKeyLEFTAnd = key === SidebarKey.LEFT && position.item > 0;
-  if (isKeyEqualsSidebarKeyLEFTAnd) {
+  const canMoveLeft = key === SidebarKey.LEFT && position.item > 0;
+  if (canMoveLeft) {
     return {
       line: position.line,
       item: position.item - 1
     };
   }
 
-  const isKeyEqualsSidebarKeyHOMEAnd = key === SidebarKey.HOME && lastLine >= 0;
-  if (isKeyEqualsSidebarKeyHOMEAnd) {
+  const canJumpToStart = key === SidebarKey.HOME && lastLine >= 0;
+  if (canJumpToStart) {
     return {
       line: 0,
       item: 0
     };
   }
 
-  const isKeyEqualsSidebarKeyENDAnd = key === SidebarKey.END && lastLine >= 0;
-  if (isKeyEqualsSidebarKeyENDAnd) {
+  const canJumpToEnd = key === SidebarKey.END && lastLine >= 0;
+  if (canJumpToEnd) {
     return {
       line: lastLine,
       item: 0
@@ -95,8 +95,8 @@ export function nextSidebarPosition({
 export function sidebarArrowKeys(element: HTMLElement) {
   function moveFocus(event: KeyboardEvent) {
     const { target } = event;
-    const isNotSIDEBARKEYSHasEKey = !SIDEBAR_KEYS.has(event.key) || !(target instanceof HTMLElement);
-    if (isNotSIDEBARKEYSHasEKey) {
+    const isIgnoredKeyEvent = !SIDEBAR_KEYS.has(event.key) || !(target instanceof HTMLElement);
+    if (isIgnoredKeyEvent) {
       return;
     }
 

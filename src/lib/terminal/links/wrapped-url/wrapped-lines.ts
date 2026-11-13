@@ -160,13 +160,13 @@ function continuesBelow({
       line: lastLine,
       columns
     });
-  const isLastContentAndReachesRightEdge =
+  const isWrapContinued =
     lastContent &&
     reachesRightEdge({
       content: lastContent,
       columns
     });
-  if (isLastContentAndReachesRightEdge) {
+  if (isWrapContinued) {
     return true;
   }
 

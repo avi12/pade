@@ -262,13 +262,13 @@ function extendedPart({
   isCaretStart: boolean;
 }) {
   const isContinuable = open !== undefined && !isCaretStart && open.isSelected === isSelected;
-  const isContinuableMissingOrNotIs =
+  const isRunBroken =
     !isContinuable ||
     !isSameStyle({
       part: open,
       cell
     });
-  if (isContinuableMissingOrNotIs) {
+  if (isRunBroken) {
     return undefined;
   }
 
@@ -499,9 +499,8 @@ export function rtlViewport({ terminal, isFocused }: { terminal: Terminal; isFoc
   for (let row = 0; row < terminal.rows; row++) {
     const absoluteRow = buffer.viewportY + row;
     const line = buffer.getLine(absoluteRow);
-    const isLineMissingOrNotContainsRtl =
-      !line || !containsRtl(line.translateToString(SHOULD_TRIM_TRAILING_WHITESPACE));
-    if (isLineMissingOrNotContainsRtl) {
+    const isLineWithoutRtl = !line || !containsRtl(line.translateToString(SHOULD_TRIM_TRAILING_WHITESPACE));
+    if (isLineWithoutRtl) {
       continue;
     }
 

@@ -1,7 +1,16 @@
 {
   "$schema": "./node_modules/fallow/schema.json",
   "extends": ["./node_modules/fallow-config-avi12/fallow.json"],
-  "entry": ["scripts/pacing-fixtures.ts", "scripts/check-file-size.mjs"],
+  "entry": [
+    "scripts/pacing-fixtures.ts",
+    "scripts/check-file-size.mjs",
+    "src/panels/ConfigPanel.svelte",
+    "src/panels/TasksPanel.svelte",
+    "src/panels/Terminal.svelte",
+    "src/panels/VcsPanel.svelte",
+    "src/panels/dashboard/AgentsDashboard.svelte",
+    "svelte.config.js"
+  ],
   "ignorePatterns": [".claude/worktrees/**", "src-tauri/target/**"],
   "ignoreDependencies": [
     "postcss-html",
@@ -13,5 +22,27 @@
     "oxlint-plugin-naming",
     "stylelint-config-avi12",
     "oxfmt-config-avi12"
-  ]
+  ],
+  "ignoreExports": [
+    {
+      "file": "src/lib/session/SessionTabs.svelte",
+      "exports": ["closeSession"]
+    },
+    {
+      "file": "src/lib/shell/screen/WorkspaceScreen.svelte",
+      "exports": ["closeSession"]
+    },
+    {
+      "file": "src/panels/picker/roots/AddRootForm.svelte",
+      "exports": ["focusAddRoot"]
+    },
+    {
+      "file": "src/panels/picker/roots/RootsSection.svelte",
+      "exports": ["focusAddRoot"]
+    }
+  ],
+  "health": {
+    "maxCognitive": 30,
+    "maxCrap": 10000
+  }
 }

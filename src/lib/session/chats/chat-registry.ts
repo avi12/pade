@@ -371,8 +371,8 @@ export function sidebarProjects({
   const seen = new Set<string>();
   const ordered: string[] = [];
   for (const project of projectOrder) {
-    const isProjectOrSeenHas = project === "" || seen.has(normalizePath(project));
-    if (isProjectOrSeenHas) {
+    const isBlankOrKnownProject = project === "" || seen.has(normalizePath(project));
+    if (isBlankOrKnownProject) {
       continue;
     }
 

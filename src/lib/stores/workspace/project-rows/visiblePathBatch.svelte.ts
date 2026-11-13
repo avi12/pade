@@ -126,8 +126,8 @@ export function createVisiblePathBatch<Value>({
   function request(path: string) {
     const key = normalizePath(path);
     const isFresh = values.has(key) && !staleKeys.has(key);
-    const isFreshOrRefreshRequestsHas = isFresh || refreshRequests.has(key);
-    if (isFreshOrRefreshRequestsHas) {
+    const isRefreshUnneeded = isFresh || refreshRequests.has(key);
+    if (isRefreshUnneeded) {
       return;
     }
 

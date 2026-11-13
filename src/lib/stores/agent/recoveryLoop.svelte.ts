@@ -102,8 +102,8 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
     const alive = new SvelteSet(host.sessions().map(session => session.id));
     for (const id of [...hits.keys(), ...timers.keys()]) {
       const isDismissed = !hits.has(id);
-      const isNotAliveHasIdOrIs = !alive.has(id) || isDismissed;
-      if (isNotAliveHasIdOrIs) {
+      const isNoLongerWatched = !alive.has(id) || isDismissed;
+      if (isNoLongerWatched) {
         forget(id);
       }
     }

@@ -174,8 +174,8 @@ function isFailedStart({ layout, id }: { layout: WindowLayout; id: string }) {
 export async function sessionExited({ context, id }: { context: LifecycleContext; id: string }) {
   const { layout, host } = context;
   const session = layout.sessions.find(candidate => candidate.id === id);
-  const hasIdOrSessionMissing = layout.closingByHand.has(id) || !session;
-  if (hasIdOrSessionMissing) {
+  const isClosingOrSessionGone = layout.closingByHand.has(id) || !session;
+  if (isClosingOrSessionGone) {
     return;
   }
 

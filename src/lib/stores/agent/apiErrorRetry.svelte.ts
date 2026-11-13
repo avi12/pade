@@ -70,8 +70,8 @@ export function parseApiError({ text }: { text: string }) {
  *  repaints its error on every frame, so a session already marked (or already
  *  scheduled for retry) is left alone, as is one waiting out a usage limit. */
 export function observeApiError({ id, chunk }: { id: string; chunk: string }) {
-  const isHitsHasIdOrHasUsage = hits.has(id) || hasUsageLimit(id);
-  if (isHitsHasIdOrHasUsage) {
+  const isAlreadyHandled = hits.has(id) || hasUsageLimit(id);
+  if (isAlreadyHandled) {
     return;
   }
 
@@ -114,8 +114,8 @@ export function createApiErrorRetry(host: RecoveryHost) {
   // again, so we hand off to a fresh agent and stop.
   async function retry(session: AgentSession) {
     const id = session.id;
-    const isNotLoopIsOpenIdOr = !loop.isOpen(id) || isPastRetrying(sessionStatus(id)) || hasUsageLimit(id);
-    if (isNotLoopIsOpenIdOr) {
+    const isRetryOver = !loop.isOpen(id) || isPastRetrying(sessionStatus(id)) || hasUsageLimit(id);
+    if (isRetryOver) {
       loop.forget(id);
       return;
     }

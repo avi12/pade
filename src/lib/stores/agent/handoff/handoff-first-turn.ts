@@ -37,8 +37,8 @@ export function waitForFirstTurn({
       }
 
       const isExpired = Date.now() - startedAt > SUCCESSOR_DEADLINE_MS;
-      const isNotIsStillOpenIdOr = !isStillOpen(id) || isExpired;
-      if (isNotIsStillOpenIdOr) {
+      const isHandoffOver = !isStillOpen(id) || isExpired;
+      if (isHandoffOver) {
         resolve(false);
         return;
       }

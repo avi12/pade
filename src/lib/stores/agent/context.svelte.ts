@@ -186,8 +186,8 @@ function parseRatioPercentage(lower: string) {
     numberText: ratio[3],
     suffix: ratio[4]
   });
-  const isUsedTokensMissingOrLimitTokens = usedTokens === null || limitTokens === null || limitTokens <= 0;
-  if (isUsedTokensMissingOrLimitTokens) {
+  const isUsageUnknown = usedTokens === null || limitTokens === null || limitTokens <= 0;
+  if (isUsageUnknown) {
     return null;
   }
 
@@ -228,8 +228,8 @@ function parseTokenSignals(text: string) {
       numberText: counter[1],
       suffix: counter[2]
     });
-    const isTokensPresentAndTokensAboveReported = tokens !== null && tokens > reportedTokens;
-    if (isTokensPresentAndTokensAboveReported) {
+    const isNewHighWater = tokens !== null && tokens > reportedTokens;
+    if (isNewHighWater) {
       reportedTokens = tokens;
     }
   }

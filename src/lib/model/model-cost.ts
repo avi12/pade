@@ -38,8 +38,8 @@ function cheaperModel({ model, options }: { model: string; options: readonly Mod
   for (const option of options) {
     const optionTier = costTier(option.id);
     const isCheaper = optionTier >= CODING_FLOOR_TIER && optionTier < tier;
-    const isCheaperAndOptionTierAbove = isCheaper && optionTier > bestTier;
-    if (isCheaperAndOptionTierAbove) {
+    const isBetterTradeoff = isCheaper && optionTier > bestTier;
+    if (isBetterTradeoff) {
       best = option;
       bestTier = optionTier;
     }

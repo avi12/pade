@@ -38,8 +38,8 @@ export async function ensureChoiceAttention() {
 
   isListening = true;
   await onMessage(EventType.PTY_DATA, ({ data: { id, data } }) => {
-    const isAwaitingGetIdOrNotDetect = awaiting.get(id) || !detectChoicePrompt(data);
-    if (isAwaitingGetIdOrNotDetect) {
+    const isNotNewPrompt = awaiting.get(id) || !detectChoicePrompt(data);
+    if (isNotNewPrompt) {
       return;
     }
 

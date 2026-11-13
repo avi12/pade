@@ -74,8 +74,8 @@ export function rowContent({ line, columns }: { line: LinkLine; columns: number 
   for (let column = 0; column < columns; column += 1) {
     const characters = line.getCell(column)?.getChars();
     const isBlank = characters === undefined || characters === BLANK_CELL || characters === EMPTY_CELL;
-    const isBlankOrIsFrameGlyph = isBlank || isFrameGlyph(characters);
-    if (isBlankOrIsFrameGlyph) {
+    const isSkippableCell = isBlank || isFrameGlyph(characters);
+    if (isSkippableCell) {
       continue;
     }
 
@@ -115,8 +115,8 @@ const WIDE_GLYPH_TRAILING_HALF_WIDTH = 0;
 // Ink renderer emits `ESC[1C` between words - so it must still read as a word
 // break, or the URL regex runs straight through `….` into the next word.
 export function cellText(cell: LinkCell | undefined) {
-  const isCellMissingOrCellGetWidth = !cell || cell.getWidth() === WIDE_GLYPH_TRAILING_HALF_WIDTH;
-  if (isCellMissingOrCellGetWidth) {
+  const isEmptyCell = !cell || cell.getWidth() === WIDE_GLYPH_TRAILING_HALF_WIDTH;
+  if (isEmptyCell) {
     return EMPTY_CELL;
   }
 

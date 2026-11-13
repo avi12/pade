@@ -264,8 +264,8 @@ function hasAttachedRows() {
 /** Start the liveness poll if any attached row needs it; stop it once none do, so
  *  the timer lives no longer than the rows it serves. */
 function ensureAttachedPoll() {
-  const isAttachedPollPresentOrNotHas = attachedPoll !== undefined || !hasAttachedRows();
-  if (isAttachedPollPresentOrNotHas) {
+  const isPollUnneeded = attachedPoll !== undefined || !hasAttachedRows();
+  if (isPollUnneeded) {
     return;
   }
 
@@ -294,8 +294,8 @@ async function reconcileAttachedRunners() {
       removeRow(row.id);
     }
   }
-  const isNotHasAttachedRowsAndAttached = !hasAttachedRows() && attachedPoll !== undefined;
-  if (isNotHasAttachedRowsAndAttached) {
+  const isPollObsolete = !hasAttachedRows() && attachedPoll !== undefined;
+  if (isPollObsolete) {
     clearInterval(attachedPoll);
     attachedPoll = undefined;
   }

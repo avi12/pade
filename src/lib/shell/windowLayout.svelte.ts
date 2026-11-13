@@ -109,8 +109,8 @@ export class WindowLayout {
 
   // The caller kills the PTY and decides the empty-workspace policy.
   detach(id: string) {
-    const isPaneIdsLengthAbove1And = this.paneIds.length > 1 && this.paneIds.includes(id);
-    if (isPaneIdsLengthAbove1And) {
+    const isCollapsiblePane = this.paneIds.length > 1 && this.paneIds.includes(id);
+    if (isCollapsiblePane) {
       this.collapsingSplitPanes.add(id);
     }
 

@@ -898,8 +898,8 @@ export function createUsagePacing(host: PacingHost) {
     await liftPause(id);
 
     const isNothingToContinue = isOnlyAfterStoppedWork && !state.hasStoppedWork;
-    const isWorkingIdOrIsNothing = isWorking(id) || isNothingToContinue;
-    if (isWorkingIdOrIsNothing) {
+    const isContinueUnneeded = isWorking(id) || isNothingToContinue;
+    if (isContinueUnneeded) {
       return;
     }
 

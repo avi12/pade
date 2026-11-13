@@ -71,8 +71,8 @@ async function recount(path: string) {
     followed: followed.paths,
     path
   });
-  const isFollowedAndBeforeNotAfter = isFollowed && before !== after;
-  if (isFollowedAndBeforeNotAfter) {
+  const isFollowedChange = isFollowed && before !== after;
+  if (isFollowedChange) {
     await followed.onchange(path);
   }
 }

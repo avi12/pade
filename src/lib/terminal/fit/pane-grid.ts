@@ -41,8 +41,8 @@ export function gridForPane({
 
   const columns = Math.floor((width - SCROLLBAR_WIDTH) / cell.width);
   const rows = Math.floor(height / cell.height);
-  const isColumnsBelowMINIMUMUSABLECOLUMNSOr = columns < MINIMUM_USABLE_COLUMNS || rows < MINIMUM_USABLE_ROWS;
-  if (isColumnsBelowMINIMUMUSABLECOLUMNSOr) {
+  const isTooNarrow = columns < MINIMUM_USABLE_COLUMNS || rows < MINIMUM_USABLE_ROWS;
+  if (isTooNarrow) {
     return undefined;
   }
 
@@ -70,6 +70,6 @@ export function squeezeToFit({
   }
 
   const gridHeight = rows * cellHeight;
-  const isGridHeightAbovePaneHeightAnd = gridHeight > paneHeight && gridHeight > 0;
-  return isGridHeightAbovePaneHeightAnd ? paneHeight / gridHeight : 1;
+  const isTallerThanPane = gridHeight > paneHeight && gridHeight > 0;
+  return isTallerThanPane ? paneHeight / gridHeight : 1;
 }

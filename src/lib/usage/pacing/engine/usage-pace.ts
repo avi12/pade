@@ -126,8 +126,8 @@ export function burnRate(samples: readonly UsageSample[]) {
     });
     const isWorkingStretch = gap > 0 && gap <= MAXIMUM_SAMPLE_GAP_MS;
     const rise = current.utilization - previous.utilization;
-    const isSameWindowMissingOrIs = !isSameWindow || !isWorkingStretch || rise < 0;
-    if (isSameWindowMissingOrIs) {
+    const isUnusableSample = !isSameWindow || !isWorkingStretch || rise < 0;
+    if (isUnusableSample) {
       continue;
     }
 
@@ -234,8 +234,8 @@ function dryTime({
   freeAt: number;
   rate: number | null;
 }) {
-  const isKindNotEnumWeeklyOrRate = kind !== PacedWindowKind.enum.weekly || rate === null || rate <= 0;
-  if (isKindNotEnumWeeklyOrRate) {
+  const isNotWeeklyForecastable = kind !== PacedWindowKind.enum.weekly || rate === null || rate <= 0;
+  if (isNotWeeklyForecastable) {
     return null;
   }
 
@@ -421,11 +421,11 @@ export function paceForecasts({
     const elapsed = Math.max(MINIMUM_RATE_SPAN_MS, now - (resetAt - WEEKLY_WINDOW_MS));
     const averageRate = even === null ? null : window.utilization / elapsed;
     const rate = averageRate ?? rateOf(window);
-    const isRateMissingOrRateAtMost0 = rate === null || rate <= 0;
+    const isNoRunOut = rate === null || rate <= 0;
     forecasts[kind] = {
       window,
       resetAt,
-      runOutAt: isRateMissingOrRateAtMost0
+      runOutAt: isNoRunOut
         ? null
         : now +
           runwayOf({
@@ -571,8 +571,8 @@ export function workRhythm({
   runway: number;
   timeLeft: number;
 }) {
-  const isTimeLeftAbove0AndRunway = timeLeft > 0 && runway > 0;
-  const duty = isTimeLeftAbove0AndRunway ? Math.min(1, runway / timeLeft) : 0;
+  const hasWorkableRunway = timeLeft > 0 && runway > 0;
+  const duty = hasWorkableRunway ? Math.min(1, runway / timeLeft) : 0;
   if (duty === 0) {
     return {
       stretch: MINIMUM_WORK_STRETCH_MS,

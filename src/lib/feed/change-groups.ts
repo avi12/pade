@@ -105,8 +105,8 @@ function projectOf({ path, workspaceRoot, repository }: { path: string; workspac
   });
   const container = segments[0]?.toLowerCase();
   const role = container === undefined ? undefined : CONTAINER_ROLES[container];
-  const isRoleMissingOrSegmentsLengthBelow = role === undefined || segments.length < MEMBER_SEGMENTS;
-  if (isRoleMissingOrSegmentsLengthBelow) {
+  const isRepositoryLevel = role === undefined || segments.length < MEMBER_SEGMENTS;
+  if (isRepositoryLevel) {
     return repository;
   }
 
@@ -168,8 +168,8 @@ function projectFromMembers({
       prefix: memberSegments,
       segments
     });
-    const isEnclosingAndMemberSegmentsLength = isEnclosing && memberSegments.length > deepestDepth;
-    if (isEnclosingAndMemberSegmentsLength) {
+    const isDeeperEnclosure = isEnclosing && memberSegments.length > deepestDepth;
+    if (isDeeperEnclosure) {
       deepest = member;
       deepestDepth = memberSegments.length;
     }

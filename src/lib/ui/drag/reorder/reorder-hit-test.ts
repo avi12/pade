@@ -53,8 +53,8 @@ export function resolveDropTarget({
   itemSelector: string;
 }) {
   const elTarget = elHit?.closest(PANE_DROP_TARGET.SELECTOR);
-  const isElHitMissingOrElTarget = !elHit || !elTarget || elHit.closest(itemSelector);
-  if (isElHitMissingOrElTarget) {
+  const isUnusableHit = !elHit || !elTarget || elHit.closest(itemSelector);
+  if (isUnusableHit) {
     return null;
   }
 

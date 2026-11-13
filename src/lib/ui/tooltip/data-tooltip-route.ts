@@ -106,8 +106,8 @@ function triggerFor(target: EventTarget | null) {
 
   const elTrigger = target.closest<HTMLElement>(ANY_TRIGGER_SELECTOR);
   const isOwnBubble = elTrigger === null || elTrigger.hasAttribute(ATTACHMENT_TRIGGER_ATTRIBUTE);
-  const isOwnBubbleOrElTrigger = isOwnBubble || elTrigger.matches(QUIET_SELECTOR);
-  if (isOwnBubbleOrElTrigger) {
+  const isUntooltipped = isOwnBubble || elTrigger.matches(QUIET_SELECTOR);
+  if (isUntooltipped) {
     return null;
   }
 
