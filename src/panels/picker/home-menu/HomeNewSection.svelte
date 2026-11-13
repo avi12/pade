@@ -76,7 +76,7 @@
 
     &:has(> :nth-child(4)) {
       overflow-y: auto;
-      max-block-size: calc(3.5 * (1em + 2 * 8px));
+      max-block-size: calc(3.5 * (1lh + 2 * 8px));
       scrollbar-width: thin;
     }
   }

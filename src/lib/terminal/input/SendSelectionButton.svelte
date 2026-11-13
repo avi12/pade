@@ -179,7 +179,7 @@
        at whole lines so the button never towers over the terminal. */
     .preview {
       overflow: hidden;
-      max-block-size: 8.7em;
+      max-block-size: 6lh;
       min-inline-size: 0;
       font-family: var(--font-monospace);
       font-weight: 500;

@@ -348,7 +348,7 @@
     }
 
     .lede {
-      max-inline-size: 26em;
+      max-inline-size: 52ch;
       margin-block: 8px 0;
       margin-inline: 0;
       color: var(--on-surface-variant);
