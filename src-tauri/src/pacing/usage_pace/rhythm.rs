@@ -6,7 +6,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    on_pace_time, runway_of, spare_ms, watched_window, MarginOf, OnPaceParams, RateOf, WatchParams,
+    dry_time, on_pace_time, runway_of, spare_ms, watched_window, MarginOf, OnPaceParams, RateOf,
+    WatchParams,
 };
 use crate::pacing::units::{BurnRate, EpochMilliseconds, Fraction, SpanMilliseconds};
 use crate::usage::{AccountUsage, UsageWindow};
@@ -98,15 +99,17 @@ pub fn has_room_to_spare(params: HasRoomParams<'_>) -> bool {
             continue;
         };
 
-        let on_pace_at = on_pace_time(OnPaceParams {
+        let params = OnPaceParams {
             kind: watched.kind,
             window,
             free_at: watched.free_at,
             rate: rate_of(window),
-        });
-        let is_short = on_pace_at.is_none_or(|on_pace_at| {
-            now - on_pace_at < spare_ms(watched.kind, watched.free_at, now)
-        });
+        };
+        let is_running_dry = dry_time(params).is_some_and(|dry_at| dry_at > now);
+        let is_short = is_running_dry
+            || on_pace_time(params).is_none_or(|on_pace_at| {
+                now - on_pace_at < spare_ms(watched.kind, watched.free_at, now)
+            });
         if is_short {
             return false;
         }
