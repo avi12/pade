@@ -3,7 +3,7 @@
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import type { WindowInfo } from "@/lib/types/window";
   import type { AddRootOutcome } from "@/lib/types/workspace";
-  import { ToggleState } from "@/lib/ui/controls/toggle-state";
+  import { ToggleState, toggleStateOf } from "@/lib/ui/controls/toggle-state";
   import { arrowFocus } from "@/lib/ui/keyboard/roving-menu";
   import SaveWorkspaceCard from "@/lib/workspace/save/SaveWorkspaceCard.svelte";
   import { windowRowsInOrder } from "@/lib/workspace/switcher/switcher-rows";
@@ -117,7 +117,7 @@
     style:position-anchor={MENU_ANCHOR}
     class="menu popover-menu" {@attach arrowFocus(ARROW_STOP_SELECTOR)}
     ontoggle={async e => {
-      isMenuOpen = (e as ToggleEvent).newState === ToggleState.OPEN;
+      isMenuOpen = toggleStateOf(e) === ToggleState.OPEN;
 
       if (isMenuOpen) {
         await loadOpenWindows();

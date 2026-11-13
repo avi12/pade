@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/icon-name";
-  import { ToggleState } from "@/lib/ui/controls/toggle-state";
+  import { ToggleState, toggleStateOf } from "@/lib/ui/controls/toggle-state";
   import type { Snippet } from "svelte";
 
   // Shared confirmation prompt - an in-app themed card in place of the OS popup, so
@@ -139,7 +139,7 @@
       }
     }}
     ontoggle={e => {
-      if ((e as ToggleEvent).newState === ToggleState.CLOSED && !busy) {
+      if (toggleStateOf(e) === ToggleState.CLOSED && !busy) {
         oncancel();
       }
     }}

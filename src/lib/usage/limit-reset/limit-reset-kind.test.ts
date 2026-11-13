@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Limit } from "@/lib/usage/groups/usage-model";
+import { Level, type Limit } from "@/lib/usage/groups/usage-model";
 import {
   limitResetExpiry,
   limitResetKind,
@@ -77,9 +77,19 @@ describe("limitResetTotal", () => {
 
 function limit({ kind, kindShort }: { kind: Limit["kind"]; kindShort: string }) {
   return {
+    label: "",
+    sub: "",
+    reset: "",
+    resetAt: "",
+    percentage: 0,
+    reading: "",
+    level: Level.NORMAL,
     kind,
-    kindShort
-  } as Limit;
+    kindShort,
+    balance: "",
+    isCarryingWork: false,
+    isUncapped: false
+  } satisfies Limit;
 }
 
 describe("limitResetsFor", () => {

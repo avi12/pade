@@ -15,7 +15,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import { ToggleState } from "@/lib/ui/controls/toggle-state";
+  import { ToggleState, toggleStateOf } from "@/lib/ui/controls/toggle-state";
   import { rovingMenu } from "@/lib/ui/keyboard/roving-menu";
   import { errorHeadline } from "@/lib/util/errors/error-text";
 
@@ -139,7 +139,7 @@
       class="branch-menu popover-menu scroll-fade"
       {@attach rovingMenu}
       ontoggle={async e => {
-        if ((e as ToggleEvent).newState === ToggleState.OPEN) {
+        if (toggleStateOf(e) === ToggleState.OPEN) {
           await onrefresh();
         }
       }}
