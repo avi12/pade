@@ -20,14 +20,14 @@
   const tokens = $derived.by(() => {
     if (markdown) {
       return tokenizeMarkdown({
-         text,
-         variables: vars 
+        text,
+        variables: vars 
       });
     }
 
     return tokenize({
-       text,
-       variables: vars 
+      text,
+      variables: vars 
     });
   });
 </script>
