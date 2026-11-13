@@ -102,7 +102,7 @@
 
     .line-number {
       display: inline-block;
-      min-inline-size: 1.5em;
+      min-inline-size: 1.25em;
     }
   }
 
@@ -136,7 +136,7 @@
       color: var(--code-foreground);
 
       .gutter {
-        min-inline-size: 1.5em;
+        min-inline-size: 1.25em;
       }
 
       &.right {
@@ -178,10 +178,10 @@
       color: var(--on-surface-variant);
 
       /* A hunk/meta row has no line numbers, so its gutter reserves the same
-         width the two number columns take (2 × 1.5em + gap) to keep the code
+         width the two number columns take (2 × 1.25em + gap) to keep the code
          aligned. */
       .gutter {
-        min-inline-size: calc(3em + 8px);
+        min-inline-size: calc(2.5em + 8px);
       }
     }
   }

@@ -334,7 +334,7 @@
     }
 
     input {
-      inline-size: 12em;
+      inline-size: 10em;
       font-family: var(--font-monospace);
     }
 
@@ -342,7 +342,7 @@
        tabular figures alone still let "1 of 9" become "10 of 99". */
     .count {
       flex: none;
-      min-inline-size: 4.8em;
+      min-inline-size: 4em;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-size: 0.6875rem;
