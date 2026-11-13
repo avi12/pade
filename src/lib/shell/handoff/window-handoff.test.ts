@@ -124,11 +124,26 @@ describe("joinTargetOf", () => {
 
 describe("merging this window into another", () => {
   it("offers every other window, and nothing while this one is alone", () => {
-    expect(mergeTargets([windowRow({ label: "main", path: PADE, isCurrent: true })])).toEqual([]);
     expect(
       mergeTargets([
-        windowRow({ label: "main", path: PADE, isCurrent: true }),
-        windowRow({ label: "w-1", path: POLL })
+        windowRow({
+          label: "main",
+          path: PADE,
+          isCurrent: true
+        })
+      ])
+    ).toEqual([]);
+    expect(
+      mergeTargets([
+        windowRow({
+          label: "main",
+          path: PADE,
+          isCurrent: true
+        }),
+        windowRow({
+          label: "w-1",
+          path: POLL
+        })
       ]).map(target => target.label)
     ).toEqual(["w-1"]);
   });
@@ -137,8 +152,15 @@ describe("merging this window into another", () => {
     expect(
       mergeMenuItemLabel({
         windowRows: [
-          windowRow({ label: "main", path: PADE, isCurrent: true }),
-          windowRow({ label: "w-1", path: POLL })
+          windowRow({
+            label: "main",
+            path: PADE,
+            isCurrent: true
+          }),
+          windowRow({
+            label: "w-1",
+            path: POLL
+          })
         ],
         labels: {}
       })
@@ -146,16 +168,32 @@ describe("merging this window into another", () => {
     expect(
       mergeMenuItemLabel({
         windowRows: [
-          windowRow({ label: "main", path: PADE, isCurrent: true }),
-          windowRow({ label: "w-1", path: POLL }),
-          windowRow({ label: "w-2", path: PADE })
+          windowRow({
+            label: "main",
+            path: PADE,
+            isCurrent: true
+          }),
+          windowRow({
+            label: "w-1",
+            path: POLL
+          }),
+          windowRow({
+            label: "w-2",
+            path: PADE
+          })
         ],
         labels: {}
       })
     ).toBeNull();
     expect(
       mergeMenuItemLabel({
-        windowRows: [windowRow({ label: "main", path: PADE, isCurrent: true })],
+        windowRows: [
+          windowRow({
+            label: "main",
+            path: PADE,
+            isCurrent: true
+          })
+        ],
         labels: {}
       })
     ).toBeNull();

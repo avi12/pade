@@ -81,7 +81,11 @@ export function resolveColor({
 
   // The resolved value may itself be another var reference - follow it.
   if (value.startsWith(VAR_PREFIX)) {
-    return resolveColor({ token: value, variables, depth: depth + 1 });
+    return resolveColor({
+      token: value,
+      variables,
+      depth: depth + 1
+    });
   }
 
   return isColor(value) ? value : null;

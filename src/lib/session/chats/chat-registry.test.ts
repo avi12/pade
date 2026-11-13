@@ -144,7 +144,15 @@ describe("persistedChatsFromSessions", () => {
 
   it("files each session under its own project", () => {
     const chats = persistedChatsFromSessions({
-      sessions: [session({ id: "a" }), session({ id: "p", extra: { project: OTHER_PROJECT } })],
+      sessions: [
+        session({ id: "a" }),
+        session({
+          id: "p",
+          extra: {
+            project: OTHER_PROJECT
+          }
+        })
+      ],
       labels: {},
       now: 1
     });
@@ -160,7 +168,15 @@ describe("registryWithLiveChats", () => {
     const next = registryWithLiveChats({
       registry: registry(),
       chats: persistedChatsFromSessions({
-        sessions: [session({ id: "c" }), session({ id: "p", extra: { project: OTHER_PROJECT } })],
+        sessions: [
+          session({ id: "c" }),
+          session({
+            id: "p",
+            extra: {
+              project: OTHER_PROJECT
+            }
+          })
+        ],
         labels: {},
         now: 2
       }),
@@ -226,7 +242,15 @@ describe("sidebarProjects", () => {
       registry: registry(),
       projectOrder: [PROJECT, OTHER_PROJECT],
       activeProject: PROJECT,
-      liveSessions: [session({ id: "live-1" }), session({ id: "live-2", extra: { project: OTHER_PROJECT } })],
+      liveSessions: [
+        session({ id: "live-1" }),
+        session({
+          id: "live-2",
+          extra: {
+            project: OTHER_PROJECT
+          }
+        })
+      ],
       liveLabels: {
         "live-1": "Live chat"
       },
@@ -268,9 +292,18 @@ describe("sidebarProjects", () => {
       liveLabels: {},
       elsewhereSessions: [],
       recordedConversations: () => [
-        recorded({ conversationId: "conversation-live-1", title: "Live" }),
-        recorded({ conversationId: "conversation-a", title: "Stored" }),
-        recorded({ conversationId: "old", title: null })
+        recorded({
+          conversationId: "conversation-live-1",
+          title: "Live"
+        }),
+        recorded({
+          conversationId: "conversation-a",
+          title: "Stored"
+        }),
+        recorded({
+          conversationId: "old",
+          title: null
+        })
       ]
     });
     expect(groups[0]?.chats.map(chat => chat.label)).toEqual(["Claude Code", "Claude Code", "Untitled conversation"]);
@@ -295,7 +328,14 @@ describe("sidebarProjects", () => {
         })
       ],
       recordedConversations: project =>
-        project === PROJECT ? [recorded({ conversationId: "conversation-a", title: "Running elsewhere" })] : []
+        project === PROJECT
+          ? [
+              recorded({
+                conversationId: "conversation-a",
+                title: "Running elsewhere"
+              })
+            ]
+          : []
     });
     expect(groups[0]?.chats).toEqual([
       {

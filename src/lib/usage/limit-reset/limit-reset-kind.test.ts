@@ -88,7 +88,10 @@ describe("limitResetsFor", () => {
     expect(
       limitResetsFor({
         offers,
-        limit: limit({ kind: "weekly", kindShort: "W" })
+        limit: limit({
+          kind: "weekly",
+          kindShort: "W"
+        })
       })
     ).toEqual({
       count: 1,
@@ -97,7 +100,10 @@ describe("limitResetsFor", () => {
     expect(
       limitResetsFor({
         offers,
-        limit: limit({ kind: "model", kindShort: "F" })
+        limit: limit({
+          kind: "model",
+          kindShort: "F"
+        })
       })
     ).toEqual({
       count: 3,
@@ -106,13 +112,19 @@ describe("limitResetsFor", () => {
     expect(
       limitResetsFor({
         offers,
-        limit: limit({ kind: "session", kindShort: "S" })
+        limit: limit({
+          kind: "session",
+          kindShort: "S"
+        })
       }).count
     ).toBe(0);
     expect(
       limitResetsFor({
         offers,
-        limit: limit({ kind: "credits", kindShort: "E" })
+        limit: limit({
+          kind: "credits",
+          kindShort: "E"
+        })
       }).count
     ).toBe(0);
   });
@@ -126,13 +138,19 @@ describe("limitResetsFor", () => {
     expect(
       limitResetsFor({
         offers: [full],
-        limit: limit({ kind: "session", kindShort: "S" })
+        limit: limit({
+          kind: "session",
+          kindShort: "S"
+        })
       }).count
     ).toBe(2);
     expect(
       limitResetsFor({
         offers: [full],
-        limit: limit({ kind: "weekly", kindShort: "W" })
+        limit: limit({
+          kind: "weekly",
+          kindShort: "W"
+        })
       }).count
     ).toBe(2);
   });

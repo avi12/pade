@@ -278,10 +278,22 @@ describe("layoutWithoutSessions", () => {
     const layout = layoutWithoutSessions({
       layout: {
         sessions: [
-          inProject({ id: "older", project: "C:\\repositories\\other" }),
-          inProject({ id: "newer", project: "C:\\repositories\\other" }),
-          inProject({ id: "temp-1", project: "C:\\workspaces\\temp" }),
-          inProject({ id: "temp-2", project: "C:\\workspaces\\temp" })
+          inProject({
+            id: "older",
+            project: "C:\\repositories\\other"
+          }),
+          inProject({
+            id: "newer",
+            project: "C:\\repositories\\other"
+          }),
+          inProject({
+            id: "temp-1",
+            project: "C:\\workspaces\\temp"
+          }),
+          inProject({
+            id: "temp-2",
+            project: "C:\\workspaces\\temp"
+          })
         ],
         paneIds: ["temp-2"],
         activeId: "temp-2"

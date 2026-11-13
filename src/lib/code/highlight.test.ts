@@ -56,14 +56,20 @@ describe("tokenize", () => {
 
   it("traces a var() color through the provided token map", () => {
     const variables = new Map([["--brand", "#123456"]]);
-    const [token] = tokenize({ text: "var(--brand)", variables });
+    const [token] = tokenize({
+      text: "var(--brand)",
+      variables
+    });
 
     expect(token.tokenClass).toBe(TokenClass.COLOR);
     expect(token.color).toBe("#123456");
   });
 
   it("leaves an unresolvable var() color without a swatch", () => {
-    const [token] = tokenize({ text: "var(--missing)", variables: new Map() });
+    const [token] = tokenize({
+      text: "var(--missing)",
+      variables: new Map()
+    });
 
     expect(token.tokenClass).toBe(TokenClass.COLOR);
     expect(token.color).toBeUndefined();
@@ -179,21 +185,71 @@ describe("tokenizeMarkdown", () => {
       text: ["# Title", "> a quote", "- item with `code` and **bold** and [a link](https://x)"].join("\n")
     });
 
-    expect(markdownClassOf({ tokens, text: "# Title" })).toBe(TokenClass.KEYWORD);
-    expect(markdownClassOf({ tokens, text: "> a quote" })).toBe(TokenClass.COMMENT);
-    expect(markdownClassOf({ tokens, text: "- " })).toBe(TokenClass.NUMBER);
-    expect(markdownClassOf({ tokens, text: "`code`" })).toBe(TokenClass.STRING);
-    expect(markdownClassOf({ tokens, text: "**bold**" })).toBe(TokenClass.KEYWORD);
-    expect(markdownClassOf({ tokens, text: "[a link](https://x)" })).toBe(TokenClass.FUNCTION);
-    expect(markdownClassOf({ tokens, text: "item with " })).toBe(TokenClass.PLAIN);
+    expect(
+      markdownClassOf({
+        tokens,
+        text: "# Title"
+      })
+    ).toBe(TokenClass.KEYWORD);
+    expect(
+      markdownClassOf({
+        tokens,
+        text: "> a quote"
+      })
+    ).toBe(TokenClass.COMMENT);
+    expect(
+      markdownClassOf({
+        tokens,
+        text: "- "
+      })
+    ).toBe(TokenClass.NUMBER);
+    expect(
+      markdownClassOf({
+        tokens,
+        text: "`code`"
+      })
+    ).toBe(TokenClass.STRING);
+    expect(
+      markdownClassOf({
+        tokens,
+        text: "**bold**"
+      })
+    ).toBe(TokenClass.KEYWORD);
+    expect(
+      markdownClassOf({
+        tokens,
+        text: "[a link](https://x)"
+      })
+    ).toBe(TokenClass.FUNCTION);
+    expect(
+      markdownClassOf({
+        tokens,
+        text: "item with "
+      })
+    ).toBe(TokenClass.PLAIN);
   });
 
   it("hands fenced code blocks to the generic scanner", () => {
     const tokens = tokenizeMarkdown({ text: ["```ts", "const answer = 42;", "```"].join("\n") });
 
-    expect(markdownClassOf({ tokens, text: "```ts" })).toBe(TokenClass.COMMENT);
-    expect(markdownClassOf({ tokens, text: "const" })).toBe(TokenClass.KEYWORD);
-    expect(markdownClassOf({ tokens, text: "42" })).toBe(TokenClass.NUMBER);
+    expect(
+      markdownClassOf({
+        tokens,
+        text: "```ts"
+      })
+    ).toBe(TokenClass.COMMENT);
+    expect(
+      markdownClassOf({
+        tokens,
+        text: "const"
+      })
+    ).toBe(TokenClass.KEYWORD);
+    expect(
+      markdownClassOf({
+        tokens,
+        text: "42"
+      })
+    ).toBe(TokenClass.NUMBER);
   });
 
   it("round-trips the exact text, newlines included", () => {

@@ -72,7 +72,10 @@ export function whenSessionIdle({ id, timeoutMs }: { id: string; timeoutMs?: num
       timeoutMs === undefined
         ? undefined
         : setTimeout(() => {
-            idleWaiters.remove({ id, settle });
+            idleWaiters.remove({
+              id,
+              settle
+            });
             resolve();
           }, timeoutMs);
 
@@ -81,6 +84,9 @@ export function whenSessionIdle({ id, timeoutMs }: { id: string; timeoutMs?: num
       resolve();
     }
 
-    idleWaiters.add({ id, settle });
+    idleWaiters.add({
+      id,
+      settle
+    });
   });
 }

@@ -97,7 +97,12 @@ async function evaluate(expression) {
 
 /** Navigate and poll until `expression` is true (the app boots asynchronously). */
 async function navigateAndExpect({ url, expression, label }) {
-  await send({ method: "Page.navigate", params: { url } });
+  await send({
+    method: "Page.navigate",
+    params: {
+      url
+    }
+  });
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
     if (await evaluate(expression)) {

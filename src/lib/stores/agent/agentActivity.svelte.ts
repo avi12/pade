@@ -181,7 +181,10 @@ export function whenAgentSettled(id: string) {
   }
 
   return new Promise<void>(resolve => {
-    settleWaiters.add({ id, settle: resolve });
+    settleWaiters.add({
+      id,
+      settle: resolve
+    });
   });
 }
 

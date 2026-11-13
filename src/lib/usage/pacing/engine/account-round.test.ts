@@ -64,9 +64,18 @@ function round({
 describe("the round's leader", () => {
   it("is one window, the same whichever window asks", () => {
     const reports = [
-      windowReport({ label: "window-2", sessions: [] }),
-      windowReport({ label: "main", sessions: [] }),
-      windowReport({ label: "window-1", sessions: [] })
+      windowReport({
+        label: "window-2",
+        sessions: []
+      }),
+      windowReport({
+        label: "main",
+        sessions: []
+      }),
+      windowReport({
+        label: "window-1",
+        sessions: []
+      })
     ];
     expect(roundLeader(reports)).toBe("main");
     expect(roundLeader(reports.toReversed())).toBe("main");
@@ -76,10 +85,16 @@ describe("the round's leader", () => {
   it("drops a window that stopped reporting, so the next one leads", () => {
     const reports = [
       {
-        ...windowReport({ label: "main", sessions: [] }),
+        ...windowReport({
+          label: "main",
+          sessions: []
+        }),
         at: NOW - 10 * 60_000
       },
-      windowReport({ label: "window-1", sessions: [] })
+      windowReport({
+        label: "window-1",
+        sessions: []
+      })
     ];
     const fresh = freshReports({
       reports,
@@ -110,8 +125,14 @@ describe("planRound across windows sharing one account", () => {
     });
     const { plan } = round({
       reports: [
-        windowReport({ label: "main", sessions: [front] }),
-        windowReport({ label: "window-1", sessions: [background] })
+        windowReport({
+          label: "main",
+          sessions: [front]
+        }),
+        windowReport({
+          label: "window-1",
+          sessions: [background]
+        })
       ]
     });
     expect(plan.climb).toEqual(["background"]);
@@ -131,8 +152,14 @@ describe("planRound across windows sharing one account", () => {
     );
     const { plan } = round({
       reports: [
-        windowReport({ label: "main", sessions: sessions.slice(0, 2) }),
-        windowReport({ label: "window-1", sessions: sessions.slice(2) })
+        windowReport({
+          label: "main",
+          sessions: sessions.slice(0, 2)
+        }),
+        windowReport({
+          label: "window-1",
+          sessions: sessions.slice(2)
+        })
       ]
     });
     // 20% of 100 needs 20 saved; each step saves 12.5, so two - not four.
@@ -161,8 +188,14 @@ describe("planRound across windows sharing one account", () => {
     });
     const { plan, steps } = round({
       reports: [
-        windowReport({ label: "main", sessions: [front] }),
-        windowReport({ label: "window-1", sessions: [background] })
+        windowReport({
+          label: "main",
+          sessions: [front]
+        }),
+        windowReport({
+          label: "window-1",
+          sessions: [background]
+        })
       ]
     });
     const key = subagentKey({
@@ -220,7 +253,15 @@ describe("planRound across windows sharing one account", () => {
         ]
       })
     ];
-    const { steps: next } = round({ reports: [windowReport({ label: "window-1", sessions })], steps });
+    const { steps: next } = round({
+      reports: [
+        windowReport({
+          label: "window-1",
+          sessions
+        })
+      ],
+      steps
+    });
     expect(next[key]).toEqual({
       step: SubagentStepKind.enum.wrapUp
     });
@@ -243,7 +284,10 @@ describe("planRound across windows sharing one account", () => {
               })
             ]
           }),
-          windowReport({ label: "window-1", sessions: [session({ id: "b" })] })
+          windowReport({
+            label: "window-1",
+            sessions: [session({ id: "b" })]
+          })
         ]
       }).plan.throttles.map(throttle => throttle.isBlockingSpawns);
     }
@@ -273,8 +317,14 @@ describe("planRound across windows sharing one account", () => {
     });
     const { plan, steps } = round({
       reports: [
-        windowReport({ label: "main", sessions: [over] }),
-        windowReport({ label: "window-1", sessions: [other] })
+        windowReport({
+          label: "main",
+          sessions: [over]
+        }),
+        windowReport({
+          label: "window-1",
+          sessions: [other]
+        })
       ]
     });
     expect(steps).toEqual({});
@@ -291,7 +341,12 @@ describe("planRound across windows sharing one account", () => {
       }
     });
     const { plan } = round({
-      reports: [windowReport({ label: "window-1", sessions: [stale] })],
+      reports: [
+        windowReport({
+          label: "window-1",
+          sessions: [stale]
+        })
+      ],
       steps: NO_STEPS,
       steppedAt: new Map([["s", NOW - 10_000]])
     });
@@ -350,7 +405,10 @@ describe("planRound across windows sharing one account", () => {
         ]
       })
     ];
-    const { plan, steps: next } = round({ reports, steps });
+    const { plan, steps: next } = round({
+      reports,
+      steps
+    });
     expect(next).toEqual({
       [key]: {
         step: SubagentStepKind.enum.gate,
@@ -389,7 +447,10 @@ describe("planRound across windows sharing one account", () => {
             })
           ]
         }),
-        windowReport({ label: "window-1", sessions: [session({ id: "b" })] })
+        windowReport({
+          label: "window-1",
+          sessions: [session({ id: "b" })]
+        })
       ],
       steps
     });
@@ -399,7 +460,14 @@ describe("planRound across windows sharing one account", () => {
 
 describe("the wire between windows", () => {
   it("accepts a well-formed plan and refuses a malformed one", () => {
-    const { plan } = round({ reports: [windowReport({ label: "main", sessions: [session({ id: "s" })] })] });
+    const { plan } = round({
+      reports: [
+        windowReport({
+          label: "main",
+          sessions: [session({ id: "s" })]
+        })
+      ]
+    });
     expect(
       parsePacingMessage({
         kind: PacingMessageKind.enum.plan,

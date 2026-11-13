@@ -98,7 +98,12 @@ export function createApiErrorRetry(host: RecoveryHost) {
     tick: retry,
     pendingNote: session => `${session.agent.label} stopped on an API error - retrying…`
   });
-  registerSessionState({ key: SessionStateKey.enum.apiError, state: { forget: loop.forget } });
+  registerSessionState({
+    key: SessionStateKey.enum.apiError,
+    state: {
+      forget: loop.forget
+    }
+  });
 
   // One retry tick, RETRY_MS after the last. A session halted by an API error
   // sits idle at its prompt (`ready`), so the moment it reports `working` again

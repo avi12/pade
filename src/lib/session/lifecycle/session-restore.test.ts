@@ -60,7 +60,15 @@ describe("save / read round trip", () => {
   it("persists the pane mapping and reads it back validated", () => {
     saveSessionSnapshot({
       project: "C:\\repos\\pade",
-      sessions: [session({ id: "a" }), session({ id: "b", extra: { branch: "main" } })],
+      sessions: [
+        session({ id: "a" }),
+        session({
+          id: "b",
+          extra: {
+            branch: "main"
+          }
+        })
+      ],
       paneIds: ["a", "b"],
       activeId: "b"
     });

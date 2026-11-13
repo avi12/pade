@@ -184,7 +184,11 @@ function classify({ raw, variables }: { raw: string; variables?: Map<string, str
     return {
       text: raw,
       tokenClass,
-      color: resolveColor({ token: raw, variables }) ?? undefined
+      color:
+        resolveColor({
+          token: raw,
+          variables
+        }) ?? undefined
     };
   }
 
@@ -220,7 +224,10 @@ export function tokenize({ text, variables }: { text: string; variables?: Map<st
       tokens.push(plain(text.slice(previousEnd, start)));
     }
 
-    const token: Token = classify({ raw: match[0], variables });
+    const token: Token = classify({
+      raw: match[0],
+      variables
+    });
     const end = start + match[0].length;
     if (token.tokenClass === TokenClass.PLAIN) {
       token.tokenClass = identifierRole({
@@ -346,7 +353,14 @@ export function tokenizeMarkdown({ text, variables }: { text: string; variables?
       continue;
     }
 
-    tokens.push(...(isInFence ? tokenize({ text: line, variables }) : markdownLineTokens(line)));
+    tokens.push(
+      ...(isInFence
+        ? tokenize({
+            text: line,
+            variables
+          })
+        : markdownLineTokens(line))
+    );
   }
 
   if (tokens.length === 0) {

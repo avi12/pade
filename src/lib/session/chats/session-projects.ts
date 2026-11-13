@@ -31,7 +31,12 @@ export function sessionsOfProject<Session extends Pick<AgentSession, "project">>
   sessions: readonly Session[];
   project: string;
 }) {
-  return sessions.filter(session => isSameProject({ left: session.project, right: project }));
+  return sessions.filter(session =>
+    isSameProject({
+      left: session.project,
+      right: project
+    })
+  );
 }
 
 /** The session to bring forward when a project with live sessions is picked:

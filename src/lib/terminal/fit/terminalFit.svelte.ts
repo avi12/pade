@@ -252,7 +252,12 @@ export function createTerminalFit({
       return;
     }
 
-    if (isGridSized({ grid, size })) {
+    if (
+      isGridSized({
+        grid,
+        size
+      })
+    ) {
       return;
     }
 
@@ -328,7 +333,12 @@ export function createTerminalFit({
   // The normal screen reflows every frame: xterm owns the document there, so it can
   // rewrap the text itself as fast as the drag moves.
   function fitNormalScreen({ grid, fitted }: { grid: Terminal; fitted: GridSize }) {
-    if (!isGridSized({ grid, size: fitted })) {
+    if (
+      !isGridSized({
+        grid,
+        size: fitted
+      })
+    ) {
       grid.resize(fitted.columns, fitted.rows);
     }
 
