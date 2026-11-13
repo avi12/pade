@@ -223,17 +223,25 @@ export function pacingPreview({
   };
 }
 
+const LASTS_UNTIL_RESET_TEXT = "At this pace: lasts until the reset";
+
 function paceText({ forecast, now }: { forecast: PaceForecast; now: number }) {
   if (!forecast.isMeasured) {
     return "Measuring the pace";
   }
 
-  if (forecast.runOutAt === null || forecast.runOutAt >= forecast.resetAt) {
-    return "At this pace: lasts until the reset";
+  const { runOutAt } = forecast;
+  if (runOutAt === null) {
+    return LASTS_UNTIL_RESET_TEXT;
+  }
+
+  const isRunOutAfterReset = runOutAt >= forecast.resetAt;
+  if (isRunOutAfterReset) {
+    return LASTS_UNTIL_RESET_TEXT;
   }
 
   return `At this pace: runs out ${spokenTime({
-    time: forecast.runOutAt,
+    time: runOutAt,
     now
   })}`;
 }

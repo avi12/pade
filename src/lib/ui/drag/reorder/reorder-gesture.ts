@@ -367,13 +367,14 @@ export function endGesture({ gesture, isCancelled }: { gesture: ReorderGesture; 
   gesture.isDragging = false;
 
   // The pressed item vanished before it could lift - nothing to settle or commit.
+  const isCancelledMissingAndDropOutside = !isCancelled && dropOutside(gesture);
   if (gesture.iFrom === NOT_FOUND) {
     gesture.options.onHint?.(null);
     gesture.release();
     return;
   }
 
-  if (!isCancelled && dropOutside(gesture)) {
+  if (isCancelledMissingAndDropOutside) {
     return;
   }
 

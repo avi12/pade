@@ -69,7 +69,8 @@
 
   function sendableSelection() {
     const selected = getSelection();
-    if (!selected || !isInSidePanel(selected.anchorNode)) {
+    const isOutsideSidePanel = !selected || !isInSidePanel(selected.anchorNode);
+    if (isOutsideSidePanel) {
       return "";
     }
 

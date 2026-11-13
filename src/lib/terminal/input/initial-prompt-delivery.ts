@@ -187,7 +187,8 @@ export function createInitialPromptDelivery({
       // answered and the prompt never sent. So the sample that first sees the
       // gate gone delivers itself, when the agent is already quiet.
       const isTrustGateJustCleared = wasTrustGateOnScreen && !isTrustGateOnScreen;
-      if (isTrustGateJustCleared && !isWorking()) {
+      const isQuietAfterGateCleared = isTrustGateJustCleared && !isWorking();
+      if (isQuietAfterGateCleared) {
         await deliverIfReady();
         return;
       }

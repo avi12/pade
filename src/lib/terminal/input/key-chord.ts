@@ -102,7 +102,9 @@ export function encodeChord(chord: string) {
     .split(STEP_SEPARATOR)
     .filter(step => step !== "");
   const keystrokes = steps.map(step => encodeKeystroke(step));
-  if (keystrokes.length === 0 || keystrokes.some(keystroke => keystroke === null)) {
+  const isKeystrokesLength0OrKeystrokesSome =
+    keystrokes.length === 0 || keystrokes.some(keystroke => keystroke === null);
+  if (isKeystrokesLength0OrKeystrokesSome) {
     return null;
   }
 

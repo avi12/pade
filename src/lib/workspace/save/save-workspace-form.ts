@@ -25,7 +25,8 @@ export function prefillableName(label: string) {
     schema: ProjectName,
     raw: label
   });
-  if (friendlyLabel === null || TEMP_FOLDER_NAME.test(friendlyLabel)) {
+  const isFriendlyLabelMissingOrTEMPFOLDER = friendlyLabel === null || TEMP_FOLDER_NAME.test(friendlyLabel);
+  if (isFriendlyLabelMissingOrTEMPFOLDER) {
     return null;
   }
 

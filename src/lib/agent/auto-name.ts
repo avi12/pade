@@ -82,7 +82,8 @@ export function createAutoNamer(host: AutoNameHost) {
 
   async function consider(event: ChangeEvent) {
     const project = frontProject();
-    if (event.kind === ChangeKind.enum.deleted || !isNamingCandidate(project)) {
+    const isEventKindEqualsEnumDeletedOr = event.kind === ChangeKind.enum.deleted || !isNamingCandidate(project);
+    if (isEventKindEqualsEnumDeletedOr) {
       return;
     }
 
@@ -104,7 +105,8 @@ export function createAutoNamer(host: AutoNameHost) {
 
     namedProjects.add(project); // guard so the naming call runs exactly once
     const name = await suggestName(project);
-    if (!name || frontProject() !== project) {
+    const isNameMissingOrFrontProjectNot = !name || frontProject() !== project;
+    if (isNameMissingOrFrontProjectNot) {
       return;
     }
 

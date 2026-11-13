@@ -75,7 +75,8 @@ export function createTaskCatalog(dependencies: TaskCatalogDependencies = defaul
 
     try {
       const groups = await dependencies.list(project);
-      if (version !== requestVersion || project !== currentProject()) {
+      const isVersionNotRequestVersionOrProject2 = version !== requestVersion || project !== currentProject();
+      if (isVersionNotRequestVersionOrProject2) {
         return;
       }
 
@@ -86,7 +87,8 @@ export function createTaskCatalog(dependencies: TaskCatalogDependencies = defaul
         error: initializationError
       };
     } catch (caughtError) {
-      if (version !== requestVersion || project !== currentProject()) {
+      const isVersionNotRequestVersionOrProject = version !== requestVersion || project !== currentProject();
+      if (isVersionNotRequestVersionOrProject) {
         return;
       }
 

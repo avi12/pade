@@ -88,7 +88,8 @@ export function createReorderGlide({ duration }: { duration: () => number }) {
         from,
         to: row.getBoundingClientRect()
       });
-      if (!row.isConnected || !hasMoved(offset)) {
+      const isRowIsConnectedMissingOrNot = !row.isConnected || !hasMoved(offset);
+      if (isRowIsConnectedMissingOrNot) {
         continue;
       }
 

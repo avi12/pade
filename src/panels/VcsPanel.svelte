@@ -40,7 +40,8 @@
       ]);
       // A late response for the prior project must not repaint this panel after
       // the window has switched to another workspace.
-      if (version !== refreshVersion || workspace !== project) {
+      const isStaleResponse = version !== refreshVersion || workspace !== project;
+      if (isStaleResponse) {
         return;
       }
 
@@ -48,7 +49,8 @@
       commits = nextCommits;
       error = null;
     } catch (caughtError) {
-      if (version !== refreshVersion || workspace !== project) {
+      const isStaleResponse = version !== refreshVersion || workspace !== project;
+      if (isStaleResponse) {
         return;
       }
 

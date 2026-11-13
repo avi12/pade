@@ -24,7 +24,8 @@
 
   function openAddMenu() {
     const elMenu = document.getElementById(ADD_SESSION_MENU_ID);
-    if (elMenu instanceof HTMLElement && !elMenu.matches(POPOVER_OPEN_SELECTOR)) {
+    const canShowMenu = elMenu instanceof HTMLElement && !elMenu.matches(POPOVER_OPEN_SELECTOR);
+    if (canShowMenu) {
       elMenu.showPopover();
     }
   }

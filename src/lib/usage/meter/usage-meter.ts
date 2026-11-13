@@ -133,7 +133,12 @@ export function pendingResetBoundaries({
   for (const account of accounts.values()) {
     for (const window of account?.windows ?? []) {
       const time = usageResetTime(window.resetsAt);
-      if (window.resetsAt && Number.isFinite(time)) {
+      if (!window.resetsAt) {
+        continue;
+      }
+
+      const isTimeFinite = Number.isFinite(time);
+      if (isTimeFinite) {
         boundaries.push({
           value: window.resetsAt,
           time

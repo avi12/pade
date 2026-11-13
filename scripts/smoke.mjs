@@ -63,7 +63,8 @@ let nextId = 1;
 const pending = new Map();
 socket.onmessage = event => {
   const message = JSON.parse(event.data);
-  if (message.id && pending.has(message.id)) {
+  const isMessageIdAndPendingHasMessage = message.id && pending.has(message.id);
+  if (isMessageIdAndPendingHasMessage) {
     pending.get(message.id)(message);
     pending.delete(message.id);
   }

@@ -357,7 +357,8 @@ export function sidebarProjects({
   const seen = new Set<string>();
   const ordered: string[] = [];
   for (const project of projectOrder) {
-    if (project === "" || seen.has(normalizePath(project))) {
+    const isProjectOrSeenHas = project === "" || seen.has(normalizePath(project));
+    if (isProjectOrSeenHas) {
       continue;
     }
 

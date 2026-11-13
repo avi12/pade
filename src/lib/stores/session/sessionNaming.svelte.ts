@@ -51,7 +51,8 @@ function dueController(id: string) {
 /** Label the session with a generated name, unless naming was toggled off while
  *  the request ran. */
 function applyGeneratedName({ id, name }: { id: string; name: string | null }) {
-  if (name === null || !naming.has(id)) {
+  const isNameMissingOrNotNamingHas = name === null || !naming.has(id);
+  if (isNameMissingOrNotNamingHas) {
     return;
   }
 

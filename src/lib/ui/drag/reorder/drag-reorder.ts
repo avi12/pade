@@ -49,12 +49,14 @@ let isDragInProgress = false;
 export function beginReorder(options: BeginReorderOptions) {
   const { e, itemSelector, idAttribute, axis, threshold = DEFAULT_THRESHOLD, ignoreSelector } = options;
   // Primary button only - middle-click (close a tab) and right-click stay theirs.
-  if (isDragInProgress || e.button !== PRIMARY_BUTTON || !(e.target instanceof Element)) {
+  const isPressIgnored = isDragInProgress || e.button !== PRIMARY_BUTTON;
+  if (isPressIgnored || !(e.target instanceof Element)) {
     return;
   }
 
   // A press that lands on an ignored control is that control's, not a handle.
-  if (ignoreSelector && e.target.closest(ignoreSelector)) {
+  const isOnIgnoredControl = ignoreSelector && e.target.closest(ignoreSelector);
+  if (isOnIgnoredControl) {
     return;
   }
 

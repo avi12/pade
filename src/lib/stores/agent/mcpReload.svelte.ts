@@ -33,7 +33,8 @@ export function parseMcpReloadFailure({ text }: { text: string }) {
 /** Feed one PTY chunk into the bounded detector for a pending session. */
 export function observeMcpReload({ id, chunk }: { id: string; chunk: string }) {
   const previous = pending.get(id);
-  if (previous === undefined || failed.has(id)) {
+  const isPreviousMissingOrFailedHasId = previous === undefined || failed.has(id);
+  if (isPreviousMissingOrFailedHasId) {
     return;
   }
 

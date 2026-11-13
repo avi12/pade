@@ -124,8 +124,10 @@ export function windowsAfterMessage({
 
     return new Map(windows).set(message.window.label, message.window);
   }
+  const isMessageKindEqualsEnumWindowGone =
+    message.kind === BoardMessageKind.enum.windowGone && windows.has(message.label);
 
-  if (message.kind === BoardMessageKind.enum.windowGone && windows.has(message.label)) {
+  if (isMessageKindEqualsEnumWindowGone) {
     const next = new Map(windows);
     next.delete(message.label);
     return next;

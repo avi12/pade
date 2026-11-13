@@ -113,7 +113,8 @@ export function shedFraction({
   now: number;
 }) {
   const timeLeft = freeAt - now;
-  if (rate === null || rate <= 0 || timeLeft <= 0) {
+  const isRateMissingOrRateAtMost0 = rate === null || rate <= 0 || timeLeft <= 0;
+  if (isRateMissingOrRateAtMost0) {
     return null;
   }
 
@@ -175,7 +176,8 @@ export function planShedding({
 export function lightestToRestore(candidates: readonly Pick<ShedCandidate, "id" | "load">[]) {
   let lightest: Pick<ShedCandidate, "id" | "load"> | undefined;
   for (const candidate of candidates) {
-    if (lightest === undefined || candidate.load < lightest.load) {
+    const isLightestMissingOrCandidateLoadBelow = lightest === undefined || candidate.load < lightest.load;
+    if (isLightestMissingOrCandidateLoadBelow) {
       lightest = candidate;
     }
   }

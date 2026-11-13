@@ -38,7 +38,8 @@ export function measureSiblings({
 }) {
   const siblings: Sibling[] = [];
   for (const elChild of elParent.children) {
-    if (!(elChild instanceof HTMLElement) || !elChild.matches(itemSelector)) {
+    const isNotElChildInstanceOfHTMLElementOr = !(elChild instanceof HTMLElement) || !elChild.matches(itemSelector);
+    if (isNotElChildInstanceOfHTMLElementOr) {
       continue;
     }
 
@@ -84,7 +85,8 @@ export function reflowSiblings({
   const order = [...others.slice(0, iBefore), draggedId, ...others.slice(iBefore)];
   for (const [i, id] of order.entries()) {
     const iOriginal = iOriginalById.get(id);
-    if (id === draggedId || iOriginal === undefined) {
+    const isIdEqualsDraggedIdOrI = id === draggedId || iOriginal === undefined;
+    if (isIdEqualsDraggedIdOrI) {
       continue;
     }
 

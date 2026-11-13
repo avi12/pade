@@ -129,7 +129,8 @@ export function createProjectFlow({
   // window with sessions - of any project - starts or brings forward one
   // session of it beside them, and the window's project context follows.
   async function openProject(target: OpenTarget) {
-    if (leave.isInFlight || (await isFocusedElsewhere(target.path))) {
+    const isLeaveIsInFlightOrIs = leave.isInFlight || (await isFocusedElsewhere(target.path));
+    if (isLeaveIsInFlightOrIs) {
       return;
     }
 

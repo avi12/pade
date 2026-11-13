@@ -135,7 +135,8 @@ export async function restoreProjectChats({
   }
 
   const focusChatId = chatId ?? host.registry.activeChatByProject[project];
-  if (focusChatId !== undefined && host.isOpen(focusChatId)) {
+  const isFocusChatIdPresentAndHost = focusChatId !== undefined && host.isOpen(focusChatId);
+  if (isFocusChatIdPresentAndHost) {
     host.select(focusChatId);
   }
 

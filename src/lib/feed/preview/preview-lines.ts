@@ -20,7 +20,8 @@ export function previewLines(preview: FeedDiff | null) {
       after: preview.after
     })
   );
-  if (changed.length > 0 || preview.after.length === 0) {
+  const isChangedLengthAbove0OrAfter = changed.length > 0 || preview.after.length === 0;
+  if (isChangedLengthAbove0OrAfter) {
     return changed;
   }
 

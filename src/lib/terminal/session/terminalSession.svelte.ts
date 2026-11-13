@@ -154,10 +154,11 @@ export function createTerminalSession({
   });
 
   function watchForRightToLeft(text: string) {
+    const isRightToLeftSeenOr = isRightToLeftSeen || session().agent.reordersBidi;
     // An agent that reorders its own output has already done the browser's job,
     // and doing it twice reads backwards - so for those the latch never flips and
     // the overlay never exists (see `reordersBidi` in agents.rs).
-    if (isRightToLeftSeen || session().agent.reordersBidi) {
+    if (isRightToLeftSeenOr) {
       return;
     }
 

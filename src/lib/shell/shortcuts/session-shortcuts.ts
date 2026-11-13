@@ -60,7 +60,8 @@ export function registerSessionShortcuts({
         }
 
         const elMenu = document.getElementById(ADD_SESSION_MENU_ID);
-        if (!(elMenu instanceof HTMLElement) || elMenu.matches(":popover-open")) {
+        const isNotElMenuInstanceOfHTMLElementOr = !(elMenu instanceof HTMLElement) || elMenu.matches(":popover-open");
+        if (isNotElMenuInstanceOfHTMLElementOr) {
           return;
         }
 

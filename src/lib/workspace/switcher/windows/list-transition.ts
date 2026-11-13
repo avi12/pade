@@ -20,7 +20,13 @@ export async function runListTransition({
   elList: ScopedTransitionList | null;
   mutate: () => Promise<void>;
 }) {
-  if (prefersReducedMotion() || !elList?.startViewTransition) {
+  const isReducedMotion = prefersReducedMotion();
+  if (isReducedMotion) {
+    await mutate();
+    return;
+  }
+
+  if (!elList?.startViewTransition) {
     await mutate();
     return;
   }

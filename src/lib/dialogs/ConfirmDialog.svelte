@@ -76,7 +76,12 @@
   // it on the body's own `data-initial-focus` field when it has one (a prompt that
   // asks for text), else on Cancel - the safe default for a destructive prompt.
   $effect(() => {
-    if (!elScrim || elScrim.matches(POPOVER_OPEN_SELECTOR)) {
+    if (!elScrim) {
+      return;
+    }
+
+    const isScrimOpen = elScrim.matches(POPOVER_OPEN_SELECTOR);
+    if (isScrimOpen) {
       return;
     }
 

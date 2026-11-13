@@ -127,7 +127,8 @@ export function buildMsix({ version, tools }) {
 /** Build and sign the MSIX from the existing release build, touching nothing
  *  but `release/` - for trying the package without cutting a release. */
 export function packMsixOnly(version) {
-  if (!version || !VERSION_PATTERN.test(version)) {
+  const isVersionMissingOrNotVERSIONPATTERN = !version || !VERSION_PATTERN.test(version);
+  if (isVersionMissingOrNotVERSIONPATTERN) {
     fail(`usage: node scripts/release.mjs ${MSIX_ONLY_FLAG} <major.minor.patch>`);
   }
 

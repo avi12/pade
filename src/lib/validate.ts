@@ -101,7 +101,8 @@ export function isSshCloneUrl(url: string) {
 export function repositoryFolderName(url: string) {
   const trimmed = url.trim().replace(/[/\\]+$/, "");
   const isStandardUrl = StandardCloneUrl.safeParse(trimmed).success;
-  if (!isStandardUrl && !isScpLike(trimmed)) {
+  const isStandardUrlMissingAndNot = !isStandardUrl && !isScpLike(trimmed);
+  if (isStandardUrlMissingAndNot) {
     return "";
   }
 

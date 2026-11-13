@@ -160,13 +160,13 @@ function continuesBelow({
       line: lastLine,
       columns
     });
-  if (
+  const isLastContentAndReachesRightEdge =
     lastContent &&
     reachesRightEdge({
       content: lastContent,
       columns
-    })
-  ) {
+    });
+  if (isLastContentAndReachesRightEdge) {
     return true;
   }
 

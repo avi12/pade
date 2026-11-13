@@ -57,6 +57,7 @@ export function packTabs({
   // We know we'll overflow, so reserve room for the "+N" button.
   const budget = stripWidth - MORE_SLOT;
   const visible: string[] = [];
+  const isVisibleLength0AndIdsLength = visible.length === 0 && ids.length > 0;
   let used = 0;
   for (const id of ids) {
     const next = used + widthOf(id) + (visible.length > 0 ? TAB_GAP : 0);
@@ -69,7 +70,7 @@ export function packTabs({
   }
 
   // Always keep at least one pill so the bar is never only a "+N".
-  if (visible.length === 0 && ids.length > 0) {
+  if (isVisibleLength0AndIdsLength) {
     visible.push(ids[0]);
     used = widthOf(ids[0]);
   }

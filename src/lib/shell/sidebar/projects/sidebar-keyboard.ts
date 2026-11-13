@@ -38,42 +38,48 @@ export function nextSidebarPosition({
 }) {
   const lastLine = lineLengths.length - 1;
   const lastItem = (lineLengths[position.line] ?? 1) - 1;
-  if (key === SidebarKey.DOWN && position.line < lastLine) {
+  const isKeyEqualsSidebarKeyDOWNAnd = key === SidebarKey.DOWN && position.line < lastLine;
+  if (isKeyEqualsSidebarKeyDOWNAnd) {
     return {
       line: position.line + 1,
       item: 0
     };
   }
+  const isKeyEqualsSidebarKeyUPAnd = key === SidebarKey.UP && position.line > 0;
 
-  if (key === SidebarKey.UP && position.line > 0) {
+  if (isKeyEqualsSidebarKeyUPAnd) {
     return {
       line: position.line - 1,
       item: 0
     };
   }
+  const isKeyEqualsSidebarKeyRIGHTAnd = key === SidebarKey.RIGHT && position.item < lastItem;
 
-  if (key === SidebarKey.RIGHT && position.item < lastItem) {
+  if (isKeyEqualsSidebarKeyRIGHTAnd) {
     return {
       line: position.line,
       item: position.item + 1
     };
   }
+  const isKeyEqualsSidebarKeyLEFTAnd = key === SidebarKey.LEFT && position.item > 0;
 
-  if (key === SidebarKey.LEFT && position.item > 0) {
+  if (isKeyEqualsSidebarKeyLEFTAnd) {
     return {
       line: position.line,
       item: position.item - 1
     };
   }
+  const isKeyEqualsSidebarKeyHOMEAnd = key === SidebarKey.HOME && lastLine >= 0;
 
-  if (key === SidebarKey.HOME && lastLine >= 0) {
+  if (isKeyEqualsSidebarKeyHOMEAnd) {
     return {
       line: 0,
       item: 0
     };
   }
+  const isKeyEqualsSidebarKeyENDAnd = key === SidebarKey.END && lastLine >= 0;
 
-  if (key === SidebarKey.END && lastLine >= 0) {
+  if (isKeyEqualsSidebarKeyENDAnd) {
     return {
       line: lastLine,
       item: 0
@@ -89,7 +95,8 @@ export function nextSidebarPosition({
 export function sidebarArrowKeys(element: HTMLElement) {
   function moveFocus(e: KeyboardEvent) {
     const { target } = e;
-    if (!SIDEBAR_KEYS.has(e.key) || !(target instanceof HTMLElement)) {
+    const isNotSIDEBARKEYSHasEKey = !SIDEBAR_KEYS.has(e.key) || !(target instanceof HTMLElement);
+    if (isNotSIDEBARKEYSHasEKey) {
       return;
     }
 

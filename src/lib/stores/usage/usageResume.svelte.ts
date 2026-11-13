@@ -237,7 +237,8 @@ function verdictByResetClock({ resetAt, now }: { resetAt: number | null; now: nu
 function sniffStop({ id, text }: { id: string; text: string }) {
   const now = Date.now();
   const isSettled = (quietUntil.get(id) ?? 0) > now;
-  if (hits.has(id) || isSettled) {
+  const isHitsHasIdOrIsSettled = hits.has(id) || isSettled;
+  if (isHitsHasIdOrIsSettled) {
     return;
   }
 
@@ -389,7 +390,8 @@ export function createUsageResume(host: RecoveryHost) {
   // settle a stale message, continue a runnable session, or keep waiting.
   async function assess(session: AgentSession) {
     const id = session.id;
-    if (!loop.isOpen(id) || !hits.has(id)) {
+    const isNotLoopIsOpenIdOr = !loop.isOpen(id) || !hits.has(id);
+    if (isNotLoopIsOpenIdOr) {
       loop.forget(id);
       return;
     }
