@@ -48,3 +48,4 @@ coverage/
 
 # --- Session handoff notes (local working docs, not part of the product) ---
 docs/handoff-*.md
+.verify/

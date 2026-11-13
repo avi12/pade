@@ -1,9 +1,17 @@
 {
   "$schema": "./node_modules/fallow/schema.json",
-  // Referenced by name from .stylelintrc.json (customSyntax: "postcss-html"),
-  // and by path from scripts/oxlint-tsrs.mjs (tsrs-lint, oxlint's type-aware
-  // backend), which dependency scanning can't see through.
-  "ignoreDependencies": ["postcss-html", "tsrs"],
-  // Loaded by path through Vite's module loader from scripts/pacing-fixtures.mjs.
-  "entry": ["scripts/pacing-fixtures.ts", "scripts/check-file-size.mjs"]
+  "extends": ["./node_modules/fallow-config-avi12/fallow.json"],
+  "entry": ["scripts/pacing-fixtures.ts", "scripts/check-file-size.mjs"],
+  "ignorePatterns": [".claude/worktrees/**", "src-tauri/target/**"],
+  "ignoreDependencies": [
+    "postcss-html",
+    "tsrs",
+    "avi12-lint",
+    "eslint-config-avi12",
+    "fallow-config-avi12",
+    "oxlint-config-avi12",
+    "oxlint-plugin-naming",
+    "stylelint-config-avi12",
+    "oxfmt-config-avi12"
+  ]
 }
