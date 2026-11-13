@@ -6,8 +6,8 @@
 import { onMount } from "svelte";
 
 import { registerPaneShortcuts } from "@/lib/session/panes/pane-shortcuts";
-import { ADD_SESSION_MENU_ID } from "@/lib/session/SessionTabs.svelte";
 import { registerTabShortcuts } from "@/lib/session/tab-shortcuts";
+import { ADD_SESSION_MENU_ID } from "@/lib/session/tabs/launch-menu-ids";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import type { Agent, AgentSession } from "@/lib/types/agent";
 

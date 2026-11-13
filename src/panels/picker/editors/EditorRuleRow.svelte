@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { IconName } from "@/lib/Icon.svelte";
+  import type { IconName } from "@/lib/icon-name";
   import type { Ide } from "@/lib/types/editor";
   import EditorSelect from "@/panels/picker/editors/EditorSelect.svelte";
 

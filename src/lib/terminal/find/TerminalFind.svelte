@@ -13,7 +13,7 @@
 -->
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { IconName } from "@/lib/Icon.svelte";
+  import type { IconName } from "@/lib/icon-name";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import {
     defaultFindOptions,

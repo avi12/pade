@@ -3,7 +3,8 @@
   // last tab's agent; Ctrl/Cmd-click or right-click opens the launch menu.
 
   import { TAB_SHORTCUTS, TabAction } from "@/lib/session/tab-shortcuts";
-  import LaunchMenu, { ADD_MENU_ANCHOR, ADD_SESSION_MENU_ID } from "@/lib/session/tabs/LaunchMenu.svelte";
+  import LaunchMenu from "@/lib/session/tabs/LaunchMenu.svelte";
+  import { ADD_MENU_ANCHOR, ADD_SESSION_MENU_ID } from "@/lib/session/tabs/launch-menu-ids";
   import type { Agent } from "@/lib/types/agent";
 
   const { agents, branches, lastAgent, onlaunch, onlaunchbranch }: {

@@ -1,4 +1,4 @@
-import type { IconName } from "@/lib/Icon.svelte";
+import type { IconName } from "@/lib/icon-name";
 
 /** The ways in at the foot of the composer's project menu: start a new
  *  project, open a folder already on disk, or clone a repository. */

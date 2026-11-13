@@ -1,4 +1,4 @@
-import type { IconName } from "@/lib/Icon.svelte";
+import type { IconName } from "@/lib/icon-name";
 
 // Mirrors the agent ids in src-tauri/src/agents.rs - the closed set the icon map
 // keys off, so no bare id string literals leak out.

@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { IconName } from "@/lib/Icon.svelte";
+  import type { IconName } from "@/lib/icon-name";
   import { observeProjectKind, projectKind } from "@/lib/stores/workspace/project-rows/projectKinds.svelte";
   import {
     observeProjectLanguages,

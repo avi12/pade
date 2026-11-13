@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { IconName } from "@/lib/Icon.svelte";
+  import type { IconName } from "@/lib/icon-name";
   import { chooseThemeMode, chooseThemePalette, effective } from "@/lib/settings/prefs.svelte";
   import { ThemeMode, ThemePalette } from "@/lib/types/theme";
   import Segmented from "@/lib/ui/controls/Segmented.svelte";

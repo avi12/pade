@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import type { IconName } from "@/lib/Icon.svelte";
+  import type { IconName } from "@/lib/icon-name";
   import { ToggleState } from "@/lib/ui/controls/toggle-state";
   import type { Snippet } from "svelte";
 

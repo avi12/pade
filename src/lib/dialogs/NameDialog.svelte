@@ -1,7 +1,7 @@
 <script lang="ts">
   import ConfirmDialog from "@/lib/dialogs/ConfirmDialog.svelte";
   import NameField from "@/lib/dialogs/NameField.svelte";
-  import type { IconName } from "@/lib/Icon.svelte";
+  import type { IconName } from "@/lib/icon-name";
   import { errorMessage } from "@/lib/util/errors/errors";
   import { fieldError } from "@/lib/validate";
   import type { Snippet } from "svelte";

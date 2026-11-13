@@ -1,7 +1,7 @@
 // The shapes the usage grouping produces: the severity level, one limit row, and
 // one agent's group of limits.
 
-import type { IconName } from "@/lib/Icon.svelte";
+import type { IconName } from "@/lib/icon-name";
 import type { UsageWindowKind } from "@/lib/types/usage";
 import type { NoReading } from "@/lib/types/usage";
 

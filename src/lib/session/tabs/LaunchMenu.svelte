@@ -1,11 +1,5 @@
-<script lang="ts" module>
-  /** The tab strip's launch dropdown - session-shortcuts opens it by id from a shortcut. */
-  export const ADD_SESSION_MENU_ID = "add-session-menu";
-  /** The anchor the launch dropdown hangs off - set on the strip's "+". */
-  export const ADD_MENU_ANCHOR = "--add-session-anchor";
-</script>
-
 <script lang="ts">
+  import { ADD_MENU_ANCHOR, ADD_SESSION_MENU_ID } from "@/lib/session/tabs/launch-menu-ids";
   // The launch dropdown behind the strip's "+": every agent, plus the local
   // branches to start on as a new worktree.
 

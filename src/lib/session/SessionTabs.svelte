@@ -1,7 +1,3 @@
-<script lang="ts" module>
-  export { ADD_SESSION_MENU_ID } from "@/lib/session/tabs/LaunchMenu.svelte";
-</script>
-
 <script lang="ts">
   import { ADD_SLOT, packTabs } from "@/lib/session/tab-fit";
   import AddSessionMenu from "@/lib/session/tabs/AddSessionMenu.svelte";

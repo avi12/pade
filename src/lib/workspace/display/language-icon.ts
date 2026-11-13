@@ -1,4 +1,4 @@
-import type { IconName } from "@/lib/Icon.svelte";
+import type { IconName } from "@/lib/icon-name";
 
 // Mirrors the project-kind ids in the Rust kind registry (src-tauri/src/ide.rs) -
 // the closed set the logo map keys off, so no bare kind string literals leak out.

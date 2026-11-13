@@ -1,7 +1,7 @@
 // The shape of a file-type badge, the closed set of colour tones, and the badges
 // reached from both the extension table and the name rules - one home each.
 
-import type { IconName } from "@/lib/Icon.svelte";
+import type { IconName } from "@/lib/icon-name";
 
 /** The closed set of colour tones a badge can carry; each maps to a `.tone-*`
  *  class the card styles. One authoritative home for the tone names. */

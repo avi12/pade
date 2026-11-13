@@ -4,7 +4,7 @@
 // own search addon. Keeping this here means the chords, the option set and the
 // wording are unit-tested without a DOM and have exactly one home.
 
-import type { IconName } from "@/lib/Icon.svelte";
+import type { IconName } from "@/lib/icon-name";
 import type { KeyChord } from "@/lib/session/tab-shortcuts";
 
 const FIND_KEY = "f";

@@ -1,4 +1,4 @@
-import type { IconName } from "@/lib/Icon.svelte";
+import type { IconName } from "@/lib/icon-name";
 
 // The editors PADE detects - mirrors the launcher ids in src-tauri/src/ide.rs, so
 // no bare editor-id string leaks into the icon map (enums over magic strings).
