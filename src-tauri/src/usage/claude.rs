@@ -245,13 +245,25 @@ pub(super) fn collect_windows(response: &serde_json::Value) -> Vec<UsageWindow> 
     windows
 }
 
+/// An extra-usage cap nothing has been spent against: the endpoint sends
+/// `utilization: null` until the first charge, but the cap is real and the
+/// meter should show it at 0%. A cap-less (uncapped) account is shown by its
+/// spend instead (`uncapped_credits_spend`).
+fn unspent_credits_cap(key: &str, value: &serde_json::Value) -> Option<f64> {
+    let is_credits = key == CREDITS_KEY;
+    let is_enabled = value.get("is_enabled")?.as_bool()?;
+    let has_cap = !value.get("monthly_limit")?.is_null();
+    (is_credits && is_enabled && has_cap).then_some(0.0)
+}
+
 /// A top-level entry as a window when it is window-shaped - an object carrying a
 /// numeric `utilization`. Non-window fields (`limits`, the plan, an error blob)
 /// have no `utilization`, so they fall away here.
 fn named_window(key: &str, value: &serde_json::Value) -> Option<UsageWindow> {
     let utilization = value
         .get("utilization")
-        .and_then(serde_json::Value::as_f64)?;
+        .and_then(serde_json::Value::as_f64)
+        .or_else(|| unspent_credits_cap(key, value))?;
     Some(UsageWindow {
         key: key.to_string(),
         kind: UsageWindowKind::from_window_key(key),

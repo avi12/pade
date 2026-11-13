@@ -527,6 +527,38 @@ fn the_extra_usage_cap_is_the_credits_window() {
 }
 
 #[test]
+fn an_unspent_extra_usage_cap_still_shows_as_the_credits_window_at_zero() {
+    let response = serde_json::json!({
+        "extra_usage": {
+            "is_enabled": true,
+            "monthly_limit": 4000,
+            "used_credits": 0,
+            "utilization": null
+        },
+        "five_hour": { "utilization": 10.0 }
+    });
+
+    let windows = collect_windows(&response);
+
+    assert_eq!(windows.len(), 2);
+    assert_eq!(windows[1].kind, UsageWindowKind::Credits);
+    assert!((windows[1].utilization - 0.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn an_uncapped_or_disabled_extra_usage_has_no_zero_window() {
+    let uncapped = serde_json::json!({
+        "extra_usage": { "is_enabled": true, "monthly_limit": null, "utilization": null }
+    });
+    let disabled = serde_json::json!({
+        "extra_usage": { "is_enabled": false, "monthly_limit": 4000, "utilization": null }
+    });
+
+    assert_eq!(collect_windows(&uncapped), Vec::<UsageWindow>::new());
+    assert_eq!(collect_windows(&disabled), Vec::<UsageWindow>::new());
+}
+
+#[test]
 fn a_response_without_credits_has_no_credits_state() {
     let without_key = serde_json::json!({ "five_hour": { "utilization": 40.0 } });
     let null_credits = serde_json::json!({ "extra_usage": null });
