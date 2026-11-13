@@ -7,7 +7,7 @@ export const HomeMenuTab = {
   Open: "open",
   Clone: "clone"
 } as const;
-export type HomeMenuTab = typeof HomeMenuTab[keyof typeof HomeMenuTab];
+export type HomeMenuTab = (typeof HomeMenuTab)[keyof typeof HomeMenuTab];
 
 /** The menu's arrow-key lists (`arrowLists`' `data-arrow-list` names): the
  *  project rows, and the New tab's items, which Down from the New tab
@@ -23,7 +23,7 @@ export const HOME_MENU_TABS: readonly {
   id: HomeMenuTab;
   label: string;
   icon: IconName;
-  entersList?: typeof HomeMenuList[keyof typeof HomeMenuList];
+  entersList?: (typeof HomeMenuList)[keyof typeof HomeMenuList];
 }[] = [
   {
     id: HomeMenuTab.New,
@@ -45,19 +45,13 @@ export const HOME_MENU_TABS: readonly {
 
 /** A tab's element id under its menu - what its panel's `aria-labelledby`
  *  names. */
-export function homeMenuTabId({ menuId, tab }: {
-  menuId: string;
-  tab: HomeMenuTab;
-}) {
+export function homeMenuTabId({ menuId, tab }: { menuId: string; tab: HomeMenuTab }) {
   return `${menuId}-tab-${tab}`;
 }
 
 /** A panel's element id under its menu - what its tab's `aria-controls`
  *  names. */
-export function homeMenuPanelId({ menuId, tab }: {
-  menuId: string;
-  tab: HomeMenuTab;
-}) {
+export function homeMenuPanelId({ menuId, tab }: { menuId: string; tab: HomeMenuTab }) {
   return `${menuId}-panel-${tab}`;
 }
 
@@ -68,9 +62,6 @@ function tabIndex(tab: HomeMenuTab) {
 /** Which way the panels slide when the selection moves from one tab to
  *  another: 1 when the new tab lies after the old (the new panel comes in
  *  from the end side), -1 when before, 0 when it stays put. */
-export function tabSlideDirection({ from, to }: {
-  from: HomeMenuTab;
-  to: HomeMenuTab;
-}) {
+export function tabSlideDirection({ from, to }: { from: HomeMenuTab; to: HomeMenuTab }) {
   return Math.sign(tabIndex(to) - tabIndex(from));
 }

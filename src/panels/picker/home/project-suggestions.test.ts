@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import { Key } from "@/lib/ui/keyboard/keys";
 import {
   matchingProjects,
@@ -5,7 +7,6 @@ import {
   suggestionKeyStep,
   SuggestionStepKind
 } from "@/panels/picker/home/project-suggestions";
-import { describe, expect, it } from "vitest";
 
 const VISIBLE_THREE = {
   count: 3,

@@ -6,11 +6,12 @@
 // (explicit per-project choice → rules → coverage ranking); this store owns the
 // single cached fetch per project and the choose-editor write-through.
 
+import { SvelteMap } from "svelte/reactivity";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import type { Ide } from "@/lib/types/editor";
 import { settledValue } from "@/lib/util/async/settled";
-import { SvelteMap } from "svelte/reactivity";
 
 /** Ranked editors per project directory - `editorsFor(project)[0]` is *the*
  *  project's editor, mirroring `ide_suggest`'s array-order contract. This is the
@@ -61,10 +62,7 @@ export function hasWindowedEditor(editors: Ide[]) {
  *  list (the store's per-project ranking, reactive). `fallback` covers the beat
  *  before a project's own census has resolved: a caller already holding a ranked
  *  list (a picker row's props) passes it so the button still resolves a target. */
-export function windowedEditorFor({ path, fallback }: {
-  path: string;
-  fallback?: Ide[];
-}) {
+export function windowedEditorFor({ path, fallback }: { path: string; fallback?: Ide[] }) {
   const resolved = firstWindowedEditor(editorsFor(path));
   if (resolved) {
     return resolved;
@@ -73,10 +71,7 @@ export function windowedEditorFor({ path, fallback }: {
   return fallback ? firstWindowedEditor(fallback) : undefined;
 }
 
-async function fetchEditors({ project, token }: {
-  project: string;
-  token: symbol;
-}) {
+async function fetchEditors({ project, token }: { project: string; token: symbol }) {
   const ranked = await settledValue({
     promise: sendMessage(Command.ideSuggest, { cwd: project }),
     fallback: []
@@ -111,10 +106,7 @@ export function refreshEditors(project: string) {
 
 /** Persist an explicit editor pick for the project, then re-resolve, so every
  *  surface reading this store sees the choice win at once. */
-export async function chooseEditor({ project, editorId }: {
-  project: string;
-  editorId: string;
-}) {
+export async function chooseEditor({ project, editorId }: { project: string; editorId: string }) {
   try {
     await sendSettingsMessage(Command.ideChooseEditor, {
       cwd: project,

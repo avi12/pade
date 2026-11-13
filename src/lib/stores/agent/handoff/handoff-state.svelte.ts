@@ -3,12 +3,13 @@
 // for its doc, and the status line to show. The handoff steps read and write it
 // only through here.
 
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+
 import {
   clearPersistentMarker,
   hasPersistentMarker,
   storePersistentMarker
 } from "@/lib/stores/agent/handoff/handoff-markers";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 export function createHandoffState() {
   const handingOff = new SvelteSet<string>();

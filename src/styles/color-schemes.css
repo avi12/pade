@@ -135,11 +135,10 @@
   --tooltip-line-height: 1.35;
   --tooltip-padding-block: 3px;
   --tooltip-border-width: 1px;
-  --tooltip-line-block-size:
-    calc(
-      var(--tooltip-font-size) * var(--tooltip-line-height)
-      + 2 * (var(--tooltip-padding-block) + var(--tooltip-border-width))
-    );
+  --tooltip-line-block-size: calc(
+    var(--tooltip-font-size) * var(--tooltip-line-height) + 2 *
+      (var(--tooltip-padding-block) + var(--tooltip-border-width))
+  );
 
   /* The bubble's look, as tokens a palette re-points rather than a second
      rule restyling the bubble. Its one-pixel border is transparent here and

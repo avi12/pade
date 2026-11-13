@@ -7,32 +7,33 @@ import type { PreviewSource } from "@/lib/feed/preview/feed-previews";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 
 /** The preview source for the files of commit `sha` in the repository at `cwd`. */
-export function commitPreviewSource({ cwd, sha }: {
-  cwd: string;
-  sha: string;
-}) {
+export function commitPreviewSource({ cwd, sha }: { cwd: string; sha: string }) {
   return {
-    diff: async path => parseDiff(
-      await sendMessage(Command.vcsCommitDiff, {
+    diff: async path =>
+      parseDiff(
+        await sendMessage(Command.vcsCommitDiff, {
+          cwd,
+          sha,
+          path
+        })
+      ),
+    image: path =>
+      sendMessage(Command.vcsCommitImage, {
+        cwd,
+        sha,
+        path
+      }),
+    video: path =>
+      sendMessage(Command.vcsCommitVideo, {
+        cwd,
+        sha,
+        path
+      }),
+    text: path =>
+      sendMessage(Command.vcsCommitText, {
         cwd,
         sha,
         path
       })
-    ),
-    image: path => sendMessage(Command.vcsCommitImage, {
-      cwd,
-      sha,
-      path
-    }),
-    video: path => sendMessage(Command.vcsCommitVideo, {
-      cwd,
-      sha,
-      path
-    }),
-    text: path => sendMessage(Command.vcsCommitText, {
-      cwd,
-      sha,
-      path
-    })
   } satisfies PreviewSource;
 }

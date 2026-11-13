@@ -27,14 +27,18 @@ const FOCUSABLE_TAB_INDEX = 0;
 const SKIPPED_TAB_INDEX = -1;
 
 /** Where a move lands: the items as found in the DOM, and the index to focus. */
-type Move = {
+interface Move {
   elItems: HTMLElement[];
   iItem: number;
-};
+}
 
 /** The shared keydown wiring. `focusItem` performs the move, so a caller can
  *  carry extra state (the roving tabindex) alongside the focus call. */
-function bindArrowKeys({ elMenu, itemSelector, focusItem }: {
+function bindArrowKeys({
+  elMenu,
+  itemSelector,
+  focusItem
+}: {
   elMenu: HTMLElement;
   itemSelector: string;
   focusItem: (move: Move) => void;
@@ -125,11 +129,12 @@ export function rovingMenu(elMenu: HTMLElement) {
  *  whose items stay in the natural Tab order: Up/Down move focus between the
  *  `itemSelector` matches and nothing else changes. */
 export function arrowFocus(itemSelector: string) {
-  return (elMenu: HTMLElement) => bindArrowKeys({
-    elMenu,
-    itemSelector,
-    focusItem: ({ elItems, iItem }) => elItems[iItem]?.focus()
-  });
+  return (elMenu: HTMLElement) =>
+    bindArrowKeys({
+      elMenu,
+      itemSelector,
+      focusItem: ({ elItems, iItem }) => elItems[iItem]?.focus()
+    });
 }
 
 const ARROW_LIST_ITEM_SELECTOR = "[data-arrow-list]";
@@ -141,7 +146,12 @@ const OPEN_FOCUS_SELECTOR = "[data-arrow-open-focus]";
  *  jump; from the list's entry point (a tab whose panel holds the list) only
  *  Up/Down step in - Down to the first item, Up to the last - and Home/End
  *  stay with the entry's own keyboard pattern. */
-export function arrowListTarget({ key, isEntry, from, count }: {
+export function arrowListTarget({
+  key,
+  isEntry,
+  from,
+  count
+}: {
   key: string;
   isEntry: boolean;
   from: number;
@@ -178,8 +188,9 @@ export function openFocusIndex(visibilities: readonly boolean[]) {
  *  the Tab order is plain markup. */
 export function arrowLists(elRoot: HTMLElement) {
   function listItems(listName: string) {
-    return [...elRoot.querySelectorAll<HTMLElement>(ARROW_LIST_ITEM_SELECTOR)]
-      .filter(elItem => elItem.dataset.arrowList === listName);
+    return [...elRoot.querySelectorAll<HTMLElement>(ARROW_LIST_ITEM_SELECTOR)].filter(
+      elItem => elItem.dataset.arrowList === listName
+    );
   }
 
   function displayedItems(listName: string) {
@@ -250,11 +261,7 @@ export function arrowLists(elRoot: HTMLElement) {
 
 /** The item index a key moves focus to, or null for keys the menu doesn't handle.
  *  `from` is -1 when focus isn't yet on an item (Down → first, Up → last). */
-export function nextIndex({ key, from, count }: {
-  key: string;
-  from: number;
-  count: number;
-}) {
+export function nextIndex({ key, from, count }: { key: string; from: number; count: number }) {
   if (count === 0) {
     return null;
   }

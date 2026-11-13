@@ -40,7 +40,7 @@ export function holdSaving(holdSeconds: number) {
 /** The hold that saves `fraction` of a subagent's rate, within the bounds. */
 export function holdForSaving(fraction: number) {
   const isBeyondReach = fraction >= 1;
-  const exact = isBeyondReach ? MAXIMUM_HOLD_SECONDS : TOOL_CYCLE_SECONDS * fraction / (1 - fraction);
+  const exact = isBeyondReach ? MAXIMUM_HOLD_SECONDS : (TOOL_CYCLE_SECONDS * fraction) / (1 - fraction);
   return Math.min(MAXIMUM_HOLD_SECONDS, Math.max(MINIMUM_HOLD_SECONDS, Math.round(exact)));
 }
 
@@ -53,10 +53,7 @@ export function isBlockingSpawns(shed: number | null) {
 /** A subagent's next step and what it saves of the load it spends now (already
  *  held by its current step) - null once it is wrapping up. With the shed
  *  unknown, the first hold is the shortest. */
-export function nextSubagentStep({ current, shed }: {
-  current: SubagentStep | undefined;
-  shed: number | null;
-}) {
+export function nextSubagentStep({ current, shed }: { current: SubagentStep | undefined; shed: number | null }) {
   if (current === undefined) {
     const holdSeconds = holdForSaving(shed ?? 0);
     return {

@@ -4,11 +4,12 @@
 // app shell registers on mount and unregisters on destroy; the active session
 // comes through `SendShortcutHost` so the lookup stays live.
 
+import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { focusWindow, readClipboardText } from "@/lib/ipc/platform";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { pastedText } from "@/lib/terminal/input/terminal-input";
-import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 
 const SEND_SHORTCUT = "CommandOrControl+Alt+S";
 const PRESSED_STATE = "Pressed";

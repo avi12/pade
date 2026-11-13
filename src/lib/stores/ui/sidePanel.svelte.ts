@@ -3,10 +3,10 @@
 // them, so there is one header instead of one per panel (DRY - the panels own
 // only their scroll body). SoC: cross-component state lives in lib/stores.
 
-type PanelHeader = {
+interface PanelHeader {
   count: number | null;
   refresh: (() => void) | null;
-};
+}
 
 const header = $state<PanelHeader>({
   count: null,

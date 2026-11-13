@@ -68,11 +68,10 @@
   --picker-menu-viewport-gap: 10px;
 
   overflow-y: auto;
-  max-block-size:
-    min(
-      calc(100% - var(--popover-menu-offset) - var(--picker-menu-viewport-gap)),
-      var(--picker-menu-max-block-size)
-    );
+  max-block-size: min(
+    calc(100% - var(--popover-menu-offset) - var(--picker-menu-viewport-gap)),
+    var(--picker-menu-max-block-size)
+  );
   min-inline-size: 250px;
   position-area: bottom span-left;
   position-try-order: most-height;

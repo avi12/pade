@@ -9,10 +9,10 @@ export const TerminalLinkTarget = {
 } as const;
 type TerminalLinkTarget = (typeof TerminalLinkTarget)[keyof typeof TerminalLinkTarget];
 
-type TerminalLinkDestination = {
+interface TerminalLinkDestination {
   kind: TerminalLinkTarget;
   value: string;
-};
+}
 
 const WEB_PROTOCOLS = new Set(["https:", "http:"]);
 const FILE_PROTOCOL = "file:";
@@ -49,10 +49,10 @@ export function terminalLinkDestination(uri: string) {
     }
 
     return path
-      ? {
-        kind: TerminalLinkTarget.Explorer,
-        value: path
-      } satisfies TerminalLinkDestination
+      ? ({
+          kind: TerminalLinkTarget.Explorer,
+          value: path
+        } satisfies TerminalLinkDestination)
       : null;
   } catch {
     return null;

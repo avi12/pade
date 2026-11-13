@@ -11,7 +11,15 @@ import { baseName } from "@/lib/util/paths";
 
 // Template suffixes: `version.h.in` is a C header waiting to be configured, so it
 // takes the badge of the file it generates (`version.h`).
-const TEMPLATE_EXTENSIONS: ReadonlySet<string> = new Set(["in", "template", "tmpl", "tpl", "dist", "sample", "example"]);
+const TEMPLATE_EXTENSIONS: ReadonlySet<string> = new Set([
+  "in",
+  "template",
+  "tmpl",
+  "tpl",
+  "dist",
+  "sample",
+  "example"
+]);
 
 /** How many characters of an unknown name / extension a neutral chip shows. */
 const NAME_LABEL_LENGTH = 3;
@@ -19,10 +27,7 @@ const EXTENSION_LABEL_LENGTH = 4;
 const FALLBACK_LABEL = "FILE";
 const LEADING_DOT = /^\./;
 
-function nameRuleMatches({ rule, lowerName }: {
-  rule: NameRule;
-  lowerName: string;
-}) {
+function nameRuleMatches({ rule, lowerName }: { rule: NameRule; lowerName: string }) {
   switch (rule.match) {
     case NameMatch.Exact:
       return lowerName === rule.pattern;
@@ -56,10 +61,12 @@ export function fileExtension(path: string) {
 export function fileTypeBadge(path: string) {
   const name = baseName(path);
   const lowerName = name.toLowerCase();
-  const nameRule = NAME_RULES.find(rule => nameRuleMatches({
-    rule,
-    lowerName
-  }));
+  const nameRule = NAME_RULES.find(rule =>
+    nameRuleMatches({
+      rule,
+      lowerName
+    })
+  );
   if (nameRule) {
     return nameRule.badge;
   }
@@ -79,8 +86,10 @@ export function fileTypeBadge(path: string) {
     return fileTypeBadge(generatedName);
   }
 
-  return EXTENSION_BADGES[extension] ?? {
-    label: extension.slice(0, EXTENSION_LABEL_LENGTH).toUpperCase(),
-    tone: FileTone.Neutral
-  };
+  return (
+    EXTENSION_BADGES[extension] ?? {
+      label: extension.slice(0, EXTENSION_LABEL_LENGTH).toUpperCase(),
+      tone: FileTone.Neutral
+    }
+  );
 }

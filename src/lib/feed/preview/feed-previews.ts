@@ -7,13 +7,14 @@
 // fetch runs on a card's first open only, so a view full of images or docs never
 // fetches them all at once.
 
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+
 import type { DiffLine } from "@/lib/code/diff";
 import { markdownDocument, sandboxedHtmlDocument } from "@/lib/code/markdown";
 import { isImagePath, isMarkdownPath, isVideoPath } from "@/lib/feed/preview/preview";
 import { previewLines } from "@/lib/feed/preview/preview-lines";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { FeedImage, FeedVideo } from "@/lib/types/feed";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 /** A markdown/HTML card shows a Code|Preview toggle: Code is the diff (the
  *  feed's core purpose, so the default), Preview is the rendered result in a
@@ -77,10 +78,7 @@ const FEED_SOURCE: PreviewSource = {
 // The iframe srcdoc for a file's current text: markdown is rendered to a full
 // themed document, an HTML file is shown as-is (both inert - see
 // SandboxedPreview).
-function previewDocument({ path, text }: {
-  path: string;
-  text: string;
-}) {
+function previewDocument({ path, text }: { path: string; text: string }) {
   return isMarkdownPath(path) ? markdownDocument(text) : sandboxedHtmlDocument(text);
 }
 
@@ -104,7 +102,11 @@ export function createFeedPreviews(source = FEED_SOURCE) {
 
   // Fill `cache` for `id` from `load` once, recording a failure instead of
   // rejecting - the shared lazy fetch behind every preview.
-  async function loadOnce<Preview>({ cache, id, load }: {
+  async function loadOnce<Preview>({
+    cache,
+    id,
+    load
+  }: {
     cache: SvelteMap<string, Preview | null>;
     id: string;
     load: () => Promise<Preview | null>;
@@ -180,7 +182,8 @@ export function createFeedPreviews(source = FEED_SOURCE) {
       }
 
       documentCache.set(
-        id, previewDocument({
+        id,
+        previewDocument({
           path,
           text
         })

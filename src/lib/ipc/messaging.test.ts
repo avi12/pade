@@ -1,5 +1,6 @@
-import { Command, EventType } from "@/lib/ipc/messaging";
 import { describe, expect, it } from "vitest";
+
+import { Command, EventType } from "@/lib/ipc/messaging";
 
 const RUST_SOURCES: Record<string, string> = import.meta.glob("/src-tauri/src/**/*.rs", {
   query: "?raw",

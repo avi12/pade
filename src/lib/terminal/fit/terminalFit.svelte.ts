@@ -6,9 +6,10 @@
 // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
 // program to repaint). `isOnAlternateScreen` is the flag; the doc is the policy.
 
+import type { Terminal } from "@xterm/xterm";
+
 import { gridForPane, squeezeToFit } from "@/lib/terminal/fit/pane-grid";
 import type { GridSize } from "@/lib/terminal/fit/pane-grid";
-import type { Terminal } from "@xterm/xterm";
 
 // The two screens a terminal has, and the only thing that decides how a resize must
 // behave. ADE runs Claude Code fullscreen, on the ALTERNATE one (see agents.rs), but
@@ -39,7 +40,12 @@ const ALT_FIT_MINIMUM_INTERVAL_MS = 250;
 // the resize genuinely changed nothing) and the drag must not stall on it.
 const ALT_REPAINT_TIMEOUT_MS = 400;
 
-export function createTerminalFit({ terminal, viewport, resizeAgent, noteResize }: {
+export function createTerminalFit({
+  terminal,
+  viewport,
+  resizeAgent,
+  noteResize
+}: {
   terminal: () => Terminal | undefined;
   /** The full-size measuring frame the grid is fitted into. */
   viewport: () => HTMLElement | undefined;
@@ -141,9 +147,9 @@ export function createTerminalFit({ terminal, viewport, resizeAgent, noteResize 
     const elViewport = viewport();
     return grid && elViewport
       ? {
-        grid,
-        elViewport
-      }
+          grid,
+          elViewport
+        }
       : undefined;
   }
 
@@ -266,10 +272,7 @@ export function createTerminalFit({ terminal, viewport, resizeAgent, noteResize 
 
   // Hold a size the agent is not ready for. Nothing else will come back to collect it:
   // a drag that ends inside the interval has to have its last size land anyway.
-  function parkFit({ size, sinceLastFit }: {
-    size: GridSize;
-    sinceLastFit: number;
-  }) {
+  function parkFit({ size, sinceLastFit }: { size: GridSize; sinceLastFit: number }) {
     pendingFit = size;
     clearTimeout(altFitTimer);
     altFitTimer = setTimeout(
@@ -324,10 +327,7 @@ export function createTerminalFit({ terminal, viewport, resizeAgent, noteResize 
 
   // The normal screen reflows every frame: xterm owns the document there, so it can
   // rewrap the text itself as fast as the drag moves.
-  function fitNormalScreen({ grid, fitted }: {
-    grid: Terminal;
-    fitted: GridSize;
-  }) {
+  function fitNormalScreen({ grid, fitted }: { grid: Terminal; fitted: GridSize }) {
     if (!isGridSized(grid, fitted)) {
       grid.resize(fitted.columns, fitted.rows);
     }

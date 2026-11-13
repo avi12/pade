@@ -1,5 +1,6 @@
-import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/agent/initial-prompt";
 import { describe, expect, it } from "vitest";
+
+import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/agent/initial-prompt";
 
 // Claude Code 2.1.286's first-run gate as rendered: unnumbered options, with the
 // cursor starting on "No, exit" ABOVE the accepting option.

@@ -1,12 +1,7 @@
-import { defineTauriMessaging } from "@/lib/ipc/define-tauri-messaging";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+
+import { defineTauriMessaging } from "@/lib/ipc/define-tauri-messaging";
 
 const WINDOW_LABEL = "main-window";
 
@@ -92,10 +87,12 @@ describe("defineTauriMessaging", () => {
         count: 3
       }
     });
-    expect(() => deliver?.({
-      payload: {
-        count: "three"
-      }
-    })).toThrow();
+    expect(() =>
+      deliver?.({
+        payload: {
+          count: "three"
+        }
+      })
+    ).toThrow();
   });
 });

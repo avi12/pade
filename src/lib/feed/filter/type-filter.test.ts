@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   countExtensions,
   filterByExtension,
@@ -6,7 +8,6 @@ import {
 } from "@/lib/feed/filter/type-filter";
 import { ChangeKind } from "@/lib/types/feed";
 import type { ChangeEvent } from "@/lib/types/feed";
-import { describe, expect, it } from "vitest";
 
 function change(path: string) {
   return {
@@ -21,13 +22,7 @@ function change(path: string) {
   } satisfies ChangeEvent;
 }
 
-const EVENTS = [
-  change("src/a.ts"),
-  change("src/b.css"),
-  change("src/c.ts"),
-  change("Makefile"),
-  change("src/d.astro")
-];
+const EVENTS = [change("src/a.ts"), change("src/b.css"), change("src/c.ts"), change("Makefile"), change("src/d.astro")];
 
 describe("countExtensions", () => {
   it("tallies per extension, busiest first, ties by name", () => {

@@ -1,20 +1,17 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createInitialPromptDelivery } from "@/lib/terminal/input/initial-prompt-delivery";
 import { pastedText } from "@/lib/terminal/input/terminal-input";
 import { CURSOR_DOWN, ENTER } from "@/lib/terminal/input/terminal-sequences";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const PROMPT = "summarise the repository layout";
 const GATE_ON_NO = [" ❯ No, exit", "   Yes, I trust this folder"];
-const REPL = [" ❯  Try \"write a test for <filepath>\"", " ⏵⏵ bypass permissions on"];
+const REPL = [' ❯  Try "write a test for <filepath>"', " ⏵⏵ bypass permissions on"];
 
-function deliveryFor({ prompt = PROMPT, isWorking = false }: {
+function deliveryFor({
+  prompt = PROMPT,
+  isWorking = false
+}: {
   prompt?: string;
   isWorking?: boolean;
 } = {}) {

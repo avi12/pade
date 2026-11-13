@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it } from "vitest";
+
 import { forgetSession } from "@/lib/session/lifecycle/session-scope";
 import {
   activityFromTitle,
@@ -11,7 +13,6 @@ import {
   showsTurnRunning,
   whenAgentSettled
 } from "@/lib/stores/agent/agentActivity.svelte";
-import { afterEach, describe, expect, it } from "vitest";
 
 const ESCAPE = "";
 const BELL = "";
@@ -37,12 +38,9 @@ describe("activityFromTitle", () => {
     expect(activityFromTitle("✳ Sentry errors")).toBe(AgentActivity.Idle);
   });
 
-  it.each(["Claude Code", "pwsh", "◐Continue", "Rewriting ◐ parser", ""])(
-    "reads %j as announcing nothing",
-    title => {
-      expect(activityFromTitle(title)).toBeNull();
-    }
-  );
+  it.each(["Claude Code", "pwsh", "◐Continue", "Rewriting ◐ parser", ""])("reads %j as announcing nothing", title => {
+    expect(activityFromTitle(title)).toBeNull();
+  });
 });
 
 describe("readTitles", () => {

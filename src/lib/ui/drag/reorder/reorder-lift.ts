@@ -35,7 +35,11 @@ function paintsOwnSurface(elItem: HTMLElement) {
 }
 
 /** Lift the dragged sibling above the rest and ready the others to slide aside. */
-export function liftSiblings({ siblings, iFrom, isReducedMotion }: {
+export function liftSiblings({
+  siblings,
+  iFrom,
+  isReducedMotion
+}: {
   siblings: Sibling[];
   iFrom: number;
   isReducedMotion: boolean;
@@ -88,10 +92,7 @@ export interface OverflowSave {
 // instead: the translated item still extends the container's scrollable area,
 // and an `overflow: auto` ancestor (the runner dock's grid) would otherwise
 // pop scrollbars for the whole drag and settle.
-export function unclipAncestors({ elParent, isEscapeDrag }: {
-  elParent: HTMLElement;
-  isEscapeDrag: boolean;
-}) {
+export function unclipAncestors({ elParent, isEscapeDrag }: { elParent: HTMLElement; isEscapeDrag: boolean }) {
   const saves: OverflowSave[] = [];
   const neutral = isEscapeDrag ? "visible" : "hidden";
   let elAncestor: HTMLElement | null = elParent;
@@ -138,10 +139,7 @@ export function clearItemStyles(siblings: Sibling[]) {
 }
 
 /** Spring the lifted item toward `target`, fading its shadow out as it settles. */
-export function springToTarget({ elDragged, target }: {
-  elDragged: HTMLElement;
-  target: string;
-}) {
+export function springToTarget({ elDragged, target }: { elDragged: HTMLElement; target: string }) {
   elDragged.style.transition = `translate ${SPRING_SECONDS}s ${SPRING_EASE}, box-shadow ${SPRING_SECONDS}s`;
   elDragged.style.boxShadow = LIFT_SHADOW_FADED;
   requestAnimationFrame(() => {

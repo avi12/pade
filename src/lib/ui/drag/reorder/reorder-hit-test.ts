@@ -11,10 +11,7 @@ const PANE_DROP_TARGET = {
 // The element the pointer is truly over, resolved through the drag shield (and
 // through the lifted item, which already carries `pointerEvents:none`), so the
 // surface beneath both stays reachable.
-export function hitElementAt({ point, elShield }: {
-  point: Point;
-  elShield: HTMLElement | null;
-}) {
+export function hitElementAt({ point, elShield }: { point: Point; elShield: HTMLElement | null }) {
   if (elShield) {
     elShield.style.pointerEvents = "none";
   }
@@ -28,7 +25,11 @@ export function hitElementAt({ point, elShield }: {
 }
 
 /** Over the outside drop zone and not over a reorderable item - a drop-out. */
-export function isOverOutsideZone({ elHit, outsideSelector, itemSelector }: {
+export function isOverOutsideZone({
+  elHit,
+  outsideSelector,
+  itemSelector
+}: {
   elHit: Element | null;
   outsideSelector: string | undefined;
   itemSelector: string;
@@ -42,7 +43,11 @@ export function isOverOutsideZone({ elHit, outsideSelector, itemSelector }: {
 
 // The pane + half under the pointer, or null - the drop-half decision, made once
 // here (via `reorder.paneDropSide`) for both the live hint and the release.
-export function resolveDropTarget({ elHit, x, itemSelector }: {
+export function resolveDropTarget({
+  elHit,
+  x,
+  itemSelector
+}: {
   elHit: Element | null;
   x: number;
   itemSelector: string;

@@ -4,17 +4,15 @@
 // follows the session through a restart, a reload and a hand-off, and is
 // forgotten when the session ends (session-scope).
 
-import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { SvelteMap } from "svelte/reactivity";
 import { z } from "zod";
+
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 
 const labels = new SvelteMap<string, string>();
 
 /** Set a session's custom display label (overrides the agent's default). */
-export function setSessionLabel({ id, label }: {
-  id: string;
-  label: string;
-}) {
+export function setSessionLabel({ id, label }: { id: string; label: string }) {
   labels.set(id, label);
 }
 

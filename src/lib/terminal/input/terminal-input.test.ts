@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   BRACKETED_PASTE_END,
   BRACKETED_PASTE_START,
@@ -8,7 +10,6 @@ import {
   referencedSnippet,
   submittedPrompt
 } from "@/lib/terminal/input/terminal-input";
-import { describe, expect, it } from "vitest";
 
 describe("pathsAsPromptText", () => {
   it("ends a lone path with a space so the agent reads it as a complete token", () => {
@@ -46,9 +47,7 @@ describe("submittedPrompt", () => {
 describe("pastedText", () => {
   it("keeps embedded command separators inside one non-submitting paste", () => {
     const delivered = pastedText("review this\r\nrm -rf project");
-    expect(delivered).toBe(
-      `${BRACKETED_PASTE_START}review this\r\nrm -rf project${BRACKETED_PASTE_END}`
-    );
+    expect(delivered).toBe(`${BRACKETED_PASTE_START}review this\r\nrm -rf project${BRACKETED_PASTE_END}`);
     expect(delivered.endsWith("\r")).toBe(false);
   });
 });

@@ -1,8 +1,9 @@
+import { untrack } from "svelte";
+
 import { aiNamingEnabled } from "@/lib/agent/ai-naming-scope";
 import { settings } from "@/lib/settings/settings.svelte";
 import { applyNamingToAll, isNaming, setNaming } from "@/lib/stores/session/sessionNaming.svelte";
 import type { AgentSession } from "@/lib/types/agent";
-import { untrack } from "svelte";
 
 /** AI naming of a window's session tabs: each project's own choice, else the
  *  global default. Call during component initialisation - it registers the

@@ -4,7 +4,10 @@
 
 import { normalizePath } from "@/lib/util/paths";
 
-export function projectsToReread({ listed, changedProject }: {
+export function projectsToReread({
+  listed,
+  changedProject
+}: {
   listed: readonly string[];
   changedProject: string | null;
 }) {

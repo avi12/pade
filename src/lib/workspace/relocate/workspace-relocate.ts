@@ -22,21 +22,14 @@ import { normalizePath } from "@/lib/util/paths";
 const CONTINUE_PROMPT = "continue\r";
 
 /** Whether `directory` is `base` itself or nested anywhere under it (normalized). */
-export function isUnderDirectory({ directory, base }: {
-  directory: string;
-  base: string;
-}) {
+export function isUnderDirectory({ directory, base }: { directory: string; base: string }) {
   const normalizedBase = normalizePath(base);
   const normalized = normalizePath(directory);
   return normalized === normalizedBase || normalized.startsWith(`${normalizedBase}/`);
 }
 
 /** Re-point `directory` (a path at or under `from`) to the same suffix under `to`. */
-export function remapDirectory({ directory, from, to }: {
-  directory: string;
-  from: string;
-  to: string;
-}) {
+export function remapDirectory({ directory, from, to }: { directory: string; from: string; to: string }) {
   return to + directory.slice(from.length);
 }
 
@@ -89,10 +82,12 @@ export function createRelocator(host: RelocateHost) {
       await host.stopRunners();
     }
 
-    const locking = host.sessions().filter(session => isUnderDirectory({
-      directory: session.cwd ?? session.project,
-      base: from
-    }));
+    const locking = host.sessions().filter(session =>
+      isUnderDirectory({
+        directory: session.cwd ?? session.project,
+        base: from
+      })
+    );
     // Capture the live ones, their conversation and where they were working, to
     // resume after the move.
     const toResume = locking
@@ -125,11 +120,7 @@ export function createRelocator(host: RelocateHost) {
   /** Resume each live session's own conversation on the new path - the agent's
    *  memory of it moved with the folder; the first reuses the current pane, the
    *  rest split beside it. */
-  async function resumeSessions({ toResume, from, to }: {
-    toResume: ResumableSession[];
-    from: string;
-    to: string;
-  }) {
+  async function resumeSessions({ toResume, from, to }: { toResume: ResumableSession[]; from: string; to: string }) {
     for (const [i, entry] of toResume.entries()) {
       const cwd = remapDirectory({
         directory: entry.oldDirectory,
@@ -149,10 +140,10 @@ export function createRelocator(host: RelocateHost) {
         agent: entry.agent,
         project: isProjectMoved
           ? remapDirectory({
-            directory: entry.project,
-            from,
-            to
-          })
+              directory: entry.project,
+              from,
+              to
+            })
           : entry.project,
         cwd,
         conversationId: entry.conversationId,
@@ -164,10 +155,7 @@ export function createRelocator(host: RelocateHost) {
     }
   }
 
-  async function relocate({ from, run }: {
-    from: string;
-    run: () => Promise<string>;
-  }) {
+  async function relocate({ from, run }: { from: string; run: () => Promise<string> }) {
     const toResume = await releaseLock(from);
 
     // Run the backend move/rename (also re-points every external reference).
@@ -198,7 +186,11 @@ export function createRelocator(host: RelocateHost) {
     return newPath;
   }
 
-  async function runOrResumeInPlace({ run, toResume, from }: {
+  async function runOrResumeInPlace({
+    run,
+    toResume,
+    from
+  }: {
     run: () => Promise<string>;
     toResume: ResumableSession[];
     from: string;
@@ -243,7 +235,10 @@ export function createRelocator(host: RelocateHost) {
    *  resume, and the shell lets go of it if it was the open project.
    *  `removeFromDisk` is the backend removal - owned-only for `remove`, ungated
    *  for `removeDirectory`. */
-  async function deleteVia({ path, removeFromDisk }: {
+  async function deleteVia({
+    path,
+    removeFromDisk
+  }: {
     path: string;
     removeFromDisk: (path: string) => Promise<Settings>;
   }) {

@@ -122,7 +122,7 @@
 
     .caret {
       font-size: 0.625rem;
-      opacity: 70%;
+      opacity: 0.7;
     }
   }
 

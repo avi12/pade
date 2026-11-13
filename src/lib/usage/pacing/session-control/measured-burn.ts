@@ -23,10 +23,7 @@ export const RUNNING_SUBAGENT_MS = 3 * MILLISECONDS_PER_MINUTE;
 /** A session's measured burn, split into its own share and each running
  *  subagent's, in priced tokens per minute over the window - null when nothing
  *  was spent. Pure. */
-export function splitBurn({ usage, now }: {
-  usage: SessionTokenUsage;
-  now: number;
-}) {
+export function splitBurn({ usage, now }: { usage: SessionTokenUsage; now: number }) {
   let own = weightedTokens(usage.own) / MEASURED_BURN_WINDOW_MINUTES;
   const running = [];
   for (const subagent of usage.subagents) {
@@ -49,11 +46,13 @@ export function splitBurn({ usage, now }: {
     total += subagent.load;
   }
 
-  return total > 0 ? {
-    total,
-    own,
-    subagents: running
-  } : null;
+  return total > 0
+    ? {
+        total,
+        own,
+        subagents: running
+      }
+    : null;
 }
 
 export type MeasuredBurn = NonNullable<ReturnType<typeof splitBurn>>;
@@ -61,10 +60,7 @@ export type MeasuredBurn = NonNullable<ReturnType<typeof splitBurn>>;
 /** The session's subagents that wrote to their transcripts since `since`
  *  (epoch ms), each with when it last did - empty for an agent that keeps no
  *  transcripts. Never rejects: a failed read finds none. */
-export async function subagentsWrittenSince({ session, since }: {
-  session: AgentSession;
-  since: number;
-}) {
+export async function subagentsWrittenSince({ session, since }: { session: AgentSession; since: number }) {
   try {
     const usage = await sendMessage(Command.sessionTokenUsage, {
       command: session.agent.command,
@@ -86,10 +82,7 @@ export async function subagentsWrittenSince({ session, since }: {
 
 /** The session's measured burn, or null when nothing was measured. Never
  *  rejects: a failed read is a missing measurement. */
-export async function measuredBurn({ session, now }: {
-  session: AgentSession;
-  now: number;
-}) {
+export async function measuredBurn({ session, now }: { session: AgentSession; now: number }) {
   try {
     const usage = await sendMessage(Command.sessionTokenUsage, {
       command: session.agent.command,

@@ -37,7 +37,10 @@ export function enablesColorSchemeNotifications(data: string) {
  *  and, once subscribed, relays the scheme report on every repaint that asks.
  *  Any agent that enables the channel gets the truthful report - the handshake
  *  itself is the opt-in, not the agent's id. */
-export function createColorSchemeRelay({ agentId, report }: {
+export function createColorSchemeRelay({
+  agentId,
+  report
+}: {
   /** The pane's agent, read when deciding whether it listens without a handshake. */
   agentId: () => string;
   /** Write the current scheme's report to the agent. */

@@ -5,14 +5,18 @@
 // never snapshots the live-repainting terminal (which would ghost). Reduced
 // motion, or an engine without the scoped API, runs the mutation directly.
 
-import { prefersReducedMotion } from "@/lib/ui/motion";
 import { tick } from "svelte";
+
+import { prefersReducedMotion } from "@/lib/ui/motion";
 
 type ScopedTransitionList = Element & {
   startViewTransition?: (callback: () => Promise<void>) => { updateCallbackDone: Promise<void> };
 };
 
-export async function runListTransition({ elList, mutate }: {
+export async function runListTransition({
+  elList,
+  mutate
+}: {
   elList: ScopedTransitionList | null;
   mutate: () => Promise<void>;
 }) {

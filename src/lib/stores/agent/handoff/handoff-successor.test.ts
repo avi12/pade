@@ -1,8 +1,9 @@
+import { describe, expect, it } from "vitest";
+
 import { HandoffReason } from "@/lib/stores/agent/handoff/handoff-prompts";
 import { hasUsageHeadroom, pickHandoffSuccessor, pickSuccessor } from "@/lib/stores/agent/handoff/handoff-successor";
 import type { Agent } from "@/lib/types/agent";
 import { CreditsState } from "@/lib/types/usage";
-import { describe, expect, it } from "vitest";
 
 describe("hasUsageHeadroom", () => {
   it("keeps an agent whose quota still has room", () => {

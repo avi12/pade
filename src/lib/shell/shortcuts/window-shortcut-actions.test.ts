@@ -1,16 +1,10 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { PROJECT_SEARCH_ID, runWindowShortcut } from "@/lib/shell/shortcuts/window-shortcut-actions";
 import { WindowShortcut } from "@/lib/shell/shortcuts/window-shortcuts";
 import { toastText } from "@/lib/stores/ui/toast.svelte";
 import { WindowMode } from "@/lib/types/window";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
   const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();

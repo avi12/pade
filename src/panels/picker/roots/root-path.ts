@@ -45,21 +45,20 @@ const ROOT_PATH_STATUSES = {
     icon: "alert",
     text: "That location doesn’t exist - enter a full folder path"
   }
-} satisfies Record<string, {
-  tone: StatusTone;
-  icon: IconName;
-  text: string;
-}>;
+} satisfies Record<
+  string,
+  {
+    tone: StatusTone;
+    icon: IconName;
+    text: string;
+  }
+>;
 
 /** What the typed add-root path is, as far as the disk has answered: whether it
  *  can be added (and whether the folder would be created first), and the live
  *  status line describing it. The probe is async + debounced, so its flags are
  *  only believed once they describe the path currently typed. */
-export function assessRootPath({ typed, roots, probe }: {
-  typed: string;
-  roots: string[];
-  probe: TaggedPathProbe;
-}) {
+export function assessRootPath({ typed, roots, probe }: { typed: string; roots: string[]; probe: TaggedPathProbe }) {
   const trimmed = typed.trim();
   const hasValue = trimmed.length > 0;
   // A path that differs from an existing root only by case or a trailing
@@ -97,7 +96,14 @@ export function assessRootPath({ typed, roots, probe }: {
   };
 }
 
-function rootPathStatus({ hasValue, isAlreadyRoot, isSettled, isFile, isExistingFolder, canCreate }: {
+function rootPathStatus({
+  hasValue,
+  isAlreadyRoot,
+  isSettled,
+  isFile,
+  isExistingFolder,
+  canCreate
+}: {
   hasValue: boolean;
   isAlreadyRoot: boolean;
   isSettled: boolean;

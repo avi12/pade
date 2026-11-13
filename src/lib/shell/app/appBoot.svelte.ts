@@ -1,9 +1,10 @@
+import { onDestroy, onMount } from "svelte";
+
 import { boot } from "@/lib/shell/app/app-boot-steps";
 import type { BootDependencies } from "@/lib/shell/app/app-boot-steps";
 import { Phase } from "@/lib/shell/app/screenPhase.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { disposeNewProjectDetection } from "@/lib/stores/workspace/active-project/new-project-detection";
-import { onDestroy, onMount } from "svelte";
 
 /** The window's cold start: where it lands first - re-attached sessions, its
  *  `w=` route, the launch context, the last project, or a throwaway workspace.

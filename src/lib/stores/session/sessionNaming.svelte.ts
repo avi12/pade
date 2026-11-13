@@ -13,13 +13,14 @@
 // falls within 30s of the last). The name is produced backend-side from the
 // session's rolling transcript.
 
+import { SvelteMap } from "svelte/reactivity";
+import { z } from "zod";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types/agent";
-import { SvelteMap } from "svelte/reactivity";
-import { z } from "zod";
 
 const REFRESH_MS = 30_000;
 /** A session's `lastGeneratedAt` before its first name, so that one always runs. */
@@ -49,10 +50,7 @@ function dueController(id: string) {
 
 /** Label the session with a generated name, unless naming was toggled off while
  *  the request ran. */
-function applyGeneratedName({ id, name }: {
-  id: string;
-  name: string | null;
-}) {
+function applyGeneratedName({ id, name }: { id: string; name: string | null }) {
   if (name === null || !naming.has(id)) {
     return;
   }
@@ -87,10 +85,7 @@ async function generate(id: string) {
 }
 
 /** Start naming a session with `agent`, as if it had never been named. */
-function startNaming({ id, agent }: {
-  id: string;
-  agent: string;
-}) {
+function startNaming({ id, agent }: { id: string; agent: string }) {
   naming.set(id, agent);
   controllers.set(id, {
     lastStatus: sessionStatus(id),
@@ -112,11 +107,7 @@ export function isNaming(id: string) {
  *  only while the agent is working (rule 1); the refresh and stop/continue
  *  handling live in the effect below. Turning it off clears the timer and keeps
  *  the last label. Idempotent, so re-applying the same setting is free. */
-export function setNaming({ id, agent, isOn }: {
-  id: string;
-  agent: string;
-  isOn: boolean;
-}) {
+export function setNaming({ id, agent, isOn }: { id: string; agent: string; isOn: boolean }) {
   if (!isOn) {
     dropNaming(id);
     return;
@@ -137,10 +128,7 @@ export function setNaming({ id, agent, isOn }: {
 }
 
 /** Flip auto-naming for one session - what the tab's ✦ button does. */
-export function toggleNaming({ id, agent }: {
-  id: string;
-  agent: string;
-}) {
+export function toggleNaming({ id, agent }: { id: string; agent: string }) {
   setNaming({
     id,
     agent,
@@ -152,7 +140,10 @@ export function toggleNaming({ id, agent }: {
  *  own project's answer. This is deliberately a bulk assignment, not a default
  *  that per-tab ✦ toggles layer on top of: changing the setting is the user
  *  saying "these tabs", so it also overrules a tab they had flipped by hand. */
-export function applyNamingToAll({ sessions, isOnFor }: {
+export function applyNamingToAll({
+  sessions,
+  isOnFor
+}: {
   sessions: readonly {
     id: string;
     project: string;
@@ -178,11 +169,7 @@ export function applyNamingToAll({ sessions, isOnFor }: {
  *  timer are released; the reconcile effect re-arms the timer for the new id on
  *  its next status tick. No-op when the old id wasn't naming. A restart re-key
  *  keeps the same agent, so the registration below carries it instead. */
-export function transferNaming({ fromId, toId, agent }: {
-  fromId: string;
-  toId: string;
-  agent: string;
-}) {
+export function transferNaming({ fromId, toId, agent }: { fromId: string; toId: string; agent: string }) {
   if (!naming.has(fromId)) {
     return;
   }
@@ -206,11 +193,7 @@ function dropNaming(id: string) {
 }
 
 /** Run the 30s refresh while the session works, tear it down once it stops. */
-function syncRefresh({ id, controller, isWorking }: {
-  id: string;
-  controller: Controller;
-  isWorking: boolean;
-}) {
+function syncRefresh({ id, controller, isWorking }: { id: string; controller: Controller; isWorking: boolean }) {
   const isRefreshing = controller.timer !== undefined;
   if (isWorking === isRefreshing) {
     return;
@@ -227,10 +210,7 @@ function syncRefresh({ id, controller, isWorking }: {
 
 /** Bring one named session's refresh in line with its status, and fire one final
  *  name on the working→stopped edge. */
-function reconcileNaming({ id, status }: {
-  id: string;
-  status: SessionStatus;
-}) {
+function reconcileNaming({ id, status }: { id: string; status: SessionStatus }) {
   const controller = controllers.get(id);
   if (controller === undefined) {
     return;

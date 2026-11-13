@@ -87,7 +87,11 @@ function familyName(bareId: string) {
  *  `ladder` is the model's own levels from its agent's catalog, when known -
  *  it wins; otherwise the family's usual ladder stands in. Null for a level no
  *  ladder knows, so the caller shows the word instead. */
-export function effortStep({ model, effort, ladder = [] }: {
+export function effortStep({
+  model,
+  effort,
+  ladder = []
+}: {
   model: string;
   effort: string;
   ladder?: readonly string[];
@@ -109,11 +113,7 @@ export function effortStep({ model, effort, ladder = [] }: {
 
 /** The ladder an effort level sits on, and where - the model's own ladder when
  *  known, else its family's. Null for a level no ladder knows. */
-function effortOnLadder({ model, effort, ladder }: {
-  model: string;
-  effort: string;
-  ladder: readonly string[];
-}) {
+function effortOnLadder({ model, effort, ladder }: { model: string; effort: string; ladder: readonly string[] }) {
   const isClaudeModel = bareModel(model).startsWith(CLAUDE_PREFIX);
   const familyLadders: readonly (readonly string[])[] = isClaudeModel
     ? [CLAUDE_EFFORT_LADDER, OPENAI_EFFORT_LADDER]
@@ -135,7 +135,11 @@ function effortOnLadder({ model, effort, ladder }: {
 
 /** The effort level one step below `effort` on its ladder, or null at the
  *  bottom or for a level no ladder knows. */
-export function lowerEffort({ model, effort, ladder = [] }: {
+export function lowerEffort({
+  model,
+  effort,
+  ladder = []
+}: {
   model: string;
   effort: string;
   ladder?: readonly string[];
@@ -160,7 +164,11 @@ const TALLEST_BAR_PERCENT = 100;
 /** An effort level drawn as signal bars: one bar per level of its ladder,
  *  climbing from short to full height, lit up to and including the level in
  *  use. Empty for a level no ladder knows, so the caller shows only the word. */
-export function effortBars({ model, effort, ladder = [] }: {
+export function effortBars({
+  model,
+  effort,
+  ladder = []
+}: {
   model: string;
   effort: string;
   ladder?: readonly string[];
@@ -178,7 +186,7 @@ export function effortBars({ model, effort, ladder = [] }: {
   const climb = TALLEST_BAR_PERCENT - SHORTEST_BAR_PERCENT;
   return found.ladder.map((level, i) => ({
     level,
-    heightPercent: lastIndex === 0 ? TALLEST_BAR_PERCENT : Math.round(SHORTEST_BAR_PERCENT + i * climb / lastIndex),
+    heightPercent: lastIndex === 0 ? TALLEST_BAR_PERCENT : Math.round(SHORTEST_BAR_PERCENT + (i * climb) / lastIndex),
     isLit: i <= found.iEffort
   }));
 }
@@ -190,19 +198,13 @@ const EFFORT_TONES = 5;
  *  `EFFORT_TONES` (hottest): its place on its ladder, spread over the tones
  *  so a ladder's lowest and highest always land on the two ends. A one-level
  *  ladder has nowhere to climb, so its only level is the hottest. */
-export function effortTone({ step, steps }: {
-  step: number;
-  steps: number;
-}) {
+export function effortTone({ step, steps }: { step: number; steps: number }) {
   const hasRange = steps > 1;
   const heat = hasRange ? (step - 1) / (steps - 1) : 1;
   return Math.round(heat * (EFFORT_TONES - 1)) + 1;
 }
 
 /** A model's human name and its effort as one line: "Opus 5.5 · high effort". */
-export function modelLabel({ name, effort }: {
-  name: string;
-  effort: string | null;
-}) {
+export function modelLabel({ name, effort }: { name: string; effort: string | null }) {
   return effort === null ? name : `${name} · ${effort} effort`;
 }

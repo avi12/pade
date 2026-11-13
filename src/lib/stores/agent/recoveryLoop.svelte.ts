@@ -5,9 +5,10 @@
 // tab is gone, and teardown. Each loop keeps its own detection state (a `hits` map
 // the output sniffers fill) and decides what one tick of a session does.
 
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+
 import { measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import type { AgentSession } from "@/lib/types/agent";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 /** What the app shell provides to every recovery loop. */
 export interface RecoveryHost {
@@ -73,10 +74,7 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
     }
   }
 
-  function schedule({ session, delay }: {
-    session: AgentSession;
-    delay: number;
-  }) {
+  function schedule({ session, delay }: { session: AgentSession; delay: number }) {
     if (isDisposed) {
       return;
     }
@@ -86,7 +84,8 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
     }
 
     timers.set(
-      session.id, setTimeout(async () => {
+      session.id,
+      setTimeout(async () => {
         timers.delete(session.id);
         await tick(session);
       }, delay)

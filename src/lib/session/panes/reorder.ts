@@ -17,11 +17,7 @@ export type DropSide = (typeof DropSide)[keyof typeof DropSide];
 /** The id array after moving the item at `fromIndex` to `toIndex`, where `toIndex`
  *  is counted among the *remaining* items (the dragged item is lifted out first).
  *  Returns the order unchanged when `fromIndex === toIndex`. */
-export function reorderedIds({ ids, fromIndex, toIndex }: {
-  ids: string[];
-  fromIndex: number;
-  toIndex: number;
-}) {
+export function reorderedIds({ ids, fromIndex, toIndex }: { ids: string[]; fromIndex: number; toIndex: number }) {
   const draggedId = ids[fromIndex];
   const rest = ids.filter((_, i) => i !== fromIndex);
   return [...rest.slice(0, toIndex), draggedId, ...rest.slice(toIndex)];
@@ -34,7 +30,12 @@ export function reorderedIds({ ids, fromIndex, toIndex }: {
  *  shorter list (mirrors the design engine's `commitOrder`, which commits
  *  `lastOrder ?? ids.slice()`). Only a cancel (Escape / pointercancel) commits
  *  nothing, signalled by `null`. */
-export function committedOrderOnDrop({ ids, fromIndex, toIndex, cancelled }: {
+export function committedOrderOnDrop({
+  ids,
+  fromIndex,
+  toIndex,
+  cancelled
+}: {
   ids: string[];
   fromIndex: number;
   toIndex: number;
@@ -57,7 +58,11 @@ export function committedOrderOnDrop({ ids, fromIndex, toIndex, cancelled }: {
  *  - the dragged item's slot - is excluded from the count. Feeding it the dragged
  *  item's *current* gap (not its origin) each move gives the drag its stickiness:
  *  a swapped item holds until the pointer crosses the neighbour's new center. */
-export function insertionIndex({ centers, fromIndex, draggedCenter }: {
+export function insertionIndex({
+  centers,
+  fromIndex,
+  draggedCenter
+}: {
   centers: number[];
   fromIndex: number;
   draggedCenter: number;
@@ -77,11 +82,7 @@ export function insertionIndex({ centers, fromIndex, draggedCenter }: {
  *  before the pane, the right half after it. The single geometry decision behind
  *  both the live drop-half highlight and the actual split insertion (DRY), kept
  *  pure so it's unit-tested without a DOM - the caller measures the pane's rect. */
-export function paneDropSide({ pointerX, left, width }: {
-  pointerX: number;
-  left: number;
-  width: number;
-}) {
+export function paneDropSide({ pointerX, left, width }: { pointerX: number; left: number; width: number }) {
   return pointerX < left + width / 2 ? DropSide.Left : DropSide.Right;
 }
 
@@ -90,7 +91,12 @@ export function paneDropSide({ pointerX, left, width }: {
  *  target, the left half before it. If the target isn't in the base list the tab
  *  appends. `draggedId` is filtered out first, so re-dropping an already-shown
  *  pane repositions it rather than duplicating. */
-export function paneInsertIndex({ paneIds, draggedId, targetId, side }: {
+export function paneInsertIndex({
+  paneIds,
+  draggedId,
+  targetId,
+  side
+}: {
   paneIds: string[];
   draggedId: string;
   targetId: string;

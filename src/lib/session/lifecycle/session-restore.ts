@@ -17,13 +17,14 @@
 // earlier run finds nothing live and is cleared, and no separate "leave intent"
 // flag is needed.
 
+import { z } from "zod";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
 import { restoreSessionState, SavedSessionState, savedSessionState } from "@/lib/session/lifecycle/session-scope";
 import { Agent, ModelChoice } from "@/lib/types/agent";
 import type { AgentSession } from "@/lib/types/agent";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
-import { z } from "zod";
 
 /** Where this window's snapshot lives. Keyed by window label so a sibling
  *  window never reads (or overwrites) another's pane mapping, and so the
@@ -82,7 +83,10 @@ export function snapshotSessionOf({
 
 /** A persisted session back as a live one, in `fallbackProject` when it was
  *  saved without its own. Its saved state goes back to the stores that own it. */
-export function liveSessionOf({ saved, fallbackProject }: {
+export function liveSessionOf({
+  saved,
+  fallbackProject
+}: {
   saved: SnapshotSession;
   fallbackProject: string;
 }): AgentSession {
@@ -110,7 +114,12 @@ export type SessionSnapshot = z.infer<typeof SessionSnapshot>;
 
 /** Persist the window's current pane mapping. An empty project or session list
  *  means there is nothing to re-attach, so the snapshot is cleared instead. */
-export function saveSessionSnapshot({ project, sessions, paneIds, activeId }: {
+export function saveSessionSnapshot({
+  project,
+  sessions,
+  paneIds,
+  activeId
+}: {
   project: string;
   sessions: readonly AgentSession[];
   paneIds: readonly string[];
@@ -150,16 +159,15 @@ export function readSessionSnapshot() {
  *  intersection is unit-testable. Panes and the active id are pruned with it
  *  (a survivor always ends up shown); `null` when no session survived, which is
  *  exactly what a deliberate leave (PTYs killed) looks like. */
-export function pruneToLive({ snapshot, liveIds }: {
-  snapshot: SessionSnapshot;
-  liveIds: ReadonlySet<string>;
-}) {
+export function pruneToLive({ snapshot, liveIds }: { snapshot: SessionSnapshot; liveIds: ReadonlySet<string> }) {
   const sessions = snapshot.sessions
     .filter(session => liveIds.has(session.id))
-    .map(saved => liveSessionOf({
-      saved,
-      fallbackProject: snapshot.project
-    }));
+    .map(saved =>
+      liveSessionOf({
+        saved,
+        fallbackProject: snapshot.project
+      })
+    );
   if (sessions.length === 0) {
     return null;
   }

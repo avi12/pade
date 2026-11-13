@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   agentState,
   AgentState,
@@ -16,7 +18,6 @@ import {
 } from "@/lib/dashboard/agent-board";
 import type { BoardAgent, BoardWindow } from "@/lib/dashboard/agent-board";
 import { SessionStatus } from "@/lib/types/agent";
-import { describe, expect, it } from "vitest";
 
 const NOW = 1_000_000;
 const MINUTE_MS = 60_000;
@@ -38,10 +39,7 @@ function agent(overrides: Partial<BoardAgent> = {}) {
   };
 }
 
-function window({ projectLabel, agents }: {
-  projectLabel: string;
-  agents: BoardAgent[];
-}): BoardWindow {
+function window({ projectLabel, agents }: { projectLabel: string; agents: BoardAgent[] }): BoardWindow {
   return {
     label: projectLabel,
     project: `C:\\${projectLabel}`,
@@ -78,10 +76,13 @@ describe("orderedWindows", () => {
   });
   const waiting = window({
     projectLabel: "mike",
-    agents: [agent({ statusSince: NOW - 3 * MINUTE_MS }), agent({
-      isAwaitingChoice: true,
-      statusSince: NOW - 2 * MINUTE_MS
-    })]
+    agents: [
+      agent({ statusSince: NOW - 3 * MINUTE_MS }),
+      agent({
+        isAwaitingChoice: true,
+        statusSince: NOW - 2 * MINUTE_MS
+      })
+    ]
   });
   const quiet = window({
     projectLabel: "bravo",
@@ -284,11 +285,13 @@ describe("the board's windows", () => {
   });
   const second = window({
     projectLabel: "w-2",
-    agents: [agent({
-      id: "b",
-      project: "C:\\poll",
-      conversationId: "conversation-b"
-    })]
+    agents: [
+      agent({
+        id: "b",
+        project: "C:\\poll",
+        conversationId: "conversation-b"
+      })
+    ]
   });
 
   it("keeps each window's latest snapshot", () => {
@@ -341,7 +344,10 @@ describe("the board's windows", () => {
   });
 
   it("drops a window that said goodbye, so other rails stop showing its sessions live", () => {
-    const windows = new Map([["w-1", first], ["w-2", second]]);
+    const windows = new Map([
+      ["w-1", first],
+      ["w-2", second]
+    ]);
     const after = windowsAfterMessage({
       windows,
       message: {
@@ -360,7 +366,10 @@ describe("the board's windows", () => {
   });
 
   it("drops a window that closed without a goodbye once it is no longer open", () => {
-    const windows = new Map([["w-1", first], ["w-2", second]]);
+    const windows = new Map([
+      ["w-1", first],
+      ["w-2", second]
+    ]);
     expect([
       ...windowsStillOpen({
         windows,
@@ -390,7 +399,10 @@ describe("the board's windows", () => {
 
   it("lists the other windows' sessions with the window each runs in", () => {
     const sessions = elsewhereSessions({
-      windows: new Map([["w-1", first], ["w-2", second]]),
+      windows: new Map([
+        ["w-1", first],
+        ["w-2", second]
+      ]),
       ownLabel: "w-1"
     });
     expect(sessions.map(session => [session.id, session.windowLabel, session.project])).toEqual([

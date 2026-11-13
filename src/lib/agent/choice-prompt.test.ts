@@ -1,5 +1,6 @@
-import { detectChoicePrompt } from "@/lib/agent/choice-prompt";
 import { describe, expect, it } from "vitest";
+
+import { detectChoicePrompt } from "@/lib/agent/choice-prompt";
 
 const CURSOR = "❯";
 // ESC (0x1b) built from its code point so no raw control byte sits in the source.
@@ -12,8 +13,7 @@ describe("detectChoicePrompt", () => {
   });
 
   it("flags the menu through the ANSI colour codes a TUI paints it with", () => {
-    const painted =
-      `${ESC}[2m${CURSOR}${ESC}[0m ${ESC}[1m1.${ESC}[0m Yes  ${ESC}[2m2.${ESC}[0m No`;
+    const painted = `${ESC}[2m${CURSOR}${ESC}[0m ${ESC}[1m1.${ESC}[0m Yes  ${ESC}[2m2.${ESC}[0m No`;
     expect(detectChoicePrompt(painted)).toBe(true);
   });
 

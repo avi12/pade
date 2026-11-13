@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import type { ChatStorage } from "@/lib/types/chat-storage";
 import { CHAT_SIZE_LIMIT_CHOICES, CHAT_STORAGE_LIMIT_CHOICES } from "@/lib/types/settings";
 import {
@@ -11,7 +13,6 @@ import {
   tickedCleanup,
   unlistedChats
 } from "@/panels/config/chat-storage/chat-storage";
-import { describe, expect, it } from "vitest";
 
 const MEGABYTE = 1024 * 1024;
 const GIGABYTE = 1024 * MEGABYTE;
@@ -179,12 +180,14 @@ describe("chat storage wording", () => {
     expect(
       agentShares({
         storage: STORAGE,
-        agents: [{
-          id: "claude",
-          label: "Claude Code",
-          command: "claude",
-          reordersBidi: true
-        }]
+        agents: [
+          {
+            id: "claude",
+            label: "Claude Code",
+            command: "claude",
+            reordersBidi: true
+          }
+        ]
       })
     ).toBe("Claude Code 12.5 GB · codex 139 MB");
   });
@@ -195,7 +198,9 @@ describe("chat storage wording", () => {
         storage: STORAGE,
         storageLimitMegabytes: 2048
       })
-    ).toBe("Recent chats, and each project's newest, still take 2.2 GB, so the total stays above 2 GB until they're a week old");
+    ).toBe(
+      "Recent chats, and each project's newest, still take 2.2 GB, so the total stays above 2 GB until they're a week old"
+    );
     expect(
       keptAboveLimit({
         storage: STORAGE,

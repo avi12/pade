@@ -1,5 +1,6 @@
-import { watchSummary } from "@/lib/feed/watch/feed-status";
 import { describe, expect, it } from "vitest";
+
+import { watchSummary } from "@/lib/feed/watch/feed-status";
 
 const PROJECT = "C:\\repositories\\avi\\pade";
 const NOW = 1_760_000_000_000;

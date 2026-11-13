@@ -106,7 +106,7 @@
       color: var(--on-surface-variant);
       font-weight: 600;
       font-size: 0.625rem;
-      opacity: 70%;
+      opacity: 0.7;
     }
   }
 </style>

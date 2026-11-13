@@ -5,8 +5,9 @@
 // asks the backend about the rows on or near the screen, never one call per row
 // and never the whole list up front.
 
-import { normalizePath } from "@/lib/util/paths";
 import { SvelteMap } from "svelte/reactivity";
+
+import { normalizePath } from "@/lib/util/paths";
 
 /** How many project paths each row lookup keeps cached - comfortably more than
  *  a recent-projects list shows, so scrolling back never re-asks the backend. */
@@ -20,7 +21,11 @@ export const PROJECT_ROW_CACHE_LIMIT = 256;
 const NEARBY_ROWS_MARGIN = "50% 0px";
 
 /** One lazily-loaded, visibility-driven lookup keyed by project path. */
-export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePathsChange }: {
+export function createVisiblePathBatch<Value>({
+  load,
+  cacheLimit,
+  onVisiblePathsChange
+}: {
   /** Resolve a batch of paths; a path missing from the result is probed empty. */
   load: (paths: string[]) => Promise<Record<string, Value>>;
   /** Oldest entries are evicted beyond this many cached paths. */
@@ -37,10 +42,13 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
   // Cached values still shown, but re-asked the next time their row is on screen.
   const staleKeys = new Set<string>();
   const visibleCounts = new Map<string, number>();
-  const observed = new WeakMap<Element, {
-    key: string;
-    isVisible: boolean;
-  }>();
+  const observed = new WeakMap<
+    Element,
+    {
+      key: string;
+      isVisible: boolean;
+    }
+  >();
   let observer: IntersectionObserver | undefined;
   // Rows that asked to hear when they are really on screen - the row observer
   // answers early, inside its margin, so this one has none.
@@ -49,10 +57,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
   let isLoading = false;
   let isFlushQueued = false;
 
-  function publish({ key, value }: {
-    key: string;
-    value: Value | null;
-  }) {
+  function publish({ key, value }: { key: string; value: Value | null }) {
     staleKeys.delete(key);
     values.set(key, value);
 
@@ -133,10 +138,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
     scheduleFlush();
   }
 
-  function adjustVisibility({ key, isBecomingVisible }: {
-    key: string;
-    isBecomingVisible: boolean;
-  }) {
+  function adjustVisibility({ key, isBecomingVisible }: { key: string; isBecomingVisible: boolean }) {
     const count = visibleCounts.get(key) ?? 0;
     const next = Math.max(0, count + (isBecomingVisible ? 1 : -1));
     if (next === 0) {
@@ -152,24 +154,27 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
   }
 
   function rowObserver() {
-    observer ??= new IntersectionObserver(entries => {
-      for (const entry of entries) {
-        const state = observed.get(entry.target);
-        if (!state || state.isVisible === entry.isIntersecting) {
-          continue;
-        }
+    observer ??= new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          const state = observed.get(entry.target);
+          if (!state || state.isVisible === entry.isIntersecting) {
+            continue;
+          }
 
-        state.isVisible = entry.isIntersecting;
-        adjustVisibility({
-          key: state.key,
-          isBecomingVisible: entry.isIntersecting
-        });
+          state.isVisible = entry.isIntersecting;
+          adjustVisibility({
+            key: state.key,
+            isBecomingVisible: entry.isIntersecting
+          });
 
-        if (entry.isIntersecting) {
-          request(originalPaths.get(state.key) ?? state.key);
+          if (entry.isIntersecting) {
+            request(originalPaths.get(state.key) ?? state.key);
+          }
         }
-      }
-    }, { scrollMargin: NEARBY_ROWS_MARGIN });
+      },
+      { scrollMargin: NEARBY_ROWS_MARGIN }
+    );
     return observer;
   }
 
@@ -221,10 +226,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
   /** Attachment that requests a path once its row is on or near the screen.
    *  `onScreenChange` hears whenever the row itself comes on or goes off screen
    *  - not merely near it - for a row that animates only what lands in view. */
-  function observe({ path, onScreenChange }: {
-    path: string;
-    onScreenChange?: (isOnScreen: boolean) => void;
-  }) {
+  function observe({ path, onScreenChange }: { path: string; onScreenChange?: (isOnScreen: boolean) => void }) {
     return (element: Element) => {
       const key = normalizePath(path);
       originalPaths.set(key, path);

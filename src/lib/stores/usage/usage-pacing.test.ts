@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { isStoppingMidTurn, pacingNote } from "@/lib/stores/usage/usagePacing.svelte";
 import { UsageWindowKind } from "@/lib/types/usage";
-import { describe, expect, it } from "vitest";
 
 const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();
 const MINUTE_MS = 60_000;
@@ -54,7 +55,9 @@ describe("pacingNote", () => {
         },
         now: NOW
       })
-    ).toBe(`Claude is finishing its step, then rests for 15 minutes (until ${clock.format(NOW + 15 * MINUTE_MS)} at the earliest) to slow its session usage (72%)`);
+    ).toBe(
+      `Claude is finishing its step, then rests for 15 minutes (until ${clock.format(NOW + 15 * MINUTE_MS)} at the earliest) to slow its session usage (72%)`
+    );
   });
 });
 

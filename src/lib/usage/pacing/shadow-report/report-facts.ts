@@ -27,10 +27,7 @@ export type OwnedFacts = Pick<
 };
 
 /** The fraction of a session's own load a step to `next` saves. */
-function savingOf({ current, next }: {
-  current: ModelChoice;
-  next: ModelChoice | null;
-}) {
+function savingOf({ current, next }: { current: ModelChoice; next: ModelChoice | null }) {
   if (next === null) {
     return 0;
   }
@@ -40,7 +37,13 @@ function savingOf({ current, next }: {
 
 /** What stepping a session down by effort and by model would do - each kind
  *  priced by its cost weight, the way the account round prices a step. */
-export function choiceFactsOf({ running, original, restoreAt, isSteppedDown, options }: {
+export function choiceFactsOf({
+  running,
+  original,
+  restoreAt,
+  isSteppedDown,
+  options
+}: {
   running: RunningChoice | null;
   original: ChoiceFacts["original"];
   restoreAt: ChoiceFacts["restoreAt"];
@@ -107,7 +110,10 @@ export function paceFactsOf(state: PaceFacts | undefined): PaceFacts | null {
 
 /** Put one session's facts together from what the app reports about it and
  *  what the loop owns. */
-export function sessionFactsOf({ reported, owned }: {
+export function sessionFactsOf({
+  reported,
+  owned
+}: {
   reported: Omit<SessionFacts, keyof OwnedFacts>;
   owned: OwnedFacts;
 }): SessionFacts {

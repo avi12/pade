@@ -1,13 +1,8 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { Command } from "@/lib/ipc/messaging";
 import type { AgentSession, ModelTokenUsage, SessionTokenUsage } from "@/lib/types/agent";
 import { measuredBurn, splitBurn } from "@/lib/usage/pacing/session-control/measured-burn";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const NOTHING: SessionTokenUsage = {
   own: [],
@@ -19,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage
 }));
 
@@ -40,14 +35,16 @@ const SESSION = {
 } satisfies AgentSession;
 
 function haikuInput(inputTokens: number): ModelTokenUsage[] {
-  return [{
-    model: "claude-haiku-5-5",
-    inputTokens,
-    outputTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteFiveMinuteTokens: 0,
-    cacheWriteOneHourTokens: 0
-  }];
+  return [
+    {
+      model: "claude-haiku-5-5",
+      inputTokens,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteFiveMinuteTokens: 0,
+      cacheWriteOneHourTokens: 0
+    }
+  ];
 }
 
 describe("measuredBurn", () => {
@@ -61,10 +58,12 @@ describe("measuredBurn", () => {
       subagents: []
     });
     expect(
-      (await measuredBurn({
-        session: SESSION,
-        now: NOW
-      }))?.total
+      (
+        await measuredBurn({
+          session: SESSION,
+          now: NOW
+        })
+      )?.total
     ).toBe(2000 / WINDOW_MINUTES);
     expect(mocks.sendMessage).toHaveBeenCalledWith(Command.sessionTokenUsage, {
       command: "claude",
@@ -100,28 +99,33 @@ describe("splitBurn", () => {
     const burn = splitBurn({
       usage: {
         own: haikuInput(200),
-        subagents: [{
-          id: "running",
-          description: "Explore",
-          writtenAt: NOW - MINUTE_MS,
-          usage: haikuInput(400)
-        }, {
-          id: "finished",
-          description: null,
-          writtenAt: NOW - 10 * MINUTE_MS,
-          usage: haikuInput(600)
-        }]
+        subagents: [
+          {
+            id: "running",
+            description: "Explore",
+            writtenAt: NOW - MINUTE_MS,
+            usage: haikuInput(400)
+          },
+          {
+            id: "finished",
+            description: null,
+            writtenAt: NOW - 10 * MINUTE_MS,
+            usage: haikuInput(600)
+          }
+        ]
       },
       now: NOW
     });
     expect(burn).toEqual({
       total: 1200 / WINDOW_MINUTES,
       own: 800 / WINDOW_MINUTES,
-      subagents: [{
-        id: "running",
-        description: "Explore",
-        load: 400 / WINDOW_MINUTES
-      }]
+      subagents: [
+        {
+          id: "running",
+          description: "Explore",
+          load: 400 / WINDOW_MINUTES
+        }
+      ]
     });
   });
 });

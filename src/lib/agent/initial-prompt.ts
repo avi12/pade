@@ -83,10 +83,7 @@ function collapsed(text: string) {
  *  while not yet reading stdin, silently swallowing a prompt written "on ready";
  *  only this echo confirms the delivery landed, so the terminal re-delivers
  *  until it appears. */
-export function promptEchoed({ output, prompt }: {
-  output: string;
-  prompt: string;
-}) {
+export function promptEchoed({ output, prompt }: { output: string; prompt: string }) {
   const echoPrefix = collapsed(prompt).slice(0, ECHO_PREFIX_LENGTH);
   return echoPrefix.length > 0 && collapsed(output).includes(echoPrefix);
 }

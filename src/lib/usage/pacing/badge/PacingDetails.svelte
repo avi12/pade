@@ -109,7 +109,7 @@
     position: absolute;
     block-size: 1px;
     inline-size: 1px;
-    opacity: 0%;
+    opacity: 0;
     pointer-events: none;
   }
 

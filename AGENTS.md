@@ -8,7 +8,7 @@ These are non-negotiable for all work in this repo.
 
 1. **DRY - single source of truth (SSOT)** - Don't Repeat Yourself. Every piece of
    knowledge - logic, config, **and derived/displayed state** - has exactly one
-   authoritative home; everything else *reads from it*, never re-derives it. Extract
+   authoritative home; everything else _reads from it_, never re-derives it. Extract
    shared logic into a single module (e.g. the Tauri IPC messaging layer, the M3 tokens, the
    VCS abstraction) rather than copy-pasting. And when the same value is shown or
    acted on in two places - e.g. the project's chosen editor in the top-bar launcher
@@ -169,7 +169,7 @@ These are non-negotiable for all work in this repo.
      event- and lifecycle-driven timing - a transition's `outroend`, an
      `animationend`, `onMount`/`onDestroy`, a `ResizeObserver`/`IntersectionObserver`
      - and let CSS own durations and easing. A timer used to "wait for the
-     DOM/animation to settle" is a smell: hook the real signal instead.
+       DOM/animation to settle" is a smell: hook the real signal instead.
    - No IIFEs: never immediately invoke a function expression - async or not,
      `(() => {…})()` / `(async () => {…})()` are out. Give the function a name and
      call it. To kick off async work from a lifecycle, use an `async onMount` (and
@@ -179,7 +179,7 @@ These are non-negotiable for all work in this repo.
      the closed set once - a Rust `enum`, or a TS `z.enum`/`as const` union - and
      compare against its members (`kind === ChangeKind.Created`, not
      `kind === "created"`). One authoritative definition, no scattered literals.
-     The one exception is the closed set's *own definition*: the string values
+     The one exception is the closed set's _own definition_: the string values
      inside the `z.enum` / `as const` / `IdeId` object literal that declares the
      set are allowed to be hardcoded there - that file is their authoritative
      home. A literal is only "magic" once it appears a second time somewhere that
@@ -190,8 +190,8 @@ These are non-negotiable for all work in this repo.
      as prose. Inline only conditions that are already obvious.
    - Prefer names over comments: make the code self-documenting - reach for a
      descriptive variable, function, or boolean name before a comment. Avoid
-     comments unless absolutely necessary; reserve them for a non-obvious *why* a
-     name can't carry, never to restate *what* the code does. Especially: never
+     comments unless absolutely necessary; reserve them for a non-obvious _why_ a
+     name can't carry, never to restate _what_ the code does. Especially: never
      write a comment above an `if` to explain its condition - name the condition.
    - Full words, no abbreviations: name variables, functions, parameters, types,
      CSS classes, and CSS custom properties with complete, spelled-out words -
@@ -260,7 +260,7 @@ These are non-negotiable for all work in this repo.
      must match xterm's pixel grid (`TerminalRtl`'s `--terminal-font-size`).
    - Tabular numerals are the app-wide default, declared once on `body` in
      `theme.css` and inherited - never re-declare `font-variant-numeric` on a
-     component. Note it only *asks* the font for a `tnum` feature and nothing
+     component. Note it only _asks_ the font for a `tnum` feature and nothing
      warns when the feature is missing: Figtree honors it, Chakra Petch and
      Rajdhani do not. So the Cyberpunk UI stack leads with "Oxanium Digits", a
      digit-only face (`unicode-range: U+0030-0039`) whose figures are one width
@@ -312,8 +312,8 @@ These are non-negotiable for all work in this repo.
      colocated `.ts` module with tests) rather than letting it keep growing.
    - Svelte `$derived`: never wrap a ternary or branching logic in `$derived(…)`
      - use `$derived.by(() => { … })` with `if`/`else` so the branches read as
-     prose. Likewise, extract an `@attach` handler to a named function in the
-     `<script>` rather than writing it inline in the template.
+       prose. Likewise, extract an `@attach` handler to a named function in the
+       `<script>` rather than writing it inline in the template.
    - No `window.` prefix: call browser globals bare - `matchMedia(…)`,
      `setTimeout(…)`, `addEventListener(…)`, `location.reload()` - never
      `window.matchMedia` / `window.setTimeout`. The global is implicit; the prefix

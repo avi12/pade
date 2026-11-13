@@ -5,6 +5,8 @@
 // and their working trees, ignore rules applied), and a project whose files
 // change is counted again once the burst settles.
 
+import { untrack } from "svelte";
+
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import { isFollowedProject, watchedProjectPaths } from "@/lib/stores/workspace/project-rows/followed-projects";
@@ -13,7 +15,6 @@ import {
   PROJECT_ROW_CACHE_LIMIT
 } from "@/lib/stores/workspace/project-rows/visiblePathBatch.svelte";
 import type { LanguageShare } from "@/lib/types/editor";
-import { untrack } from "svelte";
 
 /** Rows scroll past in bursts; the watch follows them once the list settles. */
 const WATCH_SETTLE_MS = 300;
@@ -46,12 +47,16 @@ async function watchProjects(paths: string[]) {
  *  once the list has settled. */
 function rearmWatch() {
   clearTimeout(watchTimer);
-  watchTimer = setTimeout(() => watchProjects(
-    watchedProjectPaths({
-      followed: followed.paths,
-      visible: visiblePaths
-    })
-  ), WATCH_SETTLE_MS);
+  watchTimer = setTimeout(
+    () =>
+      watchProjects(
+        watchedProjectPaths({
+          followed: followed.paths,
+          visible: visiblePaths
+        })
+      ),
+    WATCH_SETTLE_MS
+  );
 }
 
 /** Count a project again; when it is a followed one and its mix moved, tell the
@@ -75,7 +80,8 @@ async function listenForChanges() {
   await onMessage(EventType.languagesChanged, ({ data: path }) => {
     clearTimeout(recountTimers.get(path));
     recountTimers.set(
-      path, setTimeout(async () => {
+      path,
+      setTimeout(async () => {
         recountTimers.delete(path);
         await recount(path);
       }, RECOUNT_SETTLE_MS)
@@ -103,10 +109,7 @@ const projectLanguages = createVisiblePathBatch<LanguageShare[]>({
  *  them - not only while their rows are on screen - and call `onchange` with a
  *  project whose language mix moved (the editor that suits it may have
  *  changed). Replaces the previous list; an empty list stops. */
-export function followProjects({ paths, onchange }: {
-  paths: string[];
-  onchange: (path: string) => Promise<void>;
-}) {
+export function followProjects({ paths, onchange }: { paths: string[]; onchange: (path: string) => Promise<void> }) {
   ensureListening();
   followed = {
     paths,
@@ -134,12 +137,14 @@ export function onFrontProjectLanguagesChange(onchange: (path: string) => Promis
 $effect.root(() => {
   $effect(() => {
     const path = frontProject();
-    untrack(() => followProjects({
-      paths: path === "" ? [] : [path],
-      async onchange(changed) {
-        await onFrontProjectChange?.(changed);
-      }
-    }));
+    untrack(() =>
+      followProjects({
+        paths: path === "" ? [] : [path],
+        async onchange(changed) {
+          await onFrontProjectChange?.(changed);
+        }
+      })
+    );
   });
 });
 

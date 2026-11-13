@@ -1,16 +1,11 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   projectKind,
   refreshProjectKind,
   requestProjectKind,
   revalidateProjectKinds
 } from "@/lib/stores/workspace/project-rows/projectKinds.svelte";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const mocks = vi.hoisted(() => ({
   projectKinds: vi.fn<(paths: string[]) => Promise<Record<string, string>>>()
@@ -81,9 +76,7 @@ describe("project kind batches", () => {
     const path = "C:\\projects\\refresh-race";
     const lazyResponse = Promise.withResolvers<Record<string, string>>();
     const refreshResponse = Promise.withResolvers<Record<string, string>>();
-    mocks.projectKinds
-      .mockReturnValueOnce(lazyResponse.promise)
-      .mockReturnValueOnce(refreshResponse.promise);
+    mocks.projectKinds.mockReturnValueOnce(lazyResponse.promise).mockReturnValueOnce(refreshResponse.promise);
 
     requestProjectKind(path);
     await vi.waitFor(() => expect(mocks.projectKinds).toHaveBeenCalledOnce());
@@ -116,9 +109,7 @@ describe("project kind batches", () => {
     const path = "C:\\projects\\two-refreshes";
     const olderResponse = Promise.withResolvers<Record<string, string>>();
     const newerResponse = Promise.withResolvers<Record<string, string>>();
-    mocks.projectKinds
-      .mockReturnValueOnce(olderResponse.promise)
-      .mockReturnValueOnce(newerResponse.promise);
+    mocks.projectKinds.mockReturnValueOnce(olderResponse.promise).mockReturnValueOnce(newerResponse.promise);
 
     const olderRefresh = refreshProjectKind(path);
     const newerRefresh = refreshProjectKind(path);
@@ -133,9 +124,7 @@ describe("project kind batches", () => {
   it("re-detects a cached project after a revalidation, keeping the old kind meanwhile", async () => {
     const path = "C:\\projects\\gains-tsconfig";
     const redetection = Promise.withResolvers<Record<string, string>>();
-    mocks.projectKinds
-      .mockResolvedValueOnce({ [path]: "web" })
-      .mockReturnValueOnce(redetection.promise);
+    mocks.projectKinds.mockResolvedValueOnce({ [path]: "web" }).mockReturnValueOnce(redetection.promise);
     requestProjectKind(path);
     await vi.waitFor(() => expect(projectKind(path)).toBe("web"));
 

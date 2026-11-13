@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { Command } from "@/lib/ipc/messaging";
 import { forgetSession } from "@/lib/session/lifecycle/session-scope";
 import { observeAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
@@ -7,14 +9,6 @@ import { createAutoHandoff } from "@/lib/stores/agent/handoff/handoff.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types/agent";
 import type { AgentSession } from "@/lib/types/agent";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const mocks = vi.hoisted(() => ({
   kill: vi.fn<(id: string) => Promise<void>>(),
@@ -23,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage,
   onMessage: mocks.onMessage
 }));
@@ -122,12 +116,7 @@ describe("createAutoHandoff", () => {
     finishKill();
     await vi.waitFor(() => expect(lifecycle).toContain("successor-launched"));
 
-    expect(lifecycle).toEqual([
-      "kill-started",
-      "kill-finished",
-      "successor-launched",
-      "predecessor-removed"
-    ]);
+    expect(lifecycle).toEqual(["kill-started", "kill-finished", "successor-launched", "predecessor-removed"]);
     handoff.dispose();
   });
 
@@ -327,10 +316,13 @@ describe("createAutoHandoff", () => {
     afterEach(() => vi.useRealTimers());
 
     function handoffTo(successorId: string) {
-      let sessions = [predecessor, {
-        ...predecessor,
-        id: successorId
-      }];
+      let sessions = [
+        predecessor,
+        {
+          ...predecessor,
+          id: successorId
+        }
+      ];
       return createAutoHandoff({
         sessions: () => sessions,
         availableAgents: () => [predecessor.agent],
@@ -365,7 +357,8 @@ describe("createAutoHandoff", () => {
       });
       await vi.advanceTimersByTimeAsync(4_000);
       expect(mocks.sendMessage).toHaveBeenCalledWith(
-        Command.handoffDocDelete, expect.objectContaining({
+        Command.handoffDocDelete,
+        expect.objectContaining({
           dir: "C:/repositories/pade"
         })
       );
@@ -481,9 +474,7 @@ describe("createAutoHandoff", () => {
 
       return await answerMessage(command);
     });
-    vi.mocked(sessionStatus)
-      .mockReturnValueOnce(SessionStatus.enum.ready)
-      .mockReturnValue(SessionStatus.enum.working);
+    vi.mocked(sessionStatus).mockReturnValueOnce(SessionStatus.enum.ready).mockReturnValue(SessionStatus.enum.working);
     let sessions = [scannedSession];
     const handoff = createAutoHandoff({
       ...scanHost(scannedSession),

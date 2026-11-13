@@ -15,17 +15,11 @@ export interface Point {
   y: number;
 }
 
-export function axisCenter({ slot, isHorizontal }: {
-  slot: Sibling;
-  isHorizontal: boolean;
-}) {
+export function axisCenter({ slot, isHorizontal }: { slot: Sibling; isHorizontal: boolean }) {
   return isHorizontal ? slot.left + slot.width / 2 : slot.top + slot.height / 2;
 }
 
-export function slotTranslate({ from, to }: {
-  from: Sibling;
-  to: Sibling;
-}) {
+export function slotTranslate({ from, to }: { from: Sibling; to: Sibling }) {
   return `${to.left - from.left}px ${to.top - from.top}px`;
 }
 
@@ -33,7 +27,11 @@ export function slotTranslate({ from, to }: {
 // begins, so the insertion index is always computed against a stable pre-drag
 // layout rather than the one the gaps are actively shifting. Hidden siblings
 // (display:none → zero size, e.g. an off-screen pane) aren't reorderable.
-export function measureSiblings({ elParent, itemSelector, idAttribute }: {
+export function measureSiblings({
+  elParent,
+  itemSelector,
+  idAttribute
+}: {
   elParent: HTMLElement;
   itemSelector: string;
   idAttribute: string;
@@ -69,7 +67,13 @@ export function measureSiblings({ elParent, itemSelector, idAttribute }: {
 // is mapped to a real slot's geometry, so variable-width pills close and open
 // exactly - no uniform-gap assumption. The siblings' transition is set once on
 // lift, so this only writes `translate`.
-export function reflowSiblings({ siblings, originalIds, iOriginalById, draggedId, iBefore }: {
+export function reflowSiblings({
+  siblings,
+  originalIds,
+  iOriginalById,
+  draggedId,
+  iBefore
+}: {
   siblings: Sibling[];
   originalIds: string[];
   iOriginalById: Map<string, number>;

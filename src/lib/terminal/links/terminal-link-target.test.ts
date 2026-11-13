@@ -1,5 +1,6 @@
-import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal/links/terminal-link-target";
 import { describe, expect, it } from "vitest";
+
+import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal/links/terminal-link-target";
 
 describe("terminalLinkDestination", () => {
   it("keeps web links in the browser", () => {

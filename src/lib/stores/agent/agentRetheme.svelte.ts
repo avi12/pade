@@ -21,6 +21,8 @@
 // one the user has to use. It no longer matters: Claude follows the flip through
 // its watched theme definition instead, without being restarted at all.
 
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+
 import { AgentId } from "@/lib/agent/agent-icon";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
@@ -29,7 +31,6 @@ import { isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.sv
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import type { AgentSession } from "@/lib/types/agent";
 import type { Scheme } from "@/lib/types/theme";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);
 
@@ -38,10 +39,7 @@ interface AgentRethemeHost {
   sessions: () => readonly AgentSession[];
   /** Hand a session the args that resume its conversation, before a restart
    *  remounts it. A no-op for an empty list. */
-  applyResumeArgs: (options: {
-    id: string;
-    args: string[];
-  }) => void;
+  applyResumeArgs: (options: { id: string; args: string[] }) => void;
   /** Kill the sessions and respawn them in place under fresh ids. */
   restartSessions: (targets: readonly AgentSession[]) => Promise<void>;
 }
@@ -85,8 +83,9 @@ export function createAgentRetheme(host: AgentRethemeHost) {
   }
 
   function isPaintedInStaleScheme(session: AgentSession) {
-    return SPAWN_THEMED_AGENTS.has(session.agent.id)
-      && spawnSchemeBySession.get(session.id) !== appearance.terminalScheme;
+    return (
+      SPAWN_THEMED_AGENTS.has(session.agent.id) && spawnSchemeBySession.get(session.id) !== appearance.terminalScheme
+    );
   }
 
   async function restartMismatchedAgents() {

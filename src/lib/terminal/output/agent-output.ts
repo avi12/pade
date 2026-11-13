@@ -7,7 +7,11 @@ import { observeMcpReload } from "@/lib/stores/agent/mcpReload.svelte";
 import { observeUsageLimit } from "@/lib/stores/usage/usageResume.svelte";
 
 /** One live chunk of the session's output. */
-export function observeAgentOutput({ id, chunk, isOnNormalScreen }: {
+export function observeAgentOutput({
+  id,
+  chunk,
+  isOnNormalScreen
+}: {
   id: string;
   chunk: string;
   isOnNormalScreen: boolean;
@@ -63,10 +67,7 @@ export function observeAgentOutput({ id, chunk, isOnNormalScreen }: {
  *  never see - parse-only, never the byte estimate: these are replayed bytes,
  *  not new output. The latest title in the replay is the agent's current
  *  activity report. */
-export function observeReplayedOutput({ id, data }: {
-  id: string;
-  data: string;
-}) {
+export function observeReplayedOutput({ id, data }: { id: string; data: string }) {
   observeContextScreen({
     id,
     text: data

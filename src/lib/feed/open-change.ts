@@ -9,10 +9,7 @@ import type { Ide } from "@/lib/types/editor";
 /** The verb on a card's open button - the one source its tooltip and its
  *  enabled state read, so both follow the same editor-or-folder decision. Empty
  *  when there is nowhere to open it. */
-export function openAction({ path, editor }: {
-  path: string;
-  editor: Ide | undefined;
-}) {
+export function openAction({ path, editor }: { path: string; editor: Ide | undefined }) {
   if (isBinaryPath(path)) {
     return "Show in folder";
   }
@@ -20,7 +17,12 @@ export function openAction({ path, editor }: {
   return editor ? `Open in ${editor.label}` : "";
 }
 
-export async function openChangedFile({ path, line, project, editor }: {
+export async function openChangedFile({
+  path,
+  line,
+  project,
+  editor
+}: {
   path: string;
   line?: number;
   project: string;

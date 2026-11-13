@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { activityCounts, ChatActivity, chatActivity, shownChats } from "@/lib/shell/sidebar/chats/chat-activity";
 import { SessionStatus } from "@/lib/types/agent";
-import { describe, expect, it } from "vitest";
 
 function chats(count: number) {
   return Array.from({ length: count }, (_, i) => ({ id: `chat-${i}` }));
@@ -50,12 +51,7 @@ describe("chatActivity", () => {
 describe("activityCounts", () => {
   it("counts the working chats and the ones waiting on the user", () => {
     expect(
-      activityCounts([
-        ChatActivity.Working,
-        ChatActivity.NeedsYou,
-        ChatActivity.Idle,
-        ChatActivity.NeedsYou
-      ])
+      activityCounts([ChatActivity.Working, ChatActivity.NeedsYou, ChatActivity.Idle, ChatActivity.NeedsYou])
     ).toEqual({
       working: 1,
       needsYou: 2

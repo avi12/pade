@@ -362,7 +362,7 @@
     transition: border-color 150ms var(--ease);
 
     &:disabled {
-      opacity: 60%;
+      opacity: 0.6;
       cursor: default;
     }
 
@@ -375,7 +375,7 @@
     .caret {
       flex: none;
       font-size: 0.5625rem;
-      opacity: 70%;
+      opacity: 0.7;
     }
   }
 

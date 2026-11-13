@@ -39,10 +39,6 @@ export function pick<Item>(items: readonly Item[]) {
 }
 
 /** A uniform draw rounded to a step, so the JSON stays short. */
-export function between({ low, high, step }: {
-  low: number;
-  high: number;
-  step: number;
-}) {
+export function between({ low, high, step }: { low: number; high: number; step: number }) {
   return Math.round((low + random() * (high - low)) / step) * step;
 }

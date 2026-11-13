@@ -10,7 +10,11 @@ import { EventType, onMessage } from "@/lib/ipc/messaging";
 import type { DragPosition } from "@/lib/types/window";
 import { isDragOverElement } from "@/lib/ui/drag/drag-position";
 
-export function listenForFileDrops({ element, onHoverChange, onDrop }: {
+export function listenForFileDrops({
+  element,
+  onHoverChange,
+  onDrop
+}: {
   element: () => HTMLElement;
   /** Whether a file is hovering over the element. */
   onHoverChange: (isOver: boolean) => void;
@@ -19,12 +23,15 @@ export function listenForFileDrops({ element, onHoverChange, onDrop }: {
 }) {
   function isOverShownElement(position: DragPosition) {
     const elTarget = element();
-    return elTarget.checkVisibility({
-      visibilityProperty: true
-    }) && isDragOverElement({
-      element: elTarget,
-      position
-    });
+    return (
+      elTarget.checkVisibility({
+        visibilityProperty: true
+      }) &&
+      isDragOverElement({
+        element: elTarget,
+        position
+      })
+    );
   }
 
   return Promise.all([

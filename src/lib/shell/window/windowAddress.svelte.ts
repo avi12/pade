@@ -13,7 +13,12 @@ import { windowQueryFor } from "@/lib/shell/window/window-route";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { displayName } from "@/lib/util/paths";
 
-export function syncWindowAddress({ isBooted, project, isUnnamedTemp, windowSessions }: {
+export function syncWindowAddress({
+  isBooted,
+  project,
+  isUnnamedTemp,
+  windowSessions
+}: {
   /** False while the window is still booting - nothing is true yet. */
   isBooted: () => boolean;
   /** The window's open project; empty while none is. */

@@ -1,15 +1,9 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { IDLE_MS } from "@/lib/terminal/activity/activity-timing";
 import { createSessionActivity } from "@/lib/terminal/activity/sessionActivity.svelte";
 import { ENTER } from "@/lib/terminal/input/terminal-sequences";
 import { SessionStatus } from "@/lib/types/agent";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 function settledActivity() {
   const onSettled = vi.fn();

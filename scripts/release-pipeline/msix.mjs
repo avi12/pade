@@ -1,3 +1,6 @@
+import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
 import {
   BUILT_EXECUTABLE,
   CONTEXT_MENU_HANDLER,
@@ -22,14 +25,6 @@ import {
   TIMESTAMP_URL
 } from "./signing.mjs";
 import { VERSION_PATTERN } from "./version.mjs";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  rmSync,
-  writeFileSync
-} from "node:fs";
-import { join } from "node:path";
 
 /** The MSIX package's identity name - the same in its manifest and its feed. */
 const MSIX_PACKAGE_NAME = "avi12.PADE";
@@ -40,12 +35,7 @@ const MSIX_MANIFEST_FILE = "AppxManifest.xml";
 const MSIX_LAYOUT = join(OUTPUT_DIRECTORY, "msix-layout");
 const MSIX_ASSETS_DIRECTORY = "Assets";
 /** The logos the package manifest names, already generated from the app icon. */
-const MSIX_LOGOS = [
-  "StoreLogo.png",
-  "Square44x44Logo.png",
-  "Square71x71Logo.png",
-  "Square150x150Logo.png"
-];
+const MSIX_LOGOS = ["StoreLogo.png", "Square44x44Logo.png", "Square71x71Logo.png", "Square150x150Logo.png"];
 const APP_ICONS = join(ROOT, "src-tauri", "icons");
 /** The names the feed reaches through `/releases/latest/download/`, so one
  *  installed copy follows every later release. */
@@ -84,7 +74,8 @@ export function buildMsix({ version, tools }) {
     copyFileSync(join(APP_ICONS, logo), join(assets, logo));
   }
   writeFileSync(
-    join(MSIX_LAYOUT, MSIX_MANIFEST_FILE), filled({
+    join(MSIX_LAYOUT, MSIX_MANIFEST_FILE),
+    filled({
       template: MSIX_MANIFEST_TEMPLATE,
       values
     })
@@ -97,16 +88,30 @@ export function buildMsix({ version, tools }) {
   });
   run({
     command: tools.signtool,
-    args: ["sign", "/fd", SIGNING_DIGEST, "/sha1", SIGNING_THUMBPRINT, "/tr", TIMESTAMP_URL, "/td", SIGNING_DIGEST, versionedPackage]
+    args: [
+      "sign",
+      "/fd",
+      SIGNING_DIGEST,
+      "/sha1",
+      SIGNING_THUMBPRINT,
+      "/tr",
+      TIMESTAMP_URL,
+      "/td",
+      SIGNING_DIGEST,
+      versionedPackage
+    ]
   });
 
   const stablePackage = join(OUTPUT_DIRECTORY, STABLE_PACKAGE_NAME);
   copyFileSync(versionedPackage, stablePackage);
   const certificate = join(OUTPUT_DIRECTORY, CERTIFICATE_NAME);
-  readPowerShell(`Export-Certificate -Cert '${SIGNING_CERTIFICATE_PATH}' -FilePath '${certificate.replaceAll("'", "''")}' -Type CERT | Out-Null`);
+  readPowerShell(
+    `Export-Certificate -Cert '${SIGNING_CERTIFICATE_PATH}' -FilePath '${certificate.replaceAll("'", "''")}' -Type CERT | Out-Null`
+  );
   const appinstaller = join(OUTPUT_DIRECTORY, APPINSTALLER_NAME);
   writeFileSync(
-    appinstaller, filled({
+    appinstaller,
+    filled({
       template: APPINSTALLER_TEMPLATE,
       values
     })

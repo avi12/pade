@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   eventsForLiveWatch,
   type FeedSnapshot,
@@ -5,14 +7,6 @@ import {
   saveFeedSnapshot
 } from "@/lib/feed/watch/feed-snapshot";
 import { ChangeKind } from "@/lib/types/feed";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 // Minimal localStorage and Tauri-window doubles - vitest runs in node, which
 // has neither. The label is what the snapshot key is scoped to.

@@ -1,10 +1,3 @@
-import { CARGO_MANIFEST, MSIX_ONLY_FLAG, read, REPOSITORY } from "./release-pipeline/environment.mjs";
-import { commitAndTag, createGitHubRelease } from "./release-pipeline/github.mjs";
-import { packMsixOnly } from "./release-pipeline/msix.mjs";
-import { buildReleaseFiles } from "./release-pipeline/release-files.mjs";
-import { checkSigningCertificate, findSigningTools } from "./release-pipeline/signing.mjs";
-import { publishUpdateManifest } from "./release-pipeline/update-manifest.mjs";
-import { checkReleaseArguments, PACKAGE_VERSION_LINE } from "./release-pipeline/version.mjs";
 // Cut a PADE release: a signed MSIX on GitHub, and the update manifest every
 // unpackaged copy polls for its "install the MSIX" notice (`docs/updates.json`,
 // read by `src-tauri/src/update.rs`).
@@ -34,6 +27,14 @@ import { checkReleaseArguments, PACKAGE_VERSION_LINE } from "./release-pipeline/
 // `--msix-only <version>` runs step 4 alone, from what `src-tauri/target/release`
 // already holds, into `release/` - no version bump, git or GitHub.
 import { readFileSync, writeFileSync } from "node:fs";
+
+import { CARGO_MANIFEST, MSIX_ONLY_FLAG, read, REPOSITORY } from "./release-pipeline/environment.mjs";
+import { commitAndTag, createGitHubRelease } from "./release-pipeline/github.mjs";
+import { packMsixOnly } from "./release-pipeline/msix.mjs";
+import { buildReleaseFiles } from "./release-pipeline/release-files.mjs";
+import { checkSigningCertificate, findSigningTools } from "./release-pipeline/signing.mjs";
+import { publishUpdateManifest } from "./release-pipeline/update-manifest.mjs";
+import { checkReleaseArguments, PACKAGE_VERSION_LINE } from "./release-pipeline/version.mjs";
 
 function release({ version, notesFile }) {
   const cargoManifest = checkReleaseArguments({

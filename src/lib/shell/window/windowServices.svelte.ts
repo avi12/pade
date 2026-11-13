@@ -6,6 +6,8 @@
 // from (`setFrontProjectSource`) - the project-scoped stores follow it on their
 // own.
 
+import { onMount, untrack } from "svelte";
+
 import { createAutoNamer } from "@/lib/agent/auto-name";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { effective } from "@/lib/settings/prefs.svelte";
@@ -28,9 +30,12 @@ import { projectKind, requestProjectKind } from "@/lib/stores/workspace/project-
 import { onFrontProjectLanguagesChange } from "@/lib/stores/workspace/project-rows/projectLanguages.svelte";
 import { registerSendShortcut, unregisterSendShortcut } from "@/lib/terminal/input/send-shortcut";
 import { coalesced } from "@/lib/util/async/coalesce";
-import { onMount, untrack } from "svelte";
 
-export function startWindowServices({ windowSessions, repository, isWindowFocused }: {
+export function startWindowServices({
+  windowSessions,
+  repository,
+  isWindowFocused
+}: {
   windowSessions: WindowSessions;
   repository: ReturnType<typeof createActiveRepository>;
   /** Whether this window has focus - only the focused one publishes presence. */

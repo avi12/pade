@@ -47,11 +47,7 @@ function controlKey(letter: string) {
 
 /** The bytes for a key with Ctrl and Shift as held, or null for a combination
  *  a terminal can't send apart from the bare key (Ctrl+Shift+K, Ctrl+Enter). */
-function encodeKey({ key, isControl, isShift }: {
-  key: string;
-  isControl: boolean;
-  isShift: boolean;
-}) {
+function encodeKey({ key, isControl, isShift }: { key: string; isControl: boolean; isShift: boolean }) {
   if (LETTER.test(key)) {
     return encodeLetter({
       letter: key,
@@ -66,11 +62,7 @@ function encodeKey({ key, isControl, isShift }: {
 }
 
 /** A letter with Ctrl or Shift - not both, which a terminal sends as Ctrl alone. */
-function encodeLetter({ letter, isControl, isShift }: {
-  letter: string;
-  isControl: boolean;
-  isShift: boolean;
-}) {
+function encodeLetter({ letter, isControl, isShift }: { letter: string; isControl: boolean; isShift: boolean }) {
   if (isControl) {
     return isShift ? null : controlKey(letter);
   }
@@ -105,7 +97,10 @@ function encodeKeystroke(keystroke: string) {
 /** Each keystroke of `chord` as the bytes to write, in order - or null when
  *  any of them can't be sent through a terminal. */
 export function encodeChord(chord: string) {
-  const steps = chord.trim().split(STEP_SEPARATOR).filter(step => step !== "");
+  const steps = chord
+    .trim()
+    .split(STEP_SEPARATOR)
+    .filter(step => step !== "");
   const keystrokes = steps.map(step => encodeKeystroke(step));
   if (keystrokes.length === 0 || keystrokes.some(keystroke => keystroke === null)) {
     return null;

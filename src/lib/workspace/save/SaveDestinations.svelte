@@ -90,7 +90,7 @@
       }
 
       &:disabled {
-        opacity: 55%;
+        opacity: 0.55;
         cursor: default;
       }
 

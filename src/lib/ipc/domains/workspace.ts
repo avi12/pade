@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { NO_REPLY } from "@/lib/ipc/domains/no-reply";
 import type { PathData } from "@/lib/ipc/domains/path-data";
 import { Settings } from "@/lib/types/settings";
@@ -10,15 +12,14 @@ import {
   WorkspaceMember
 } from "@/lib/types/workspace";
 import type { LabelSource } from "@/lib/types/workspace";
-import { z } from "zod";
 
 /** A workspace moved under a new folder name, optionally into another saved
  *  root (omitted → the primary root). */
-type WorkspaceRename = {
+interface WorkspaceRename {
   from: string;
   newName: string;
   root?: string;
-};
+}
 
 export const WORKSPACE_COMMANDS = {
   membersList: "members_list",
@@ -53,10 +54,7 @@ export interface WorkspaceCommandProtocol {
   [WORKSPACE_COMMANDS.membersList]: (data: { root: string }) => WorkspaceMember[];
   /** Add a root folder. `create` makes a missing path first; the outcome says
    *  whether it was added, is missing, or names a file. */
-  [WORKSPACE_COMMANDS.workspaceAddRoot]: (data: {
-    path: string;
-    create: boolean;
-  }) => AddRootOutcome;
+  [WORKSPACE_COMMANDS.workspaceAddRoot]: (data: { path: string; create: boolean }) => AddRootOutcome;
   [WORKSPACE_COMMANDS.workspaceRemoveRoot]: (data: PathData) => Settings;
   /** Whether a partially-typed path exists (as a dir or a file), plus
    *  child-directory completions for the add-root autocomplete. */
@@ -65,16 +63,10 @@ export interface WorkspaceCommandProtocol {
   [WORKSPACE_COMMANDS.workspaceOpen]: (data: PathData) => void;
   /** Delete a consumed auto-handoff doc (`continue-*.md` in the project dir -
    *  the backend refuses anything else). */
-  [WORKSPACE_COMMANDS.handoffDocDelete]: (data: {
-    dir: string;
-    name: string;
-  }) => void;
+  [WORKSPACE_COMMANDS.handoffDocDelete]: (data: { dir: string; name: string }) => void;
   /** Create a throwaway workspace, mark it owned, and open it; answers its path. */
   [WORKSPACE_COMMANDS.workspaceTemp]: () => string;
-  [WORKSPACE_COMMANDS.workspaceMove]: (data: {
-    from: string;
-    destDir: string;
-  }) => string;
+  [WORKSPACE_COMMANDS.workspaceMove]: (data: { from: string; destDir: string }) => string;
   /** Promote a temp workspace into a saved root under a new name. */
   [WORKSPACE_COMMANDS.workspaceRename]: (data: WorkspaceRename) => string;
   /** Rename any workspace's folder where it stands, carrying every agent's
@@ -85,23 +77,13 @@ export interface WorkspaceCommandProtocol {
   [WORKSPACE_COMMANDS.workspaceSaveMigrate]: (data: WorkspaceRename) => SaveMigration;
   /** Set a friendly display label (no disk rename). An `auto` name never
    *  replaces an existing label; a `manual` one always does. */
-  [WORKSPACE_COMMANDS.workspaceSetLabel]: (data: {
-    path: string;
-    name: string;
-    source: LabelSource;
-  }) => Settings;
+  [WORKSPACE_COMMANDS.workspaceSetLabel]: (data: { path: string; name: string; source: LabelSource }) => Settings;
   [WORKSPACE_COMMANDS.workspaceDelete]: (data: PathData) => Settings;
   /** Settings with every vanished folder forgotten. */
   [WORKSPACE_COMMANDS.workspacePrune]: () => Settings;
-  [WORKSPACE_COMMANDS.workspaceCreate]: (data: {
-    root: string;
-    name: string;
-  }) => string;
+  [WORKSPACE_COMMANDS.workspaceCreate]: (data: { root: string; name: string }) => string;
   [WORKSPACE_COMMANDS.workspaceClearRecent]: () => Settings;
-  [WORKSPACE_COMMANDS.workspaceSetPinned]: (data: {
-    path: string;
-    pinned: boolean;
-  }) => Settings;
+  [WORKSPACE_COMMANDS.workspaceSetPinned]: (data: { path: string; pinned: boolean }) => Settings;
   /** Forget a project from the switcher (recents + pins); folder untouched. */
   [WORKSPACE_COMMANDS.workspaceRemoveRecent]: (data: PathData) => Settings;
   /** Persist a drag-reordered pin order (reorders existing pins only). */

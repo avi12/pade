@@ -1,5 +1,6 @@
-import { collapseTab } from "@/lib/session/tabs/tab-collapse";
 import { describe, expect, it } from "vitest";
+
+import { collapseTab } from "@/lib/session/tabs/tab-collapse";
 
 const PILL = {
   width: 120,

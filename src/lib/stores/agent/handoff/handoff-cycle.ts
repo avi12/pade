@@ -18,10 +18,7 @@ import { hasEnoughUsage, pickHandoffSuccessor } from "@/lib/stores/agent/handoff
 import { shieldHandoffSuccessor } from "@/lib/stores/usage/usagePacing.svelte";
 import type { Agent, AgentSession } from "@/lib/types/agent";
 
-function docNameFor({ context, sessionId }: {
-  context: HandoffContext;
-  sessionId: string;
-}) {
+function docNameFor({ context, sessionId }: { context: HandoffContext; sessionId: string }) {
   return handoffDocName({
     source: context.host.slugSource(),
     sessionId
@@ -32,7 +29,12 @@ function docNameFor({ context, sessionId }: {
 // other available agent that does. No agent with headroom → stay marked so we
 // don't re-check each tick; skip this cycle. Resolves the successor, or
 // undefined when this cycle should stop.
-async function successorForHandoff({ context, session, reason, isMidTurn }: {
+async function successorForHandoff({
+  context,
+  session,
+  reason,
+  isMidTurn
+}: {
   context: HandoffContext;
   session: AgentSession;
   reason: HandoffReason;
@@ -61,7 +63,12 @@ async function successorForHandoff({ context, session, reason, isMidTurn }: {
 // once the successor has really used it. Anything short of that keeps the doc:
 // losing a handoff nobody read costs the whole session's work, where a
 // leftover file costs one `rm`.
-async function replaceWithSuccessor({ context, session, doc, successorAgent }: {
+async function replaceWithSuccessor({
+  context,
+  session,
+  doc,
+  successorAgent
+}: {
   context: HandoffContext;
   session: AgentSession;
   doc: string;
@@ -91,10 +98,11 @@ async function replaceWithSuccessor({ context, session, doc, successorAgent }: {
 
   const isConsumed = await waitForFirstTurn({
     timers,
-    isStillOpen: id => isStillOpen({
-      context,
-      sessionId: id
-    }),
+    isStillOpen: id =>
+      isStillOpen({
+        context,
+        sessionId: id
+      }),
     id: successorId
   });
   if (isConsumed) {
@@ -105,7 +113,12 @@ async function replaceWithSuccessor({ context, session, doc, successorAgent }: {
   }
 }
 
-export async function handoff({ context, session, reason, isMidTurn }: {
+export async function handoff({
+  context,
+  session,
+  reason,
+  isMidTurn
+}: {
   context: HandoffContext;
   session: AgentSession;
   reason: HandoffReason;
@@ -173,10 +186,7 @@ export async function handoff({ context, session, reason, isMidTurn }: {
 // continue from it. Returns the doc's file name, or null when the agent never
 // produced it (the caller falls back to a plain restart). A doc a prior attempt
 // already wrote is reused, not re-requested.
-export async function writeHandoffDoc({ context, session }: {
-  context: HandoffContext;
-  session: AgentSession;
-}) {
+export async function writeHandoffDoc({ context, session }: { context: HandoffContext; session: AgentSession }) {
   const doc = docNameFor({
     context,
     sessionId: session.id

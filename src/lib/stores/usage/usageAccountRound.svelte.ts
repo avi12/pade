@@ -33,7 +33,10 @@ import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 
 const SUBAGENT_STEPS_STORAGE_KEY = "pade.usage-pacing-subagents";
 
-export function createAccountRound({ pollMs, onPlan }: {
+export function createAccountRound({
+  pollMs,
+  onPlan
+}: {
   /** How often each window submits - its reports live a couple of these. */
   pollMs: number;
   /** Take the plan's steps that are this window's own. */
@@ -82,10 +85,7 @@ export function createAccountRound({ pollMs, onPlan }: {
 
   /** Write every reported session's throttle, and lift it from one that left
    *  the round since. */
-  async function writeThrottles({ fresh, plan }: {
-    fresh: readonly WindowReport[];
-    plan: RoundPlan;
-  }) {
+  async function writeThrottles({ fresh, plan }: { fresh: readonly WindowReport[]; plan: RoundPlan }) {
     const targets = new Map<string, ControlTarget>();
     for (const report of fresh) {
       for (const session of report.sessions) {
@@ -118,16 +118,14 @@ export function createAccountRound({ pollMs, onPlan }: {
     throttled = targets;
   }
 
-  async function lead({ fresh, now }: {
-    fresh: readonly WindowReport[];
-    now: number;
-  }) {
+  async function lead({ fresh, now }: { fresh: readonly WindowReport[]; now: number }) {
     const { plan, steps } = planRound({
       reports: fresh,
-      steps: readStoredJson({
-        key: SUBAGENT_STEPS_STORAGE_KEY,
-        schema: SubagentSteps
-      }) ?? {},
+      steps:
+        readStoredJson({
+          key: SUBAGENT_STEPS_STORAGE_KEY,
+          schema: SubagentSteps
+        }) ?? {},
       steppedAt,
       leader: ownLabel,
       now

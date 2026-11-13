@@ -13,7 +13,10 @@ export function isSameProject(left: string, right: string) {
 
 /** The project in front: the active session's, else the one the window was
  *  last pointed at (entered, or left by its last session). */
-export function frontProject({ activeSession, fallbackProject }: {
+export function frontProject({
+  activeSession,
+  fallbackProject
+}: {
   activeSession: Pick<AgentSession, "project"> | undefined;
   fallbackProject: string;
 }) {
@@ -21,7 +24,10 @@ export function frontProject({ activeSession, fallbackProject }: {
 }
 
 /** The sessions of one project, in the window's order. */
-export function sessionsOfProject<Session extends Pick<AgentSession, "project">>({ sessions, project }: {
+export function sessionsOfProject<Session extends Pick<AgentSession, "project">>({
+  sessions,
+  project
+}: {
   sessions: readonly Session[];
   project: string;
 }) {
@@ -30,7 +36,11 @@ export function sessionsOfProject<Session extends Pick<AgentSession, "project">>
 
 /** The session to bring forward when a project with live sessions is picked:
  *  the one it last had in front when that is still live, else its newest. */
-export function sessionToFocus({ sessions, project, lastActiveId }: {
+export function sessionToFocus({
+  sessions,
+  project,
+  lastActiveId
+}: {
   sessions: readonly Pick<AgentSession, "id" | "project">[];
   project: string;
   lastActiveId: string | undefined;

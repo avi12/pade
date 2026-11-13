@@ -9,7 +9,7 @@ export const ProjectChoice = {
   New: "new",
   Temp: "temp"
 } as const;
-export type ProjectChoice = typeof ProjectChoice[keyof typeof ProjectChoice];
+export type ProjectChoice = (typeof ProjectChoice)[keyof typeof ProjectChoice];
 
 /** What the home composer does when Start is pressed: open the chosen project
  *  with the typed prompt and picked agent, create (save) a new project under
@@ -17,28 +17,35 @@ export type ProjectChoice = typeof ProjectChoice[keyof typeof ProjectChoice];
  *  nothing actionable yet. */
 export type HomeStart =
   | {
-    kind: "open";
-    target: OpenTarget;
-  }
+      kind: "open";
+      target: OpenTarget;
+    }
   | {
-    kind: "create";
-    root: string;
-    name: string;
-    prompt: string;
-    agent: string | null;
-  }
+      kind: "create";
+      root: string;
+      name: string;
+      prompt: string;
+      agent: string | null;
+    }
   | {
-    kind: "temp";
-  }
+      kind: "temp";
+    }
   | {
-    kind: "none";
-  };
+      kind: "none";
+    };
 
 /** Resolve the composer's state to what Start should do. An existing project
  *  always wins outright; a new one needs both a root and a valid name; a
  *  throwaway workspace needs nothing more. A blank prompt is fine every way -
  *  it just opens without seeding one. */
-export function resolveHomeStart({ selectedPath, choice, root, rawName, rawPrompt, agent }: {
+export function resolveHomeStart({
+  selectedPath,
+  choice,
+  root,
+  rawName,
+  rawPrompt,
+  agent
+}: {
   selectedPath: string;
   choice: ProjectChoice;
   root: string;
@@ -50,10 +57,11 @@ export function resolveHomeStart({ selectedPath, choice, root, rawName, rawPromp
     return { kind: "temp" };
   }
 
-  const prompt = parseInput({
-    schema: FirstPrompt,
-    raw: rawPrompt
-  }) ?? "";
+  const prompt =
+    parseInput({
+      schema: FirstPrompt,
+      raw: rawPrompt
+    }) ?? "";
   if (choice === ProjectChoice.New) {
     const name = parseInput({
       schema: ProjectName,
@@ -89,7 +97,11 @@ export function resolveHomeStart({ selectedPath, choice, root, rawName, rawPromp
 /** Why a new project's typed name can't be created, or null when it can:
  *  the name schema's own reason first, then whatever already stands on disk
  *  under that name in the root. */
-export function newProjectNameProblem({ nameError, isTakenByFile, isExistingFolder }: {
+export function newProjectNameProblem({
+  nameError,
+  isTakenByFile,
+  isExistingFolder
+}: {
   nameError: string | null;
   isTakenByFile: boolean;
   isExistingFolder: boolean;
@@ -120,7 +132,12 @@ const NO_PROJECT_LABEL = "Choose a project";
  *  "root/name" format: the throwaway workspace; a new project as the root it
  *  goes under (the name field types the rest), so the slot says where Start
  *  will create it; or the chosen project with its root. */
-export function projectTrigger({ choice, root, selectedName, selectedPath }: {
+export function projectTrigger({
+  choice,
+  root,
+  selectedName,
+  selectedPath
+}: {
   choice: ProjectChoice;
   /** The root a new project goes under (empty while none is chosen). */
   root: string;

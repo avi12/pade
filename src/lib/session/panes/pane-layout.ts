@@ -5,7 +5,8 @@
 // unit-tested, next to the index math in `@/lib/session/panes/reorder`.
 
 import { sessionsOfProject } from "@/lib/session/chats/session-projects";
-import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/session/panes/reorder";
+import type { DropSide } from "@/lib/session/panes/reorder";
+import { paneDropSide, paneInsertIndex } from "@/lib/session/panes/reorder";
 import type { AgentSession } from "@/lib/types/agent";
 
 /** The workspace's tab and pane state, as the shell's `windowSessions` holds it. */
@@ -24,14 +25,11 @@ interface MeasuredPane {
 /** The shown pane under a point, and which half of it. The live highlight and
  *  the actual drop both ask this, so the two never disagree. A collapsed pane
  *  (zero width) is never a target. */
-export function paneAtPoint({ panes, x, y }: {
-  panes: readonly MeasuredPane[];
-  x: number;
-  y: number;
-}) {
-  const hit = panes.find(({ rectangle }) => rectangle.width > 0
-    && x >= rectangle.left && x <= rectangle.right
-    && y >= rectangle.top && y <= rectangle.bottom);
+export function paneAtPoint({ panes, x, y }: { panes: readonly MeasuredPane[]; x: number; y: number }) {
+  const hit = panes.find(
+    ({ rectangle }) =>
+      rectangle.width > 0 && x >= rectangle.left && x <= rectangle.right && y >= rectangle.top && y <= rectangle.bottom
+  );
   if (!hit) {
     return null;
   }
@@ -48,7 +46,12 @@ export function paneAtPoint({ panes, x, y }: {
 
 /** The pane order after a tab is dropped on one side of `targetId`; a tab that
  *  is already shown moves rather than duplicating. */
-export function paneIdsAfterSplit({ paneIds, draggedId, targetId, side }: {
+export function paneIdsAfterSplit({
+  paneIds,
+  draggedId,
+  targetId,
+  side
+}: {
   paneIds: string[];
   draggedId: string;
   targetId: string;
@@ -67,10 +70,7 @@ export function paneIdsAfterSplit({ paneIds, draggedId, targetId, side }: {
 /** The tab strip shows a prefix of `sessions` (the overflow tail stays put), so
  *  a reorder of the visible pills slots their new order back into the positions
  *  the visible set held. */
-export function sessionsAfterReorder({ sessions, orderedIds }: {
-  sessions: AgentSession[];
-  orderedIds: string[];
-}) {
+export function sessionsAfterReorder({ sessions, orderedIds }: { sessions: AgentSession[]; orderedIds: string[] }) {
   const bySessionId = new Map(sessions.map(session => [session.id, session] as const));
   const visibleIds = new Set(orderedIds);
   const queue = [...orderedIds];
@@ -85,20 +85,13 @@ export function sessionsAfterReorder({ sessions, orderedIds }: {
 }
 
 /** The index `delta` steps from `index`, wrapping at both ends. */
-export function wrappedIndex({ index, delta, count }: {
-  index: number;
-  delta: number;
-  count: number;
-}) {
+export function wrappedIndex({ index, delta, count }: { index: number; delta: number; count: number }) {
   return (index + delta + count) % count;
 }
 
 /** The layout once one pane leaves the split (its session keeps running). The
  *  active pane falls back to the last one still shown. */
-export function layoutWithoutPane({ layout, id }: {
-  layout: PaneLayout;
-  id: string;
-}) {
+export function layoutWithoutPane({ layout, id }: { layout: PaneLayout; id: string }) {
   const paneIds = layout.paneIds.filter(paneId => paneId !== id);
   const activeId = layout.activeId === id ? (paneIds.at(-1) ?? null) : layout.activeId;
   return {
@@ -111,25 +104,27 @@ export function layoutWithoutPane({ layout, id }: {
 /** Who takes the front when the active session leaves: a pane still shown,
  *  else the newest session of the leaving one's project - so closing a tab
  *  keeps the window in its project while it has one - else the newest. */
-function nextActiveId({ sessions, paneIds, leaving }: {
+function nextActiveId({
+  sessions,
+  paneIds,
+  leaving
+}: {
   sessions: readonly AgentSession[];
   paneIds: readonly string[];
   leaving: AgentSession | undefined;
 }) {
-  const sameProject = leaving === undefined
-    ? []
-    : sessionsOfProject({
-      sessions,
-      project: leaving.project
-    });
+  const sameProject =
+    leaving === undefined
+      ? []
+      : sessionsOfProject({
+          sessions,
+          project: leaving.project
+        });
   return paneIds.at(-1) ?? (sameProject.at(-1) ?? sessions.at(-1))?.id ?? null;
 }
 
 /** The layout once a session is gone for good - see `layoutWithoutSessions`. */
-export function layoutWithoutSession({ layout, id }: {
-  layout: PaneLayout;
-  id: string;
-}) {
+export function layoutWithoutSession({ layout, id }: { layout: PaneLayout; id: string }) {
   return layoutWithoutSessions({
     layout,
     ids: new Set([id])
@@ -142,19 +137,16 @@ export function layoutWithoutSession({ layout, id }: {
  *  - its project gone - the newest session of another. A split emptied by it
  *  shows that fallback, so the terminal area never goes blank while a session
  *  remains. */
-export function layoutWithoutSessions({ layout, ids }: {
-  layout: PaneLayout;
-  ids: ReadonlySet<string>;
-}) {
+export function layoutWithoutSessions({ layout, ids }: { layout: PaneLayout; ids: ReadonlySet<string> }) {
   const sessions = layout.sessions.filter(session => !ids.has(session.id));
   const paneIds = layout.paneIds.filter(paneId => !ids.has(paneId));
   const isActiveRemoved = layout.activeId !== null && ids.has(layout.activeId);
   const activeId = isActiveRemoved
     ? nextActiveId({
-      sessions,
-      paneIds,
-      leaving: layout.sessions.find(session => session.id === layout.activeId)
-    })
+        sessions,
+        paneIds,
+        leaving: layout.sessions.find(session => session.id === layout.activeId)
+      })
     : layout.activeId;
   const isSplitEmptied = paneIds.length === 0 && activeId !== null;
   return {

@@ -1,13 +1,8 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { settings } from "@/lib/settings/settings.svelte";
 import type { Ide } from "@/lib/types/editor";
 import { createEditorCatalog } from "@/panels/picker/editors/editorCatalog.svelte";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const SUBLIME_PATH = "C:\\Tools\\sublime_text.exe";
 
@@ -37,11 +32,13 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
       }
 
       if (command === messaging.Command.ideKinds) {
-        return [{
-          kind: "node",
-          label: "Node",
-          signals: ["package.json"]
-        }];
+        return [
+          {
+            kind: "node",
+            label: "Node",
+            signals: ["package.json"]
+          }
+        ];
       }
 
       if (command === messaging.Command.ideKindOptions) {
@@ -74,11 +71,13 @@ describe("editor catalog", () => {
 
   it("adds an editor and reports its persisted label", async () => {
     mocks.sendSettingsMessage.mockImplementation(async () => {
-      settings.prefs.addedEditors = [{
-        id: "sublime",
-        label: "Sublime Text",
-        path: SUBLIME_PATH
-      }];
+      settings.prefs.addedEditors = [
+        {
+          id: "sublime",
+          label: "Sublime Text",
+          path: SUBLIME_PATH
+        }
+      ];
       detected.ides = [ide("code"), ide("sublime")];
     });
     const catalog = createEditorCatalog();
@@ -93,11 +92,13 @@ describe("editor catalog", () => {
   });
 
   it("counts only auto-detected editors on a rescan", async () => {
-    settings.prefs.addedEditors = [{
-      id: "sublime",
-      label: "Sublime Text",
-      path: SUBLIME_PATH
-    }];
+    settings.prefs.addedEditors = [
+      {
+        id: "sublime",
+        label: "Sublime Text",
+        path: SUBLIME_PATH
+      }
+    ];
     detected.ides = [ide("code"), ide("sublime"), ide("zed")];
     const catalog = createEditorCatalog();
     await expect(catalog.rescan()).resolves.toBe(2);

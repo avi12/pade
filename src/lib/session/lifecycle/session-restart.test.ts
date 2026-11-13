@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { mcpRestartTargets, rekeyLayout } from "@/lib/session/lifecycle/session-restart";
 import type { AgentSession, McpChange } from "@/lib/types/agent";
-import { describe, expect, it } from "vitest";
 
 const claude = {
   id: "claude",
@@ -46,10 +47,13 @@ describe("mcpRestartTargets", () => {
   });
 
   it("skips agents the config doesn't govern", () => {
-    const sessions = [session({
-      id: "a",
-      agent: codex
-    }), session({ id: "b" })];
+    const sessions = [
+      session({
+        id: "a",
+        agent: codex
+      }),
+      session({ id: "b" })
+    ];
     const targets = mcpRestartTargets({
       sessions,
       change
@@ -83,14 +87,16 @@ describe("mcpRestartTargets", () => {
 
   it("uses the emitted root for a nested agent config", () => {
     const targets = mcpRestartTargets({
-      sessions: [session({
-        id: "cursor",
-        agent: {
-          ...codex,
+      sessions: [
+        session({
           id: "cursor",
-          command: "cursor-agent"
-        }
-      })],
+          agent: {
+            ...codex,
+            id: "cursor",
+            command: "cursor-agent"
+          }
+        })
+      ],
       change: {
         ...change,
         path: `${project}\\.cursor\\mcp.json`,
@@ -115,10 +121,7 @@ describe("mcpRestartTargets", () => {
 
 describe("rekeyLayout", () => {
   it("re-keys the restarted sessions", () => {
-    const sessions = [
-      session({ id: "a" }),
-      session({ id: "b" })
-    ];
+    const sessions = [session({ id: "a" }), session({ id: "b" })];
     const relaid = rekeyLayout({
       sessions,
       paneIds: ["a", "b"],

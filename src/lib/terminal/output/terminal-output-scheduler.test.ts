@@ -1,20 +1,10 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createTerminalOutputScheduler } from "@/lib/terminal/output/terminal-output-scheduler";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const FRAME_MS = 16;
 
-function schedulerAt(context: {
-  isShown: boolean;
-  isWindowFocused: boolean;
-  isReadingScrollback: boolean;
-}) {
+function schedulerAt(context: { isShown: boolean; isWindowFocused: boolean; isReadingScrollback: boolean }) {
   const written: string[] = [];
   const scheduler = createTerminalOutputScheduler({
     write: output => written.push(output),

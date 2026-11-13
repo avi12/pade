@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   clearSessionSnapshot,
   pruneToLive,
@@ -9,14 +11,6 @@ import { forgetSession } from "@/lib/session/lifecycle/session-scope";
 import { clearPendingPrompt, pendingPrompt, setPendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
 import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import type { AgentSession } from "@/lib/types/agent";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 // Minimal localStorage and Tauri-window doubles - vitest runs in node, which
 // has neither. The label is what the snapshot key is scoped to.
@@ -94,10 +88,11 @@ describe("save / read round trip", () => {
 
     const snapshot = readSessionSnapshot();
     expect(
-      snapshot && pruneToLive({
-        snapshot,
-        liveIds: new Set(["a"])
-      })
+      snapshot &&
+        pruneToLive({
+          snapshot,
+          liveIds: new Set(["a"])
+        })
     ).not.toBeNull();
     expect(pendingPrompt("a")).toBe("build me a thing");
   });
@@ -132,10 +127,12 @@ describe("save / read round trip", () => {
     forgetSession("a");
 
     const snapshot = readSessionSnapshot();
-    const restored = snapshot && pruneToLive({
-      snapshot,
-      liveIds: new Set(["a"])
-    });
+    const restored =
+      snapshot &&
+      pruneToLive({
+        snapshot,
+        liveIds: new Set(["a"])
+      });
     expect(restored?.sessions[0]).not.toHaveProperty("label");
     expect(sessionLabel("a")).toBe("dark-mode-icon-inversion");
   });

@@ -1,5 +1,6 @@
-import { CARGO_MANIFEST, fail, read } from "./environment.mjs";
 import { readFileSync } from "node:fs";
+
+import { CARGO_MANIFEST, fail, read } from "./environment.mjs";
 
 export const PACKAGE_VERSION_LINE = /^version = "(\d+\.\d+\.\d+)"$/m;
 export const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
@@ -23,10 +24,11 @@ export function isNewer({ candidate, current }) {
 }
 
 function checkWorkingTreeClean() {
-  const isWorkingTreeClean = read({
-    command: "git",
-    args: ["status", "--porcelain", "--untracked-files=no"]
-  }) === "";
+  const isWorkingTreeClean =
+    read({
+      command: "git",
+      args: ["status", "--porcelain", "--untracked-files=no"]
+    }) === "";
   if (!isWorkingTreeClean) {
     fail("commit or stash your changes first - a release is built from what is committed");
   }
@@ -53,10 +55,12 @@ function committedVersion(cargoManifest) {
 function checkNewerThanCommitted(version) {
   const cargoManifest = readFileSync(CARGO_MANIFEST, "utf8");
   const currentVersion = committedVersion(cargoManifest);
-  const isNewerRelease = currentVersion !== UNREADABLE_VERSION && isNewer({
-    candidate: version,
-    current: currentVersion
-  });
+  const isNewerRelease =
+    currentVersion !== UNREADABLE_VERSION &&
+    isNewer({
+      candidate: version,
+      current: currentVersion
+    });
   if (!isNewerRelease) {
     fail(`${version} must be newer than the current ${currentVersion}`);
   }

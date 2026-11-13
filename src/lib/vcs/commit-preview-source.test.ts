@@ -1,19 +1,14 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { Command } from "@/lib/ipc/messaging";
 import { commitPreviewSource } from "@/lib/vcs/commit-preview-source";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const mocks = vi.hoisted(() => ({
   sendMessage: vi.fn<(command: string, data?: unknown) => Promise<unknown>>()
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage
 }));
 

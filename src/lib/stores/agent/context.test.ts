@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import { forgetSession } from "@/lib/session/lifecycle/session-scope";
 import {
   compactionHeadroom,
@@ -9,7 +11,6 @@ import {
   observeSessionLog,
   sessionModel
 } from "@/lib/stores/agent/context.svelte";
-import { describe, expect, it } from "vitest";
 
 // The parser is internal, so every case drives it through the public API:
 // observe a chunk, read the percent back. Each test uses its own session id -

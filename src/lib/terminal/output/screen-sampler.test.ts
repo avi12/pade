@@ -1,12 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createScreenSampler } from "@/lib/terminal/output/screen-sampler";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const INTERVAL_MS = 1000;
 

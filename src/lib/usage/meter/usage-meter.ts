@@ -88,12 +88,18 @@ export function usageAriaLabel(groups: readonly AgentGroup[]) {
     return USAGE_PANEL_LABEL;
   }
 
-  const readings = groups.map(group => `${group.name} ${group.limits.map(limit => `${limit.label} ${limit.reading}`).join(", ")}`);
+  const readings = groups.map(
+    group => `${group.name} ${group.limits.map(limit => `${limit.label} ${limit.reading}`).join(", ")}`
+  );
   return `Usage - ${readings.join("; ")}`;
 }
 
 /** Whether a limit is among those that just started over, so its number flashes. */
-export function isJustReset({ justReset, agentId, limit }: {
+export function isJustReset({
+  justReset,
+  agentId,
+  limit
+}: {
   justReset: ReadonlySet<string>;
   agentId: string;
   limit: Limit;
@@ -106,15 +112,19 @@ export function isJustReset({ justReset, agentId, limit }: {
   );
 }
 
-type ResetBoundary = {
+interface ResetBoundary {
   /** The raw `resetsAt` value - the boundary's identity, so it refreshes once. */
   value: string;
   time: number;
-};
+}
 
 /** The reset boundaries the accounts' windows cross: one already passed that has
  *  not been refreshed for yet, and the soonest still ahead. */
-export function pendingResetBoundaries({ accounts, refreshed, now }: {
+export function pendingResetBoundaries({
+  accounts,
+  refreshed,
+  now
+}: {
   accounts: ReadonlyMap<string, AccountUsage | null>;
   refreshed: ReadonlySet<string>;
   now: number;
@@ -133,9 +143,7 @@ export function pendingResetBoundaries({ accounts, refreshed, now }: {
   }
 
   const expired = boundaries.find(boundary => boundary.time <= now && !refreshed.has(boundary.value));
-  const next = boundaries
-    .filter(boundary => boundary.time > now)
-    .sort((first, second) => first.time - second.time)[0];
+  const next = boundaries.filter(boundary => boundary.time > now).sort((first, second) => first.time - second.time)[0];
   return {
     expired,
     next
@@ -157,7 +165,11 @@ export interface KeptReading {
  *  the kept one; a failed one (null) falls back to the last real reading while
  *  it is younger than KEEP_LAST_READING_MS, so a refused request no longer
  *  blanks the meter. Returns the accounts and the updated kept readings. */
-export function withLastGoodReadings({ fresh, kept, now }: {
+export function withLastGoodReadings({
+  fresh,
+  kept,
+  now
+}: {
   fresh: ReadonlyMap<string, AccountUsage | null>;
   kept: ReadonlyMap<string, KeptReading>;
   now: number;

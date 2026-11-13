@@ -1,11 +1,17 @@
+import { describe, expect, it } from "vitest";
+
 import { groupChanges, GroupRole } from "@/lib/feed/change-groups";
 import { ChangeKind } from "@/lib/types/feed";
 import type { ChangeEvent } from "@/lib/types/feed";
 import type { WorkspaceMember } from "@/lib/types/workspace";
-import { describe, expect, it } from "vitest";
 
 let idCounter = 0;
-function change({ path, added = 0, removed = 0, timestamp = 0 }: {
+function change({
+  path,
+  added = 0,
+  removed = 0,
+  timestamp = 0
+}: {
   path: string;
   added?: number;
   removed?: number;
@@ -30,10 +36,7 @@ describe("groupChanges", () => {
   it("puts a single-project repo's changes in one group named after the repo", () => {
     const groups = groupChanges({
       workspaceRoot: ROOT,
-      events: [
-        change({ path: `${ROOT}/src/App.svelte` }),
-        change({ path: `${ROOT}/src-tauri/src/watcher.rs` })
-      ]
+      events: [change({ path: `${ROOT}/src/App.svelte` }), change({ path: `${ROOT}/src-tauri/src/watcher.rs` })]
     });
     expect(groups).toHaveLength(1);
     expect(groups[0]).toMatchObject({
@@ -114,10 +117,7 @@ describe("groupChanges", () => {
   it("buckets a root-level file into the repo group, not a member", () => {
     const groups = groupChanges({
       workspaceRoot: ROOT,
-      events: [
-        change({ path: `${ROOT}/README.md` }),
-        change({ path: `${ROOT}/packages/hooks/src/index.ts` })
-      ]
+      events: [change({ path: `${ROOT}/README.md` }), change({ path: `${ROOT}/packages/hooks/src/index.ts` })]
     });
     const ids = groups.map(group => group.id).sort();
     expect(ids).toEqual([".", "packages/hooks"]);
@@ -235,7 +235,12 @@ describe("groupChanges", () => {
   });
 });
 
-function member({ path, name = null, ecosystem = "javascript", repository = false }: {
+function member({
+  path,
+  name = null,
+  ecosystem = "javascript",
+  repository = false
+}: {
   path: string;
   name?: string | null;
   ecosystem?: WorkspaceMember["ecosystem"];
@@ -258,12 +263,7 @@ describe("groupChanges with manifest members", () => {
   it("splits a root-level-package workspace per member - the convention's blind spot", () => {
     const groups = groupChanges({
       workspaceRoot: ROOT,
-      members: [
-        ROOT_MEMBER,
-        member({ path: "frontend" }),
-        member({ path: "backend" }),
-        member({ path: "shared" })
-      ],
+      members: [ROOT_MEMBER, member({ path: "frontend" }), member({ path: "backend" }), member({ path: "shared" })],
       events: [
         change({ path: `${ROOT}/frontend/src/App.svelte` }),
         change({ path: `${ROOT}/backend/src/server.ts` }),
@@ -284,10 +284,7 @@ describe("groupChanges with manifest members", () => {
         }),
         member({ path: "backend" })
       ],
-      events: [
-        change({ path: `${ROOT}/frontend/src/App.svelte` }),
-        change({ path: `${ROOT}/backend/src/server.ts` })
-      ]
+      events: [change({ path: `${ROOT}/frontend/src/App.svelte` }), change({ path: `${ROOT}/backend/src/server.ts` })]
     });
     const byId = Object.fromEntries(groups.map(group => [group.id, group]));
     expect(byId["frontend"].name).toBe("@poll/frontend");
@@ -297,11 +294,7 @@ describe("groupChanges with manifest members", () => {
   it("assigns a file to its deepest enclosing member", () => {
     const [group] = groupChanges({
       workspaceRoot: ROOT,
-      members: [
-        ROOT_MEMBER,
-        member({ path: "apps/web" }),
-        member({ path: "apps/web/plugins/auth" })
-      ],
+      members: [ROOT_MEMBER, member({ path: "apps/web" }), member({ path: "apps/web/plugins/auth" })],
       events: [change({ path: `${ROOT}/apps/web/plugins/auth/token.rs` })]
     });
     expect(group.id).toBe("apps/web/plugins/auth");
@@ -323,10 +316,7 @@ describe("groupChanges with manifest members", () => {
     const groups = groupChanges({
       workspaceRoot: ROOT,
       members: [ROOT_MEMBER, member({ path: "frontend" })],
-      events: [
-        change({ path: `${ROOT}/scripts/release.sh` }),
-        change({ path: `${ROOT}/frontend/src/App.svelte` })
-      ]
+      events: [change({ path: `${ROOT}/scripts/release.sh` }), change({ path: `${ROOT}/frontend/src/App.svelte` })]
     });
     expect(groups.map(group => group.id).sort()).toEqual([".", "frontend"]);
   });
@@ -334,15 +324,8 @@ describe("groupChanges with manifest members", () => {
   it("badges a member by its container when it uses one, else as an app", () => {
     const groups = groupChanges({
       workspaceRoot: ROOT,
-      members: [
-        ROOT_MEMBER,
-        member({ path: "packages/ui" }),
-        member({ path: "backend" })
-      ],
-      events: [
-        change({ path: `${ROOT}/packages/ui/index.ts` }),
-        change({ path: `${ROOT}/backend/server.ts` })
-      ]
+      members: [ROOT_MEMBER, member({ path: "packages/ui" }), member({ path: "backend" })],
+      events: [change({ path: `${ROOT}/packages/ui/index.ts` }), change({ path: `${ROOT}/backend/server.ts` })]
     });
     const byId = Object.fromEntries(groups.map(group => [group.id, group]));
     expect(byId["packages/ui"].role).toBe(GroupRole.Lib);
@@ -353,10 +336,7 @@ describe("groupChanges with manifest members", () => {
     const groups = groupChanges({
       workspaceRoot: ROOT,
       members: [ROOT_MEMBER],
-      events: [
-        change({ path: `${ROOT}/apps/desktop/main.ts` }),
-        change({ path: `${ROOT}/README.md` })
-      ]
+      events: [change({ path: `${ROOT}/apps/desktop/main.ts` }), change({ path: `${ROOT}/README.md` })]
     });
     expect(groups.map(group => group.id).sort()).toEqual([".", "apps/desktop"]);
   });

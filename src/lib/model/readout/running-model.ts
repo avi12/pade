@@ -1,10 +1,4 @@
-import {
-  effortBars,
-  effortStep,
-  effortTone,
-  modelLabel,
-  shortModelName
-} from "@/lib/model/model-label";
+import { effortBars, effortStep, effortTone, modelLabel, shortModelName } from "@/lib/model/model-label";
 
 /** What a session runs, as its agent last reported it (`sessionModel`). */
 interface RunningModel {
@@ -20,10 +14,7 @@ interface RunningModel {
  *  in - null for a level no ladder ranks - and its effort as signal bars,
  *  empty when no ladder ranks it. `ladder` is the model's own effort levels
  *  from its agent's catalog, when known. */
-export function runningModelLook({ running, ladder }: {
-  running: RunningModel;
-  ladder?: readonly string[];
-}) {
+export function runningModelLook({ running, ladder }: { running: RunningModel; ladder?: readonly string[] }) {
   const modelAndEffort = modelLabel(running);
   const label = running.isUltracode ? `${modelAndEffort} · Ultracode on` : modelAndEffort;
   const shortName = shortModelName(running.id);

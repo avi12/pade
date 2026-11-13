@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import type { WorkspaceMember } from "@/lib/types/workspace";
 import {
   enclosingRepository,
@@ -8,7 +10,6 @@ import {
   repositoryOfGroup,
   ROOT_GROUP_ID
 } from "@/lib/workspace/members/workspace-members";
-import { describe, expect, it } from "vitest";
 
 const ROOT = "C:\\repositories\\avi\\pade";
 
@@ -75,10 +76,13 @@ describe("memberLabel", () => {
 });
 
 describe("memberOfGroup", () => {
-  const members = [member({ repository: true }), member({
-    path: "apps/web",
-    name: "web"
-  })];
+  const members = [
+    member({ repository: true }),
+    member({
+      path: "apps/web",
+      name: "web"
+    })
+  ];
 
   it("maps the feed's root group onto the root member", () => {
     expect(
@@ -117,10 +121,13 @@ describe("hasSeveralMembers", () => {
 
   it("is true once a checkout or package joins it", () => {
     expect(
-      hasSeveralMembers([member(), member({
-        path: "companion",
-        repository: true
-      })])
+      hasSeveralMembers([
+        member(),
+        member({
+          path: "companion",
+          repository: true
+        })
+      ])
     ).toBe(true);
   });
 });

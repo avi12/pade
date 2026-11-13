@@ -82,10 +82,7 @@ function commentCloserOf(line: string) {
   return undefined;
 }
 
-function codeLines({ lines, isCss }: {
-  lines: string[];
-  isCss: boolean;
-}) {
+function codeLines({ lines, isCss }: { lines: string[]; isCss: boolean }) {
   const code: string[] = [];
   let closer: string | undefined;
   for (const raw of lines) {
@@ -120,10 +117,7 @@ function codeLines({ lines, isCss }: {
   return code;
 }
 
-export function countCodeLines({ path, text }: {
-  path: string;
-  text: string;
-}) {
+export function countCodeLines({ path, text }: { path: string; text: string }) {
   const lines = text.split(/\r?\n/);
   const source = path.endsWith(RUST_EXTENSION) ? withoutCfgTestItems(lines) : lines;
   return codeLines({
@@ -137,10 +131,7 @@ export const Verdict = {
   Shrunk: "shrunk"
 } as const;
 
-export function judgeSizes({ sizes, baseline }: {
-  sizes: Baseline;
-  baseline: Baseline;
-}) {
+export function judgeSizes({ sizes, baseline }: { sizes: Baseline; baseline: Baseline }) {
   const findings: {
     path: string;
     size: number;
@@ -174,10 +165,7 @@ export function judgeSizes({ sizes, baseline }: {
   return findings;
 }
 
-export function tightenBaseline({ sizes, baseline }: {
-  sizes: Baseline;
-  baseline: Baseline;
-}) {
+export function tightenBaseline({ sizes, baseline }: { sizes: Baseline; baseline: Baseline }) {
   const tightened: Baseline = {};
   for (const [path, recorded] of Object.entries(baseline)) {
     const size = sizes[path] ?? 0;

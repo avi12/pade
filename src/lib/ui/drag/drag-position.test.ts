@@ -1,12 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { isDragOverElement } from "@/lib/ui/drag/drag-position";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 function elementAt(rectangle: Pick<DOMRect, "left" | "top" | "width" | "height">) {
   const box = {

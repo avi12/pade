@@ -1,14 +1,7 @@
-import { Command, EventType } from "@/lib/ipc/messaging";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  type Mock,
-  vi
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
+
+import { Command, EventType } from "@/lib/ipc/messaging";
 
 const APP = "C:\\work\\app";
 const API = "C:\\work\\api";
@@ -27,7 +20,7 @@ const mocks = vi.hoisted<{
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage,
   onMessage: mocks.onMessage
 }));
@@ -63,9 +56,7 @@ async function freshStore() {
 }
 
 function watchedPaths() {
-  return mocks.sendMessage.mock.calls
-    .filter(([command]) => command === Command.watchLanguages)
-    .map(([, data]) => data);
+  return mocks.sendMessage.mock.calls.filter(([command]) => command === Command.watchLanguages).map(([, data]) => data);
 }
 
 describe("followProjects", () => {

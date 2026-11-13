@@ -5,6 +5,8 @@
 // reopening it resumes that conversation (Claude through its pinned
 // `--session-id`, the others through `agent_resume_args`).
 
+import { z } from "zod";
+
 import type { ElsewhereSession } from "@/lib/dashboard/agent-board";
 import { isSameProject, sessionsOfProject } from "@/lib/session/chats/session-projects";
 import { Agent, ModelChoice } from "@/lib/types/agent";
@@ -12,7 +14,6 @@ import type { AgentSession, SessionStatus } from "@/lib/types/agent";
 import type { RecordedConversation } from "@/lib/types/chat-storage";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { normalizePath } from "@/lib/util/paths";
-import { z } from "zod";
 
 const CHAT_REGISTRY_STORAGE_KEY = "pade.project-chats";
 
@@ -53,10 +54,12 @@ function emptyChatRegistry(): StoredChatRegistry {
 }
 
 export function loadChatRegistry(): StoredChatRegistry {
-  return readStoredJson({
-    key: CHAT_REGISTRY_STORAGE_KEY,
-    schema: StoredChatRegistry
-  }) ?? emptyChatRegistry();
+  return (
+    readStoredJson({
+      key: CHAT_REGISTRY_STORAGE_KEY,
+      schema: StoredChatRegistry
+    }) ?? emptyChatRegistry()
+  );
 }
 
 /** Whether a `storage` event - another window of this PADE instance saving -
@@ -74,7 +77,11 @@ export function saveChatRegistry(registry: StoredChatRegistry) {
 
 /** The window's live sessions as persisted chats, each under the project it
  *  belongs to. Editor panes are skipped - they are not conversations. */
-export function persistedChatsFromSessions({ sessions, labels, now }: {
+export function persistedChatsFromSessions({
+  sessions,
+  labels,
+  now
+}: {
   sessions: readonly AgentSession[];
   labels: Readonly<Record<string, string | undefined>>;
   now: number;
@@ -108,7 +115,12 @@ export function persistedChatsFromSessions({ sessions, labels, now }: {
  *  the rail must not erase its project's other chats). The project in front
  *  records its active chat and becomes the last project. No live chats leaves
  *  the registry as it is. */
-export function registryWithLiveChats({ registry, chats, activeChatId, activeProject }: {
+export function registryWithLiveChats({
+  registry,
+  chats,
+  activeChatId,
+  activeProject
+}: {
   registry: StoredChatRegistry;
   chats: readonly PersistedChat[];
   activeChatId: string | null;
@@ -124,9 +136,9 @@ export function registryWithLiveChats({ registry, chats, activeChatId, activePro
     chats: [...registry.chats.filter(chat => !liveIds.has(chat.id)), ...chats],
     activeChatByProject: isActiveChatLive
       ? {
-        ...registry.activeChatByProject,
-        [activeProject]: activeChatId
-      }
+          ...registry.activeChatByProject,
+          [activeProject]: activeChatId
+        }
       : registry.activeChatByProject,
     lastProject: activeProject === "" ? registry.lastProject : activeProject
   };
@@ -134,7 +146,11 @@ export function registryWithLiveChats({ registry, chats, activeChatId, activePro
 
 /** Forget one chat. When it was its project's active chat, that pointer goes
  *  with it so a later restore never looks for a chat that is not there. */
-export function registryWithoutChat({ registry, project, chatId }: {
+export function registryWithoutChat({
+  registry,
+  project,
+  chatId
+}: {
   registry: StoredChatRegistry;
   project: string;
   chatId: string;
@@ -152,7 +168,10 @@ export function registryWithoutChat({ registry, project, chatId }: {
 }
 
 /** One project's persisted chats, in the order they were last saved. */
-export function chatsForProject({ registry, project }: {
+export function chatsForProject({
+  registry,
+  project
+}: {
   registry: StoredChatRegistry;
   project: string;
 }): PersistedChat[] {
@@ -160,7 +179,11 @@ export function chatsForProject({ registry, project }: {
 }
 
 /** One persisted chat by id, when its project still has it. */
-export function persistedChat({ registry, project, chatId }: {
+export function persistedChat({
+  registry,
+  project,
+  chatId
+}: {
   registry: StoredChatRegistry;
   project: string;
   chatId: string;
@@ -197,11 +220,18 @@ export interface SidebarProject {
 const UNTITLED_CONVERSATION_LABEL = "Untitled conversation";
 
 /** A session another window runs, as the sidebar needs it. */
-type ElsewhereRow = Pick<ElsewhereSession, "id" | "project" | "name" | "agentId" | "conversationId" | "status" | "windowLabel">;
+type ElsewhereRow = Pick<
+  ElsewhereSession,
+  "id" | "project" | "name" | "agentId" | "conversationId" | "status" | "windowLabel"
+>;
 
 /** The project's recorded conversations that no row above already holds, as
  *  resumable rows. */
-function recordedChats({ project, heldConversations, recorded }: {
+function recordedChats({
+  project,
+  heldConversations,
+  recorded
+}: {
   project: string;
   heldConversations: ReadonlySet<string | undefined>;
   recorded: readonly RecordedConversation[];
@@ -218,10 +248,7 @@ function recordedChats({ project, heldConversations, recorded }: {
     }));
 }
 
-function chatRow({ chat, isLive }: {
-  chat: PersistedChat;
-  isLive: boolean;
-}): SidebarChat {
+function chatRow({ chat, isLive }: { chat: PersistedChat; isLive: boolean }): SidebarChat {
   return {
     id: chat.id,
     project: chat.project,
@@ -247,7 +274,14 @@ function elsewhereRow(session: ElsewhereRow): SidebarChat {
  *  run, then its persisted chats nothing runs, then the recorded
  *  conversations none of those holds - so a running session never also shows
  *  as something to resume. */
-function projectChats({ project, registry, liveSessions, liveLabels, elsewhereSessions, recorded }: {
+function projectChats({
+  project,
+  registry,
+  liveSessions,
+  liveLabels,
+  elsewhereSessions,
+  recorded
+}: {
   project: string;
   registry: StoredChatRegistry;
   liveSessions: readonly AgentSession[];
@@ -278,15 +312,19 @@ function projectChats({ project, registry, liveSessions, liveLabels, elsewhereSe
     project
   }).filter(chat => !runningIds.has(chat.id) && !runningConversations.has(chat.conversationId));
   return [
-    ...live.map(chat => chatRow({
-      chat,
-      isLive: true
-    })),
+    ...live.map(chat =>
+      chatRow({
+        chat,
+        isLive: true
+      })
+    ),
     ...elsewhere.map(elsewhereRow),
-    ...stored.map(chat => chatRow({
-      chat,
-      isLive: false
-    })),
+    ...stored.map(chat =>
+      chatRow({
+        chat,
+        isLive: false
+      })
+    ),
     ...recordedChats({
       project,
       heldConversations: new Set([...runningConversations, ...stored.map(chat => chat.conversationId)]),

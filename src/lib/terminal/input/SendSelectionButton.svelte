@@ -128,19 +128,19 @@
      -50% centering into every step since it animates `translate`. */
   @keyframes send-pop {
     0% {
-      opacity: 0%;
+      opacity: 0;
       scale: 0.88;
       translate: -50% 12px;
     }
 
     65% {
-      opacity: 100%;
+      opacity: 1;
       scale: 1.03;
       translate: -50% -4px;
     }
 
     100% {
-      opacity: 100%;
+      opacity: 1;
       scale: 1;
       translate: -50% 0;
     }
@@ -186,7 +186,7 @@
       line-height: 1.45;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      opacity: 85%;
+      opacity: 0.85;
 
       .path-part {
         white-space: nowrap;

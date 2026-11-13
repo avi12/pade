@@ -1,15 +1,10 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   activeMemberIn,
   loadWorkspaceMembers,
   selectMember
 } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const ROOT = "C:\\repositories\\avi\\pade";
 const OTHER = "C:\\repositories\\avi\\youtube-time-manager";

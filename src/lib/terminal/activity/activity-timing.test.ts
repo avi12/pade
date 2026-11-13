@@ -1,14 +1,8 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { SUBMIT_VERIFY_MS } from "@/lib/terminal/activity/activity-timing";
 import { createSessionActivity } from "@/lib/terminal/activity/sessionActivity.svelte";
 import { SessionStatus } from "@/lib/types/agent";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const ENTER_ECHO_DELAY_MS = 20;
 

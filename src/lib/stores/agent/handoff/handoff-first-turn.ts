@@ -15,7 +15,11 @@ const SUCCESSOR_DEADLINE_MS = 10 * 60_000;
 // had never read. Anything else (an agent that reports no activity at all, a
 // session that disappears, a first turn still running at the deadline) answers
 // false, and the doc stays.
-export function waitForFirstTurn({ timers, isStillOpen, id }: {
+export function waitForFirstTurn({
+  timers,
+  isStillOpen,
+  id
+}: {
   timers: HandoffTimers;
   isStillOpen: (sessionId: string) => boolean;
   id: string;

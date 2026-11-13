@@ -11,10 +11,12 @@ export const Updater = z.enum(["unpackaged", "windows", "none"]);
  *  copy. */
 export const UpdateStatus = z.object({
   current: z.string(),
-  newer: z.object({
-    version: z.string(),
-    releaseUrl: z.string()
-  }).nullable(),
+  newer: z
+    .object({
+      version: z.string(),
+      releaseUrl: z.string()
+    })
+    .nullable(),
   updater: Updater
 });
 

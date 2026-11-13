@@ -15,7 +15,10 @@ interface Offset {
 
 /** How far a row's new box sits from where it was painted - the distance its
  *  glide starts at. */
-export function glideOffset({ from, to }: {
+export function glideOffset({
+  from,
+  to
+}: {
   from: Pick<DOMRect, "left" | "top">;
   to: Pick<DOMRect, "left" | "top">;
 }): Offset {
@@ -31,7 +34,11 @@ function hasMoved(offset: Offset) {
 
 /** `key` when its row sits higher in the new order than in the painted one -
  *  the row a scroll should follow - and nothing otherwise. */
-export function risenKey({ key, from, to }: {
+export function risenKey({
+  key,
+  from,
+  to
+}: {
   key: string | undefined;
   from: readonly string[];
   to: readonly string[];
@@ -105,14 +112,16 @@ export function createReorderGlide({ duration }: { duration: () => number }) {
   }
 
   return {
-    row: (key: string): Attachment<HTMLElement> => element => {
-      rows.set(key, element);
-      return () => {
-        if (rows.get(key) === element) {
-          rows.delete(key);
-        }
-      };
-    },
+    row:
+      (key: string): Attachment<HTMLElement> =>
+      element => {
+        rows.set(key, element);
+        return () => {
+          if (rows.get(key) === element) {
+            rows.delete(key);
+          }
+        };
+      },
     /** Record where every row is painted, once per frame, and glide them from
      *  there once the DOM has its new order. A `follow` row is kept in view. */
     beforeReorder({ follow }: { follow?: string } = {}) {

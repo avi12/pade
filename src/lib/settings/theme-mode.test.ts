@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   adoptedMonospaceFace,
   followsSystemScheme,
@@ -6,7 +8,6 @@ import {
 } from "@/lib/settings/theme-mode";
 import { Settings } from "@/lib/types/settings";
 import { ThemeMode, ThemePalette } from "@/lib/types/theme";
-import { describe, expect, it } from "vitest";
 
 describe("resolveAppearance", () => {
   it("takes a fixed mode at its word, whatever the OS says", () => {

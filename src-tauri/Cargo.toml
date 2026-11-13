@@ -14,7 +14,14 @@ license = "Apache-2.0"
 # expects both). Each crate keeps its own `[lints]` (this one forbids unsafe; the
 # handler must allow it).
 [workspace]
-members = ["contextmenu-handler", "package-identity", "process-job", "process-priority", "process-snapshot", "webview-recovery"]
+members = [
+  "contextmenu-handler",
+  "package-identity",
+  "process-job",
+  "process-priority",
+  "process-snapshot",
+  "webview-recovery"
+]
 resolver = "2"
 
 [lib]

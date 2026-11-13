@@ -5,6 +5,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+
 import { createServer } from "vite";
 
 const FIXTURE_DIRECTORY = resolve("src-tauri/src/pacing/fixtures");

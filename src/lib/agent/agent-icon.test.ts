@@ -1,5 +1,6 @@
-import { agentIconName } from "@/lib/agent/agent-icon";
 import { describe, expect, it } from "vitest";
+
+import { agentIconName } from "@/lib/agent/agent-icon";
 
 describe("agentIconName", () => {
   it("maps known agent ids to their brand glyphs", () => {

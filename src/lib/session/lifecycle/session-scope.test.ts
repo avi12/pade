@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   forgetSession,
   registerSessionState,
@@ -6,7 +8,6 @@ import {
   savedSessionState,
   SessionStateKey
 } from "@/lib/session/lifecycle/session-scope";
-import { describe, expect, it } from "vitest";
 
 // A stand-in store: a name per session, kept across restarts and reloads.
 const names = new Map<string, string>();

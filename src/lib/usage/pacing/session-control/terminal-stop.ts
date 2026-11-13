@@ -12,8 +12,9 @@
 //      keys had time to land is still running: try once more, then tell the
 //      user instead of looping.
 
-import type { InterruptKeys, KeyPress } from "@/lib/agent/interrupt-keys";
 import { z } from "zod";
+
+import type { InterruptKeys, KeyPress } from "@/lib/agent/interrupt-keys";
 
 /** How long after the keys a stopped subagent may still write its last line. */
 const INTERRUPT_SETTLE_MS = 3000;
@@ -22,7 +23,11 @@ export const MAXIMUM_STOP_ATTEMPTS = 2;
 
 /** Whether the session's own hook took the stop: it answered a call while
  *  stopping, after the stop was written. */
-export function isHookTakingStop({ keys, stopSeenAt, stopWrittenAt }: {
+export function isHookTakingStop({
+  keys,
+  stopSeenAt,
+  stopWrittenAt
+}: {
   keys: Pick<InterruptKeys, "hasMidTurnStopHook">;
   stopSeenAt: number | null;
   stopWrittenAt: number;
@@ -34,7 +39,11 @@ export function isHookTakingStop({ keys, stopSeenAt, stopWrittenAt }: {
  *  runs, then the interrupt (also ending the turn a stop-all starts, in which
  *  the agent answers that its subagents were stopped). The interrupt alone
  *  when no subagent runs - and nothing when the session has nothing running. */
-export function interruptPresses({ keys, hasRunningSubagents, isWorking }: {
+export function interruptPresses({
+  keys,
+  hasRunningSubagents,
+  isWorking
+}: {
   keys: InterruptKeys;
   hasRunningSubagents: boolean;
   isWorking: boolean;
@@ -53,7 +62,10 @@ export function interruptPresses({ keys, hasRunningSubagents, isWorking }: {
 }
 
 /** The subagents still writing once the keys had time to land. */
-export function stillWritingSubagents<Subagent extends { writtenAt: number }>({ subagents, interruptedAt }: {
+export function stillWritingSubagents<Subagent extends { writtenAt: number }>({
+  subagents,
+  interruptedAt
+}: {
   subagents: readonly Subagent[];
   interruptedAt: number;
 }) {
@@ -64,10 +76,7 @@ export const StopVerdict = z.enum(["stopped", "retry", "unstoppable"]);
 
 /** What follows attempt `attempt` (from 1): done once nothing still writes,
  *  one more press while attempts remain, else hand it to the user. */
-export function stopVerdict({ stillWritingCount, attempt }: {
-  stillWritingCount: number;
-  attempt: number;
-}) {
+export function stopVerdict({ stillWritingCount, attempt }: { stillWritingCount: number; attempt: number }) {
   if (stillWritingCount === 0) {
     return StopVerdict.enum.stopped;
   }

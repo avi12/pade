@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import { AgentId } from "@/lib/agent/agent-icon";
 import {
   projectModelDefault,
@@ -6,7 +8,6 @@ import {
   withProjectModelDefault
 } from "@/lib/model/agent-model-scope";
 import type { Prefs } from "@/lib/types/settings";
-import { describe, expect, it } from "vitest";
 
 const PROJECT = "C:/repositories/avi/pade";
 

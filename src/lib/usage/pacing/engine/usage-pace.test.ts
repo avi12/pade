@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import { PacedWindowKind } from "@/lib/types/pacing";
 import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
 import type { UsageWindow } from "@/lib/types/usage";
@@ -16,7 +18,6 @@ import {
   workRhythm
 } from "@/lib/usage/pacing/engine/usage-pace";
 import type { UsageSample } from "@/lib/usage/pacing/engine/usage-pace";
-import { describe, expect, it } from "vitest";
 
 const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();
 const MINUTE_MS = 60_000;
@@ -30,10 +31,7 @@ function perHour(percentage: number) {
   return percentage / HOUR_MS;
 }
 
-function sessionWindow({ utilization, resetsIn }: {
-  utilization: number;
-  resetsIn: number;
-}) {
+function sessionWindow({ utilization, resetsIn }: { utilization: number; resetsIn: number }) {
   return {
     key: "five_hour",
     kind: UsageWindowKind.enum.session,
@@ -43,10 +41,7 @@ function sessionWindow({ utilization, resetsIn }: {
   } satisfies UsageWindow;
 }
 
-function weeklyWindow({ utilization, resetsIn }: {
-  utilization: number;
-  resetsIn: number;
-}) {
+function weeklyWindow({ utilization, resetsIn }: { utilization: number; resetsIn: number }) {
   return {
     key: "seven_day",
     kind: UsageWindowKind.enum.weekly,
@@ -66,11 +61,7 @@ function account(windows: UsageWindow[]) {
 }
 
 /** One reading a minute, rising `rise` percent each. */
-function readings({ minutes, rise, resetsAt = "reset" }: {
-  minutes: number;
-  rise: number;
-  resetsAt?: string;
-}) {
+function readings({ minutes, rise, resetsAt = "reset" }: { minutes: number; rise: number; resetsAt?: string }) {
   return Array.from({ length: minutes + 1 }, (_, i) => ({
     at: NOW + i * MINUTE_MS,
     utilization: 60 + i * rise,
@@ -153,7 +144,12 @@ describe("burnRate", () => {
 });
 
 describe("assessPace", () => {
-  function assess({ windows, rate, isPaused = false, earlyMs = EARLY_MS }: {
+  function assess({
+    windows,
+    rate,
+    isPaused = false,
+    earlyMs = EARLY_MS
+  }: {
     windows: UsageWindow[];
     rate: number | null;
     isPaused?: boolean;
@@ -170,10 +166,12 @@ describe("assessPace", () => {
 
   it("pauses a session that would run out hours before its reset", () => {
     const pace = assess({
-      windows: [sessionWindow({
-        utilization: 70,
-        resetsIn: 4 * HOUR_MS
-      })],
+      windows: [
+        sessionWindow({
+          utilization: 70,
+          resetsIn: 4 * HOUR_MS
+        })
+      ],
       rate: perHour(30)
     });
     // 30% left at 30% an hour lasts one hour; the window runs free in 3h 50m.
@@ -185,10 +183,12 @@ describe("assessPace", () => {
   it("lets a session run on while it would run out no earlier than the chosen margin", () => {
     // 30% left at 30% an hour lasts one hour; the window runs free in 1h 20m -
     // 20 minutes early, inside a 30-minute margin but past a 15-minute one.
-    const windows = [sessionWindow({
-      utilization: 70,
-      resetsIn: 90 * MINUTE_MS
-    })];
+    const windows = [
+      sessionWindow({
+        utilization: 70,
+        resetsIn: 90 * MINUTE_MS
+      })
+    ];
     expect(
       assess({
         windows,
@@ -207,10 +207,12 @@ describe("assessPace", () => {
   it("needs no window length - the same burn with the reset an hour off runs on", () => {
     expect(
       assess({
-        windows: [sessionWindow({
-          utilization: 70,
-          resetsIn: 70 * MINUTE_MS
-        })],
+        windows: [
+          sessionWindow({
+            utilization: 70,
+            resetsIn: 70 * MINUTE_MS
+          })
+        ],
         rate: perHour(30)
       })
     ).toBeNull();
@@ -219,10 +221,12 @@ describe("assessPace", () => {
   it("lets a session run on at 95% when the window resets in ten minutes", () => {
     expect(
       assess({
-        windows: [sessionWindow({
-          utilization: 95,
-          resetsIn: 9 * MINUTE_MS
-        })],
+        windows: [
+          sessionWindow({
+            utilization: 95,
+            resetsIn: 9 * MINUTE_MS
+          })
+        ],
         rate: perHour(60)
       })
     ).toBeNull();
@@ -230,10 +234,12 @@ describe("assessPace", () => {
 
   it("stops a session about to run dry half an hour out, until it can finish the stretch", () => {
     const pace = assess({
-      windows: [sessionWindow({
-        utilization: 95,
-        resetsIn: 30 * MINUTE_MS
-      })],
+      windows: [
+        sessionWindow({
+          utilization: 95,
+          resetsIn: 30 * MINUTE_MS
+        })
+      ],
       rate: perHour(30),
       earlyMs: 5 * MINUTE_MS
     });
@@ -245,10 +251,12 @@ describe("assessPace", () => {
   it("never pauses below the floor, however fast it burns", () => {
     expect(
       assess({
-        windows: [sessionWindow({
-          utilization: PACE_FLOOR_PERCENTAGE - 1,
-          resetsIn: 4 * HOUR_MS
-        })],
+        windows: [
+          sessionWindow({
+            utilization: PACE_FLOOR_PERCENTAGE - 1,
+            resetsIn: 4 * HOUR_MS
+          })
+        ],
         rate: perHour(90)
       })
     ).toBeNull();
@@ -257,20 +265,24 @@ describe("assessPace", () => {
   it("never pauses before a burn rate is known", () => {
     expect(
       assess({
-        windows: [sessionWindow({
-          utilization: 90,
-          resetsIn: 4 * HOUR_MS
-        })],
+        windows: [
+          sessionWindow({
+            utilization: 90,
+            resetsIn: 4 * HOUR_MS
+          })
+        ],
         rate: null
       })
     ).toBeNull();
   });
 
   it("keeps a paused session paused until its runway reaches the reset", () => {
-    const windows = [sessionWindow({
-      utilization: 70,
-      resetsIn: HOUR_MS + RESET_GRACE_MS
-    })];
+    const windows = [
+      sessionWindow({
+        utilization: 70,
+        resetsIn: HOUR_MS + RESET_GRACE_MS
+      })
+    ];
     // Runway 54 minutes against an hour: inside the margin to start, short to finish.
     const rate = 30 / (54 * MINUTE_MS);
     expect(
@@ -309,10 +321,12 @@ describe("assessPace", () => {
     expect(
       assessPace({
         account: {
-          ...account([sessionWindow({
-            utilization: 90,
-            resetsIn: 4 * HOUR_MS
-          })]),
+          ...account([
+            sessionWindow({
+              utilization: 90,
+              resetsIn: 4 * HOUR_MS
+            })
+          ]),
           credits: CreditsState.enum.available
         },
         now: NOW,
@@ -336,16 +350,18 @@ describe("assessPace", () => {
   });
 
   it("leaves a window alone while its pacing is off", () => {
-    const windows = [weeklyWindow({
-      utilization: 90,
-      resetsIn: 3 * DAY_MS
-    })];
+    const windows = [
+      weeklyWindow({
+        utilization: 90,
+        resetsIn: 3 * DAY_MS
+      })
+    ];
     expect(
       assessPace({
         account: account(windows),
         now: NOW,
         isPaused: false,
-        marginOf: kind => kind === PacedWindowKind.enum.weekly ? null : EARLY_MS,
+        marginOf: kind => (kind === PacedWindowKind.enum.weekly ? null : EARLY_MS),
         rateOf: () => perHour(2)
       })
     ).toBeNull();
@@ -355,16 +371,22 @@ describe("assessPace", () => {
 describe("assessPace, weekly", () => {
   const TWELVE_HOURS_MS = 12 * HOUR_MS;
 
-  function assessWeekly({ utilization, resetsIn, isPaused = false }: {
+  function assessWeekly({
+    utilization,
+    resetsIn,
+    isPaused = false
+  }: {
     utilization: number;
     resetsIn: number;
     isPaused?: boolean;
   }) {
     return assessPace({
-      account: account([weeklyWindow({
-        utilization,
-        resetsIn
-      })]),
+      account: account([
+        weeklyWindow({
+          utilization,
+          resetsIn
+        })
+      ]),
       now: NOW,
       isPaused,
       marginOf: () => TWELVE_HOURS_MS,
@@ -384,10 +406,12 @@ describe("assessPace, weekly", () => {
 
   it("holds a week at 96% that would run dry before its reset at the measured burn, inside the margin", () => {
     // Eight hours left: an even spend is only ~1.3h behind, within the 12h margin.
-    const account96 = account([weeklyWindow({
-      utilization: 96,
-      resetsIn: 8 * HOUR_MS
-    })]);
+    const account96 = account([
+      weeklyWindow({
+        utilization: 96,
+        resetsIn: 8 * HOUR_MS
+      })
+    ]);
     const pace = assessPace({
       account: account96,
       now: NOW,
@@ -411,10 +435,12 @@ describe("assessPace, weekly", () => {
   it("leaves a week at 96% alone when its measured burn lasts until the reset", () => {
     expect(
       assessPace({
-        account: account([weeklyWindow({
-          utilization: 96,
-          resetsIn: 8 * HOUR_MS
-        })]),
+        account: account([
+          weeklyWindow({
+            utilization: 96,
+            resetsIn: 8 * HOUR_MS
+          })
+        ]),
         now: NOW,
         isPaused: false,
         marginOf: () => TWELVE_HOURS_MS,
@@ -458,7 +484,7 @@ describe("paceForecasts", () => {
         })
       ]),
       now: NOW,
-      rateOf: window => window.kind === UsageWindowKind.enum.session ? perHour(30) : null
+      rateOf: window => (window.kind === UsageWindowKind.enum.session ? perHour(30) : null)
     });
     expect(forecasts.session?.runOutAt).toBe(NOW + HOUR_MS);
     // 30% in four days lasts another 9.3 days at that pace - past the reset.
@@ -469,10 +495,12 @@ describe("paceForecasts", () => {
   it("has no run-out time before a session's burn is measured", () => {
     expect(
       paceForecasts({
-        account: account([sessionWindow({
-          utilization: 70,
-          resetsIn: 3 * HOUR_MS
-        })]),
+        account: account([
+          sessionWindow({
+            utilization: 70,
+            resetsIn: 3 * HOUR_MS
+          })
+        ]),
         now: NOW,
         rateOf: () => null
       }).session?.runOutAt
@@ -484,10 +512,12 @@ describe("reportedPacedKinds", () => {
   it("leaves out a session limit the plan doesn't report", () => {
     expect(
       reportedPacedKinds(
-        account([weeklyWindow({
-          utilization: 30,
-          resetsIn: 3 * DAY_MS
-        })])
+        account([
+          weeklyWindow({
+            utilization: 30,
+            resetsIn: 3 * DAY_MS
+          })
+        ])
       )
     ).toEqual([PacedWindowKind.enum.weekly]);
   });
@@ -568,17 +598,19 @@ describe("workingRunway", () => {
 
   it("sizes a weekly rest from how fast the agents really spend, not a round-the-clock even spend", () => {
     function rest({ rate }: { rate: number }) {
-      return slowRestUntil({
-        runway: workingRunway({
-          window,
-          rate,
+      return (
+        slowRestUntil({
+          runway: workingRunway({
+            window,
+            rate,
+            readyAt,
+            continueAt
+          }),
           readyAt,
-          continueAt
-        }),
-        readyAt,
-        continueAt,
-        now: NOW
-      }) - NOW;
+          continueAt,
+          now: NOW
+        }) - NOW
+      );
     }
     // The even spend's 40-hour runway asks for no more than the 5-minute
     // minimum; working at 1% an hour, the 24 hours of work left needs about 6
@@ -589,15 +621,14 @@ describe("workingRunway", () => {
 });
 
 describe("hasRoomToSpare", () => {
-  function spare({ rate, utilization = 70 }: {
-    rate: number | null;
-    utilization?: number;
-  }) {
+  function spare({ rate, utilization = 70 }: { rate: number | null; utilization?: number }) {
     return hasRoomToSpare({
-      account: account([sessionWindow({
-        utilization,
-        resetsIn: 2 * HOUR_MS + RESET_GRACE_MS
-      })]),
+      account: account([
+        sessionWindow({
+          utilization,
+          resetsIn: 2 * HOUR_MS + RESET_GRACE_MS
+        })
+      ]),
       now: NOW,
       marginOf: () => EARLY_MS,
       rateOf: () => rate

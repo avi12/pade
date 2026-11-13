@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   isBinaryPath,
   isHtmlPath,
@@ -7,7 +9,6 @@ import {
   isRenderablePath,
   isVideoPath
 } from "@/lib/feed/preview/preview";
-import { describe, expect, it } from "vitest";
 
 describe("isBinaryPath", () => {
   it("recognises executables, archives and documents case-insensitively", () => {

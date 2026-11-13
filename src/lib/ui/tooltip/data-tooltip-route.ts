@@ -136,12 +136,16 @@ export function routeDataTooltips() {
   // Leaving the window, or the page under the pointer changing beneath it.
   document.documentElement.addEventListener("pointerleave", hide, { signal });
   // Focus speaks only with a visible ring - a click's focus is the pointer's.
-  addEventListener("focusin", e => {
-    const isKeyboardFocus = e.target instanceof Element && e.target.matches(":focus-visible");
-    if (isKeyboardFocus) {
-      follow(e.target);
-    }
-  }, { signal });
+  addEventListener(
+    "focusin",
+    e => {
+      const isKeyboardFocus = e.target instanceof Element && e.target.matches(":focus-visible");
+      if (isKeyboardFocus) {
+        follow(e.target);
+      }
+    },
+    { signal }
+  );
   addEventListener("focusout", hide, { signal });
   // A scroll moves the trigger under a still bubble, as a native hint closes.
   addEventListener("scroll", hide, {

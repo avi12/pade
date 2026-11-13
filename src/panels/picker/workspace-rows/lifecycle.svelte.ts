@@ -7,6 +7,8 @@
 // rename started from either list drives the same form - and one delete
 // confirmation dialog serves both.
 
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+
 import type { Settings } from "@/lib/types/settings";
 import type { WindowInfo } from "@/lib/types/window";
 import { errorMessage } from "@/lib/util/errors/errors";
@@ -14,20 +16,13 @@ import { baseName } from "@/lib/util/paths";
 import { nameError, parseInput, ProjectName } from "@/lib/validate";
 import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";
 import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 /** What the picker provides: the app-level move/rename flows (which handle the
  *  cwd locks), the settings sink, and the section re-scan. */
 export interface LifecycleHost {
   isOwned: (path: string) => boolean;
-  onmove: (target: {
-    from: string;
-    destDir: string;
-  }) => Promise<string>;
-  onrename: (target: {
-    from: string;
-    newName: string;
-  }) => Promise<string>;
+  onmove: (target: { from: string; destDir: string }) => Promise<string>;
+  onrename: (target: { from: string; newName: string }) => Promise<string>;
   /** Delete an owned workspace's folder - via the app's relocator, so the
    *  sessions holding it as cwd are killed first and the removal isn't blocked
    *  by their lock. */

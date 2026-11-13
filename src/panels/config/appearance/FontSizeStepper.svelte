@@ -66,7 +66,7 @@
       transition: background 140ms var(--ease);
 
       &:disabled {
-        opacity: 40%;
+        opacity: 0.4;
         cursor: default;
       }
 

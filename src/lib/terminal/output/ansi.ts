@@ -10,11 +10,11 @@ import { ANSI_COLOR_TOKENS } from "@/lib/terminal/theme/terminal-theme";
 
 const ANSI_ESCAPE = new RegExp(
   // OSC: ESC ] … terminated by BEL or ST (ESC \).
-  "\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\)"
+  "\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\)" +
     // Two-byte escapes: ESC then a single @–Z byte.
-    + "|\\u001b[@-Z]"
+    "|\\u001b[@-Z]" +
     // CSI: ESC [ params intermediates final (SGR colours, cursor moves…).
-    + "|\\u001b\\[[0-9;?]*[ -/]*[@-~]",
+    "|\\u001b\\[[0-9;?]*[ -/]*[@-~]",
   "g"
 );
 
@@ -105,31 +105,36 @@ function ansiColor(iColor: number) {
   return `var(${ANSI_COLOR_TOKENS[iColor]})`;
 }
 
-function isInBank({ code, bankStart }: {
-  code: number;
-  bankStart: number;
-}) {
+function isInBank({ code, bankStart }: { code: number; bankStart: number }) {
   return code >= bankStart && code < bankStart + COLORS_PER_BANK;
 }
 
 /** The palette index a colour code names, or `null` if the code isn't a colour in
  *  this (foreground or background) range. */
-function colorIndexFor({ code, standardStart, brightStart }: {
+function colorIndexFor({
+  code,
+  standardStart,
+  brightStart
+}: {
   code: number;
   standardStart: number;
   brightStart: number;
 }) {
-  if (isInBank({
-    code,
-    bankStart: standardStart
-  })) {
+  if (
+    isInBank({
+      code,
+      bankStart: standardStart
+    })
+  ) {
     return code - standardStart;
   }
 
-  if (isInBank({
-    code,
-    bankStart: brightStart
-  })) {
+  if (
+    isInBank({
+      code,
+      bankStart: brightStart
+    })
+  ) {
     return code - brightStart + BRIGHT_OFFSET;
   }
 
@@ -148,7 +153,12 @@ function resetStyle(style: AnsiStyle) {
 /** Apply a `38`/`48` extended-colour selector and return the index of the last
  *  parameter it consumed, so the caller resumes after it. Truecolor is consumed
  *  but not modelled; a palette index outside 0–15 is consumed but skipped. */
-function applyExtendedColor({ style, codes, iCode, isForeground }: {
+function applyExtendedColor({
+  style,
+  codes,
+  iCode,
+  isForeground
+}: {
   style: AnsiStyle;
   codes: number[];
   iCode: number;
@@ -164,9 +174,7 @@ function applyExtendedColor({ style, codes, iCode, isForeground }: {
   }
 
   const iPaletteColor = codes[iCode + PALETTE_SELECTOR_LENGTH];
-  const isInPalette = iPaletteColor !== undefined
-    && iPaletteColor >= 0
-    && iPaletteColor < ANSI_COLOR_TOKENS.length;
+  const isInPalette = iPaletteColor !== undefined && iPaletteColor >= 0 && iPaletteColor < ANSI_COLOR_TOKENS.length;
   if (!isInPalette) {
     return iCode + PALETTE_SELECTOR_LENGTH;
   }
@@ -184,39 +192,64 @@ function applyExtendedColor({ style, codes, iCode, isForeground }: {
 // declarative table so `applySimpleCode` stays a lookup, not a long switch.
 const ATTRIBUTE_SETTERS: ReadonlyMap<number, (style: AnsiStyle) => void> = new Map([
   [Sgr.Reset, resetStyle],
-  [Sgr.Bold, style => {
-    style.bold = true;
-  }],
-  [Sgr.Dim, style => {
-    style.dim = true;
-  }],
-  [Sgr.Italic, style => {
-    style.italic = true;
-  }],
-  [Sgr.Underline, style => {
-    style.underline = true;
-  }],
-  [Sgr.NormalIntensity, style => {
-    style.bold = false; style.dim = false;
-  }],
-  [Sgr.NotItalic, style => {
-    style.italic = false;
-  }],
-  [Sgr.NotUnderline, style => {
-    style.underline = false;
-  }],
-  [Sgr.DefaultForeground, style => {
-    style.color = undefined;
-  }],
-  [Sgr.DefaultBackground, style => {
-    style.background = undefined;
-  }]
+  [
+    Sgr.Bold,
+    style => {
+      style.bold = true;
+    }
+  ],
+  [
+    Sgr.Dim,
+    style => {
+      style.dim = true;
+    }
+  ],
+  [
+    Sgr.Italic,
+    style => {
+      style.italic = true;
+    }
+  ],
+  [
+    Sgr.Underline,
+    style => {
+      style.underline = true;
+    }
+  ],
+  [
+    Sgr.NormalIntensity,
+    style => {
+      style.bold = false;
+      style.dim = false;
+    }
+  ],
+  [
+    Sgr.NotItalic,
+    style => {
+      style.italic = false;
+    }
+  ],
+  [
+    Sgr.NotUnderline,
+    style => {
+      style.underline = false;
+    }
+  ],
+  [
+    Sgr.DefaultForeground,
+    style => {
+      style.color = undefined;
+    }
+  ],
+  [
+    Sgr.DefaultBackground,
+    style => {
+      style.background = undefined;
+    }
+  ]
 ]);
 
-function applySimpleCode({ style, code }: {
-  style: AnsiStyle;
-  code: number;
-}) {
+function applySimpleCode({ style, code }: { style: AnsiStyle; code: number }) {
   const setAttribute = ATTRIBUTE_SETTERS.get(code);
   if (setAttribute) {
     setAttribute(style);
@@ -246,13 +279,11 @@ function applySimpleCode({ style, code }: {
 
 /** Mutate `style` per one SGR sequence's parameters (the `32;1` in `ESC[32;1m`).
  *  An empty parameter (or none at all) means reset. */
-function applySgr({ style, parameters }: {
-  style: AnsiStyle;
-  parameters: string;
-}) {
-  const codes = parameters === ""
-    ? [Sgr.Reset]
-    : parameters.split(PARAMETER_SEPARATOR).map(part => (part === "" ? Sgr.Reset : parseInt(part, DECIMAL_RADIX)));
+function applySgr({ style, parameters }: { style: AnsiStyle; parameters: string }) {
+  const codes =
+    parameters === ""
+      ? [Sgr.Reset]
+      : parameters.split(PARAMETER_SEPARATOR).map(part => (part === "" ? Sgr.Reset : parseInt(part, DECIMAL_RADIX)));
   for (let i = 0; i < codes.length; i++) {
     const code = codes[i]!;
     const isExtendedColor = code === Sgr.ExtendedForeground || code === Sgr.ExtendedBackground;
@@ -273,10 +304,7 @@ function applySgr({ style, parameters }: {
   }
 }
 
-function styledSegment({ text, style }: {
-  text: string;
-  style: AnsiStyle;
-}) {
+function styledSegment({ text, style }: { text: string; style: AnsiStyle }) {
   const segment: AnsiSegment = { text };
   if (style.color !== undefined) {
     segment.color = style.color;

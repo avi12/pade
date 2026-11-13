@@ -192,7 +192,7 @@
          you are NOT in is exactly when this is wanted, and an icon that only
          exists once you hover cannot be found without hunting for it - or, on a
          touch screen, at all. */
-      opacity: 60%;
+      opacity: 0.6;
       cursor: pointer;
       transition:
         opacity 140ms var(--ease),
@@ -201,7 +201,7 @@
       /* Brighter on the pill being used. */
       :global(.tab:hover) .ai-wrap &,
       :global(.tab.active) .ai-wrap & {
-        opacity: 85%;
+        opacity: 0.85;
       }
 
       /* The tooltip belongs to `.ai-wrap`, outside this faded icon button, so
@@ -210,7 +210,7 @@
       :global(.tab.active) .ai-wrap &:hover,
       &:hover {
         color: var(--primary);
-        opacity: 100%;
+        opacity: 1;
       }
 
       /* Pinned bright while auto-naming is on for this session, and backed by a
@@ -225,7 +225,7 @@
         border-radius: var(--radius-small);
         background: color-mix(in sRGB, currentColor 22%, transparent);
         color: var(--primary);
-        opacity: 100%;
+        opacity: 1;
       }
 
       /* On the active pill the fill IS the primary container, so the accent
@@ -269,14 +269,14 @@
       color: var(--on-surface-variant);
       font-size: 0.9375rem;
       line-height: 1;
-      opacity: 60%;
+      opacity: 0.6;
       cursor: pointer;
       transition: color 150ms var(--ease), background 150ms var(--ease), opacity 150ms var(--ease);
 
       &:hover {
         background: var(--critical-wash);
         color: var(--critical);
-        opacity: 100%;
+        opacity: 1;
       }
 
       :global(:root[data-palette="cyberpunk"]) & {

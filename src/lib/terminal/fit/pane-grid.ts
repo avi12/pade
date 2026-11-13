@@ -20,13 +20,19 @@ const MINIMUM_USABLE_ROWS = 4;
  *  layout, and clamping that transient to a 2x1 terminal desynchronises a TUI
  *  permanently (Codex treats it as a real resize). The caller keeps the last
  *  truthful grid instead. */
-export function gridForPane({ width, height, cell }: {
+export function gridForPane({
+  width,
+  height,
+  cell
+}: {
   width: number;
   height: number;
-  cell: {
-    width: number;
-    height: number;
-  } | undefined;
+  cell:
+    | {
+        width: number;
+        height: number;
+      }
+    | undefined;
 }) {
   const isCellUsable = cell !== undefined && cell.width > 0 && cell.height > 0;
   if (!isCellUsable) {
@@ -48,7 +54,11 @@ export function gridForPane({ width, height, cell }: {
 /** How much a grid that is momentarily too tall for its pane has to be scaled by
  *  to fit inside it - 1 whenever it fits, which is every settled state. Undefined
  *  while the font metric has no usable height to measure the grid with. */
-export function squeezeToFit({ rows, cellHeight, paneHeight }: {
+export function squeezeToFit({
+  rows,
+  cellHeight,
+  paneHeight
+}: {
   rows: number;
   cellHeight: number | undefined;
   paneHeight: number;

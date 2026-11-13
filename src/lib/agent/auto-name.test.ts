@@ -1,5 +1,6 @@
-import { namingSignal } from "@/lib/agent/auto-name";
 import { describe, expect, it } from "vitest";
+
+import { namingSignal } from "@/lib/agent/auto-name";
 
 const PROJECT = "C:\\pade\\workspaces\\temp-42";
 

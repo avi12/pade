@@ -12,6 +12,9 @@
 // This module owns the steps and their memory; lib/stores/usage/usagePacing
 // decides when to take them, and the app shell supplies the switch itself.
 
+import { SvelteMap } from "svelte/reactivity";
+import { z } from "zod";
+
 import { windowLabel } from "@/lib/ipc/platform";
 import { cheaperModelChoice, lowerEffortChoice, subagentCap } from "@/lib/model/model-cost";
 import { bareModel, modelLabel, modelName } from "@/lib/model/model-label";
@@ -23,8 +26,6 @@ import { ModelChoice } from "@/lib/types/agent";
 import type { AgentSession } from "@/lib/types/agent";
 import { PacingControlPartKind, PacingStep } from "@/lib/types/pacing";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
-import { SvelteMap } from "svelte/reactivity";
-import { z } from "zod";
 
 /** One step pacing took: which kind, and what the session ran before it. */
 const AdaptStep = z.object({
@@ -59,10 +60,7 @@ function remember() {
   });
 }
 
-function setAdapted({ id, choice }: {
-  id: string;
-  choice: AdaptedChoice | null;
-}) {
+function setAdapted({ id, choice }: { id: string; choice: AdaptedChoice | null }) {
   if (choice === null) {
     adapted.delete(id);
   } else {
@@ -121,10 +119,7 @@ function runningChoice(id: string) {
 
 /** Whether the session still runs what pacing set - the same model, and the
  *  same effort when pacing set one. */
-function isStillPacingsChoice({ id, choice }: {
-  id: string;
-  choice: AdaptedChoice;
-}) {
+function isStillPacingsChoice({ id, choice }: { id: string; choice: AdaptedChoice }) {
   const running = runningChoice(id);
   const isSameModel = running !== null && bareModel(running.model) === bareModel(choice.current.model ?? "");
   const isSameEffort = choice.current.effort === undefined || running?.effort === choice.current.effort;
@@ -133,10 +128,7 @@ function isStillPacingsChoice({ id, choice }: {
 
 /** Cap the session's subagents at `model`, or lift the cap with null. A
  *  session that hasn't started its conversation has no subagents yet. */
-async function capSubagents({ session, model }: {
-  session: AgentSession;
-  model: string | null;
-}) {
+async function capSubagents({ session, model }: { session: AgentSession; model: string | null }) {
   const command = session.agent.command;
   await setControlPart({
     target: {
@@ -145,10 +137,13 @@ async function capSubagents({ session, model }: {
     },
     part: {
       part: PacingControlPartKind.enum.cap,
-      value: model === null ? null : subagentCap({
-        model,
-        options: modelOptions(command)
-      })
+      value:
+        model === null
+          ? null
+          : subagentCap({
+              model,
+              options: modelOptions(command)
+            })
     }
   });
 }
@@ -163,10 +158,7 @@ function describe(choice: ModelChoice) {
 /** What the app shell provides. */
 export interface AdaptHost {
   /** Switch the session to `choice` - the same path a pick from its tab takes. */
-  switchModel: (options: {
-    session: AgentSession;
-    choice: ModelChoice;
-  }) => Promise<void>;
+  switchModel: (options: { session: AgentSession; choice: ModelChoice }) => Promise<void>;
   /** Tell the user what pacing did. */
   announce: (message: string) => void;
 }
@@ -181,11 +173,7 @@ export function createUsageAdapter(host: AdaptHost) {
     adapted.set(id, choice);
   }
 
-  async function switchTo({ session, choice, why }: {
-    session: AgentSession;
-    choice: ModelChoice;
-    why: string;
-  }) {
+  async function switchTo({ session, choice, why }: { session: AgentSession; choice: ModelChoice; why: string }) {
     host.announce(`${session.agent.label} switched to ${describe(choice)} ${why}`);
     await host.switchModel({
       session,
@@ -201,10 +189,12 @@ export function createUsageAdapter(host: AdaptHost) {
       return undefined;
     }
 
-    if (!isStillPacingsChoice({
-      id: session.id,
-      choice
-    })) {
+    if (
+      !isStillPacingsChoice({
+        id: session.id,
+        choice
+      })
+    ) {
       setAdapted({
         id: session.id,
         choice: null
@@ -220,11 +210,7 @@ export function createUsageAdapter(host: AdaptHost) {
   }
 
   /** The choice one `step` cheaper than what the session runs, or null. */
-  function cheaperBy({ step, running, command }: {
-    step: PacingStep;
-    running: ModelChoice;
-    command: string;
-  }) {
+  function cheaperBy({ step, running, command }: { step: PacingStep; running: ModelChoice; command: string }) {
     const options = modelOptions(command);
     const model = running.model ?? "";
     if (step === PacingStep.enum.effort) {
@@ -247,7 +233,11 @@ export function createUsageAdapter(host: AdaptHost) {
 
   /** Take one `step` (effort or model) cheaper. Resolves whether it could -
    *  false at the bottom, or before its agent has reported what it runs. */
-  async function stepDown({ session, restoreAt, step }: {
+  async function stepDown({
+    session,
+    restoreAt,
+    step
+  }: {
     session: AgentSession;
     restoreAt: number;
     step: PacingStep;
@@ -271,10 +261,13 @@ export function createUsageAdapter(host: AdaptHost) {
     setAdapted({
       id: session.id,
       choice: {
-        trail: [...(record?.trail ?? []), {
-          step,
-          previous: running
-        }],
+        trail: [
+          ...(record?.trail ?? []),
+          {
+            step,
+            previous: running
+          }
+        ],
         current: next,
         restoreAt: record?.restoreAt ?? restoreAt
       }
@@ -304,15 +297,17 @@ export function createUsageAdapter(host: AdaptHost) {
     const isStillSteppedDown = rest.length > 0;
     setAdapted({
       id: session.id,
-      choice: isStillSteppedDown ? {
-        ...record,
-        trail: rest,
-        current: last.previous
-      } : null
+      choice: isStillSteppedDown
+        ? {
+            ...record,
+            trail: rest,
+            current: last.previous
+          }
+        : null
     });
     await capSubagents({
       session,
-      model: isStillSteppedDown ? last.previous.model ?? null : null
+      model: isStillSteppedDown ? (last.previous.model ?? null) : null
     });
     await switchTo({
       session,
@@ -349,10 +344,7 @@ export function createUsageAdapter(host: AdaptHost) {
   }
 
   /** Put sessions whose window is about to reset back on the user's own choice. */
-  async function restore({ sessions, now }: {
-    sessions: readonly AgentSession[];
-    now: number;
-  }) {
+  async function restore({ sessions, now }: { sessions: readonly AgentSession[]; now: number }) {
     for (const session of sessions) {
       const record = adapted.get(session.id);
       const isDue = record !== undefined && now >= record.restoreAt;

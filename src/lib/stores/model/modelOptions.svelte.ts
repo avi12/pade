@@ -3,10 +3,11 @@
 // per agent and refreshed whenever a model menu opens, so a catalog the agent
 // re-fetched in the meantime shows up.
 
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { bareModel } from "@/lib/model/model-label";
 import type { ModelOption } from "@/lib/types/agent";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 const optionsByAgent = new SvelteMap<string, ModelOption[]>();
 const requestedCommands = new SvelteSet<string>();
@@ -50,10 +51,7 @@ export function modelOptions(command: string) {
 
 /** The catalog entry for a running model. A reported id may carry a
  *  `provider/` prefix the catalog doesn't, or the reverse, so both forms match. */
-export function modelOption({ command, model }: {
-  command: string;
-  model: string;
-}) {
+export function modelOption({ command, model }: { command: string; model: string }) {
   const bare = bareModel(model);
   return modelOptions(command).find(option => option.id === model || bareModel(option.id) === bare);
 }

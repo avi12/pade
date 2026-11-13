@@ -2,12 +2,13 @@
 // filesystem event arms a cheap marker probe; project-kind and editor stores
 // remain responsible for their own cached state.
 
+import type { UnlistenFn } from "@tauri-apps/api/event";
+
 import { EventType, onMessage } from "@/lib/ipc/messaging";
 import { refreshEditors } from "@/lib/stores/workspace/active-project/editors.svelte";
 import { refreshProjectKind } from "@/lib/stores/workspace/project-rows/projectKinds.svelte";
 import { ChangeKind } from "@/lib/types/feed";
 import { isUnderDirectory } from "@/lib/workspace/relocate/workspace-relocate";
-import type { UnlistenFn } from "@tauri-apps/api/event";
 
 const MARKER_SETTLE_MS = 300;
 
@@ -34,7 +35,8 @@ function scheduleMarkerDetection(project: string) {
   }
 
   markerTimers.set(
-    project, setTimeout(async () => {
+    project,
+    setTimeout(async () => {
       await detectNewProjectMarker(project);
     }, MARKER_SETTLE_MS)
   );
@@ -54,10 +56,12 @@ export async function initNewProjectDetection() {
       }
 
       for (const project of newProjects) {
-        if (isUnderDirectory({
-          directory: event.path,
-          base: project
-        })) {
+        if (
+          isUnderDirectory({
+            directory: event.path,
+            base: project
+          })
+        ) {
           scheduleMarkerDetection(project);
         }
       }

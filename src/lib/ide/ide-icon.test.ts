@@ -1,5 +1,6 @@
-import { ideBrand, ideIcon, IdeId } from "@/lib/ide/ide-icon";
 import { describe, expect, it } from "vitest";
+
+import { ideBrand, ideIcon, IdeId } from "@/lib/ide/ide-icon";
 
 describe("ideIcon", () => {
   it("maps each detected editor id to its brand mark", () => {

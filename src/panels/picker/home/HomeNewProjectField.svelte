@@ -255,6 +255,6 @@
     background: transparent;
     color: inherit;
     font-size: 0.5625rem;
-    opacity: 70%;
+    opacity: 0.7;
   }
 </style>

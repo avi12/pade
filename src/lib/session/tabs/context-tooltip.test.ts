@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { contextTooltip } from "@/lib/session/tabs/context-tooltip";
 import { formatPercent } from "@/lib/util/format";
-import { describe, expect, it } from "vitest";
 
 describe("contextTooltip", () => {
   it("states the agent's own measurement as fact", () => {

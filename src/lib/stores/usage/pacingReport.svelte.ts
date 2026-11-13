@@ -23,10 +23,7 @@ import type { OwnedFacts } from "@/lib/usage/pacing/shadow-report/report-facts";
 const recorder = createObservedRecorder();
 
 /** The pacing loop took a decision on a session. */
-export function recordObserved({ sessionId, kind }: {
-  sessionId: string;
-  kind: ObservedKind;
-}) {
+export function recordObserved({ sessionId, kind }: { sessionId: string; kind: ObservedKind }) {
   recorder.note({
     sessionId,
     kind,
@@ -43,10 +40,13 @@ function choiceOf(session: AgentSession) {
   const original = originalChoice(session.id);
   return choiceFactsOf({
     running: sessionModel(session.id),
-    original: original === null ? null : {
-      model: original.model ?? null,
-      effort: original.effort ?? null
-    },
+    original:
+      original === null
+        ? null
+        : {
+            model: original.model ?? null,
+            effort: original.effort ?? null
+          },
     restoreAt: adaptedChoice(session.id)?.restoreAt ?? null,
     isSteppedDown: adaptedSteps(session.id).length > 0,
     options: modelOptions(session.agent.command)
@@ -55,7 +55,13 @@ function choiceOf(session: AgentSession) {
 
 /** Send this scan's facts and the decisions taken since the last one. A
  *  report that can't be sent is dropped: reporting never stops the loop. */
-export async function sendPacingReport({ sessions, at, isPacingOn, isHandingOff, ownedOf }: {
+export async function sendPacingReport({
+  sessions,
+  at,
+  isPacingOn,
+  isHandingOff,
+  ownedOf
+}: {
   sessions: readonly AgentSession[];
   at: number;
   isPacingOn: boolean;
@@ -82,7 +88,8 @@ export async function sendPacingReport({ sessions, at, isPacingOn, isHandingOff,
             choice: choiceOf(session)
           },
           owned: ownedOf(session)
-        })),
+        })
+      ),
       observed: recorder.drain(at)
     };
     await sendMessage(Command.pacingReport, report);

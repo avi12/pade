@@ -146,7 +146,7 @@
     border-radius: var(--radius-small);
     background: transparent;
     color: var(--on-surface-variant);
-    opacity: var(--row-kebab-opacity, 55%);
+    opacity: var(--row-kebab-opacity, 0.55);
     cursor: pointer;
     transition:
       color 120ms var(--ease),
@@ -167,7 +167,7 @@
     &:hover {
       background: var(--surface-3);
       color: var(--on-surface);
-      opacity: 100%;
+      opacity: 1;
     }
   }
 

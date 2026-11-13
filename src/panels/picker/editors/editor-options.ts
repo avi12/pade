@@ -3,7 +3,11 @@ import type { Ide } from "@/lib/types/editor";
 /** The detected editors that suit a project kind, in the backend's priority
  *  order. An unknown kind (no entry) falls back to every editor rather than
  *  hiding them all; an id that's no longer detected is skipped. */
-export function editorsForKind({ ides, kindOptions, kind }: {
+export function editorsForKind({
+  ides,
+  kindOptions,
+  kind
+}: {
   ides: Ide[];
   kindOptions: Record<string, string[]>;
   kind: string;
@@ -13,9 +17,7 @@ export function editorsForKind({ ides, kindOptions, kind }: {
     return ides;
   }
 
-  return ids
-    .map(id => ides.find(editor => editor.id === id))
-    .filter((editor): editor is Ide => editor !== undefined);
+  return ids.map(id => ides.find(editor => editor.id === id)).filter((editor): editor is Ide => editor !== undefined);
 }
 
 /** A stable, valid popover id/anchor for one editor select (a kind or

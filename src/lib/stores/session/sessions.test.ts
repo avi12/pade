@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   dropSessionStatus,
   isSessionIdle,
@@ -6,14 +8,6 @@ import {
   whenSessionIdle
 } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types/agent";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 // Each promise resolution needs a microtask turn; fake timers cover the
 // timeout path without real waiting.

@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import { SubagentStepKind } from "@/lib/types/pacing";
 import {
   controlThrottle,
@@ -11,7 +13,6 @@ import {
 } from "@/lib/usage/pacing/engine/account-round";
 import type { SessionReport, SubagentSteps, WindowReport } from "@/lib/usage/pacing/engine/account-round";
 import { holdForSaving, MAXIMUM_HOLD_SECONDS, NO_SPAWN_SHED } from "@/lib/usage/pacing/engine/subagent-steps";
-import { describe, expect, it } from "vitest";
 
 const NOW = Date.UTC(2026, 10, 7, 12);
 const ACCOUNT = "avi@example.com";
@@ -61,10 +62,13 @@ describe("the round's leader", () => {
   });
 
   it("drops a window that stopped reporting, so the next one leads", () => {
-    const reports = [{
-      ...windowReport("main", []),
-      at: NOW - 10 * 60_000
-    }, windowReport("window-1", [])];
+    const reports = [
+      {
+        ...windowReport("main", []),
+        at: NOW - 10 * 60_000
+      },
+      windowReport("window-1", [])
+    ];
     const fresh = freshReports({
       reports,
       now: NOW,
@@ -98,18 +102,17 @@ describe("planRound across windows sharing one account", () => {
   });
 
   it("sheds the account's fraction of every window's load once, not once per window", () => {
-    const sessions = ["a", "b", "c", "d"].map(id => session({
-      id,
-      load: 25,
-      overPace: {
-        shed: 0.2,
-        saving: 0.5
-      }
-    }));
-    const { plan } = round([
-      windowReport("main", sessions.slice(0, 2)),
-      windowReport("window-1", sessions.slice(2))
-    ]);
+    const sessions = ["a", "b", "c", "d"].map(id =>
+      session({
+        id,
+        load: 25,
+        overPace: {
+          shed: 0.2,
+          saving: 0.5
+        }
+      })
+    );
+    const { plan } = round([windowReport("main", sessions.slice(0, 2)), windowReport("window-1", sessions.slice(2))]);
     // 20% of 100 needs 20 saved; each step saves 12.5, so two - not four.
     expect(plan.climb).toHaveLength(2);
   });
@@ -126,11 +129,13 @@ describe("planRound across windows sharing one account", () => {
     const background = session({
       id: "background",
       load: 5,
-      subagents: [{
-        id: "a1",
-        description: "Explore the repo",
-        load: 60
-      }]
+      subagents: [
+        {
+          id: "a1",
+          description: "Explore the repo",
+          load: 60
+        }
+      ]
     });
     const { plan, steps } = round([windowReport("main", [front]), windowReport("window-1", [background])]);
     const key = subagentKey({
@@ -166,23 +171,28 @@ describe("planRound across windows sharing one account", () => {
         holdSeconds: 10
       }
     };
-    const sessions = [session({
-      id: "s",
-      load: 1,
-      overPace: {
-        shed: 0.1,
-        saving: 0
-      },
-      subagents: [{
-        id: "a1",
-        description: null,
-        load: 50
-      }, {
-        id: "a2",
-        description: null,
-        load: 1
-      }]
-    })];
+    const sessions = [
+      session({
+        id: "s",
+        load: 1,
+        overPace: {
+          shed: 0.1,
+          saving: 0
+        },
+        subagents: [
+          {
+            id: "a1",
+            description: null,
+            load: 50
+          },
+          {
+            id: "a2",
+            description: null,
+            load: 1
+          }
+        ]
+      })
+    ];
     const { steps: next } = round([windowReport("window-1", sessions)], steps);
     expect(next[key]).toEqual({
       step: SubagentStepKind.enum.wrapUp
@@ -193,13 +203,15 @@ describe("planRound across windows sharing one account", () => {
   it("blocks new subagents on every session of the account only past the threshold", () => {
     function shedding(shed: number) {
       return round([
-        windowReport("main", [session({
-          id: "a",
-          overPace: {
-            shed,
-            saving: 0.2
-          }
-        })]),
+        windowReport("main", [
+          session({
+            id: "a",
+            overPace: {
+              shed,
+              saving: 0.2
+            }
+          })
+        ]),
         windowReport("window-1", [session({ id: "b" })])
       ]).plan.throttles.map(throttle => throttle.isBlockingSpawns);
     }
@@ -212,11 +224,13 @@ describe("planRound across windows sharing one account", () => {
     const other = session({
       id: "other",
       accountKey: "someone@example.com",
-      subagents: [{
-        id: "a1",
-        description: null,
-        load: 90
-      }]
+      subagents: [
+        {
+          id: "a1",
+          description: null,
+          load: 90
+        }
+      ]
     });
     const over = session({
       id: "over",
@@ -261,26 +275,33 @@ describe("planRound across windows sharing one account", () => {
       }
     };
     const reports = [
-      windowReport("main", [session({
-        id: "a",
-        hasRoom: true,
-        subagents: [{
-          id: "a1",
-          description: null,
-          load: 5
-        }]
-      })]),
-      windowReport("window-1", [session({
-        id: "light",
-        load: 2,
-        hasRoom: true,
-        canStepUp: true
-      }), session({
-        id: "heavy",
-        load: 20,
-        hasRoom: true,
-        canStepUp: true
-      })])
+      windowReport("main", [
+        session({
+          id: "a",
+          hasRoom: true,
+          subagents: [
+            {
+              id: "a1",
+              description: null,
+              load: 5
+            }
+          ]
+        })
+      ]),
+      windowReport("window-1", [
+        session({
+          id: "light",
+          load: 2,
+          hasRoom: true,
+          canStepUp: true
+        }),
+        session({
+          id: "heavy",
+          load: 20,
+          hasRoom: true,
+          canStepUp: true
+        })
+      ])
     ];
     const { plan, steps: next } = round(reports, steps);
     expect(next).toEqual({
@@ -303,18 +324,25 @@ describe("planRound across windows sharing one account", () => {
         holdSeconds: 20
       }
     };
-    const { steps: next } = round([
-      windowReport("main", [session({
-        id: "a",
-        hasRoom: true,
-        subagents: [{
-          id: "a1",
-          description: null,
-          load: 5
-        }]
-      })]),
-      windowReport("window-1", [session({ id: "b" })])
-    ], steps);
+    const { steps: next } = round(
+      [
+        windowReport("main", [
+          session({
+            id: "a",
+            hasRoom: true,
+            subagents: [
+              {
+                id: "a1",
+                description: null,
+                load: 5
+              }
+            ]
+          })
+        ]),
+        windowReport("window-1", [session({ id: "b" })])
+      ],
+      steps
+    );
     expect(next).toEqual(steps);
   });
 });
@@ -341,13 +369,15 @@ describe("the wire between windows", () => {
   it("writes a throttle as the control file holds it", () => {
     const throttle = {
       isBlockingSpawns: false,
-      subagents: [{
-        id: "a1",
-        description: null,
-        step: {
-          step: SubagentStepKind.enum.wrapUp
+      subagents: [
+        {
+          id: "a1",
+          description: null,
+          step: {
+            step: SubagentStepKind.enum.wrapUp
+          }
         }
-      }]
+      ]
     };
     expect(isThrottling(throttle)).toBe(true);
     expect(controlThrottle(throttle)).toEqual({

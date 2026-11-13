@@ -1,5 +1,6 @@
-import { xtermSafeColor, xtermTheme } from "@/lib/terminal/theme/terminal-theme";
 import { describe, expect, it } from "vitest";
+
+import { xtermSafeColor, xtermTheme } from "@/lib/terminal/theme/terminal-theme";
 
 describe("xtermSafeColor", () => {
   it("converts primary hues exactly", () => {
@@ -68,10 +69,22 @@ describe("xtermTheme", () => {
 
   it("fills all 16 ANSI slots with parse-safe hex", () => {
     const slots = [
-      theme.black, theme.red, theme.green, theme.yellow,
-      theme.blue, theme.magenta, theme.cyan, theme.white,
-      theme.brightBlack, theme.brightRed, theme.brightGreen, theme.brightYellow,
-      theme.brightBlue, theme.brightMagenta, theme.brightCyan, theme.brightWhite
+      theme.black,
+      theme.red,
+      theme.green,
+      theme.yellow,
+      theme.blue,
+      theme.magenta,
+      theme.cyan,
+      theme.white,
+      theme.brightBlack,
+      theme.brightRed,
+      theme.brightGreen,
+      theme.brightYellow,
+      theme.brightBlue,
+      theme.brightMagenta,
+      theme.brightCyan,
+      theme.brightWhite
     ];
     for (const slot of slots) {
       expect(slot).toMatch(/^#[0-9a-f]{6}$/);

@@ -1,7 +1,8 @@
+import { describe, expect, it } from "vitest";
+
 import { cardView, CardViewKind } from "@/lib/feed/preview/card-view";
 import { PreviewPane } from "@/lib/feed/preview/feed-previews";
 import { FeedVideoKind } from "@/lib/types/feed";
-import { describe, expect, it } from "vitest";
 
 const NOTHING_CACHED = {
   pane: PreviewPane.Code,

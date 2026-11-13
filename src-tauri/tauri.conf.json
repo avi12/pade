@@ -27,9 +27,6 @@
   "bundle": {
     "active": true,
     "publisher": "avi12",
-    "icon": [
-      "icons/icon.png",
-      "icons/icon.ico"
-    ]
+    "icon": ["icons/icon.png", "icons/icon.ico"]
   }
 }

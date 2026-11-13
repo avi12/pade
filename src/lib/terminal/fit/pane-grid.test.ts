@@ -1,5 +1,6 @@
-import { gridForPane, squeezeToFit } from "@/lib/terminal/fit/pane-grid";
 import { describe, expect, it } from "vitest";
+
+import { gridForPane, squeezeToFit } from "@/lib/terminal/fit/pane-grid";
 
 const CELL = {
   width: 8,

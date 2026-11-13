@@ -4,6 +4,9 @@
 // Usage: pnpm lint:size [--update | --init]. --update only ever lowers the
 // baseline; --init writes the first one from the current tree.
 
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+
 import {
   BaselineSchema,
   countCodeLines,
@@ -14,8 +17,6 @@ import {
   tightenBaseline,
   Verdict
 } from "./file-size/file-size.ts";
-import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
 
 const BASELINE_PATH = "scripts/file-size-baseline.json";
 const JSON_INDENT = 2;
@@ -87,6 +88,8 @@ for (const { path, size, recorded } of findings.filter(finding => finding.kind =
 const failures = findings.filter(finding => finding.kind === Verdict.Fail);
 for (const { path, size, recorded } of failures) {
   const allowed = recorded ?? FILE_SIZE_LIMIT;
-  console.error(`${path}: ${size} lines of non-test code, allowed ${allowed} - split it by concern into a semantic subfolder`);
+  console.error(
+    `${path}: ${size} lines of non-test code, allowed ${allowed} - split it by concern into a semantic subfolder`
+  );
 }
 process.exit(failures.length === 0 ? 0 : 1);

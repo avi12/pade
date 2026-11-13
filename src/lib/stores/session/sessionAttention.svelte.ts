@@ -7,12 +7,13 @@
 // API-error sniffers - because Terminal owns the render path and this store only
 // needs to watch for the prompt, never to touch the terminal.
 
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+
 import { detectChoicePrompt } from "@/lib/agent/choice-prompt";
 import { EventType, onMessage } from "@/lib/ipc/messaging";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types/agent";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 /** Sessions with a multiple-choice prompt pending (reactive, so the tab UI
  *  updates as it is set and cleared). */
@@ -64,10 +65,7 @@ function clear(id: string) {
  *   - the agent went back to `working` after settling `ready` (answered), or
  *   - the session exited.
  *  Otherwise (idle at the prompt) the flag stays and the tab keeps flashing. */
-export function reconcileChoiceAttention({ id, isActive }: {
-  id: string;
-  isActive: boolean;
-}) {
+export function reconcileChoiceAttention({ id, isActive }: { id: string; isActive: boolean }) {
   if (!awaiting.get(id)) {
     return;
   }
@@ -89,20 +87,19 @@ function reconcileBackgroundPrompt(id: string) {
     return;
   }
 
-  if (isPromptOver({
-    id,
-    status
-  })) {
+  if (
+    isPromptOver({
+      id,
+      status
+    })
+  ) {
     clear(id);
   }
 }
 
 /** Whether a flagged prompt is over: the agent went back to work after settling
  *  `ready` (answered), or the session exited. */
-function isPromptOver({ id, status }: {
-  id: string;
-  status: SessionStatus;
-}) {
+function isPromptOver({ id, status }: { id: string; status: SessionStatus }) {
   const isAnswered = status === SessionStatus.enum.working && settledReady.has(id);
   return isAnswered || status === SessionStatus.enum.exited;
 }

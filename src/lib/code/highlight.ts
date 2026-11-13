@@ -20,12 +20,12 @@ export const TokenClass = {
 } as const;
 export type TokenClass = (typeof TokenClass)[keyof typeof TokenClass];
 
-export type Token = {
+export interface Token {
   text: string;
   tokenClass: TokenClass;
   /** Resolved swatch color, for `color` tokens. */
   color?: string;
-};
+}
 
 /** The classes that carry a syntax color - plain text and color tokens keep the
  *  default color. */
@@ -41,20 +41,81 @@ const SYNTAX_CLASSES: ReadonlySet<TokenClass> = new Set([
 // A broad, cross-language keyword set. Mis-coloring an identifier that happens to
 // be a keyword in another language is a cosmetic-only cost, so this stays generous.
 const KEYWORDS = new Set([
-  "const", "let", "var", "function", "fn", "def", "return", "if", "else", "elif",
-  "for", "while", "loop", "match", "switch", "case", "default", "break", "continue",
-  "import", "export", "from", "use", "pub", "mod", "package", "require",
-  "class", "struct", "enum", "interface", "type", "trait", "impl", "new",
-  "extends", "implements", "async", "await", "yield", "in", "of", "as", "is",
-  "and", "or", "not", "this", "self", "super", "void", "static", "public",
-  "private", "protected", "throw", "try", "catch", "finally", "do", "then", "end",
-  "true", "false", "null", "undefined", "True", "False", "None"
+  "const",
+  "let",
+  "var",
+  "function",
+  "fn",
+  "def",
+  "return",
+  "if",
+  "else",
+  "elif",
+  "for",
+  "while",
+  "loop",
+  "match",
+  "switch",
+  "case",
+  "default",
+  "break",
+  "continue",
+  "import",
+  "export",
+  "from",
+  "use",
+  "pub",
+  "mod",
+  "package",
+  "require",
+  "class",
+  "struct",
+  "enum",
+  "interface",
+  "type",
+  "trait",
+  "impl",
+  "new",
+  "extends",
+  "implements",
+  "async",
+  "await",
+  "yield",
+  "in",
+  "of",
+  "as",
+  "is",
+  "and",
+  "or",
+  "not",
+  "this",
+  "self",
+  "super",
+  "void",
+  "static",
+  "public",
+  "private",
+  "protected",
+  "throw",
+  "try",
+  "catch",
+  "finally",
+  "do",
+  "then",
+  "end",
+  "true",
+  "false",
+  "null",
+  "undefined",
+  "True",
+  "False",
+  "None"
 ]);
 
 const RGB_HSL_FUNCTION = /^(?:rgba?|hsla?)\(/;
 const COMMENT_OPENERS = ["//", "/*", "<!--"] as const;
 const HASH_COMMENT = /^#+[ \t]/;
-const QUOTES = new Set(["\"", "'", "`"]);
+const QUOTES = new Set(['"', "'", "`"]);
 const DIGIT = /^\d/;
 
 const SCANNER = new RegExp(
@@ -63,7 +124,7 @@ const SCANNER = new RegExp(
     "\\/\\*[\\s\\S]*?\\*\\/", // /* block comment */
     "<!--[\\s\\S]*?-->", // <!-- html/md comment -->
     "#+[ \\t][^\\n]*", // # shell/toml comment · md heading
-    "\"(?:\\\\.|[^\"\\\\])*\"", // "double string"
+    '"(?:\\\\.|[^"\\\\])*"', // "double string"
     "'(?:\\\\.|[^'\\\\])*'", // 'single string'
     "`(?:\\\\.|[^`\\\\])*`", // `template string`
     "#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\\b", // hex color
@@ -137,10 +198,7 @@ function classify(raw: string, variables?: Map<string, string>) {
  *  call; `foo:` a property/key (but not a `::` pseudo-element or a `://` scheme).
  *  This is what makes a CSS diff read - its property names and calls colour, not
  *  just the values that already carry a swatch. */
-function identifierRole({ text, end }: {
-  text: string;
-  end: number;
-}) {
+function identifierRole({ text, end }: { text: string; end: number }) {
   const next = text[end];
   if (next === "(") {
     return TokenClass.Function;
@@ -237,17 +295,21 @@ function markdownProseTokens(line: string) {
 /** The tokens of one markdown line outside a fence. */
 function markdownLineTokens(line: string) {
   if (HEADING_LINE.test(line)) {
-    return [{
-      text: line,
-      tokenClass: TokenClass.Keyword
-    }];
+    return [
+      {
+        text: line,
+        tokenClass: TokenClass.Keyword
+      }
+    ];
   }
 
   if (BLOCKQUOTE_LINE.test(line)) {
-    return [{
-      text: line,
-      tokenClass: TokenClass.Comment
-    }];
+    return [
+      {
+        text: line,
+        tokenClass: TokenClass.Comment
+      }
+    ];
   }
 
   const listMarker = LIST_MARKER.exec(line);

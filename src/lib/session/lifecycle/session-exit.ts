@@ -17,14 +17,14 @@ export const EmptyWorkspaceOutcome = {
 } as const;
 
 /** Whether a session that exited on its own died at launch. */
-export function didFailToStart({ launchedAt, now }: {
-  launchedAt: number;
-  now: number;
-}) {
+export function didFailToStart({ launchedAt, now }: { launchedAt: number; now: number }) {
   return now - launchedAt <= RESPAWN_MINIMUM_LIFETIME_MS;
 }
 
-export function emptyWorkspaceOutcome({ isUnnamedTemp, isFailedStart }: {
+export function emptyWorkspaceOutcome({
+  isUnnamedTemp,
+  isFailedStart
+}: {
   isUnnamedTemp: boolean;
   isFailedStart: boolean;
 }) {

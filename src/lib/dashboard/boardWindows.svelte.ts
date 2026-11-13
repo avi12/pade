@@ -4,6 +4,9 @@
 // or by no longer being among the open windows when one closed without saying
 // so - and ask a window to bring one of its sessions forward.
 
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { onDestroy, onMount } from "svelte";
+
 import {
   BOARD_CHANNEL,
   NO_BOARD_WINDOWS,
@@ -15,10 +18,10 @@ import type { BoardMessage, BoardWindow } from "@/lib/dashboard/agent-board";
 import { BoardMessageKind } from "@/lib/dashboard/agent-board";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
-import type { UnlistenFn } from "@tauri-apps/api/event";
-import { onDestroy, onMount } from "svelte";
 
-export function createBoardWindows({ announcement }: {
+export function createBoardWindows({
+  announcement
+}: {
   /** What this listener posts as it starts, so the windows publish to it. */
   announcement: BoardMessage;
 }) {
@@ -83,10 +86,7 @@ export function createBoardWindows({ announcement }: {
     },
     post,
     /** Bring a window forward on the session the user picked. */
-    async focus({ label, sessionId }: {
-      label: string;
-      sessionId?: string;
-    }) {
+    async focus({ label, sessionId }: { label: string; sessionId?: string }) {
       if (sessionId !== undefined) {
         post({
           kind: BoardMessageKind.enum.focus,

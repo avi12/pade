@@ -4,10 +4,11 @@
 // and a deliberate leave awaits `whenSessionIdle` so nothing mid-flight is
 // severed. A SvelteMap keeps reads reactive across components.
 
+import { SvelteMap } from "svelte/reactivity";
+
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { createSettleWaiters } from "@/lib/stores/session/settle-waiters";
 import { SessionStatus } from "@/lib/types/agent";
-import { SvelteMap } from "svelte/reactivity";
 
 const statuses = new SvelteMap<string, SessionStatus>();
 
@@ -16,10 +17,7 @@ const statuses = new SvelteMap<string, SessionStatus>();
 const idleWaiters = createSettleWaiters();
 
 /** Publish the status of a session (called by its Terminal). */
-export function setSessionStatus({ id, status }: {
-  id: string;
-  status: SessionStatus;
-}) {
+export function setSessionStatus({ id, status }: { id: string; status: SessionStatus }) {
   statuses.set(id, status);
 
   if (isIdleStatus(status)) {
@@ -61,19 +59,19 @@ export function isSessionIdle(id: string) {
  *  it when the waiter has nothing to give up for (the deferred agent re-theme,
  *  which simply has no business acting while a turn is in flight) - the session
  *  ending settles it either way. */
-export function whenSessionIdle({ id, timeoutMs }: {
-  id: string;
-  timeoutMs?: number;
-}) {
+export function whenSessionIdle({ id, timeoutMs }: { id: string; timeoutMs?: number }) {
   if (isSessionIdle(id)) {
     return Promise.resolve();
   }
 
   return new Promise<void>(resolve => {
-    const timer = timeoutMs === undefined ? undefined : setTimeout(() => {
-      idleWaiters.remove(id, settle);
-      resolve();
-    }, timeoutMs);
+    const timer =
+      timeoutMs === undefined
+        ? undefined
+        : setTimeout(() => {
+            idleWaiters.remove(id, settle);
+            resolve();
+          }, timeoutMs);
 
     function settle() {
       clearTimeout(timer);

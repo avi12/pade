@@ -1,13 +1,14 @@
 // Registers the wrapped-URL link provider with xterm: overrides the OSC-8 and addon
 // URL links, and paints the whole-URL hover underline.
 
+import type { ILink, ILinkProvider } from "@xterm/xterm";
+import { z } from "zod";
+
 import { cellText } from "@/lib/terminal/links/wrapped-url/row-content";
 import type { LinkBuffer, LinkTerminal } from "@/lib/terminal/links/wrapped-url/row-content";
 import { isUrl, URL_PATTERN } from "@/lib/terminal/links/wrapped-url/url-pattern";
 import { computeLinks } from "@/lib/terminal/links/wrapped-url/wrapped-lines";
 import type { RowSpan, WrappedLink } from "@/lib/terminal/links/wrapped-url/wrapped-lines";
-import type { ILink, ILinkProvider } from "@xterm/xterm";
-import { z } from "zod";
 
 // The slice of xterm's `Terminal` this registration needs: what `computeLinks`
 // reads, plus `registerLinkProvider` and the DOM/geometry the hover overlay uses
@@ -51,10 +52,7 @@ function screenGeometry(terminal: RegisterableTerminal) {
 // xterm's screen so it scrolls with the text; returns the elements to remove on
 // leave. A span above or below the viewport maps to an off-screen row and is
 // simply positioned there (xterm clips its screen), so nothing extra is needed.
-function paintUnderline({ terminal, spans }: {
-  terminal: RegisterableTerminal;
-  spans: RowSpan[];
-}) {
+function paintUnderline({ terminal, spans }: { terminal: RegisterableTerminal; spans: RowSpan[] }) {
   const geometry = screenGeometry(terminal);
   if (!geometry) {
     return [];
@@ -134,10 +132,7 @@ function linkProviderService(terminal: RegisterableTerminal) {
 // keeps it; deferring every URL-shaped anchor to our provider is what stops
 // xterm's resolution from serving that trailing `.`/`,`/`)` off the anchor behind
 // us.
-function anchorIsUrl({ terminal, link }: {
-  terminal: LinkTerminal;
-  link: ILink;
-}) {
+function anchorIsUrl({ terminal, link }: { terminal: LinkTerminal; link: ILink }) {
   const line = terminal.buffer.active.getLine(link.range.start.y - 1);
   if (!line) {
     return false;
@@ -160,10 +155,7 @@ function anchorIsUrl({ terminal, link }: {
 // wrap-stitched range our provider computes - while labelled and `file:` OSC-8
 // links, which our provider never matches, pass straight through to activate as
 // before.
-function deferUrlsFrom({ terminal, provider }: {
-  terminal: LinkTerminal;
-  provider: ILinkProvider;
-}) {
+function deferUrlsFrom({ terminal, provider }: { terminal: LinkTerminal; provider: ILinkProvider }) {
   return {
     provideLinks(bufferLineNumber, callback) {
       provider.provideLinks(bufferLineNumber, links => {
@@ -173,10 +165,13 @@ function deferUrlsFrom({ terminal, provider }: {
         }
 
         callback(
-          links.filter(link => !anchorIsUrl({
-            terminal,
-            link
-          }))
+          links.filter(
+            link =>
+              !anchorIsUrl({
+                terminal,
+                link
+              })
+          )
         );
       });
     }
@@ -194,10 +189,7 @@ function deferUrlsFrom({ terminal, provider }: {
 // wins outright and no trimmed punctuation survives on the anchor behind it. A
 // labelled OSC-8 link (whose visible text isn't a URL) matches nothing here and
 // still activates through the built-in provider.
-function overrideOscUrlLinks({ terminal, provider }: {
-  terminal: RegisterableTerminal;
-  provider: ILinkProvider;
-}) {
+function overrideOscUrlLinks({ terminal, provider }: { terminal: RegisterableTerminal; provider: ILinkProvider }) {
   const service = linkProviderService(terminal);
   if (!service) {
     return;
@@ -226,7 +218,10 @@ function overrideOscUrlLinks({ terminal, provider }: {
 // xterm's built-in OSC-8 provider for URL-shaped links so an agent's OSC-8-tagged
 // URL gets the same full-URL, no-trailing-punctuation range as a plain-text one;
 // labelled OSC-8 links still reach that provider.
-export function registerWrappedLinkProvider({ terminal, openUrl }: {
+export function registerWrappedLinkProvider({
+  terminal,
+  openUrl
+}: {
   terminal: RegisterableTerminal;
   openUrl: (uri: string) => void;
 }) {
@@ -238,10 +233,12 @@ export function registerWrappedLinkProvider({ terminal, openUrl }: {
         openUrl
       });
       callback(
-        links.map(link => withHoverUnderline({
-          terminal,
-          link
-        }))
+        links.map(link =>
+          withHoverUnderline({
+            terminal,
+            link
+          })
+        )
       );
     }
   };
@@ -255,10 +252,7 @@ export function registerWrappedLinkProvider({ terminal, openUrl }: {
 // Wrap a computed link so hovering paints a tight underline over the WHOLE URL -
 // every row-span, not just the hovered one - and leaving (or discarding the link)
 // removes it. The built-in underline is off, so these elements own the visual.
-function withHoverUnderline({ terminal, link }: {
-  terminal: RegisterableTerminal;
-  link: WrappedLink;
-}) {
+function withHoverUnderline({ terminal, link }: { terminal: RegisterableTerminal; link: WrappedLink }) {
   let elUnderlines: HTMLElement[] = [];
   function clear() {
     for (const elUnderline of elUnderlines) {

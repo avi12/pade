@@ -24,10 +24,7 @@ const LimitPriority = {
 
 type LimitPriorityValue = (typeof LimitPriority)[keyof typeof LimitPriority];
 
-function limitPriority({ limit, limits }: {
-  limit: Limit;
-  limits: Limit[];
-}) {
+function limitPriority({ limit, limits }: { limit: Limit; limits: Limit[] }) {
   const isCreditsCap = limit.kind === UsageWindowKind.enum.credits;
   if (!isCreditsCap) {
     return LimitPriority.Window;
@@ -37,23 +34,20 @@ function limitPriority({ limit, limits }: {
     return LimitPriority.Headroom;
   }
 
-  const isSpentWindowRidingOnCredits = limit.isCarryingWork
-    && limits.some(other => other.kind !== UsageWindowKind.enum.credits
-      && other.percentage >= USAGE_SPENT_PERCENTAGE);
+  const isSpentWindowRidingOnCredits =
+    limit.isCarryingWork &&
+    limits.some(other => other.kind !== UsageWindowKind.enum.credits && other.percentage >= USAGE_SPENT_PERCENTAGE);
   return isSpentWindowRidingOnCredits ? LimitPriority.Carrying : LimitPriority.Headroom;
 }
 
 // A limit paired with its priority, so the ranking below is written once and
 // reused across agents (the spotlight compares each agent's winner).
-export type RankedLimit = {
+export interface RankedLimit {
   limit: Limit;
   priority: LimitPriorityValue;
-};
+}
 
-function rank({ limit, limits }: {
-  limit: Limit;
-  limits: Limit[];
-}) {
+function rank({ limit, limits }: { limit: Limit; limits: Limit[] }) {
   return {
     limit,
     priority: limitPriority({
@@ -65,10 +59,7 @@ function rank({ limit, limits }: {
 
 // The one comparison behind every "worst" in this module: priority first, then
 // the more-consumed limit.
-export function outranks({ candidate, incumbent }: {
-  candidate: RankedLimit;
-  incumbent: RankedLimit;
-}) {
+export function outranks({ candidate, incumbent }: { candidate: RankedLimit; incumbent: RankedLimit }) {
   if (candidate.priority !== incumbent.priority) {
     return candidate.priority > incumbent.priority;
   }
@@ -83,10 +74,12 @@ export function worstRanked(limits: Limit[]) {
       limit,
       limits
     });
-    const isWorstSoFar = !worst || outranks({
-      candidate,
-      incumbent: worst
-    });
+    const isWorstSoFar =
+      !worst ||
+      outranks({
+        candidate,
+        incumbent: worst
+      });
     if (isWorstSoFar) {
       worst = candidate;
     }

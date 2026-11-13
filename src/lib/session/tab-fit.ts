@@ -30,7 +30,11 @@ interface TabPack {
 /** Pack `ids` (in strip order) into the three tiers against `stripWidth`.
  *  `widthOf` supplies each tab's measured full-pill width; a `stripWidth` of 0
  *  (not yet measured) keeps every tab a full pill. */
-export function packTabs({ ids, widthOf, stripWidth }: {
+export function packTabs({
+  ids,
+  widthOf,
+  stripWidth
+}: {
   ids: string[];
   widthOf: (id: string) => number;
   stripWidth: number;

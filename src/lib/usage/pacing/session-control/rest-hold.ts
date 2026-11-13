@@ -14,7 +14,10 @@ export const MAXIMUM_REST_HOLD_MS = 55 * MILLISECONDS_PER_MINUTE;
 
 /** Whether a rest of `restMs` is paused by holding tool calls rather than
  *  stopping the session. */
-export function canHoldRest({ keys, restMs }: {
+export function canHoldRest({
+  keys,
+  restMs
+}: {
   keys: Pick<InterruptKeys, "canHoldToolCalls"> | null;
   restMs: number | null;
 }) {
@@ -24,17 +27,25 @@ export function canHoldRest({ keys, restMs }: {
 
 /** The rest end the hook is asked to hold until (epoch ms): a held pause's, else
  *  null - nothing is held. */
-export function heldRestUntil(state: {
-  isHeld: boolean;
-  restUntil: number | null;
-} | undefined) {
+export function heldRestUntil(
+  state:
+    | {
+        isHeld: boolean;
+        restUntil: number | null;
+      }
+    | undefined
+) {
   return state?.isHeld === true ? state.restUntil : null;
 }
 
 /** Whether a held rest must fall back to the stop: the session still works, and
  *  its hook never noted holding a call since the rest was written - it predates
  *  the hold, or has not run a tool since. */
-export function isHoldFallbackDue({ isWorking, stopSeenAt, restWrittenAt }: {
+export function isHoldFallbackDue({
+  isWorking,
+  stopSeenAt,
+  restWrittenAt
+}: {
   isWorking: boolean;
   stopSeenAt: number | null;
   restWrittenAt: number;

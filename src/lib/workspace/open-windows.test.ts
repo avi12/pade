@@ -1,5 +1,6 @@
-import { isNewWindowClick, isOpenInAnotherWindow, otherWindowWith } from "@/lib/workspace/open-windows";
 import { describe, expect, it } from "vitest";
+
+import { isNewWindowClick, isOpenInAnotherWindow, otherWindowWith } from "@/lib/workspace/open-windows";
 
 const PROJECT = "C:\\repositories\\avi\\poll-avi";
 
@@ -37,11 +38,13 @@ describe("isOpenInAnotherWindow", () => {
   it("finds the project in another window, whatever the path's spelling", () => {
     expect(
       isOpenInAnotherWindow({
-        windowRows: [{
-          label: "main",
-          path: "c:/repositories/avi/poll-avi/",
-          isCurrent: false
-        }],
+        windowRows: [
+          {
+            label: "main",
+            path: "c:/repositories/avi/poll-avi/",
+            isCurrent: false
+          }
+        ],
         path: PROJECT
       })
     ).toBe(true);
@@ -50,11 +53,13 @@ describe("isOpenInAnotherWindow", () => {
   it("ignores this window's own project", () => {
     expect(
       isOpenInAnotherWindow({
-        windowRows: [{
-          label: "main",
-          path: PROJECT,
-          isCurrent: true
-        }],
+        windowRows: [
+          {
+            label: "main",
+            path: PROJECT,
+            isCurrent: true
+          }
+        ],
         path: PROJECT
       })
     ).toBe(false);
@@ -63,11 +68,13 @@ describe("isOpenInAnotherWindow", () => {
   it("ignores other projects", () => {
     expect(
       isOpenInAnotherWindow({
-        windowRows: [{
-          label: "second",
-          path: "C:\\repositories\\avi\\pade",
-          isCurrent: false
-        }],
+        windowRows: [
+          {
+            label: "second",
+            path: "C:\\repositories\\avi\\pade",
+            isCurrent: false
+          }
+        ],
         path: PROJECT
       })
     ).toBe(false);
@@ -78,15 +85,18 @@ describe("otherWindowWith", () => {
   it("names the window to focus for a project open elsewhere", () => {
     expect(
       otherWindowWith({
-        windowRows: [{
-          label: "main",
-          path: "C:\\repositories\\avi\\pade",
-          isCurrent: true
-        }, {
-          label: "second",
-          path: "c:/repositories/avi/poll-avi",
-          isCurrent: false
-        }],
+        windowRows: [
+          {
+            label: "main",
+            path: "C:\\repositories\\avi\\pade",
+            isCurrent: true
+          },
+          {
+            label: "second",
+            path: "c:/repositories/avi/poll-avi",
+            isCurrent: false
+          }
+        ],
         path: PROJECT
       })?.label
     ).toBe("second");

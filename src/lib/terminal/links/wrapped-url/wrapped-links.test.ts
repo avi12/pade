@@ -1,7 +1,8 @@
-import { computeLinks } from "@/lib/terminal/links/wrapped-url/wrapped-lines";
-import { registerWrappedLinkProvider } from "@/lib/terminal/links/wrapped-url/wrapped-link-provider";
 import type { ILink, ILinkProvider } from "@xterm/xterm";
 import { describe, expect, it } from "vitest";
+
+import { computeLinks } from "@/lib/terminal/links/wrapped-url/wrapped-lines";
+import { registerWrappedLinkProvider } from "@/lib/terminal/links/wrapped-url/wrapped-link-provider";
 
 // The `computeLinks`-shaped bits a registration mock needs so it structurally
 // satisfies the exported parameter without a type assertion.
@@ -32,10 +33,7 @@ interface MockRow {
   wrapped?: boolean;
 }
 
-function makeTerminal({ rows, columns }: {
-  rows: MockRow[];
-  columns: number;
-}) {
+function makeTerminal({ rows, columns }: { rows: MockRow[]; columns: number }) {
   function getLine(y: number) {
     const row = rows[y];
     if (!row) {
@@ -105,15 +103,19 @@ const URL_CORPUS = [
 // Every link opens the whole URL, each span stays on its own row, and the spans
 // together cover exactly the URL's glyph count - no padding cell, no dropped
 // glyph - regardless of where the wrap fell.
-function expectRecoversWholeUrl({ links, url, rows, label }: {
+function expectRecoversWholeUrl({
+  links,
+  url,
+  rows,
+  label
+}: {
   links: ILink[];
   url: string;
   rows: number[];
   label: string;
 }) {
   expect(new Set(textsOf(links)), label).toEqual(new Set([url]));
-  const coveredRows = [...new Set(links.map(link => link.range.start.y))]
-    .sort((first, second) => first - second);
+  const coveredRows = [...new Set(links.map(link => link.range.start.y))].sort((first, second) => first - second);
   expect(coveredRows, label).toEqual(rows);
   expectEverySpanSingleRow(links);
   let covered = 0;
@@ -311,10 +313,7 @@ describe("computeLinks", () => {
     const url = "https://example.com/verylongpath";
     const links = computeLinks({
       terminal: makeTerminal({
-        rows: [
-          { text: url.slice(0, 20) },
-          { text: url.slice(20) }
-        ],
+        rows: [{ text: url.slice(0, 20) }, { text: url.slice(20) }],
         columns: 20
       }),
       bufferLineNumber: 1,
@@ -336,10 +335,7 @@ describe("computeLinks", () => {
     // continuation is indented two columns under Claude's text block.
     const links = computeLinks({
       terminal: makeTerminal({
-        rows: [
-          { text: "https://example.com" },
-          { text: "  /verylongpath" }
-        ],
+        rows: [{ text: "https://example.com" }, { text: "  /verylongpath" }],
         columns: 20
       }),
       bufferLineNumber: 2,
@@ -366,10 +362,7 @@ describe("computeLinks", () => {
     // between the URL and the edge are padding an agent left before it wrapped.
     const links = computeLinks({
       terminal: makeTerminal({
-        rows: [
-          { text: "https://example.com/very" },
-          { text: "longpath/here" }
-        ],
+        rows: [{ text: "https://example.com/very" }, { text: "longpath/here" }],
         columns: 60
       }),
       bufferLineNumber: 1,
@@ -386,10 +379,7 @@ describe("computeLinks", () => {
     const url = "https://api.ezcount.co.il/paypal/ipn/7f1f48eb4da946e63704c8a3";
     const links = computeLinks({
       terminal: makeTerminal({
-        rows: [
-          { text: url },
-          { text: "─".repeat(url.length) }
-        ],
+        rows: [{ text: url }, { text: "─".repeat(url.length) }],
         columns: url.length
       }),
       bufferLineNumber: 1,
@@ -412,10 +402,7 @@ describe("computeLinks", () => {
     const upper = `▌ ${first} ${second.slice(0, 20)}`;
     const links = computeLinks({
       terminal: makeTerminal({
-        rows: [
-          { text: upper },
-          { text: `▌ ${second.slice(20)}` }
-        ],
+        rows: [{ text: upper }, { text: `▌ ${second.slice(20)}` }],
         columns: upper.length
       }),
       bufferLineNumber: 1,
@@ -443,10 +430,7 @@ describe("computeLinks", () => {
     const columns = upper.length + 6;
     const links = computeLinks({
       terminal: makeTerminal({
-        rows: [
-          { text: upper + "─".repeat(columns - upper.length) },
-          { text: `% WebFetch ${second}` }
-        ],
+        rows: [{ text: upper + "─".repeat(columns - upper.length) }, { text: `% WebFetch ${second}` }],
         columns
       }),
       bufferLineNumber: 1,
@@ -466,7 +450,9 @@ describe("computeLinks", () => {
     // see this wrap - the URL's own break across the rows must.
     const url = "https://community.getro.com/companies/greylock-2/jobs/74075143-applied-ai-engineer-founding-team";
     const rows = [
-      { text: "3. Applied AI Engineer, Founding Team (https://community.getro.com/companies/greylock-2/jobs/74075143-" },
+      {
+        text: "3. Applied AI Engineer, Founding Team (https://community.getro.com/companies/greylock-2/jobs/74075143-"
+      },
       { text: "   applied-ai-engineer-founding-team)" }
     ];
     for (const bufferLineNumber of [1, 2]) {
@@ -499,10 +485,7 @@ describe("computeLinks", () => {
     const url = "https://job-boards.greenhouse.io/neosecurityinc/jobs/4323679009";
     const links = computeLinks({
       terminal: makeTerminal({
-        rows: [
-          { text: "5. Neo (https://job-boards.greenhouse." },
-          { text: "   io/neosecurityinc/jobs/4323679009)" }
-        ],
+        rows: [{ text: "5. Neo (https://job-boards.greenhouse." }, { text: "   io/neosecurityinc/jobs/4323679009)" }],
         columns: 90
       }),
       bufferLineNumber: 1,
@@ -525,10 +508,7 @@ describe("computeLinks", () => {
     ] as const) {
       const links = computeLinks({
         terminal: makeTerminal({
-          rows: [
-            { text: upper },
-            { text: lower }
-          ],
+          rows: [{ text: upper }, { text: lower }],
           columns: 60
         }),
         bufferLineNumber: 1,
@@ -546,10 +526,7 @@ describe("computeLinks", () => {
     // not be read as the URL continuing.
     const links = computeLinks({
       terminal: makeTerminal({
-        rows: [
-          { text: "See https://developer.chrome.com/docs" },
-          { text: "% WebFetch https://example.com/other" }
-        ],
+        rows: [{ text: "See https://developer.chrome.com/docs" }, { text: "% WebFetch https://example.com/other" }],
         columns: 140
       }),
       bufferLineNumber: 1,
@@ -606,10 +583,7 @@ describe("computeLinks", () => {
   it("joins two full prose rows without inventing a link", () => {
     const links = computeLinks({
       terminal: makeTerminal({
-        rows: [
-          { text: "the quick brown fox " },
-          { text: "jumps the lazy dogs!" }
-        ],
+        rows: [{ text: "the quick brown fox " }, { text: "jumps the lazy dogs!" }],
         columns: 20
       }),
       bufferLineNumber: 1,
@@ -637,10 +611,7 @@ describe("computeLinks", () => {
 // A terminal whose buffer holds a single row of text, plus a mutable provider
 // list under xterm's private `_linkProviderService` - enough for registration to
 // wrap and reorder the built-in providers and for the wrappers to read the row.
-function makeRegisterableTerminal({ row, linkProviders }: {
-  row: string;
-  linkProviders: ILinkProvider[];
-}) {
+function makeRegisterableTerminal({ row, linkProviders }: { row: string; linkProviders: ILinkProvider[] }) {
   return {
     cols: row.length + 6,
     rows: 24,
@@ -678,27 +649,25 @@ function makeRegisterableTerminal({ row, linkProviders }: {
 
 // An OSC-8 provider that links a column span of its row, exactly like xterm's
 // built-in one: `text` is the href, the range spans the visible anchor cells.
-function makeOscProvider({ text, startColumn, endColumn }: {
-  text: string;
-  startColumn: number;
-  endColumn: number;
-}) {
+function makeOscProvider({ text, startColumn, endColumn }: { text: string; startColumn: number; endColumn: number }) {
   return {
     provideLinks(_bufferLineNumber, callback) {
-      callback([{
-        text,
-        range: {
-          start: {
-            x: startColumn + 1,
-            y: 1
+      callback([
+        {
+          text,
+          range: {
+            start: {
+              x: startColumn + 1,
+              y: 1
+            },
+            end: {
+              x: endColumn + 1,
+              y: 1
+            }
           },
-          end: {
-            x: endColumn + 1,
-            y: 1
-          }
-        },
-        activate() {}
-      }]);
+          activate() {}
+        }
+      ]);
     }
   } satisfies ILinkProvider;
 }
@@ -739,11 +708,13 @@ describe("registerWrappedLinkProvider", () => {
     const row = "on https://taki-avi.web.app. All seven fixes ship";
     const anchorStart = row.indexOf("https");
     const sentencePeriod = row.indexOf(". All");
-    const linkProviders: ILinkProvider[] = [makeOscProvider({
-      text: "https://taki-avi.web.app.",
-      startColumn: anchorStart,
-      endColumn: sentencePeriod
-    })];
+    const linkProviders: ILinkProvider[] = [
+      makeOscProvider({
+        text: "https://taki-avi.web.app.",
+        startColumn: anchorStart,
+        endColumn: sentencePeriod
+      })
+    ];
     registerWrappedLinkProvider({
       terminal: makeRegisterableTerminal({
         row,
@@ -784,10 +755,12 @@ describe("registerWrappedLinkProvider", () => {
       }
     };
 
-    expect(() => registerWrappedLinkProvider({
-      terminal,
-      openUrl() {}
-    })).not.toThrow();
+    expect(() =>
+      registerWrappedLinkProvider({
+        terminal,
+        openUrl() {}
+      })
+    ).not.toThrow();
     expect(registered).toHaveLength(1);
   });
 });

@@ -1,9 +1,6 @@
 /** Overwrite `target` in place with exactly `fresh`'s keys, so an optional key
  *  the fresh copy dropped doesn't survive on the reactive original. */
-export function replaceRecord<T extends object>({ target, fresh }: {
-  target: T;
-  fresh: T;
-}) {
+export function replaceRecord<T extends object>({ target, fresh }: { target: T; fresh: T }) {
   for (const key in target) {
     delete target[key];
   }
@@ -13,9 +10,7 @@ export function replaceRecord<T extends object>({ target, fresh }: {
 /** Adopt responses only in request order: a response to an older request that
  *  lands after a newer one has been adopted is dropped rather than rolling the
  *  state back. */
-export function createVersionedAdopter<T>({ adopt }: {
-  adopt: (fresh: T) => void;
-}) {
+export function createVersionedAdopter<T>({ adopt }: { adopt: (fresh: T) => void }) {
   let nextVersion = 0;
   let adoptedVersion = 0;
 
@@ -24,10 +19,7 @@ export function createVersionedAdopter<T>({ adopt }: {
       nextVersion += 1;
       return nextVersion;
     },
-    adopt({ fresh, version }: {
-      fresh: T;
-      version: number;
-    }) {
+    adopt({ fresh, version }: { fresh: T; version: number }) {
       if (version < adoptedVersion) {
         return false;
       }
@@ -39,10 +31,7 @@ export function createVersionedAdopter<T>({ adopt }: {
   };
 }
 
-async function runAfter<T>({ previous, operation }: {
-  previous: Promise<unknown>;
-  operation: () => Promise<T>;
-}) {
+async function runAfter<T>({ previous, operation }: { previous: Promise<unknown>; operation: () => Promise<T> }) {
   await previous;
   return operation();
 }

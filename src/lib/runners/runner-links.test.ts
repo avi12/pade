@@ -1,5 +1,6 @@
-import { linkSegments } from "@/lib/runners/runner-links";
 import { describe, expect, it } from "vitest";
+
+import { linkSegments } from "@/lib/runners/runner-links";
 
 describe("linkSegments", () => {
   it("leaves a line with no URL untouched", () => {

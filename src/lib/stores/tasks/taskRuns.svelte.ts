@@ -20,6 +20,9 @@
 // with it a 132px dock that resized the terminal under the user's cursor every
 // time. So detection nominates; the process tree decides.
 
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { SvelteMap } from "svelte/reactivity";
+
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { isTaskInvocation } from "@/lib/runners/task-detect";
 import {
@@ -32,18 +35,13 @@ import {
 import { taskCatalog, type TaskCatalogSnapshot } from "@/lib/stores/tasks/taskCatalog.svelte";
 import type { TaskGroup } from "@/lib/types/terminal";
 import { settledValue } from "@/lib/util/async/settled";
-import type { UnlistenFn } from "@tauri-apps/api/event";
-import { SvelteMap } from "svelte/reactivity";
 
 /** Joins a task key's two parts. NUL can appear in neither a path nor a shell
  *  command, so the composed key can never collide with a real dir/command pair. */
 const KEY_SEPARATOR = "\u0000";
 
 /** Unique key for a task: its directory + command (matches the Tasks panel). */
-export function taskKey({ directory, command }: {
-  directory: string;
-  command: string;
-}) {
+export function taskKey({ directory, command }: { directory: string; command: string }) {
   return `${directory}${KEY_SEPARATOR}${command}`;
 }
 
@@ -56,11 +54,14 @@ const lastLivenessCheck = new SvelteMap<string, number>();
 /** Whether a task (by key) is currently running (reactive) - a live runner row,
  *  which for an agent-started task means a live process under the agent's tree. */
 export function isTaskRunning(key: string) {
-  return runnerRows().some(row =>
-    !row.isDone && taskKey({
-      directory: row.cwd,
-      command: row.command
-    }) === key);
+  return runnerRows().some(
+    row =>
+      !row.isDone &&
+      taskKey({
+        directory: row.cwd,
+        command: row.command
+      }) === key
+  );
 }
 
 /** One runnable task as the detector needs it: its key + command for matching,
@@ -85,7 +86,8 @@ export function knownTaskCommands(snapshot: TaskCatalogSnapshot) {
       label: task.name,
       kind: group.kind,
       dir: group.dir
-    })));
+    }))
+  );
 }
 
 /** Give a detected task a dock card - but only once the OS agrees a process is
@@ -95,16 +97,21 @@ export function knownTaskCommands(snapshot: TaskCatalogSnapshot) {
  *  It outlives the agent's turn (a dev server keeps running), so nothing clears
  *  it on idle; the liveness poll in `runners` drops the card when the process
  *  exits, and the next real invocation earns a new one. */
-async function attachWhenRunning({ sessionId, task, project }: {
+async function attachWhenRunning({
+  sessionId,
+  task,
+  project
+}: {
   sessionId: string;
   task: KnownTaskCommand;
   /** The project whose catalog listed the task. */
   project: string;
 }) {
-  const isAlreadyShown = attachedRunner({
-    sessionId,
-    command: task.command
-  }) !== undefined;
+  const isAlreadyShown =
+    attachedRunner({
+      sessionId,
+      command: task.command
+    }) !== undefined;
   if (isAlreadyShown) {
     return;
   }
@@ -150,10 +157,12 @@ async function startListeners() {
         const lines = data.data.split("\n");
         const { snapshot } = taskCatalog;
         for (const task of knownTaskCommands(snapshot)) {
-          const isInvocation = lines.some(line => isTaskInvocation({
-            line,
-            command: task.command
-          }));
+          const isInvocation = lines.some(line =>
+            isTaskInvocation({
+              line,
+              command: task.command
+            })
+          );
           if (!isInvocation) {
             continue;
           }

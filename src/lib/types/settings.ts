@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   SIDE_PANEL_MAXIMUM_WIDTH,
   SIDE_PANEL_MINIMUM_WIDTH,
@@ -8,7 +10,6 @@ import { ModelChoice } from "@/lib/types/agent";
 import { AddedEditor } from "@/lib/types/editor";
 import { DiffStyle, TerminalSchemeChoice, ThemeMode, ThemePalette } from "@/lib/types/theme";
 import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
-import { z } from "zod";
 
 export const ConfigFile = z.object({
   name: z.string(),

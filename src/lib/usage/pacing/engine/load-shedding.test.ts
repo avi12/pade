@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import { UsageWindowKind } from "@/lib/types/usage";
 import {
   costWeight,
@@ -7,7 +9,6 @@ import {
   sessionLoad,
   shedFraction
 } from "@/lib/usage/pacing/engine/load-shedding";
-import { describe, expect, it } from "vitest";
 
 const MINUTE_MS = 60_000;
 const NOW = Date.UTC(2026, 9, 30, 12);
@@ -222,10 +223,12 @@ describe("planShedding", () => {
   it("never picks a session with no step left", () => {
     expect(
       planShedding({
-        candidates: [{
-          ...heavy,
-          saving: 0
-        }],
+        candidates: [
+          {
+            ...heavy,
+            saving: 0
+          }
+        ],
         totalLoad: 20,
         fraction: 0.5
       })

@@ -3,13 +3,14 @@
 // panel's "Usage resets" card (which spends them). Spending a reset can't be
 // undone, so a kind's button only opens the one confirmation.
 
+import { SvelteSet } from "svelte/reactivity";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import type { LimitReset } from "@/lib/types/usage";
 import { limitResetKind } from "@/lib/usage/limit-reset/limit-reset-kind";
 import { settledValue } from "@/lib/util/async/settled";
 import { errorMessage } from "@/lib/util/errors/errors";
-import { SvelteSet } from "svelte/reactivity";
 
 let offers = $state<LimitReset[]>([]);
 let isConfirming = $state(false);

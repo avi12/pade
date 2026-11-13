@@ -1,5 +1,6 @@
-import { createSettleWaiters } from "@/lib/stores/session/settle-waiters";
 import { describe, expect, it, vi } from "vitest";
+
+import { createSettleWaiters } from "@/lib/stores/session/settle-waiters";
 
 describe("createSettleWaiters", () => {
   it("settles every waiter on a session once, in the order they were added", () => {

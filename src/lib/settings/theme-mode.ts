@@ -13,10 +13,10 @@ import { ThemeMode, ThemePalette } from "@/lib/types/theme";
 import type { Scheme } from "@/lib/types/theme";
 
 /** What the document root wears: the concrete scheme and the palette over it. */
-type Appearance = {
+interface Appearance {
   scheme: Scheme;
   palette: ThemePalette;
-};
+}
 
 /** The monospace face each palette leads the terminal's font stack with, on top
  *  of the stack theme.css owns. `default` adds none - that stack stands as
@@ -49,8 +49,7 @@ export function adoptedMonospaceFace({
     return face;
   }
 
-  const isWearingPaletteFace =
-    typeof current === "string" && Object.values(PALETTE_MONOSPACE_FACE).includes(current);
+  const isWearingPaletteFace = typeof current === "string" && Object.values(PALETTE_MONOSPACE_FACE).includes(current);
   if (isWearingPaletteFace) {
     return null;
   }

@@ -1,12 +1,7 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { testStandIn } from "@/lib/util/test-stand-in";
 import { runListTransition } from "@/lib/workspace/switcher/windows/list-transition";
-import {
-  afterEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const REDUCED_MOTION = { matches: true };
 const FULL_MOTION = { matches: false };

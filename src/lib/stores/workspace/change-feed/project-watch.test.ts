@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from "vitest";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import {
   heldProjects,
@@ -5,13 +7,12 @@ import {
   rewatchHeldProjects,
   watchHeldProjects
 } from "@/lib/stores/workspace/change-feed/project-watch";
-import { describe, expect, it, vi } from "vitest";
 
 const APP = "C:/work/app";
 const API = "C:/work/api";
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: vi.fn(async () => null)
 }));
 

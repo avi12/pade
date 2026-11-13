@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { FileTone } from "@/lib/feed/filter/file-type/badge-model";
 import { fileExtension, fileTypeBadge } from "@/lib/feed/filter/file-type/file-type";
-import { describe, expect, it } from "vitest";
 
 describe("fileExtension", () => {
   it("keys on the dotted, lowercased extension", () => {
@@ -151,7 +152,15 @@ describe("fileTypeBadge", () => {
   });
 
   it("recognises build-system files by name before their extension", () => {
-    for (const buildFile of ["meson.build", "src/meson.build", "meson_options.txt", "CMakeLists.txt", "Makefile", "rules.mk", "subprojects/zlib.wrap"]) {
+    for (const buildFile of [
+      "meson.build",
+      "src/meson.build",
+      "meson_options.txt",
+      "CMakeLists.txt",
+      "Makefile",
+      "rules.mk",
+      "subprojects/zlib.wrap"
+    ]) {
       expect(fileTypeBadge(buildFile).icon).toBe("build");
     }
   });

@@ -1,36 +1,33 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { cloneRepository } from "@/panels/picker/clone/clone-repository";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const ROOT = "C:\\repositories";
 const SSH_URL = "git@github.com:org/poll.git";
 
 const mocks = vi.hoisted(() => ({
-  clone: vi.fn(async (data: {
-    root: string;
-    name: string;
-  }) => `${data.root}\\${data.name}`)
+  clone: vi.fn(async (data: { root: string; name: string }) => `${data.root}\\${data.name}`)
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
   const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
   return {
     ...messaging,
-    sendMessage: vi.fn(async (command: string, data: {
-      root: string;
-      name: string;
-    }) => {
-      if (command === messaging.Command.vcsClone) {
-        return await mocks.clone(data);
-      }
+    sendMessage: vi.fn(
+      async (
+        command: string,
+        data: {
+          root: string;
+          name: string;
+        }
+      ) => {
+        if (command === messaging.Command.vcsClone) {
+          return await mocks.clone(data);
+        }
 
-      throw new Error(`unexpected command ${command}`);
-    })
+        throw new Error(`unexpected command ${command}`);
+      }
+    )
   };
 });
 

@@ -12,7 +12,10 @@ import { settledValue } from "@/lib/util/async/settled";
  *  no numbers - counts as "enough" so the feature still works. This is what keeps
  *  a handoff with the same agent: only an agent that truly cannot work hands its
  *  session to a different one. */
-export function hasUsageHeadroom({ usedPercentage, credits }: {
+export function hasUsageHeadroom({
+  usedPercentage,
+  credits
+}: {
   usedPercentage: number | null | undefined;
   credits: CreditsState | null | undefined;
 }) {
@@ -29,7 +32,11 @@ export function hasUsageHeadroom({ usedPercentage, credits }: {
  *  the agent can keep going). Once it's out of headroom, the first OTHER
  *  available agent that has headroom takes over (a usage crossover). `null` when
  *  no agent has headroom - the caller stays marked and skips this cycle. */
-export async function pickSuccessor({ current, available, hasHeadroom }: {
+export async function pickSuccessor({
+  current,
+  available,
+  hasHeadroom
+}: {
   current: Agent;
   available: Agent[];
   hasHeadroom: (agentId: string) => Promise<boolean>;
@@ -54,7 +61,12 @@ export async function pickSuccessor({ current, available, hasHeadroom }: {
 /** Pick the successor for a specific handoff trigger. Configuration changes
  * must relaunch the governed agent itself so its fresh process reads that
  * agent's changed config; context handoffs retain quota-based crossover. */
-export async function pickHandoffSuccessor({ reason, current, available, hasHeadroom }: {
+export async function pickHandoffSuccessor({
+  reason,
+  current,
+  available,
+  hasHeadroom
+}: {
   reason: HandoffReason;
   current: Agent;
   available: Agent[];

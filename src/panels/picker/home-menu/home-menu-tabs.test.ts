@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   HOME_MENU_TABS,
   homeMenuPanelId,
@@ -5,7 +7,6 @@ import {
   homeMenuTabId,
   tabSlideDirection
 } from "@/panels/picker/home-menu/home-menu-tabs";
-import { describe, expect, it } from "vitest";
 
 describe("HOME_MENU_TABS", () => {
   it("reads New, Open, Clone", () => {

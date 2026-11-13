@@ -1,9 +1,10 @@
+import { describe, expect, it, vi } from "vitest";
+
 import { createAutoNamer } from "@/lib/agent/auto-name";
 import { EventType } from "@/lib/ipc/messaging";
 import { createTaskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { frontProject, setFrontProjectSource } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import { ChangeKind } from "@/lib/types/feed";
-import { describe, expect, it, vi } from "vitest";
 
 const TEMP = "C:/Users/me/.pade/workspaces/temp-1";
 
@@ -13,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage,
   onMessage: vi.fn(async (event: string, handler: (message: { data: unknown }) => void) => {
     mocks.handlers.set(event, handler);
@@ -73,10 +74,9 @@ describe("frontProject", () => {
       });
     }
 
-    await vi.waitFor(() => expect(mocks.sendMessage).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ path: TEMP })
-    ));
+    await vi.waitFor(() =>
+      expect(mocks.sendMessage).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ path: TEMP }))
+    );
     namer.dispose();
   });
 });

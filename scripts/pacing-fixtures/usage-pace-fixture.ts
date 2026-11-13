@@ -1,16 +1,6 @@
 // The usage-pace fixture: a grid and a seeded scatter of windows, forecasts, rest
 // and weekly-window cases swept through `usage-pace` and `pacing-policy`.
 
-import {
-  between,
-  DAY,
-  HOUR,
-  MINUTE,
-  NOW,
-  perHour,
-  pick,
-  random
-} from "./fixture-primitives";
 import { PacedWindowKind } from "@/lib/types/pacing";
 import { UsageWindowKind } from "@/lib/types/usage";
 import type { AccountUsage, UsageWindow } from "@/lib/types/usage";
@@ -29,7 +19,13 @@ import {
 } from "@/lib/usage/pacing/engine/usage-pace";
 import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/engine/usage-pace";
 
-export function windowOf({ kind, utilization, resetsIn }: {
+import { between, DAY, HOUR, MINUTE, NOW, perHour, pick, random } from "./fixture-primitives";
+
+export function windowOf({
+  kind,
+  utilization,
+  resetsIn
+}: {
   kind: UsageWindow["kind"];
   utilization: number;
   resetsIn: number;
@@ -62,10 +58,7 @@ interface PaceInputs {
   isPaused: boolean;
 }
 
-function lookup({ window, perKind }: {
-  window: UsageWindow;
-  perKind: PerKind;
-}) {
+function lookup({ window, perKind }: { window: UsageWindow; perKind: PerKind }) {
   const kind = PacedWindowKind.safeParse(window.kind);
   return kind.success ? perKind[kind.data] : null;
 }
@@ -75,10 +68,11 @@ function paceParameters(inputs: PaceInputs) {
     account: accountOf(inputs.windows),
     now: NOW,
     marginOf: (kind: PacedWindowKind) => inputs.margins[kind],
-    rateOf: (window: UsageWindow) => lookup({
-      window,
-      perKind: inputs.rates
-    })
+    rateOf: (window: UsageWindow) =>
+      lookup({
+        window,
+        perKind: inputs.rates
+      })
   };
 }
 
@@ -88,7 +82,14 @@ const NO_PACING: PerKind = {
 };
 
 /** One account with a single paced window, the other kind switched off. */
-function singleWindowCase({ kind, utilization, resetsIn, rate, margin, isPaused }: {
+function singleWindowCase({
+  kind,
+  utilization,
+  resetsIn,
+  rate,
+  margin,
+  isPaused
+}: {
   kind: PacedWindowKind;
   utilization: number;
   resetsIn: number;
@@ -97,11 +98,13 @@ function singleWindowCase({ kind, utilization, resetsIn, rate, margin, isPaused 
   isPaused: boolean;
 }) {
   return {
-    windows: [windowOf({
-      kind,
-      utilization,
-      resetsIn
-    })],
+    windows: [
+      windowOf({
+        kind,
+        utilization,
+        resetsIn
+      })
+    ],
     rates: {
       ...NO_PACING,
       [kind]: rate
@@ -124,18 +127,20 @@ const BOTH_WAYS = [false, true];
 
 function sessionGrid() {
   const margins = [15 * MINUTE, 30 * MINUTE];
-  return [59, 75, 95].flatMap(
-    utilization => SESSION_RESETS_IN.flatMap(
-      resetsIn => SESSION_RATES.flatMap(
-        rate => margins.flatMap(
-          margin => BOTH_WAYS.map(isPaused => singleWindowCase({
-            kind: PacedWindowKind.enum.session,
-            utilization,
-            resetsIn,
-            rate,
-            margin,
-            isPaused
-          }))
+  return [59, 75, 95].flatMap(utilization =>
+    SESSION_RESETS_IN.flatMap(resetsIn =>
+      SESSION_RATES.flatMap(rate =>
+        margins.flatMap(margin =>
+          BOTH_WAYS.map(isPaused =>
+            singleWindowCase({
+              kind: PacedWindowKind.enum.session,
+              utilization,
+              resetsIn,
+              rate,
+              margin,
+              isPaused
+            })
+          )
         )
       )
     )
@@ -144,17 +149,19 @@ function sessionGrid() {
 
 function weeklyGrid() {
   const margins = [HOUR, 12 * HOUR];
-  return [60, 75, 95].flatMap(
-    utilization => WEEKLY_RESETS_IN.flatMap(
-      resetsIn => margins.flatMap(
-        margin => BOTH_WAYS.map(isPaused => singleWindowCase({
-          kind: PacedWindowKind.enum.weekly,
-          utilization,
-          resetsIn,
-          rate: perHour(2),
-          margin,
-          isPaused
-        }))
+  return [60, 75, 95].flatMap(utilization =>
+    WEEKLY_RESETS_IN.flatMap(resetsIn =>
+      margins.flatMap(margin =>
+        BOTH_WAYS.map(isPaused =>
+          singleWindowCase({
+            kind: PacedWindowKind.enum.weekly,
+            utilization,
+            resetsIn,
+            rate: perHour(2),
+            margin,
+            isPaused
+          })
+        )
       )
     )
   );
@@ -164,30 +171,38 @@ function weeklyGrid() {
  *  left, where `hasRoomToSpare` flips. */
 function spareBoundaryCases() {
   const ratesPerHour = Array.from({ length: 17 }, (_, step) => 8 + step * 0.25);
-  return ratesPerHour.map(ratePerHour => singleWindowCase({
-    kind: PacedWindowKind.enum.session,
-    utilization: 70,
-    resetsIn: 2 * HOUR + 10 * MINUTE,
-    rate: perHour(ratePerHour),
-    margin: 30 * MINUTE,
-    isPaused: false
-  }));
+  return ratesPerHour.map(ratePerHour =>
+    singleWindowCase({
+      kind: PacedWindowKind.enum.session,
+      utilization: 70,
+      resetsIn: 2 * HOUR + 10 * MINUTE,
+      rate: perHour(ratePerHour),
+      margin: 30 * MINUTE,
+      isPaused: false
+    })
+  );
 }
 
 /** The weekly spends around an even spend three days from the reset, where the
  *  margin decides. */
 function weeklyBoundaryCases() {
-  return Array.from({ length: 21 }, (_, step) => singleWindowCase({
-    kind: PacedWindowKind.enum.weekly,
-    utilization: 50 + step,
-    resetsIn: 3 * DAY,
-    rate: null,
-    margin: HOUR,
-    isPaused: false
-  }));
+  return Array.from({ length: 21 }, (_, step) =>
+    singleWindowCase({
+      kind: PacedWindowKind.enum.weekly,
+      utilization: 50 + step,
+      resetsIn: 3 * DAY,
+      rate: null,
+      margin: HOUR,
+      isPaused: false
+    })
+  );
 }
 
-function scatteredWindow({ kind, utilization, resetsIn }: {
+function scatteredWindow({
+  kind,
+  utilization,
+  resetsIn
+}: {
   kind: UsageWindow["kind"];
   utilization: {
     low: number;
@@ -255,27 +270,29 @@ const SCATTERED_WINDOWS = [
 ];
 
 function scatteredWindows() {
-  const windows = SCATTERED_WINDOWS
-    .filter(draw => random() > draw.absent)
-    .map(draw => scatteredWindow(draw));
+  const windows = SCATTERED_WINDOWS.filter(draw => random() > draw.absent).map(draw => scatteredWindow(draw));
   return random() > 0.5 ? windows.toReversed() : windows;
 }
 
 /** An account with both paced windows (in either order, now and then one of them
  *  missing, now and then a per-model window beside them) drawn at random. */
 function scatteredPaceInputs() {
-  return Array.from({ length: 70 }, () => ({
-    windows: scatteredWindows(),
-    rates: {
-      [PacedWindowKind.enum.session]: pick([null, perHour(10), perHour(30), perHour(60)]),
-      [PacedWindowKind.enum.weekly]: pick([null, perHour(1), perHour(4)])
-    },
-    margins: {
-      [PacedWindowKind.enum.session]: pick([null, 15 * MINUTE, 30 * MINUTE]),
-      [PacedWindowKind.enum.weekly]: pick([null, HOUR, 6 * HOUR, 12 * HOUR])
-    },
-    isPaused: random() > 0.5
-  } satisfies PaceInputs));
+  return Array.from(
+    { length: 70 },
+    () =>
+      ({
+        windows: scatteredWindows(),
+        rates: {
+          [PacedWindowKind.enum.session]: pick([null, perHour(10), perHour(30), perHour(60)]),
+          [PacedWindowKind.enum.weekly]: pick([null, perHour(1), perHour(4)])
+        },
+        margins: {
+          [PacedWindowKind.enum.session]: pick([null, 15 * MINUTE, 30 * MINUTE]),
+          [PacedWindowKind.enum.weekly]: pick([null, HOUR, 6 * HOUR, 12 * HOUR])
+        },
+        isPaused: random() > 0.5
+      }) satisfies PaceInputs
+  );
 }
 
 function assessmentOf(inputs: PaceInputs) {
@@ -353,15 +370,17 @@ function forecastFixtures(grid: PaceInputs[]) {
     .slice(0, OVER_PACE_SOURCE_COUNT)
     .flatMap(({ forecasts: byKind }) => [byKind.session, byKind.weekly])
     .filter((forecast): forecast is PaceForecast => forecast !== undefined);
-  const overPace = forecasts.flatMap(forecast => [15 * MINUTE, 6 * HOUR].map(margin => ({
-    forecast,
-    margin,
-    expected: isForecastOverPace({
+  const overPace = forecasts.flatMap(forecast =>
+    [15 * MINUTE, 6 * HOUR].map(margin => ({
       forecast,
       margin,
-      now: NOW
-    })
-  })));
+      expected: isForecastOverPace({
+        forecast,
+        margin,
+        now: NOW
+      })
+    }))
+  );
   return {
     cases,
     overPace
@@ -370,32 +389,36 @@ function forecastFixtures(grid: PaceInputs[]) {
 
 function restFixtures() {
   const runways = [0, 6 * MINUTE, HOUR, 3 * HOUR, 5 * HOUR, 9 * HOUR];
-  const rhythms = runways.flatMap(runway => [0, 2 * HOUR, 4 * HOUR, 10 * HOUR].map(timeLeft => ({
-    runway,
-    timeLeft,
-    expected: workRhythm({
+  const rhythms = runways.flatMap(runway =>
+    [0, 2 * HOUR, 4 * HOUR, 10 * HOUR].map(timeLeft => ({
       runway,
-      timeLeft
-    })
-  })));
+      timeLeft,
+      expected: workRhythm({
+        runway,
+        timeLeft
+      })
+    }))
+  );
   const continueAt = NOW + 4 * HOUR;
-  const rests = runways.flatMap(runway => [8 * MINUTE, 12 * HOUR].map(readyOffset => ({
-    runway,
-    readyAt: NOW + readyOffset,
-    continueAt,
-    now: NOW,
-    expectedRestUntil: slowRestUntil({
+  const rests = runways.flatMap(runway =>
+    [8 * MINUTE, 12 * HOUR].map(readyOffset => ({
       runway,
       readyAt: NOW + readyOffset,
       continueAt,
-      now: NOW
-    }),
-    expectedIsRestEnough: isRestEnough({
-      runway,
-      continueAt,
-      now: NOW
-    })
-  })));
+      now: NOW,
+      expectedRestUntil: slowRestUntil({
+        runway,
+        readyAt: NOW + readyOffset,
+        continueAt,
+        now: NOW
+      }),
+      expectedIsRestEnough: isRestEnough({
+        runway,
+        continueAt,
+        now: NOW
+      })
+    }))
+  );
   return {
     rhythms,
     rests
@@ -403,11 +426,15 @@ function restFixtures() {
 }
 
 function weeklyWindowFixtures() {
-  const windows = [0, 30, 76, 100].flatMap(utilization => [HOUR, 2 * DAY, 6 * DAY].map(resetsIn => windowOf({
-    kind: UsageWindowKind.enum.weekly,
-    utilization,
-    resetsIn
-  })));
+  const windows = [0, 30, 76, 100].flatMap(utilization =>
+    [HOUR, 2 * DAY, 6 * DAY].map(resetsIn =>
+      windowOf({
+        kind: UsageWindowKind.enum.weekly,
+        utilization,
+        resetsIn
+      })
+    )
+  );
   const readyAt = NOW + 14 * HOUR;
   const continueAt = NOW + 2 * DAY;
   return {
@@ -415,18 +442,20 @@ function weeklyWindowFixtures() {
       window,
       expected: evenSpendReachedAt(window)
     })),
-    runways: windows.flatMap(window => [0, perHour(1), perHour(2)].map(rate => ({
-      window,
-      rate,
-      readyAt,
-      continueAt,
-      expected: workingRunway({
+    runways: windows.flatMap(window =>
+      [0, perHour(1), perHour(2)].map(rate => ({
         window,
         rate,
         readyAt,
-        continueAt
-      })
-    })))
+        continueAt,
+        expected: workingRunway({
+          window,
+          rate,
+          readyAt,
+          continueAt
+        })
+      }))
+    )
   };
 }
 

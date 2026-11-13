@@ -35,10 +35,7 @@ async function askToWatch(roots: string[]) {
 /** The projects a window holds: every session's project, plus the front one
  *  while it has no session yet (just opened, its first agent still launching).
  *  Sorted and unique, so the same set always reads the same. */
-export function heldProjects({ sessionProjects, frontProject }: {
-  sessionProjects: string[];
-  frontProject: string;
-}) {
+export function heldProjects({ sessionProjects, frontProject }: { sessionProjects: string[]; frontProject: string }) {
   const roots = new Set([...sessionProjects, frontProject]);
   roots.delete("");
   return [...roots].sort();

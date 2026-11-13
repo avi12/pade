@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { Command } from "@/lib/ipc/messaging";
 import {
   createApiErrorRetry,
@@ -6,20 +8,13 @@ import {
   parseApiError
 } from "@/lib/stores/agent/apiErrorRetry.svelte";
 import type { AgentSession } from "@/lib/types/agent";
-import {
-  afterEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const mocks = vi.hoisted(() => ({
   sendMessage: vi.fn<(command: Command, data?: unknown) => Promise<unknown>>()
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage
 }));
 
@@ -69,8 +64,8 @@ describe("createApiErrorRetry", () => {
 describe("parseApiError", () => {
   describe("detects an API-side stop", () => {
     it.each([
-      "⎿  API Error: 500 {\"type\":\"error\"}",
-      "{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}",
+      '⎿  API Error: 500 {"type":"error"}',
+      '{"type":"overloaded_error","message":"Overloaded"}',
       "500 Internal Server Error",
       "502 Bad Gateway",
       "503 Service Unavailable",
@@ -103,7 +98,7 @@ describe("parseApiError", () => {
       "Approaching usage limit · resets at 3pm",
       // Claude Code words a limited request as an API error - still a usage limit.
       "Agent terminated early due to an API error: You've hit your session limit · resets 5:30pm (error type rate_limit, HTTP 429)",
-      "API Error: 429 {\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\"}}"
+      'API Error: 429 {"type":"error","error":{"type":"rate_limit_error"}}'
     ])("ignores %j", text => {
       expect(parseApiError({ text })).toBe(false);
     });

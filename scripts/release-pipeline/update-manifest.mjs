@@ -1,7 +1,8 @@
-import { ROOT, run } from "./environment.mjs";
-import { releasePageUrl } from "./github.mjs";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+
+import { ROOT, run } from "./environment.mjs";
+import { releasePageUrl } from "./github.mjs";
 
 const UPDATE_MANIFEST = join(ROOT, "docs", "updates.json");
 

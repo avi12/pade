@@ -3,7 +3,6 @@
   "description": "PADE (Power ADE) - an Agentic Development Environment that wraps your agent CLI in a comprehension-first GUI",
   "license": "Apache-2.0",
   "type": "module",
-  "packageManager": "pnpm@11.1.2",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -60,5 +59,6 @@
     "typescript": "^6.0.3",
     "vite": "^8.3.4",
     "vitest": "^5.0.4"
-  }
+  },
+  "packageManager": "pnpm@11.1.2"
 }

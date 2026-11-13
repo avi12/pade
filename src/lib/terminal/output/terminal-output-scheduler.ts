@@ -11,7 +11,10 @@ const BACKGROUND_TERMINAL_FLUSH_MS = 250;
 const SCROLL_OUTPUT_QUIET_MS = 120;
 const SCROLL_OUTPUT_MAXIMUM_DELAY_MS = 1000;
 
-export function createTerminalOutputScheduler({ write, flushContext }: {
+export function createTerminalOutputScheduler({
+  write,
+  flushContext
+}: {
   /** Hand the joined output to xterm. */
   write: (output: string) => void;
   /** Where the pane stands right now - decides the cadence of the next flush. */

@@ -1,7 +1,8 @@
+import { z } from "zod";
+
 import { ConfigFile, Settings } from "@/lib/types/settings";
 import type { Prefs } from "@/lib/types/settings";
 import { Scheme, TerminalScheme } from "@/lib/types/theme";
-import { z } from "zod";
 
 export const SETTINGS_COMMANDS = {
   configList: "config_list",
@@ -27,10 +28,7 @@ export interface SettingsCommandProtocol {
   [SETTINGS_COMMANDS.terminalSchemes]: () => TerminalScheme[];
   [SETTINGS_COMMANDS.settingsGet]: () => Settings;
   [SETTINGS_COMMANDS.setDefaultAgent]: (data: { agent: string }) => Settings;
-  [SETTINGS_COMMANDS.setProjectAgent]: (data: {
-    path: string;
-    agent: string;
-  }) => Settings;
+  [SETTINGS_COMMANDS.setProjectAgent]: (data: { path: string; agent: string }) => Settings;
   [SETTINGS_COMMANDS.setPrefs]: (data: { patch: Partial<Prefs> }) => Settings;
 }
 

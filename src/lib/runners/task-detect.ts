@@ -27,13 +27,8 @@ function escapeRegExp(value: string) {
  *  paren, or a redirect). This is what lets `pnpm dev` match inside the way an
  *  agent actually runs it - `cd app && pnpm dev 2>&1` - while never matching a
  *  prefix of a longer command like `pnpm dev:prod`. */
-function containsCommand({ text, command }: {
-  text: string;
-  command: string;
-}) {
-  const bounded = new RegExp(
-    `(?:^|[\\s;&|(])${escapeRegExp(command)}(?=$|[\\s;&|)<>])`
-  );
+function containsCommand({ text, command }: { text: string; command: string }) {
+  const bounded = new RegExp(`(?:^|[\\s;&|(])${escapeRegExp(command)}(?=$|[\\s;&|)<>])`);
   return bounded.test(text);
 }
 
@@ -43,14 +38,15 @@ function containsCommand({ text, command }: {
  *  command with a `cd … &&` prefix, env assignments, arguments and redirects, so
  *  the command is matched as a bounded token WITHIN the invocation rather than as
  *  its entire text. */
-export function isTaskInvocation({ line, command }: {
-  line: string;
-  command: string;
-}) {
+export function isTaskInvocation({ line, command }: { line: string; command: string }) {
   const clean = stripAnsi(line).trim();
   const invocations = [TOOL_CALL.exec(clean)?.[1], PROMPT_LINE.exec(clean)?.[1]];
-  return invocations.some(text => text !== undefined && containsCommand({
-    text,
-    command
-  }));
+  return invocations.some(
+    text =>
+      text !== undefined &&
+      containsCommand({
+        text,
+        command
+      })
+  );
 }

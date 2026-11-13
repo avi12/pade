@@ -1,5 +1,6 @@
-import { isFollowedProject, watchedProjectPaths } from "@/lib/stores/workspace/project-rows/followed-projects";
 import { describe, expect, it } from "vitest";
+
+import { isFollowedProject, watchedProjectPaths } from "@/lib/stores/workspace/project-rows/followed-projects";
 
 describe("watchedProjectPaths", () => {
   it("puts the followed projects first and the rows on screen after them", () => {

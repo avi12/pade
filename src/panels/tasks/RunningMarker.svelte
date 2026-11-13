@@ -65,13 +65,13 @@
 
   @keyframes run-tag-spring {
     from {
-      opacity: 0%;
+      opacity: 0;
       scale: 0.6;
       translate: -6px 0;
     }
 
     to {
-      opacity: 100%;
+      opacity: 1;
       scale: 1;
       translate: 0 0;
     }
@@ -89,28 +89,28 @@
 
   @keyframes run-tag-flicker {
     0% {
-      opacity: 0%;
+      opacity: 0;
     }
 
     12% {
-      opacity: 100%;
+      opacity: 1;
     }
 
     22% {
-      opacity: 25%;
+      opacity: 0.25;
     }
 
     36% {
-      opacity: 100%;
+      opacity: 1;
     }
 
     48% {
-      opacity: 45%;
+      opacity: 0.45;
     }
 
     62%,
     100% {
-      opacity: 100%;
+      opacity: 1;
     }
   }
 </style>

@@ -6,11 +6,12 @@
 // one schema - a trust boundary on arrival like any other IPC - and the pure
 // rules around it: which windows a merge can go to, and what it is called.
 
+import { z } from "zod";
+
 import { SnapshotSession } from "@/lib/session/lifecycle/session-restore";
 import { RecordedConversation } from "@/lib/types/chat-storage";
 import type { OpenTarget, WindowInfo } from "@/lib/types/window";
 import { shortDisplayName } from "@/lib/util/paths";
-import { z } from "zod";
 
 /** The closed set of things a window can hand another. */
 export const HandoffKind = z.enum(["sessions", "conversation", "chat"]);
@@ -112,7 +113,10 @@ export function mergeTargets(windowRows: readonly WindowInfo[]) {
 /** The menu item below the open-windows list that merges this window into the
  *  only other one - none when there is no other, or several (each of their
  *  rows carries its own merge action then). */
-export function mergeMenuItemLabel({ windowRows, labels }: {
+export function mergeMenuItemLabel({
+  windowRows,
+  labels
+}: {
   windowRows: readonly WindowInfo[];
   labels: Record<string, string>;
 }) {

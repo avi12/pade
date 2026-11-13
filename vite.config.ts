@@ -1,7 +1,8 @@
-import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { readFileSync } from "node:fs";
 import { relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vitest/config";
 
 // The dev-server port has ONE home: tauri.conf.json's `devUrl` (the port the
@@ -11,9 +12,7 @@ import { defineConfig } from "vitest/config";
 // that port and takes 1430 to avoid colliding with a project launched inside it.
 const tauriConfig: {
   build: { devUrl: string };
-} = JSON.parse(
-  readFileSync(fileURLToPath(new URL("./src-tauri/tauri.conf.json", import.meta.url)), "utf8")
-);
+} = JSON.parse(readFileSync(fileURLToPath(new URL("./src-tauri/tauri.conf.json", import.meta.url)), "utf8"));
 const devServerPort = Number(new URL(tauriConfig.build.devUrl).port);
 
 const PROJECT_ROOT = fileURLToPath(new URL(".", import.meta.url));

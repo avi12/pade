@@ -46,14 +46,14 @@
     align-self: stretch;
     padding-inline: 1px;
     color: var(--on-surface-variant);
-    opacity: 55%;
+    opacity: 0.55;
     cursor: grab;
     touch-action: none;
     transition: color 120ms var(--ease), opacity 120ms var(--ease);
 
     &:hover {
       color: var(--on-surface);
-      opacity: 100%;
+      opacity: 1;
     }
   }
 </style>

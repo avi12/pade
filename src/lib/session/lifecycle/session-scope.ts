@@ -46,10 +46,7 @@ interface SessionState {
   /** What should survive a reload or a hand-off - `undefined` when nothing. */
   save?: (id: string) => unknown;
   /** Take back a value `save` returned, after a reload or a hand-off. */
-  restore?: (restoring: {
-    id: string;
-    saved: unknown;
-  }) => void;
+  restore?: (restoring: { id: string; saved: unknown }) => void;
 }
 
 // Keyed so a store that hot-reloads replaces its registration instead of
@@ -91,10 +88,7 @@ export function savedSessionState(id: string) {
 }
 
 /** Give a session back what `savedSessionState` kept for it. */
-export function restoreSessionState({ id, saved }: {
-  id: string;
-  saved: SavedSessionState;
-}) {
+export function restoreSessionState({ id, saved }: { id: string; saved: SavedSessionState }) {
   for (const [key, state] of registered) {
     const value = saved[key];
     if (value !== undefined) {

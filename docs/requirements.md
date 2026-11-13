@@ -13,6 +13,7 @@ writes.
 ## 1. Functional requirements
 
 ### 1.1 Terminal (✅)
+
 - R1.1.1 Run an agent CLI in a real PTY (Windows ConPTY via `portable-pty`).
 - R1.1.2 Render terminals through xterm's DOM renderer so no terminal owns a
   dedicated WebGL context or VRAM; hidden tabs and unfocused windows also pause
@@ -35,9 +36,9 @@ writes.
   label) and boot re-attaches whatever the backend still hosts (`pty_list` ∩
   snapshot), replaying `pty_history` per pane; the `w=` window query is kept
   rewritten to the project actually on screen so a reload never routes off a
-  stale spawn intent. The key survives the *rebuilt* webview a crash recovery
+  stale spawn intent. The key survives the _rebuilt_ webview a crash recovery
   hands the window, which sessionStorage did not - that gap orphaned live PTYs
-  behind a freshly spawned agent. Never across a *deliberate* app exit: the app
+  behind a freshly spawned agent. Never across a _deliberate_ app exit: the app
   ends every PTY as it exits, so the intersection is empty and the snapshot
   cleared.
 - R1.1.7a ✅ **Agents survive an app that is killed** - a dev rebuild
@@ -53,7 +54,7 @@ writes.
   another protocol version, is replaced.
 - R1.1.8 ✅ **Intent-based leave** - a deliberate leave (back to the picker,
   closing the window) kills the window's agents - of every project it holds -
-  *gracefully*: it
+  _gracefully_: it
   waits per session for the idle prompt (`sessionStatus === ready`, the
   output-quiet signal - never child-process counting, which mis-reads persistent
   MCP servers), capped at 30s, so nothing mid-flight is severed; the agent's
@@ -95,6 +96,7 @@ writes.
   - no switcher, one branch pill, exactly as before.
 
 ### 1.2 Change Feed (✅ core, 🚧 depth)
+
 - R1.2.1 Filesystem watcher emits an event per save (`notify`).
 - R1.2.2 Each event → a card: filename, path, kind, ± line delta, plain summary.
 - R1.2.3 Ignore VCS/build noise (`.git`, `node_modules`, `target`, `dist`, …).
@@ -135,6 +137,7 @@ writes.
   Git-independent.
 
 ### 1.3 Highlight → Agent bridge (✅)
+
 - R1.3.1 Selecting text in a side panel offers "Send to agent".
 - R1.3.2 The selection is injected into the terminal's input.
 - R1.3.3 ✅ Programmatic clipboard, selection, and runner-output sends use
@@ -147,6 +150,7 @@ writes.
   split shows which agent will receive the drop.
 
 ### 1.4 Version-control review panel (✅ core, 🚧 verbs)
+
 - R1.4.1 Behind a git seam (MVP: `git` CLI; `git2`/`gix`/jj later 🔭).
 - R1.4.2 ✅ Working-tree status grouped: unstaged = "unreviewed", staged separate.
 - R1.4.3 ✅ Recent commits (log) with author, message, relative time.
@@ -165,7 +169,7 @@ writes.
   work it never checked out. Git's own refusal - uncommitted changes in the way,
   a branch already held by another worktree - is what the toast says. The pill,
   the member chips and the feed follow HEAD wherever it moved (`git://state`).
-  Working a branch *beside* the current one, rather than in place, stays the new-
+  Working a branch _beside_ the current one, rather than in place, stays the new-
   agent menu's worktree launch.
 - R1.4.4 ✅ Per-file colorized diff view (shared parser `lib/code/diff.ts`; wash tokens).
 - R1.4.5 ⏳ Review verbs on agent commits: approve / send-back / explain.
@@ -176,11 +180,13 @@ writes.
   errors surface). 🔭 `git bisect` oracle plugs into the same `run_git` seam.
 
 ### 1.5 Agent tree (⏳)
+
 - R1.5.1 Show the live spawn hierarchy: root session + subagents/background tasks.
 - R1.5.2 Per-node status (running/waiting/done/merged/error); blocked nodes surface.
 - R1.5.3 🔭 Interrupt/redirect individual nodes.
 
 ### 1.6 Usage meter (✅ meter, 🔭 burn-rate)
+
 - R1.6.1 ✅ Adapt to the running agents - the top-bar meter groups quota **per
   running agent**; agents without a reliable source show an honest "unknown".
 - R1.6.2 ✅ Show % used and reset time. For Claude: the live 5-hour + weekly
@@ -196,6 +202,7 @@ writes.
   alone, so an account with extra usage off never shows (or fetches) one.
 
 ### 1.6a Auto-handoff (✅)
+
 - R1.6a.1 ✅ Track each session's **context-window** fill - parse the agent CLI's
   own indicator from the PTY stream (`lib/stores/agent/context.svelte.ts`), with a
   conservative byte-estimate fallback.
@@ -332,52 +339,52 @@ writes.
   (`lib/model/model-cost.ts`, via the same switch a tab's model pick uses),
   **rests between work** (sized so work and rest average out to a lasting pace
   - the account can afford a duty of runway / time left, where the runway is
-  how long what is left lasts at the measured working burn, for the weekly
-  window too, not the round-the-clock even spend. A cycle of work then rest =
-  work × (1 / duty − 1) does the same total work whatever its length, so the
-  shortest waits come from the shortest useful work stretch, 5 minutes; a rest
-  under 5 minutes is all interruption, so a high duty lengthens the stretch
-  instead. Waits get long only when the account can afford little work, which
-  no rest length changes - while that needs no more rest than work; after a rest it works at least 5
-  minutes before the next, so a "continue" is never cut off at once), and
-  **stop until there's room**, after which the agent continues on its own. The
-  5-hour window stops when a rest would outlast the work; the weekly window
-  never stops, because a stop until it is back on an even spend can last half
-  a day - it keeps resting in bursts instead. Only as many sessions step as the account
-  needs, biggest saving first. A pause types nothing: running work is
-  interrupted (Esc, and stop-all while subagents run) and the PreToolUse hook
-  refuses every further tool call, and "continue" is typed only into work
-  pacing stopped. A rest instead holds the tool calls until it ends, so nothing
-  is interrupted and nothing is continued. A tab's SLOWED / PAUSED badge says, in its hint and its
-  details, when the session is back to normal - each time in the details
-  reads "at 2:49 PM" or, clicked, "in 6h 59m". A live line per limit shows the active agent's spend,
-  when it resets, when it runs out at this pace, and how many sessions pacing
-  slows. Every step undoes itself as room comes back (a cheaper effort or
-  model steps back up once a session runway reaches 1.5 times the time left,
-  or the week is back on its even spend), and everything reverts as the window
-  is about to reset; a choice the user makes in between is theirs to keep.
-  While pacing holds an agent its tab shows **SLOWED** (**PAUSED** while it is
-  stopped); the badge opens why, what it runs now, when it reverts and what
-  pacing did, with **Ease one step**, **Skip this window** and, when stopped or
-  resting, **Resume now**. A stopped agent also shows the note with
-  **Continue anyway**. Pauses and steps are remembered per window across a
-  reload. A prompt sent to an agent pacing holds back - the user pressing
-  Enter, or PADE's own handoff request - takes it over at once: that turn keeps
-  the slower model and effort, but a pause lifts, the hook lets every tool call
-  through (its subagents' included, and new subagents may start), and pacing
-  leaves the run alone until the agent goes quiet - background agents it
-  launched included, not just its main turn - then paces it again. The
-  fresh agent a handoff starts is left alone while it reads the handoff doc -
-  its first two minutes of work, or its first turn if that ends sooner - so
-  pacing can stop it mid-task, but never before it knows what it continues.
-  **Shadow phase of the backend engine:** each scan also reports the window's
-  sessions and the decisions the loop took to the backend, which computes what
-  it would decide and logs how often that agrees; it changes nothing yet. The
-  loop stays the one that decides until the engine is switched on.
+    how long what is left lasts at the measured working burn, for the weekly
+    window too, not the round-the-clock even spend. A cycle of work then rest =
+    work × (1 / duty − 1) does the same total work whatever its length, so the
+    shortest waits come from the shortest useful work stretch, 5 minutes; a rest
+    under 5 minutes is all interruption, so a high duty lengthens the stretch
+    instead. Waits get long only when the account can afford little work, which
+    no rest length changes - while that needs no more rest than work; after a rest it works at least 5
+    minutes before the next, so a "continue" is never cut off at once), and
+    **stop until there's room**, after which the agent continues on its own. The
+    5-hour window stops when a rest would outlast the work; the weekly window
+    never stops, because a stop until it is back on an even spend can last half
+    a day - it keeps resting in bursts instead. Only as many sessions step as the account
+    needs, biggest saving first. A pause types nothing: running work is
+    interrupted (Esc, and stop-all while subagents run) and the PreToolUse hook
+    refuses every further tool call, and "continue" is typed only into work
+    pacing stopped. A rest instead holds the tool calls until it ends, so nothing
+    is interrupted and nothing is continued. A tab's SLOWED / PAUSED badge says, in its hint and its
+    details, when the session is back to normal - each time in the details
+    reads "at 2:49 PM" or, clicked, "in 6h 59m". A live line per limit shows the active agent's spend,
+    when it resets, when it runs out at this pace, and how many sessions pacing
+    slows. Every step undoes itself as room comes back (a cheaper effort or
+    model steps back up once a session runway reaches 1.5 times the time left,
+    or the week is back on its even spend), and everything reverts as the window
+    is about to reset; a choice the user makes in between is theirs to keep.
+    While pacing holds an agent its tab shows **SLOWED** (**PAUSED** while it is
+    stopped); the badge opens why, what it runs now, when it reverts and what
+    pacing did, with **Ease one step**, **Skip this window** and, when stopped or
+    resting, **Resume now**. A stopped agent also shows the note with
+    **Continue anyway**. Pauses and steps are remembered per window across a
+    reload. A prompt sent to an agent pacing holds back - the user pressing
+    Enter, or PADE's own handoff request - takes it over at once: that turn keeps
+    the slower model and effort, but a pause lifts, the hook lets every tool call
+    through (its subagents' included, and new subagents may start), and pacing
+    leaves the run alone until the agent goes quiet - background agents it
+    launched included, not just its main turn - then paces it again. The
+    fresh agent a handoff starts is left alone while it reads the handoff doc -
+    its first two minutes of work, or its first turn if that ends sooner - so
+    pacing can stop it mid-task, but never before it knows what it continues.
+    **Shadow phase of the backend engine:** each scan also reports the window's
+    sessions and the decisions the loop took to the backend, which computes what
+    it would decide and logs how often that agrees; it changes nothing yet. The
+    loop stays the one that decides until the engine is switched on.
 
 - R1.6a.5b 🚧 **Pacing engine, shadow phase** (`docs/pacing-engine.md`) - the
   pacing decisions are being moved from each window's TypeScript into one Rust
-  engine. In this phase the engine only *watches*: every window reports its
+  engine. In this phase the engine only _watches_: every window reports its
   sessions' facts each scan (`pacing_report`), a backend tick reads each account
   once, decides what pacing would do (`src-tauri/src/pacing/engine.rs`) and
   compares it with what the window actually did, writing a bounded log
@@ -386,6 +393,7 @@ writes.
   deleting the TypeScript copies is a later, separate change.
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
+
 - R1.7.1 ✅ Read/surface agent-native project config: `CLAUDE.md`, `AGENTS.md`,
   `.claude/settings*`, Claude/Copilot `.mcp.json`, Copilot `.github/mcp.json`,
   OpenCode `opencode.json`, Codex `.codex/config.toml`, and Cursor
@@ -402,9 +410,11 @@ writes.
   the agent reports that its MCP reload failed.
 
 ### 1.8 Knowledge bank (🔭 for MVP, architected-for)
+
 - Shared, git-backed, two-way (agent writes research; user has full CRUD).
 
 ### 1.9 Workspaces & projects (✅ core)
+
 - R1.9.1 Launch modes: open the cwd when it's a project, else the project
   picker (the homescreen, default) or a throwaway **temp workspace** (opt-in
   `startMode`, which resumes the last project on the way when it has chats).
@@ -446,8 +456,8 @@ writes.
   the agent memory dir (`~/.claude/projects/<encoded-cwd>`; Codex/Gemini TODO),
   IDE recents **gated on the project's marker dir** (`.idea` → JetBrains recents +
   `.idea/*.xml`; `.vscode` → VS Code; `.vscode`/`.cursor` → Cursor - `storage.json`
-  + the `state.vscdb` SQLite recents, via `rusqlite`), and **node_modules** links
-  with absolute targets under the old path (pnpm junctions via `mklink /J`).
+  - the `state.vscdb` SQLite recents, via `rusqlite`), and **node_modules** links
+    with absolute targets under the old path (pnpm junctions via `mklink /J`).
 - R1.9.6 ✅ **Live-agent lock handling on move/rename** - an agent holding the dir
   as cwd locks it (Windows). PADE kills the sessions under it (remembering the
   live ones), does the move/rename, then **resumes** the live ones on the new path
@@ -470,13 +480,13 @@ writes.
   a list that scrolls but never shrinks below 30px, then a non-scrolling
   foot with three ways in behind an ARIA pill tablist (arrow keys switch tabs
   - `lib/ui/roving-tabs.ts`; panels stay mounted - typed state survives
-  switching - and slide in from the side the selection moved toward, pure
-  CSS, instant under reduced motion). Clicking a tab or typing in a field
-  keeps the menu open; a pick closes it. Keyboard: opening focuses the first
-  project row (the selected tab when there are none); Up/Down walk the rows,
-  one Tab stop; Tab moves to the selected tab, Left/Right switch tabs, Down
-  from New steps into its items, and Tab from a tab enters the open panel's
-  first field; Escape closes and returns focus to the trigger:
+    switching - and slide in from the side the selection moved toward, pure
+    CSS, instant under reduced motion). Clicking a tab or typing in a field
+    keeps the menu open; a pick closes it. Keyboard: opening focuses the first
+    project row (the selected tab when there are none); Up/Down walk the rows,
+    one Tab stop; Tab moves to the selected tab, Left/Right switch tabs, Down
+    from New steps into its items, and Tab from a tab enters the open panel's
+    first field; Escape closes and returns focus to the trigger:
   - **New** - "New project in {root}/" per root, naming the project in the
     composer and creating it on Start ("Create and open"), or a throwaway
     workspace.
@@ -521,15 +531,15 @@ writes.
 - R1.9.11 ✅ **Many projects per window.** Picking a project row (or its +)
   starts a new agent session in that project beside every session already open
   - even when the project already runs one - and brings it to the front;
-  nothing is stopped. Picking a recorded conversation resumes it in a new
-  session (or selects the session already running it), a persisted chat is
-  relaunched on its conversation, a live chat is selected. The window's project
-  context - top bar, Change Feed, repository, tasks, editor launcher, title,
-  address - follows the active session; switching never restarts a terminal.
-  The tab strip shows the front project's sessions; the rail is the switcher
-  across projects. Closing a project's last session hands the front to another
-  project; only the window's very last session returns it to the picker or
-  respawns an agent.
+    nothing is stopped. Picking a recorded conversation resumes it in a new
+    session (or selects the session already running it), a persisted chat is
+    relaunched on its conversation, a live chat is selected. The window's project
+    context - top bar, Change Feed, repository, tasks, editor launcher, title,
+    address - follows the active session; switching never restarts a terminal.
+    The tab strip shows the front project's sessions; the rail is the switcher
+    across projects. Closing a project's last session hands the front to another
+    project; only the window's very last session returns it to the picker or
+    respawns an agent.
 - R1.9.12 ✅ **Every live session in the rail, across windows.** The rail marks
   each project's live sessions - this window's, and the ones other PADE windows
   run (with the window glyph and their status) - and never also offers a running
@@ -546,6 +556,7 @@ writes.
   previously active one in front, and this window closes.
 
 ### 1.10 External tool launchers (✅)
+
 - R1.10.1 **IDE menu** - open the active project in an installed editor (`ide.rs`;
   VS Code + its forks (Cursor, Antigravity, Windsurf, VSCodium), JetBrains
   family, Zed, Sublime…). ✅ Ranked by project kind, and ✅ a user-set
@@ -641,6 +652,7 @@ Frontend (Svelte)          Rust core (Tauri)
   theme.css                  usage.rs      (subscription)
                              lib.rs        (wiring only)
 ```
+
 All backend access goes through `lib/ipc/` (`sendMessage` / `onMessage`), zod-validated at the boundary
 (DRY). **User input** is validated the same way at entry via `lib/validate.ts`.
 Cross-component state lives in `lib/stores/*`. Each panel is one concern (SoC);

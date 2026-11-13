@@ -1,13 +1,8 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { PathProbe } from "@/lib/types/workspace";
 import { childPath } from "@/lib/util/paths";
 import { startTempWorkspace, submitNewProject } from "@/panels/picker/home/new-project";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const ROOT = "C:\\repositories";
 const TEMP = "C:\\temp\\workspace-1";
@@ -23,25 +18,30 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
   const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
   return {
     ...messaging,
-    sendMessage: vi.fn(async (command: string, data: {
-      root: string;
-      name: string;
-    }) => {
-      if (command === messaging.Command.workspaceTemp) {
-        return TEMP;
-      }
+    sendMessage: vi.fn(
+      async (
+        command: string,
+        data: {
+          root: string;
+          name: string;
+        }
+      ) => {
+        if (command === messaging.Command.workspaceTemp) {
+          return TEMP;
+        }
 
-      if (command === messaging.Command.workspaceProbePath) {
-        return disk.probe;
-      }
+        if (command === messaging.Command.workspaceProbePath) {
+          return disk.probe;
+        }
 
-      if (command === messaging.Command.workspaceCreate) {
-        created.push(data.name);
-        return `${data.root}\\${data.name}`;
-      }
+        if (command === messaging.Command.workspaceCreate) {
+          created.push(data.name);
+          return `${data.root}\\${data.name}`;
+        }
 
-      throw new Error(`unexpected command ${command}`);
-    })
+        throw new Error(`unexpected command ${command}`);
+      }
+    )
   };
 });
 

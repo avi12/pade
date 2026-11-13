@@ -12,7 +12,13 @@ const DRAG_THRESHOLD = 5;
  *  The close / AI buttons and the rename field carry `data-noreorder`, so a
  *  press on them is theirs; a plain press-and-release still selects. Never
  *  while a pill is being renamed. */
-export function beginTabDrag({ e, isRenaming, onreorder, ondraghint, onsplit }: {
+export function beginTabDrag({
+  e,
+  isRenaming,
+  onreorder,
+  ondraghint,
+  onsplit
+}: {
   e: PointerEvent;
   isRenaming: boolean;
   onreorder?: (orderedIds: string[]) => void;

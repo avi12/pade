@@ -32,10 +32,7 @@ export function baseName(path: string) {
 }
 
 /** A friendly display name: the assigned label if present, else the folder name. */
-export function displayName({ path, labels }: {
-  path: string;
-  labels: Record<string, string>;
-}) {
+export function displayName({ path, labels }: { path: string; labels: Record<string, string> }) {
   return labels[path] ?? baseName(path);
 }
 
@@ -51,10 +48,7 @@ function shortDirectory(path: string) {
 /** A friendly two-segment display name: the assigned label if present, else the
  *  compact "parent/leaf" directory (see `shortDirectory`). The top-bar project chip and
  *  the switcher's open-window rows both read it so they never drift apart. */
-export function shortDisplayName({ path, labels }: {
-  path: string;
-  labels: Record<string, string>;
-}) {
+export function shortDisplayName({ path, labels }: { path: string; labels: Record<string, string> }) {
   return labels[path] ?? shortDirectory(path);
 }
 
@@ -70,20 +64,14 @@ export function parentDirectory(path: string) {
  *  the platform separator so the "<root>\<name>" join never drifts between the
  *  project picker's new-project probe and the app menu's Save-this-workspace
  *  collision check. */
-export function childPath({ parent, name }: {
-  parent: string;
-  name: string;
-}) {
+export function childPath({ parent, name }: { parent: string; name: string }) {
   return `${parent}\\${name}`;
 }
 
 /** Whether `prefix` is a whole-segment prefix of `segments` - how a workspace
  *  member encloses a path, so `apps/web` never captures `apps/web-admin`. The
  *  caller splits (and case-folds) both sides the same way. */
-export function isSegmentPrefix({ prefix, segments }: {
-  prefix: readonly string[];
-  segments: readonly string[];
-}) {
+export function isSegmentPrefix({ prefix, segments }: { prefix: readonly string[]; segments: readonly string[] }) {
   return prefix.length <= segments.length && prefix.every((segment, i) => segment === segments[i]);
 }
 
@@ -98,36 +86,30 @@ export function isTemporaryWorkspace(path: string) {
  *  a wrong but honest label beats a fabricated relative one. Comparison rides
  *  `normalizePath`, so separators, trailing slashes, and Windows casing don't
  *  break the match; the returned segments use "/" uniformly. */
-export function relativeToRoot({ path, root }: {
-  path: string;
-  root: string;
-}) {
+export function relativeToRoot({ path, root }: { path: string; root: string }) {
   const normalizedRoot = normalizePath(root);
   if (normalizePath(path) === normalizedRoot) {
     return "/";
   }
 
-  if (!isPathInside({
-    path,
-    root
-  })) {
+  if (
+    !isPathInside({
+      path,
+      root
+    })
+  ) {
     return path;
   }
 
   // Slice the ORIGINAL path so a case-sensitive tail keeps its casing; only
   // the length of the normalized root matters for the cut.
-  const tail = path
-    .replaceAll("\\", "/")
-    .slice(normalizedRoot.length + 1);
+  const tail = path.replaceAll("\\", "/").slice(normalizedRoot.length + 1);
   return `/${tail}`;
 }
 
 /** Whether `path` lies under `root` (not the root itself), compared the way
  *  `normalizePath` spells both. */
-export function isPathInside({ path, root }: {
-  path: string;
-  root: string;
-}) {
+export function isPathInside({ path, root }: { path: string; root: string }) {
   return normalizePath(path).startsWith(`${normalizePath(root)}/`);
 }
 

@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { matchPaneShortcut, PaneAction } from "@/lib/session/panes/pane-shortcuts";
 import type { KeyChord } from "@/lib/session/tab-shortcuts";
-import { describe, expect, it } from "vitest";
 
 // A chord with every modifier off, overridden per case.
 function chord(overrides: Partial<KeyChord> = {}) {

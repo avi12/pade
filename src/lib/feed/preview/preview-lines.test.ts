@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { DiffKind } from "@/lib/code/diff";
 import { previewLines } from "@/lib/feed/preview/preview-lines";
-import { describe, expect, it } from "vitest";
 
 function kindsOf(lines: ReturnType<typeof previewLines>) {
   return lines.filter(line => line.kind !== DiffKind.Meta).map(line => line.kind);

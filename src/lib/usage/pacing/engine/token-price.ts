@@ -43,11 +43,12 @@ export function priceRatio(model: string) {
 export function weightedTokens(usage: readonly ModelTokenUsage[]) {
   let total = 0;
   for (const entry of usage) {
-    const inputEquivalent = entry.inputTokens * TOKEN_TYPE_WEIGHTS.inputTokens
-      + entry.outputTokens * TOKEN_TYPE_WEIGHTS.outputTokens
-      + entry.cacheReadTokens * TOKEN_TYPE_WEIGHTS.cacheReadTokens
-      + entry.cacheWriteFiveMinuteTokens * TOKEN_TYPE_WEIGHTS.cacheWriteFiveMinuteTokens
-      + entry.cacheWriteOneHourTokens * TOKEN_TYPE_WEIGHTS.cacheWriteOneHourTokens;
+    const inputEquivalent =
+      entry.inputTokens * TOKEN_TYPE_WEIGHTS.inputTokens +
+      entry.outputTokens * TOKEN_TYPE_WEIGHTS.outputTokens +
+      entry.cacheReadTokens * TOKEN_TYPE_WEIGHTS.cacheReadTokens +
+      entry.cacheWriteFiveMinuteTokens * TOKEN_TYPE_WEIGHTS.cacheWriteFiveMinuteTokens +
+      entry.cacheWriteOneHourTokens * TOKEN_TYPE_WEIGHTS.cacheWriteOneHourTokens;
     total += inputEquivalent * priceRatio(entry.model);
   }
 

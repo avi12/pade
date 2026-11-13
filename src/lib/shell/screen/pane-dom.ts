@@ -2,8 +2,9 @@
 // panes and springing a newly added pane in. The layout math itself lives in
 // `@/lib/session/panes/pane-layout` (DOM-free, unit-tested).
 
-import { paneAtPoint } from "@/lib/session/panes/pane-layout";
 import { tick } from "svelte";
+
+import { paneAtPoint } from "@/lib/session/panes/pane-layout";
 
 // The entrance a pane joining a split plays - the slot's own CSS names it
 // (TerminalPanes), so a palette can swap it without touching this module.
@@ -11,13 +12,18 @@ const PANE_ENTER_ANIMATION = "var(--pane-enter-animation)";
 
 /** The shown pane under a point, and which half of it - used both for the live
  *  highlight and for the actual drop, so the two never disagree (DRY). */
-export function paneDropAt({ elPanes, paneIds, x, y }: {
+export function paneDropAt({
+  elPanes,
+  paneIds,
+  x,
+  y
+}: {
   elPanes: HTMLElement | undefined;
   paneIds: readonly string[];
   x: number;
   y: number;
 }) {
-  const slots = [...elPanes?.querySelectorAll<HTMLElement>("[data-pane-id]") ?? []];
+  const slots = [...(elPanes?.querySelectorAll<HTMLElement>("[data-pane-id]") ?? [])];
   const panes = slots
     .filter(slot => paneIds.includes(slot.dataset.paneId ?? ""))
     .map(slot => ({
@@ -37,10 +43,7 @@ export function paneDropAt({ elPanes, paneIds, x, y }: {
  *  on `.shown` would (that wiped the terminal in on any tab change). Clears the
  *  inline animation once it settles so a later show/hide of the same slot can't
  *  replay it. Mirrors the design's imperative `animatePaneIn`. */
-export async function animatePaneIn({ elPanes, id }: {
-  elPanes: HTMLElement | undefined;
-  id: string;
-}) {
+export async function animatePaneIn({ elPanes, id }: { elPanes: HTMLElement | undefined; id: string }) {
   await tick();
   const elSlot = elPanes?.querySelector<HTMLElement>(`[data-pane-id="${id}"]`);
   if (!elSlot) {

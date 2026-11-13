@@ -35,13 +35,7 @@ interface WheelScroll {
 }
 
 // Normalize a wheel delta to pixels, whatever unit it arrived in.
-function wheelDeltaPixels({
-  deltaY,
-  deltaMode
-}: {
-  deltaY: number;
-  deltaMode: number;
-}) {
+function wheelDeltaPixels({ deltaY, deltaMode }: { deltaY: number; deltaMode: number }) {
   if (deltaMode === WheelDeltaMode.Line) {
     return deltaY * PIXELS_PER_WHEEL_LINE;
   }
@@ -62,10 +56,12 @@ export function accumulateWheelNotches({
   deltaMode: number;
   carry: number;
 }) {
-  const total = carry + wheelDeltaPixels({
-    deltaY,
-    deltaMode
-  });
+  const total =
+    carry +
+    wheelDeltaPixels({
+      deltaY,
+      deltaMode
+    });
   const whole = Math.trunc(total / PIXELS_PER_NOTCH);
   const notches = Math.max(-MAX_NOTCHES_PER_EVENT, Math.min(MAX_NOTCHES_PER_EVENT, whole));
   return {

@@ -9,7 +9,7 @@ export const HandoffReason = {
   ConfigurationChange: "configuration-change",
   Save: "save"
 } as const;
-export type HandoffReason = typeof HandoffReason[keyof typeof HandoffReason];
+export type HandoffReason = (typeof HandoffReason)[keyof typeof HandoffReason];
 
 /** The one sentence that opens the handoff request, per reason - the SSOT so the
  *  wording never drifts and adding a reason is one entry, not a new branch. */
@@ -43,27 +43,18 @@ function sessionToken(sessionId: string) {
  *  other session's `waitForFile` (it matches on file name alone), tearing the
  *  wrong - usually idle - session down; the project slug keeps the name
  *  human-readable, the session token keeps it collision-free. */
-export function handoffDocName({ source, sessionId }: {
-  source: string;
-  sessionId: string;
-}) {
+export function handoffDocName({ source, sessionId }: { source: string; sessionId: string }) {
   return `continue-${handoffSlug(source)}-${sessionToken(sessionId)}.md`;
 }
 
 /** The handoff request's text, without any paste framing or submit keystroke -
  *  what the agent is asked to do. The store pastes this and submits it with a
  *  separate, retried Enter (see `submitHandoffRequest`). */
-export function handoffRequestBody({ doc, reason }: {
-  doc: string;
-  reason: HandoffReason;
-}) {
+export function handoffRequestBody({ doc, reason }: { doc: string; reason: HandoffReason }) {
   return `${HANDOFF_TRIGGER[reason]} Please write a concise handoff to ${doc} - the current state, what you've completed, and the exact next steps to continue - then stop.`;
 }
 
-export function handoffPrompt({ doc, reason }: {
-  doc: string;
-  reason: HandoffReason;
-}) {
+export function handoffPrompt({ doc, reason }: { doc: string; reason: HandoffReason }) {
   return submittedPrompt(
     handoffRequestBody({
       doc,

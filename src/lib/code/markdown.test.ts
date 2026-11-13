@@ -1,5 +1,6 @@
-import { markdownDocument, renderMarkdown, sandboxedHtmlDocument } from "@/lib/code/markdown";
 import { describe, expect, it } from "vitest";
+
+import { markdownDocument, renderMarkdown, sandboxedHtmlDocument } from "@/lib/code/markdown";
 
 describe("renderMarkdown block structures", () => {
   it("renders ATX headings at their level", () => {
@@ -27,8 +28,7 @@ describe("renderMarkdown block structures", () => {
   it("renders a GFM pipe table", () => {
     const table = renderMarkdown("| A | B |\n| --- | --- |\n| 1 | 2 |");
     expect(table).toBe(
-      "<table><thead><tr><th>A</th><th>B</th></tr></thead>" +
-        "<tbody><tr><td>1</td><td>2</td></tr></tbody></table>"
+      "<table><thead><tr><th>A</th><th>B</th></tr></thead>" + "<tbody><tr><td>1</td><td>2</td></tr></tbody></table>"
     );
   });
 });
@@ -41,23 +41,17 @@ describe("renderMarkdown inline formatting", () => {
   });
 
   it("leaves snake_case words untouched", () => {
-    expect(renderMarkdown("call read_preview_text now")).toBe(
-      "<p>call read_preview_text now</p>"
-    );
+    expect(renderMarkdown("call read_preview_text now")).toBe("<p>call read_preview_text now</p>");
   });
 
   it("renders inline code without further formatting inside it", () => {
-    expect(renderMarkdown("use `**not bold**` here")).toBe(
-      "<p>use <code>**not bold**</code> here</p>"
-    );
+    expect(renderMarkdown("use `**not bold**` here")).toBe("<p>use <code>**not bold**</code> here</p>");
   });
 
   it("renders links and autolinks", () => {
-    expect(renderMarkdown("[site](https://example.com)")).toBe(
-      "<p><a href=\"https://example.com\">site</a></p>"
-    );
+    expect(renderMarkdown("[site](https://example.com)")).toBe('<p><a href="https://example.com">site</a></p>');
     expect(renderMarkdown("see https://example.com now")).toContain(
-      "<a href=\"https://example.com\">https://example.com</a>"
+      '<a href="https://example.com">https://example.com</a>'
     );
   });
 });
@@ -76,13 +70,13 @@ describe("renderMarkdown safety", () => {
 
   it("neutralises javascript: link URLs to #", () => {
     const html = renderMarkdown("[x](javascript:alert(1))");
-    expect(html).toContain("href=\"#\"");
+    expect(html).toContain('href="#"');
     expect(html).not.toContain("javascript:");
   });
 
   it("neutralises data: link URLs to # (only images may use data:)", () => {
     const html = renderMarkdown("[x](data:text/html,<script>1</script>)");
-    expect(html).toContain("href=\"#\"");
+    expect(html).toContain('href="#"');
   });
 });
 
@@ -90,7 +84,7 @@ describe("markdownDocument", () => {
   it("wraps the fragment in a sandbox-ready document with a strict CSP", () => {
     const document = markdownDocument("# Hi");
     expect(document.startsWith("<!doctype html>")).toBe(true);
-    expect(document).toContain("http-equiv=\"Content-Security-Policy\"");
+    expect(document).toContain('http-equiv="Content-Security-Policy"');
     expect(document).toContain("default-src 'none'");
     expect(document).toContain("img-src data:");
     expect(document).toContain("<h1>Hi</h1>");
@@ -104,7 +98,7 @@ describe("markdownDocument", () => {
 
 describe("sandboxedHtmlDocument", () => {
   it("blocks repository HTML from loading remote or local resources", () => {
-    const document = sandboxedHtmlDocument("<img src=\"https://attacker.example/pixel\">");
+    const document = sandboxedHtmlDocument('<img src="https://attacker.example/pixel">');
     expect(document).toContain("default-src 'none'");
     expect(document).toContain("form-action 'none'");
     expect(document.indexOf("Content-Security-Policy")).toBeLessThan(document.indexOf("attacker.example"));

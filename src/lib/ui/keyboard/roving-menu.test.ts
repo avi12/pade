@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { Key } from "@/lib/ui/keyboard/keys";
 import { arrowListTarget, nextIndex, openFocusIndex } from "@/lib/ui/keyboard/roving-menu";
-import { describe, expect, it } from "vitest";
 
 describe("nextIndex - menu arrow navigation", () => {
   it("ArrowDown advances and wraps; from -1 (no item focused) lands on the first", () => {

@@ -11,10 +11,7 @@
 const SEVERITY_PREFIX = /^(?:fatal|error|warning):\s*/;
 
 /** The one line to show for `error`, or `fallback` when it carries no text. */
-export function errorHeadline({ error, fallback }: {
-  error: unknown;
-  fallback: string;
-}) {
+export function errorHeadline({ error, fallback }: { error: unknown; fallback: string }) {
   const text = error instanceof Error ? error.message : String(error);
   const headline = text.split("\n")[0].replace(SEVERITY_PREFIX, "").trim();
   return headline || fallback;

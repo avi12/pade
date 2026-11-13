@@ -78,7 +78,7 @@
 
     .count {
       font-size: 0.625rem;
-      opacity: 75%;
+      opacity: 0.75;
     }
 
     /* A project's own count is a small plate of its own. */
@@ -88,7 +88,7 @@
       border-radius: var(--radius-full);
       background: var(--surface-3);
       color: var(--on-surface);
-      opacity: 100%;
+      opacity: 1;
     }
   }
 </style>

@@ -1,5 +1,6 @@
-import { ContextLevel, contextLevel, DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
 import { describe, expect, it } from "vitest";
+
+import { ContextLevel, contextLevel, DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
 
 // Severity is relative to whatever threshold the user configured, so the tests
 // exercise the ramp at a mid-range threshold (90) and at the low default.

@@ -11,9 +11,7 @@ const TAB_SELECTOR = "[role=tab]";
 /** Svelte action for a `role="tablist"` element whose tabs select on click. */
 export function rovingTablist(elTablist: HTMLElement) {
   function onKeydown(e: KeyboardEvent) {
-    const elOrigin = e.target instanceof HTMLElement
-      ? e.target.closest<HTMLElement>(TAB_SELECTOR)
-      : null;
+    const elOrigin = e.target instanceof HTMLElement ? e.target.closest<HTMLElement>(TAB_SELECTOR) : null;
     if (!elOrigin) {
       return;
     }
@@ -42,11 +40,7 @@ export function rovingTablist(elTablist: HTMLElement) {
 }
 
 /** The tab index a key moves to, or null for keys the pattern doesn't handle. */
-function nextIndex({ key, from, count }: {
-  key: string;
-  from: number;
-  count: number;
-}) {
+function nextIndex({ key, from, count }: { key: string; from: number; count: number }) {
   switch (key) {
     case Key.ArrowRight:
       return (from + 1) % count;

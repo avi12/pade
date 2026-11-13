@@ -1,10 +1,11 @@
+import { describe, expect, it, vi } from "vitest";
+
 import { AgentId } from "@/lib/agent/agent-icon";
 import {
   colorSchemeReport,
   createColorSchemeRelay,
   enablesColorSchemeNotifications
 } from "@/lib/terminal/theme/terminal-color-scheme";
-import { describe, expect, it, vi } from "vitest";
 
 describe("colorSchemeReport", () => {
   it("reports dark and light through the DEC 2031 status channel", () => {

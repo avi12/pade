@@ -4,10 +4,7 @@ import type { Agent, AgentSession } from "@/lib/types/agent";
 
 /** The status line while a handoff waits for the agent's running work - a turn,
  *  background agents, a dynamic workflow - to finish. */
-export function waitingForWorkNote({ session, reason }: {
-  session: AgentSession;
-  reason: HandoffReason;
-}) {
+export function waitingForWorkNote({ session, reason }: { session: AgentSession; reason: HandoffReason }) {
   const agent = session.agent.label;
   if (reason === HandoffReason.ConfigurationChange) {
     return `MCP servers changed - ${agent} restarts once its running work finishes…`;
@@ -21,7 +18,12 @@ export function waitingForWorkNote({ session, reason }: {
  *  measured number: an unquantified "nearly full" reads as a lie whenever the
  *  user is looking at a different (or fresher) session than the one that hit
  *  the threshold. */
-export function handingOffNote({ session, reason, isMidTurn, successorAgent }: {
+export function handingOffNote({
+  session,
+  reason,
+  isMidTurn,
+  successorAgent
+}: {
   session: AgentSession;
   reason: HandoffReason;
   isMidTurn: boolean;

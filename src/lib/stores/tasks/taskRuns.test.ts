@@ -1,22 +1,13 @@
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+
 import { Command, EventType } from "@/lib/ipc/messaging";
 import { projectRunnerRows, runnerRows, stopRunner } from "@/lib/stores/tasks/runners.svelte";
 import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { adoptRunningTasks, initTaskRunDetection, isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
 import { setFrontProjectSource } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import type { RunnerInfo } from "@/lib/types/terminal";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  type Mock,
-  vi
-} from "vitest";
 
-type PtyChunkHandler = (chunk: {
-  id: string;
-  data: string;
-}) => void;
+type PtyChunkHandler = (chunk: { id: string; data: string }) => void;
 
 type MessageHandler = (message: { data: unknown }) => void;
 
@@ -37,20 +28,24 @@ const mocks = vi.hoisted<{
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage,
   onMessage: mocks.onMessage
 }));
 
-const DEMO_TASKS = [{
-  manifest: "Cargo.toml",
-  dir: "demo",
-  kind: "cargo",
-  tasks: [{
-    name: "check",
-    command: "cargo check"
-  }]
-}];
+const DEMO_TASKS = [
+  {
+    manifest: "Cargo.toml",
+    dir: "demo",
+    kind: "cargo",
+    tasks: [
+      {
+        name: "check",
+        command: "cargo check"
+      }
+    ]
+  }
+];
 
 mocks.sendMessage.mockImplementation(async command => {
   if (command === Command.sessionTaskRunning) {
@@ -181,17 +176,20 @@ describe("task run detection", () => {
 
   it("brings back the card of a task still running once its project lists it", async () => {
     await initTaskRunDetection();
-    mocks.backendRunners = [{
-      id: "run-left-over",
-      command: "cargo check",
-      cwd: "demo",
-      startedAt: 0
-    }, {
-      id: "run-elsewhere",
-      command: "cargo check",
-      cwd: "other",
-      startedAt: 0
-    }];
+    mocks.backendRunners = [
+      {
+        id: "run-left-over",
+        command: "cargo check",
+        cwd: "demo",
+        startedAt: 0
+      },
+      {
+        id: "run-elsewhere",
+        command: "cargo check",
+        cwd: "other",
+        startedAt: 0
+      }
+    ];
 
     await adoptRunningTasks(taskCatalog.snapshot);
     await adoptRunningTasks(taskCatalog.snapshot);

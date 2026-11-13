@@ -32,10 +32,5 @@ export interface HandoffHost {
    *  Returns the new session's id so the doc's consumption can be watched.
    *  `predecessorId` is the session being handed off, so per-session UI state the
    *  shell owns (the ✦ auto-naming toggle) can carry over to the successor. */
-  launchSuccessor: (options: {
-    agent: Agent;
-    cwd?: string;
-    initialPrompt: string;
-    predecessorId: string;
-  }) => string;
+  launchSuccessor: (options: { agent: Agent; cwd?: string; initialPrompt: string; predecessorId: string }) => string;
 }

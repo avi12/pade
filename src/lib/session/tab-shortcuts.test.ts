@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   type KeyChord,
   matchTabSelection,
@@ -5,7 +7,6 @@ import {
   TAB_SHORTCUTS,
   TabAction
 } from "@/lib/session/tab-shortcuts";
-import { describe, expect, it } from "vitest";
 
 // A chord with every modifier off, overridden per case.
 function chord(overrides: Partial<KeyChord> = {}) {
@@ -91,9 +92,7 @@ describe("matchTabShortcut", () => {
           key: "Tab"
         })
       )
-    ).toBe(
-      TabAction.Previous
-    );
+    ).toBe(TabAction.Previous);
   });
 
   it("cycles with Alt+Arrow", () => {

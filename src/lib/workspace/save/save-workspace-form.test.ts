@@ -1,10 +1,11 @@
-import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save/save-workspace-form";
 import { describe, expect, it, vi } from "vitest";
+
+import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save/save-workspace-form";
 
 const mocks = vi.hoisted(() => ({ sendMessage: vi.fn() }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage
 }));
 
@@ -57,20 +58,24 @@ describe("probeSaveTargets", () => {
         name: "poll-board",
         roots: [ROOT]
       })
-    ).toEqual([{
-      name: "poll-board",
-      root: ROOT,
-      exists: false
-    }]);
+    ).toEqual([
+      {
+        name: "poll-board",
+        root: ROOT,
+        exists: false
+      }
+    ]);
   });
 });
 
 describe("isNameTakenIn", () => {
-  const probes = [{
-    name: "poll-board",
-    root: ROOT,
-    exists: true
-  }];
+  const probes = [
+    {
+      name: "poll-board",
+      root: ROOT,
+      exists: true
+    }
+  ];
 
   it("finds the name taken in its root", () => {
     expect(

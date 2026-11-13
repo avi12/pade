@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { encodeChord, normalizeChord } from "@/lib/terminal/input/key-chord";
 import { ENTER, ESCAPE } from "@/lib/terminal/input/terminal-sequences";
-import { describe, expect, it } from "vitest";
 
 const CONTROL_X = String.fromCharCode(0x18);
 const CONTROL_K = String.fromCharCode(0x0b);

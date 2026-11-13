@@ -156,14 +156,16 @@ export type SwitchOutcome = z.infer<typeof SwitchOutcome>;
 /** The model and reasoning effort a session runs, as the agent reported it.
  *  The wire's `ultracode` (Claude's multi-agent orchestration is on for the
  *  session) arrives as the boolean-named `isUltracode`. */
-export const RunningModel = z.object({
-  model: z.string(),
-  effort: z.string().nullable(),
-  ultracode: z.boolean()
-}).transform(({ ultracode, ...reported }) => ({
-  ...reported,
-  isUltracode: ultracode
-}));
+export const RunningModel = z
+  .object({
+    model: z.string(),
+    effort: z.string().nullable(),
+    ultracode: z.boolean()
+  })
+  .transform(({ ultracode, ...reported }) => ({
+    ...reported,
+    isUltracode: ultracode
+  }));
 
 export type RunningModel = z.infer<typeof RunningModel>;
 

@@ -76,7 +76,7 @@
   @media (prefers-reduced-motion: no-preference) {
     .media-wrapper {
       @starting-style {
-        opacity: 0%;
+        opacity: 0;
         translate: 0 8px;
       }
 

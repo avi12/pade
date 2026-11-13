@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   assessLimit,
   isUsageLimitStop,
@@ -9,7 +11,6 @@ import {
 } from "@/lib/stores/usage/usageResume.svelte";
 import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
 import type { AccountUsage } from "@/lib/types/usage";
-import { describe, expect, it } from "vitest";
 
 // A fixed "now": 2026-07-17 10:00 local time.
 const NOW = new Date(2026, 6, 17, 10, 0, 0, 0).getTime();
@@ -88,12 +89,12 @@ describe("parseLimitHit", () => {
     expect(hit?.resetAt).toBe(new Date(2026, 6, 17, 17, 30, 0, 0).getTime());
   });
 
-  it.each([
-    "You've hit your fast limit",
-    "Your usage limit has reset · press enter to continue"
-  ])("ignores %j", text => {
-    expect(isUsageLimitStop(text)).toBe(false);
-  });
+  it.each(["You've hit your fast limit", "Your usage limit has reset · press enter to continue"])(
+    "ignores %j",
+    text => {
+      expect(isUsageLimitStop(text)).toBe(false);
+    }
+  );
 
   it("matches the older phrasing without a window name", () => {
     const hit = parseLimitHit({
@@ -140,10 +141,7 @@ describe("parseLimitHit", () => {
 describe("assessLimit", () => {
   const RESET_AT = new Date(2026, 6, 17, 17, 30, 0, 0).getTime();
 
-  function account({ sessionUtilization, credits }: {
-    sessionUtilization: number;
-    credits?: CreditsState;
-  }) {
+  function account({ sessionUtilization, credits }: { sessionUtilization: number; credits?: CreditsState }) {
     return {
       windows: [
         {

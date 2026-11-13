@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from "vitest";
+
 import {
   HandoffKind,
   handoffPayload,
@@ -8,7 +10,6 @@ import {
   parseHandoffs
 } from "@/lib/shell/handoff/window-handoff";
 import type { WindowHandoff } from "@/lib/shell/handoff/window-handoff";
-import { describe, expect, it, vi } from "vitest";
 
 const PADE = "C:\\repositories\\pade";
 const POLL = "C:\\repositories\\poll";
@@ -66,10 +67,14 @@ describe("hand-off payloads", () => {
       }
     };
     expect(
-      parseHandoffs(["not json", JSON.stringify({
-        kind: "sessions",
-        sessions: []
-      }), handoffPayload(conversation)])
+      parseHandoffs([
+        "not json",
+        JSON.stringify({
+          kind: "sessions",
+          sessions: []
+        }),
+        handoffPayload(conversation)
+      ])
     ).toEqual([conversation]);
   });
 
@@ -120,7 +125,9 @@ describe("joinTargetOf", () => {
 describe("merging this window into another", () => {
   it("offers every other window, and nothing while this one is alone", () => {
     expect(mergeTargets([windowRow("main", PADE, true)])).toEqual([]);
-    expect(mergeTargets([windowRow("main", PADE, true), windowRow("w-1", POLL)]).map(target => target.label)).toEqual(["w-1"]);
+    expect(mergeTargets([windowRow("main", PADE, true), windowRow("w-1", POLL)]).map(target => target.label)).toEqual([
+      "w-1"
+    ]);
   });
 
   it("names the one other window in the menu item, and skips the item for several", () => {

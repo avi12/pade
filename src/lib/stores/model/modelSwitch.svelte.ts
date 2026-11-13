@@ -12,13 +12,14 @@
 // handoff is already under way is kept for the successor instead of being
 // typed into a session that is about to end (`choiceForSuccessor`).
 
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActivity.svelte";
 import { whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
 import { SwitchOutcome } from "@/lib/types/agent";
 import type { AgentSession, ModelChoice } from "@/lib/types/agent";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 /** What a pending switch is waiting for, as the menu tells it. */
 export const SwitchWait = {
@@ -73,10 +74,7 @@ export interface ModelSwitchHost {
   isHandingOff: (id: string) => boolean;
   /** Remember the choice on the session, so every later launch of it (a
    *  restart, a reattach) keeps running it. */
-  rememberChoice: (options: {
-    id: string;
-    choice: ModelChoice;
-  }) => void;
+  rememberChoice: (options: { id: string; choice: ModelChoice }) => void;
   /** Relaunch the session on its own conversation (it launches with the
    *  remembered choice). Resolves once the relaunch has been started. */
   relaunch: (id: string) => Promise<void>;
@@ -96,11 +94,7 @@ async function untilQuiet(id: string) {
 }
 
 export function createModelSwitcher(host: ModelSwitchHost) {
-  function setPending({ id, choice, waitingFor }: {
-    id: string;
-    choice: ModelChoice;
-    waitingFor: SwitchWait;
-  }) {
+  function setPending({ id, choice, waitingFor }: { id: string; choice: ModelChoice; waitingFor: SwitchWait }) {
     pendingBySession.set(id, {
       choice,
       waitingFor
@@ -118,10 +112,7 @@ export function createModelSwitcher(host: ModelSwitchHost) {
     await host.relaunch(session.id);
   }
 
-  async function apply({ session, choice }: {
-    session: AgentSession;
-    choice: ModelChoice;
-  }) {
+  async function apply({ session, choice }: { session: AgentSession; choice: ModelChoice }) {
     const conversationId = session.conversationId;
     if (conversationId === undefined) {
       return;
@@ -152,10 +143,7 @@ export function createModelSwitcher(host: ModelSwitchHost) {
 
   /** Switch `session` to a picked model and/or effort - merged over a switch
    *  still pending, so a model then an effort picked quickly land together. */
-  async function request({ session, choice }: {
-    session: AgentSession;
-    choice: ModelChoice;
-  }) {
+  async function request({ session, choice }: { session: AgentSession; choice: ModelChoice }) {
     const merged: ModelChoice = {
       ...pendingBySession.get(session.id)?.choice,
       ...choice

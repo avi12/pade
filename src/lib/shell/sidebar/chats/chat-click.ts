@@ -44,7 +44,12 @@ type ChatClickAction = (typeof ChatClickAction)[keyof typeof ChatClickAction];
 /** What a click on a chat row does. A session another window runs is always
  *  brought forward there - it already has its own window, so even a
  *  new-window click only focuses it. */
-export function chatClickAction({ isLiveHere, elsewhereWindow, isRecorded, opensNewWindow }: {
+export function chatClickAction({
+  isLiveHere,
+  elsewhereWindow,
+  isRecorded,
+  opensNewWindow
+}: {
   isLiveHere: boolean;
   /** The other window that runs it, if one does. */
   elsewhereWindow: string | undefined;
@@ -79,10 +84,7 @@ export interface ChatClickHost {
   /** Bring this window's session forward. */
   select: (id: string) => void;
   /** Focus another window and bring its session forward there. */
-  focusElsewhere: (target: {
-    label: string;
-    sessionId: string;
-  }) => Promise<void>;
+  focusElsewhere: (target: { label: string; sessionId: string }) => Promise<void>;
   moveToNewWindow: (session: AgentSession) => Promise<void>;
   reopenInNewWindow: (handoff: WindowHandoff) => Promise<void>;
   /** Resume or relaunch it here, beside the open sessions. */
@@ -90,7 +92,15 @@ export interface ChatClickHost {
 }
 
 /** Carry out a chat click: decide with `chatClickAction`, then run it. */
-export async function runChatClick({ host, liveSession, elsewhere, isRecorded, opensNewWindow, reopen, openHere }: {
+export async function runChatClick({
+  host,
+  liveSession,
+  elsewhere,
+  isRecorded,
+  opensNewWindow,
+  reopen,
+  openHere
+}: {
   host: ChatClickHost;
   /** This window's session running the chat, if any. */
   liveSession: AgentSession | undefined;
@@ -126,10 +136,12 @@ export async function runChatClick({ host, liveSession, elsewhere, isRecorded, o
     [ChatClickAction.Resume]: async () => await host.openHere(openHere),
     [ChatClickAction.Relaunch]: async () => await host.openHere(openHere)
   };
-  await handlers[chatClickAction({
-    isLiveHere: liveSession !== undefined,
-    elsewhereWindow: elsewhere?.windowLabel,
-    isRecorded,
-    opensNewWindow
-  })]();
+  await handlers[
+    chatClickAction({
+      isLiveHere: liveSession !== undefined,
+      elsewhereWindow: elsewhere?.windowLabel,
+      isRecorded,
+      opensNewWindow
+    })
+  ]();
 }

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { NO_REPLY } from "@/lib/ipc/domains/no-reply";
 import {
   Agent,
@@ -16,7 +18,6 @@ import type { PacingControlPartKind, PacingRestUntil, PacingThrottle } from "@/l
 import type { Scheme } from "@/lib/types/theme";
 import { ShadowSummary } from "@/lib/usage/pacing/shadow-report/pacing-report";
 import type { PacingReport } from "@/lib/usage/pacing/shadow-report/pacing-report";
-import { z } from "zod";
 
 export const AGENT_COMMANDS = {
   agentsDetect: "agents_detect",
@@ -73,22 +74,26 @@ export interface AgentCommandProtocol {
   [AGENT_COMMANDS.agentSetPacingControl]: (data: {
     command: string;
     conversationId: string;
-    part: {
-      part: typeof PacingControlPartKind.enum.cap;
-      value: {
-        model: string;
-        allowedModels: string[];
-      } | null;
-    } | {
-      part: typeof PacingControlPartKind.enum.stop;
-      value: boolean;
-    } | {
-      part: typeof PacingControlPartKind.enum.rest;
-      value: PacingRestUntil;
-    } | {
-      part: typeof PacingControlPartKind.enum.throttle;
-      value: PacingThrottle;
-    };
+    part:
+      | {
+          part: typeof PacingControlPartKind.enum.cap;
+          value: {
+            model: string;
+            allowedModels: string[];
+          } | null;
+        }
+      | {
+          part: typeof PacingControlPartKind.enum.stop;
+          value: boolean;
+        }
+      | {
+          part: typeof PacingControlPartKind.enum.rest;
+          value: PacingRestUntil;
+        }
+      | {
+          part: typeof PacingControlPartKind.enum.throttle;
+          value: PacingThrottle;
+        };
   }) => void;
   /** When the session's hook last answered a call while pacing was stopping
    *  it (epoch ms), null when it hasn't since the stop was written. */
@@ -105,11 +110,7 @@ export interface AgentCommandProtocol {
    *  (`["resume", "<uuid>"]` for Codex), empty when the agent has no such
    *  mechanism or no recording. `conversationId`: when the agent reported its
    *  own session id for it, that exact session is resumed. */
-  [AGENT_COMMANDS.agentResumeArgs]: (data: {
-    command: string;
-    cwd: string;
-    conversationId?: string;
-  }) => string[];
+  [AGENT_COMMANDS.agentResumeArgs]: (data: { command: string; cwd: string; conversationId?: string }) => string[];
   /** Every conversation the agents recorded for `project`, newest first -
    *  the sidebar's take on each CLI's `/resume` list. */
   [AGENT_COMMANDS.agentConversations]: (data: { project: string }) => RecordedConversation[];
@@ -124,10 +125,7 @@ export interface AgentCommandProtocol {
   [AGENT_COMMANDS.chatStorageDelete]: (data: { ids: string[] }) => ChatStorage;
   /** How full the session's context window is, read from the agent's own
    *  session log; `null` for an agent that keeps no readable log. */
-  [AGENT_COMMANDS.agentSessionContext]: (data: {
-    command: string;
-    conversationId?: string;
-  }) => SessionContext | null;
+  [AGENT_COMMANDS.agentSessionContext]: (data: { command: string; conversationId?: string }) => SessionContext | null;
   /** What the session and each of its subagents spent since `since` (epoch
    *  ms), one entry per model, read from the agent's own transcripts; empty
    *  for an agent that keeps none. */
@@ -138,21 +136,12 @@ export interface AgentCommandProtocol {
   }) => SessionTokenUsage;
   /** The model and effort the session runs, as the agent itself reported it
    *  (hooks, its session log, a plugin - never its terminal). */
-  [AGENT_COMMANDS.agentRunningModel]: (data: {
-    command: string;
-    conversationId: string;
-  }) => RunningModel | null;
+  [AGENT_COMMANDS.agentRunningModel]: (data: { command: string; conversationId: string }) => RunningModel | null;
   /** Suggest a name for a temp workspace via the agent CLI, else a heuristic. */
-  [AGENT_COMMANDS.projectAutoname]: (data: {
-    path: string;
-    agent: string;
-  }) => string | null;
+  [AGENT_COMMANDS.projectAutoname]: (data: { path: string; agent: string }) => string | null;
   /** A concise session name from its transcript (null until there's enough
    *  conversation, or if nothing usable is produced). */
-  [AGENT_COMMANDS.sessionGenerateName]: (data: {
-    id: string;
-    agent: string;
-  }) => string | null;
+  [AGENT_COMMANDS.sessionGenerateName]: (data: { id: string; agent: string }) => string | null;
   /** A sentence or two on what the session has done and is doing now, from its
    *  transcript, for the agents dashboard (null until there's enough). */
   [AGENT_COMMANDS.sessionSummarize]: (data: {

@@ -19,8 +19,9 @@
 // a run is anchored to exactly the cells it covers, so everything around it stays
 // pixel-identical to what xterm painted.
 
-import { ansiPaletteColor } from "@/lib/terminal/theme/terminal-theme";
 import type { IBufferCell, IBufferLine, IBufferRange, Terminal } from "@xterm/xterm";
+
+import { ansiPaletteColor } from "@/lib/terminal/theme/terminal-theme";
 
 /** Scripts that read right to left. Presentation forms (`ﻡ`, `ﷺ`) carry the same
  *  Script property as the letters they are forms of, so they match too. */
@@ -226,25 +227,19 @@ export interface RtlRun {
 
 const CARET: RtlCaretPart = { kind: RtlPartKind.Caret };
 
-function isSameStyle({ part, cell }: {
-  part: RtlStyle;
-  cell: RtlStyle;
-}) {
+function isSameStyle({ part, cell }: { part: RtlStyle; cell: RtlStyle }) {
   return (
-    part.foreground === cell.foreground
-    && part.background === cell.background
-    && part.bold === cell.bold
-    && part.dim === cell.dim
-    && part.italic === cell.italic
-    && part.underline === cell.underline
-    && part.strikethrough === cell.strikethrough
+    part.foreground === cell.foreground &&
+    part.background === cell.background &&
+    part.bold === cell.bold &&
+    part.dim === cell.dim &&
+    part.italic === cell.italic &&
+    part.underline === cell.underline &&
+    part.strikethrough === cell.strikethrough
   );
 }
 
-function isColumnSelected({ column, selection }: {
-  column: number;
-  selection?: ColumnRange;
-}) {
+function isColumnSelected({ column, selection }: { column: number; selection?: ColumnRange }) {
   if (!selection) {
     return false;
   }
@@ -255,17 +250,25 @@ function isColumnSelected({ column, selection }: {
 /** The part being built with this cell added, or nothing when the cell has to
  *  start a new one - a change of painting, of selection, or the caret landing
  *  here. */
-function extendedPart({ open, cell, isSelected, isCaretStart }: {
+function extendedPart({
+  open,
+  cell,
+  isSelected,
+  isCaretStart
+}: {
   open: RtlTextPart | undefined;
   cell: RtlCell;
   isSelected: boolean;
   isCaretStart: boolean;
 }) {
   const isContinuable = open !== undefined && !isCaretStart && open.isSelected === isSelected;
-  if (!isContinuable || !isSameStyle({
-    part: open,
-    cell
-  })) {
+  if (
+    !isContinuable ||
+    !isSameStyle({
+      part: open,
+      cell
+    })
+  ) {
     return undefined;
   }
 
@@ -277,7 +280,12 @@ function extendedPart({ open, cell, isSelected, isCaretStart }: {
 
 /** The parts of one run: its text split only where the painting, the selection or
  *  the caret forces it, with the caret marker dropped in where it belongs. */
-function runParts({ cells, range, cursorColumn, selection }: {
+function runParts({
+  cells,
+  range,
+  cursorColumn,
+  selection
+}: {
   cells: readonly RtlCell[];
   range: ColumnRange;
   cursorColumn?: number;
@@ -340,7 +348,11 @@ function runParts({ cells, range, cursorColumn, selection }: {
  *
  *  `cursorColumn` is the cursor's column when it is on this row, `selection` the
  *  columns of this row that are selected. */
-export function rtlRow({ cells, cursorColumn, selection }: {
+export function rtlRow({
+  cells,
+  cursorColumn,
+  selection
+}: {
   cells: readonly RtlCell[];
   cursorColumn?: number;
   selection?: ColumnRange;
@@ -386,7 +398,12 @@ const INVISIBLE_CELL_TEXT = " ";
 /** `translateToString`'s flag for dropping the row's trailing whitespace. */
 const TRIM_TRAILING_WHITESPACE = true;
 
-function cellColor({ isPalette, isTruecolor, value, fallback }: {
+function cellColor({
+  isPalette,
+  isTruecolor,
+  value,
+  fallback
+}: {
   isPalette: boolean;
   isTruecolor: boolean;
   value: number;
@@ -435,10 +452,7 @@ function rtlCell({ cell }: { cell: IBufferCell }) {
 
 /** One row's cells, read through the single scratch cell xterm hands back from
  *  every `getCell` - reading a row must not allocate an object per column. */
-function rowCells({ line, scratch }: {
-  line: IBufferLine;
-  scratch: IBufferCell;
-}) {
+function rowCells({ line, scratch }: { line: IBufferLine; scratch: IBufferCell }) {
   const cells: RtlCell[] = [];
   for (let column = 0; column < line.length; column++) {
     cells.push(rtlCell({ cell: line.getCell(column, scratch) ?? scratch }));
@@ -450,7 +464,11 @@ function rowCells({ line, scratch }: {
 /** The columns of one row the selection covers. xterm reports only the two ends,
  *  in absolute buffer coordinates, so a row in the middle of a multi-row
  *  selection is selected end to end. */
-export function rowSelection({ selection, absoluteRow, columns }: {
+export function rowSelection({
+  selection,
+  absoluteRow,
+  columns
+}: {
   selection: IBufferRange | undefined;
   absoluteRow: number;
   columns: number;
@@ -472,10 +490,7 @@ export function rowSelection({ selection, absoluteRow, columns }: {
 
 /** Every right-to-left run on screen. Rows without one cost a string and a regex;
  *  the per-cell reads happen only on the rows that actually need drawing. */
-export function rtlViewport({ terminal, isFocused }: {
-  terminal: Terminal;
-  isFocused: boolean;
-}) {
+export function rtlViewport({ terminal, isFocused }: { terminal: Terminal; isFocused: boolean }) {
   const buffer = terminal.buffer.active;
   const selection = terminal.getSelectionPosition();
   const scratch = buffer.getNullCell();

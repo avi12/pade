@@ -20,10 +20,7 @@ export const ScanVerdict = {
 } as const;
 type ScanVerdict = (typeof ScanVerdict)[keyof typeof ScanVerdict];
 
-function isOverThreshold({ sessionId, thresholdPercentage }: {
-  sessionId: string;
-  thresholdPercentage: number;
-}) {
+function isOverThreshold({ sessionId, thresholdPercentage }: { sessionId: string; thresholdPercentage: number }) {
   const percentage = measuredContextPercentage(sessionId);
   return percentage !== null && percentage >= thresholdPercentage;
 }
@@ -40,10 +37,7 @@ function isAboutToCompact(sessionId: string) {
 // marker. Resume instead - runHandoff's already-written probe short-circuits
 // onto the doc it already wrote, straight to the reset. A session with no
 // marker starts a fresh handoff only once it is over threshold.
-function isHandoffWanted({ sessionId, thresholdPercentage }: {
-  sessionId: string;
-  thresholdPercentage: number;
-}) {
+function isHandoffWanted({ sessionId, thresholdPercentage }: { sessionId: string; thresholdPercentage: number }) {
   const isResuming = hasPersistentMarker(sessionId);
   const isNearLimit = isOverThreshold({
     sessionId,
@@ -55,7 +49,11 @@ function isHandoffWanted({ sessionId, thresholdPercentage }: {
 /** What the scan does with one session: leave it, hold it back for the agent's
  *  running work, or start its handoff. `isHandingOffHere` is whether a handoff
  *  actively running in THIS module instance already owns the session. */
-export function scanVerdict({ session, isHandingOffHere, thresholdPercentage }: {
+export function scanVerdict({
+  session,
+  isHandingOffHere,
+  thresholdPercentage
+}: {
   session: AgentSession;
   isHandingOffHere: boolean;
   thresholdPercentage: number;
@@ -87,7 +85,6 @@ export function scanVerdict({ session, isHandingOffHere, thresholdPercentage }: 
   // Otherwise never cut in on the agent's own running work: a turn, or
   // background agents and a dynamic workflow a quiet, `ready`-looking session
   // is still waiting on. The agent reporting it done re-runs the scan.
-  const isQuiet = !agentReportsBusy(session.id)
-    && sessionStatus(session.id) === SessionStatus.enum.ready;
+  const isQuiet = !agentReportsBusy(session.id) && sessionStatus(session.id) === SessionStatus.enum.ready;
   return isQuiet ? ScanVerdict.HandOff : ScanVerdict.HoldBack;
 }

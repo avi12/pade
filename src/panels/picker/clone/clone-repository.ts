@@ -1,37 +1,38 @@
+import type { z } from "zod";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { OpenTarget } from "@/lib/types/window";
-import {
-  CloneUrl,
-  GitSecret,
-  GitUsername,
-  parseInput,
-  ProjectName
-} from "@/lib/validate";
-import type { z } from "zod";
+import { CloneUrl, GitSecret, GitUsername, parseInput, ProjectName } from "@/lib/validate";
 
 const CLONE_FAILED = "Clone failed";
 
 /** One HTTPS credential, sent only when the SSH URL has no key to use - a
  *  blank or invalid value is left out rather than sent. */
-function credential({ isNeeded, schema, raw }: {
-  isNeeded: boolean;
-  schema: z.ZodType<string>;
-  raw: string;
-}) {
+function credential({ isNeeded, schema, raw }: { isNeeded: boolean; schema: z.ZodType<string>; raw: string }) {
   if (!isNeeded) {
     return undefined;
   }
 
-  return parseInput({
-    schema,
-    raw
-  }) ?? undefined;
+  return (
+    parseInput({
+      schema,
+      raw
+    }) ?? undefined
+  );
 }
 
 /** Clone a repository into `root` and open it. Resolves to the message to show
  *  under the form - empty on success, or when the typed fields don't validate
  *  (the form's disabled gate already explains those). */
-export async function cloneRepository({ rawUrl, rawName, root, needsCredentials, rawUsername, rawPassword, onopen }: {
+export async function cloneRepository({
+  rawUrl,
+  rawName,
+  root,
+  needsCredentials,
+  rawUsername,
+  rawPassword,
+  onopen
+}: {
   rawUrl: string;
   rawName: string;
   root: string;

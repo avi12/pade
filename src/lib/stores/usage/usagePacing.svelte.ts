@@ -44,6 +44,9 @@
 // (lib/stores/usage/pacingControl), which the agent's hook reads on every tool
 // call; a stop is written there too, so it lands mid-turn, not only at its end.
 
+import { SvelteMap } from "svelte/reactivity";
+import { z } from "zod";
+
 import { interruptKeys } from "@/lib/agent/interrupt-keys";
 import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
 import { windowLabel } from "@/lib/ipc/platform";
@@ -119,8 +122,6 @@ import type { OwnedFacts } from "@/lib/usage/pacing/shadow-report/report-facts";
 import { afterDelay } from "@/lib/util/async/delay";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { formatPercent } from "@/lib/util/format";
-import { SvelteMap } from "svelte/reactivity";
-import { z } from "zod";
 
 /** How often working and paused sessions are checked against their account. The
  *  backend caches that read for ~3 minutes, so the endpoint is never hit faster. */
@@ -152,10 +153,7 @@ type PaceBinding = NonNullable<ReturnType<typeof assessPace>>;
  *  more rest than work - past that, a stop takes over. A weekly window never
  *  stops: a stop until it is back on an even spend can last half a day, so it
  *  rests in short bursts instead (`workRhythm`). */
-function shouldRest({ step, binding }: {
-  step: PacingStep;
-  binding: PaceBinding;
-}) {
+function shouldRest({ step, binding }: { step: PacingStep; binding: PaceBinding }) {
   const isWeeklyWindow = binding.kind === PacedWindowKind.enum.weekly;
   const isRestStillEnough = isRestEnough({
     runway: workingRunway(binding),
@@ -214,19 +212,25 @@ function pacingStorageKey() {
 const paced = new SvelteMap<string, PaceState>();
 /** Why each held session is held: the window that holds it - named, so how
  *  much of it is used is read live (`liveVerdict`) - and its numbers. */
-const verdicts = new SvelteMap<string, {
-  windowKind: PacedWindowKind;
-  windowKey: string;
-  agentId: string;
-  runOutAt: number;
-  readyAt: number;
-  resetAt: number;
-}>();
+const verdicts = new SvelteMap<
+  string,
+  {
+    windowKind: PacedWindowKind;
+    windowKey: string;
+    agentId: string;
+    runOutAt: number;
+    readyAt: number;
+    resetAt: number;
+  }
+>();
 /** What pacing did to each session, newest last. */
-const histories = new SvelteMap<string, {
-  at: number;
-  text: string;
-}[]>();
+const histories = new SvelteMap<
+  string,
+  {
+    at: number;
+    text: string;
+  }[]
+>();
 /** Sessions the user told pacing to leave alone, and until when. */
 const skippedUntil = new SvelteMap<string, number>();
 /** Sessions the user continued anyway, left alone until that run ends - true
@@ -256,7 +260,8 @@ const samples = new Map<string, UsageSample[]>();
 /** The readings, kept across a reload of the window like its pauses - a burn
  *  rate takes ten minutes of work to measure, and a reload must not restart it. */
 const StoredSamples = z.record(
-  z.string(), z.array(
+  z.string(),
+  z.array(
     z.object({
       at: z.number(),
       utilization: z.number(),
@@ -283,10 +288,7 @@ function remember() {
   });
 }
 
-function setPace({ id, state }: {
-  id: string;
-  state: PaceState;
-}) {
+function setPace({ id, state }: { id: string; state: PaceState }) {
   paced.set(id, state);
   remember();
 }
@@ -297,14 +299,14 @@ function forgetPace(id: string) {
   }
 }
 
-function record({ id, text }: {
-  id: string;
-  text: string;
-}) {
-  const history = [...(histories.get(id) ?? []), {
-    at: Date.now(),
-    text
-  }];
+function record({ id, text }: { id: string; text: string }) {
+  const history = [
+    ...(histories.get(id) ?? []),
+    {
+      at: Date.now(),
+      text
+    }
+  ];
   histories.set(id, history.slice(-HISTORY_LENGTH));
 }
 
@@ -323,18 +325,11 @@ registerSessionState(SessionStateKey.enum.usagePacing, {
   }
 });
 
-function sampleKey({ accountKey, window }: {
-  accountKey: string;
-  window: UsageWindow;
-}) {
+function sampleKey({ accountKey, window }: { accountKey: string; window: UsageWindow }) {
   return `${accountKey}:${window.key}`;
 }
 
-function recordSamples({ accountKey, account, now }: {
-  accountKey: string;
-  account: AccountUsage;
-  now: number;
-}) {
+function recordSamples({ accountKey, account, now }: { accountKey: string; account: AccountUsage; now: number }) {
   for (const window of account.windows) {
     const key = sampleKey({
       accountKey,
@@ -368,10 +363,7 @@ function forgetSamples(accountKey: string | undefined) {
   rememberSamples();
 }
 
-function liveRate({ accountKey, window }: {
-  accountKey: string;
-  window: UsageWindow;
-}) {
+function liveRate({ accountKey, window }: { accountKey: string; window: UsageWindow }) {
   return burnRate(
     samples.get(
       sampleKey({
@@ -399,7 +391,10 @@ function isRestPending(state: Pick<PaceState, "phase" | "restMs">) {
 /** Where a held session moves: one that just stopped starts its rest now - not
  *  when PADE asked, since the step it finished may have outlasted the whole
  *  rest - and one the user restarted is taken over. */
-function heldPhase({ state, isWorkingNow }: {
+function heldPhase({
+  state,
+  isWorkingNow
+}: {
   state: Pick<PaceState, "phase" | "restUntil" | "restMs">;
   isWorkingNow: boolean;
 }) {
@@ -441,7 +436,11 @@ function continueTime(state: Pick<PaceState, "phase" | "readyAt" | "restUntil" |
 }
 
 /** The status line for a stopped or resting session. */
-export function pacingNote({ agent, state, now }: {
+export function pacingNote({
+  agent,
+  state,
+  now
+}: {
   agent: string;
   state: Pick<PaceState, "phase" | "windowKind" | "utilization" | "pausedAt" | "readyAt" | "restUntil" | "restMs">;
   now: number;
@@ -464,7 +463,12 @@ export function pacingNote({ agent, state, now }: {
   });
 }
 
-function restNote({ agent, state, usage, now }: {
+function restNote({
+  agent,
+  state,
+  usage,
+  now
+}: {
   agent: string;
   state: Pick<PaceState, "phase" | "restUntil" | "restMs">;
   usage: string;
@@ -486,7 +490,12 @@ function restNote({ agent, state, usage, now }: {
   })} to slow its ${usage}`;
 }
 
-function stopNote({ agent, state, usage, now }: {
+function stopNote({
+  agent,
+  state,
+  usage,
+  now
+}: {
   agent: string;
   state: Pick<PaceState, "pausedAt" | "readyAt">;
   usage: string;
@@ -575,10 +584,7 @@ export function pacingStatus(id: string) {
 
 /** One window's forecast for an agent's account, for the Config panel - null
  *  until pacing has read that account (reactive). */
-export function agentForecast({ agentId, kind }: {
-  agentId: string;
-  kind: PacedWindowKind;
-}) {
+export function agentForecast({ agentId, kind }: { agentId: string; kind: PacedWindowKind }) {
   return forecasts.get(agentId)?.[kind] ?? null;
 }
 
@@ -700,13 +706,24 @@ export function createUsagePacing(host: PacingHost) {
   // Anything a pause would have to stop: its turn, or work it delegated -
   // subagents found on screen or by their transcripts.
   async function isRunningWork(session: AgentSession) {
-    return isWorking(session.id) || await hasRunningSubagents({
-      session,
-      hasBackgroundAgents: backgroundAgentCount(session.id) > 0
-    });
+    return (
+      isWorking(session.id) ||
+      (await hasRunningSubagents({
+        session,
+        hasBackgroundAgents: backgroundAgentCount(session.id) > 0
+      }))
+    );
   }
 
-  async function pause({ session, kind, window, rate, readyAt, continueAt, isResting }: {
+  async function pause({
+    session,
+    kind,
+    window,
+    rate,
+    readyAt,
+    continueAt,
+    isResting
+  }: {
     session: AgentSession;
     kind: PacedWindowKind;
     window: UsageWindow;
@@ -716,20 +733,22 @@ export function createUsagePacing(host: PacingHost) {
     isResting: boolean;
   }) {
     const now = Date.now();
-    const restUntil = isResting ? slowRestUntil({
-      runway: workingRunway({
-        window,
-        rate,
-        readyAt,
-        continueAt
-      }),
-      readyAt,
-      continueAt,
-      now
-    }) : null;
+    const restUntil = isResting
+      ? slowRestUntil({
+          runway: workingRunway({
+            window,
+            rate,
+            readyAt,
+            continueAt
+          }),
+          readyAt,
+          continueAt,
+          now
+        })
+      : null;
     // Already idle - its turn ended since it was judged - so it is simply held:
     // nothing to stop, and no request typed in, which would only spend a turn.
-    const isIdle = !await isRunningWork(session);
+    const isIdle = !(await isRunningWork(session));
     const isHeld = canHoldRest({
       keys: await interruptKeys(session.agent.command),
       restMs: restUntil === null ? null : restUntil - now
@@ -754,10 +773,13 @@ export function createUsagePacing(host: PacingHost) {
     });
     record({
       id: session.id,
-      text: restUntil === null ? "stopped" : `resting until ${spokenTime({
-        time: restUntil,
-        now
-      })}`
+      text:
+        restUntil === null
+          ? "stopped"
+          : `resting until ${spokenTime({
+              time: restUntil,
+              now
+            })}`
     });
     recordObserved({
       sessionId: session.id,
@@ -774,7 +796,12 @@ export function createUsagePacing(host: PacingHost) {
 
   // What follows a pause once its control is written: a held rest is watched
   // for a hook that ignores it, running work is stopped, an idle agent is left.
-  function enforcePause({ session, pausedAt, isHeld, isIdle }: {
+  function enforcePause({
+    session,
+    pausedAt,
+    isHeld,
+    isIdle
+  }: {
     session: AgentSession;
     pausedAt: number;
     isHeld: boolean;
@@ -801,10 +828,7 @@ export function createUsagePacing(host: PacingHost) {
   // No request typed in - it would spend a turn: the hook refuses the next
   // tool call, delegated work's included, and the terminal stop presses the
   // agent's interrupt keys (`pacingInterrupt`).
-  function stopRunningSession({ session, stopWrittenAt }: {
-    session: AgentSession;
-    stopWrittenAt: number;
-  }) {
+  function stopRunningSession({ session, stopWrittenAt }: { session: AgentSession; stopWrittenAt: number }) {
     return stopThroughTerminal({
       session,
       stopWrittenAt,
@@ -816,10 +840,7 @@ export function createUsagePacing(host: PacingHost) {
 
   // A hook that predates the hold ignores the rest and the session keeps
   // working while pacing thinks it rests: that rest becomes a stop after all.
-  async function stopIfRestIgnored({ session, pausedAt }: {
-    session: AgentSession;
-    pausedAt: number;
-  }) {
+  async function stopIfRestIgnored({ session, pausedAt }: { session: AgentSession; pausedAt: number }) {
     const isIgnored = await isRestIgnoredByHook({
       conversationId: session.conversationId,
       restWrittenAt: pausedAt,
@@ -866,10 +887,7 @@ export function createUsagePacing(host: PacingHost) {
   // already working: one typed into a running turn would queue a stray one
   // behind it. Pacing's own continue goes only to work it stopped; an agent
   // that was idle stays so.
-  async function pickUp({ id, isOnlyAfterStoppedWork }: {
-    id: string;
-    isOnlyAfterStoppedWork: boolean;
-  }) {
+  async function pickUp({ id, isOnlyAfterStoppedWork }: { id: string; isOnlyAfterStoppedWork: boolean }) {
     const state = paced.get(id);
     if (state === undefined) {
       return;
@@ -947,7 +965,11 @@ export function createUsagePacing(host: PacingHost) {
 
   // Back on pace. A session still finishing its step is left to stop first; one
   // the user took over is released; the rest continue, one per account at a time.
-  async function release({ session, accountKey, state }: {
+  async function release({
+    session,
+    accountKey,
+    state
+  }: {
     session: AgentSession;
     accountKey: string;
     state: PaceState;
@@ -967,7 +989,7 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    releasable.set(accountKey, [...releasable.get(accountKey) ?? [], session]);
+    releasable.set(accountKey, [...(releasable.get(accountKey) ?? []), session]);
   }
 
   // The sessions back on pace continue one per account at a time, the lightest
@@ -978,12 +1000,14 @@ export function createUsagePacing(host: PacingHost) {
     const now = Date.now();
     for (const [accountKey, sessions] of releasable) {
       const isSpaced = now - (lastReleaseAt.get(accountKey) ?? 0) >= RELEASE_SPACING_MS;
-      const id = isSpaced ? lightestToRestore(
-        sessions.map(session => ({
-          id: session.id,
-          load: loadOf(session)
-        }))
-      ) : null;
+      const id = isSpaced
+        ? lightestToRestore(
+            sessions.map(session => ({
+              id: session.id,
+              load: loadOf(session)
+            }))
+          )
+        : null;
       if (id !== null) {
         lastReleaseAt.set(accountKey, now);
         recordObserved({
@@ -1000,7 +1024,15 @@ export function createUsagePacing(host: PacingHost) {
   // Still over pace: note the step finishing, or the user taking over. A held
   // session looks working - it is blocked inside a tool call - and is not
   // taken over; its user's prompt lifts the hold itself (`takeOver`).
-  function hold({ id, state, kind, window, rate, readyAt, continueAt }: {
+  function hold({
+    id,
+    state,
+    kind,
+    window,
+    rate,
+    readyAt,
+    continueAt
+  }: {
     id: string;
     state: PaceState;
     kind: PacedWindowKind;
@@ -1033,7 +1065,11 @@ export function createUsagePacing(host: PacingHost) {
   // step down a notch at a time; resting gives way to a stop once it would need
   // more rest than work - or stays, when a stop isn't allowed.
   // An effort or model step, one notch down. Resolves whether it took one.
-  async function stepModel({ session, binding, step }: {
+  async function stepModel({
+    session,
+    binding,
+    step
+  }: {
     session: AgentSession;
     binding: PaceBinding;
     step: PacingStep;
@@ -1059,10 +1095,7 @@ export function createUsagePacing(host: PacingHost) {
   }
 
   // Take the first step that still has somewhere to go.
-  async function climb({ session, binding }: {
-    session: AgentSession;
-    binding: PaceBinding;
-  }) {
+  async function climb({ session, binding }: { session: AgentSession; binding: PaceBinding }) {
     for (const step of PACING_STEP_ORDER) {
       if (MODEL_STEPS.has(step)) {
         const hasStepped = await stepModel({
@@ -1109,7 +1142,11 @@ export function createUsagePacing(host: PacingHost) {
   // A working session not yet paused, judged against its account:
   // over pace (its binding), or on pace with room to step a stepped-down choice
   // back up. What to do about it is the account's call (`reportOf`, the account-wide round).
-  function assessWorking({ session, account, accountKey }: {
+  function assessWorking({
+    session,
+    account,
+    accountKey
+  }: {
     session: AgentSession;
     account: AccountUsage | null;
     accountKey: string;
@@ -1142,12 +1179,14 @@ export function createUsagePacing(host: PacingHost) {
       });
     }
 
-    const hasRoom = binding === null && hasRoomToSpare({
-      account,
-      now,
-      marginOf: pacingMargin,
-      rateOf
-    });
+    const hasRoom =
+      binding === null &&
+      hasRoomToSpare({
+        account,
+        now,
+        marginOf: pacingMargin,
+        rateOf
+      });
     return {
       session,
       accountKey,
@@ -1199,14 +1238,17 @@ export function createUsagePacing(host: PacingHost) {
         model: running.id,
         effort: running.effort ?? undefined
       };
-      const next = step === PacingStep.enum.effort ? lowerEffortChoice({
-        model: running.id,
-        effort: running.effort ?? null,
-        options
-      }) : cheaperModelChoice({
-        model: running.id,
-        options
-      });
+      const next =
+        step === PacingStep.enum.effort
+          ? lowerEffortChoice({
+              model: running.id,
+              effort: running.effort ?? null,
+              options
+            })
+          : cheaperModelChoice({
+              model: running.id,
+              options
+            });
       if (next !== null) {
         return 1 - costWeight(next) / costWeight(current);
       }
@@ -1228,10 +1270,13 @@ export function createUsagePacing(host: PacingHost) {
       conversationId: session.conversationId ?? null,
       reportedAt: Date.now(),
       load: ownLoads.get(session.id) ?? loadOf(session),
-      overPace: binding === null ? null : {
-        shed: largestShed([binding]),
-        saving: nextStepSaving(session)
-      },
+      overPace:
+        binding === null
+          ? null
+          : {
+              shed: largestShed([binding]),
+              saving: nextStepSaving(session)
+            },
       canStepUp: assessment.canStepUp,
       hasRoom: assessment.hasRoom,
       subagents: runningSubagents.get(session.id) ?? []
@@ -1383,10 +1428,7 @@ export function createUsagePacing(host: PacingHost) {
 
   // As its window is about to reset a paused session continues on its own -
   // unless the user took it over, which ends the pause.
-  async function continueAtReset({ id, state }: {
-    id: string;
-    state: PaceState;
-  }) {
+  async function continueAtReset({ id, state }: { id: string; state: PaceState }) {
     if (state.phase === PacePhase.enum.overridden) {
       forgetPace(id);
       recordObserved({
@@ -1405,7 +1447,12 @@ export function createUsagePacing(host: PacingHost) {
 
   // A paused session: continue it at the end of its rest or its window, or move
   // it along as its runway reaches the reset. An unreadable account leaves it be.
-  async function advancePaced({ session, state, account, accountKey }: {
+  async function advancePaced({
+    session,
+    state,
+    account,
+    accountKey
+  }: {
     session: AgentSession;
     state: PaceState;
     account: AccountUsage | null;
@@ -1435,10 +1482,12 @@ export function createUsagePacing(host: PacingHost) {
       now,
       isPaused: true,
       marginOf: pacingMargin,
-      rateOf: window => state.rates[window.key] ?? liveRate({
-        accountKey,
-        window
-      })
+      rateOf: window =>
+        state.rates[window.key] ??
+        liveRate({
+          accountKey,
+          window
+        })
     });
     if (binding === null) {
       await release({
@@ -1533,7 +1582,11 @@ export function createUsagePacing(host: PacingHost) {
     };
   }
 
-  async function paceSession({ session, account, accountKey }: {
+  async function paceSession({
+    session,
+    account,
+    accountKey
+  }: {
     session: AgentSession;
     account: AccountUsage | null;
     accountKey: string;
@@ -1552,11 +1605,13 @@ export function createUsagePacing(host: PacingHost) {
     markJudged(id);
     const state = paced.get(id);
     if (state === undefined) {
-      return isWorking(id) ? assessWorking({
-        session,
-        account,
-        accountKey
-      }) : null;
+      return isWorking(id)
+        ? assessWorking({
+            session,
+            account,
+            accountKey
+          })
+        : null;
     }
 
     await advancePaced({
@@ -1570,7 +1625,13 @@ export function createUsagePacing(host: PacingHost) {
 
   // Take one reading per account per scan, and only while one of its sessions
   // works - the burn rate measures work, not idle time.
-  function sampleOnce({ session, account, accountKey, sampled, now }: {
+  function sampleOnce({
+    session,
+    account,
+    accountKey,
+    sampled,
+    now
+  }: {
     session: AgentSession;
     account: AccountUsage | null;
     accountKey: string;
@@ -1589,22 +1650,21 @@ export function createUsagePacing(host: PacingHost) {
       now
     });
     forecasts.set(
-      session.agent.id, paceForecasts({
+      session.agent.id,
+      paceForecasts({
         account,
         now,
-        rateOf: window => liveRate({
-          accountKey,
-          window
-        })
+        rateOf: window =>
+          liveRate({
+            accountKey,
+            window
+          })
       })
     );
   }
 
   // Track each session's current stretch of work, and forget closed sessions.
-  function trackSessions({ sessions, now }: {
-    sessions: readonly AgentSession[];
-    now: number;
-  }) {
+  function trackSessions({ sessions, now }: { sessions: readonly AgentSession[]; now: number }) {
     const open = new Set(sessions.map(session => session.id));
     for (const id of paced.keys()) {
       if (!open.has(id)) {
@@ -1629,7 +1689,12 @@ export function createUsagePacing(host: PacingHost) {
   // One session worth a look, against its account (read once per agent per
   // scan): paced, or stood down while pacing is off. A working one not yet
   // paused comes back as its assessment for its account.
-  async function lookAt({ session, accounts, sampled, now }: {
+  async function lookAt({
+    session,
+    accounts,
+    sampled,
+    now
+  }: {
     session: AgentSession;
     accounts: Map<string, Promise<AccountUsage | null>>;
     sampled: Set<string>;
@@ -1666,10 +1731,7 @@ export function createUsagePacing(host: PacingHost) {
   // Measure each paced working session's burn - all at once, off the agents'
   // transcripts - and rescale the estimates of the rest onto it. A session
   // nothing was measured for keeps its estimate (`measuredBurn` never rejects).
-  async function measureLoads({ sessions, now }: {
-    sessions: readonly AgentSession[];
-    now: number;
-  }) {
+  async function measureLoads({ sessions, now }: { sessions: readonly AgentSession[]; now: number }) {
     const measurable = host.isOn() ? sessions.filter(session => isWorking(session.id)) : [];
     const readings = await Promise.all(
       measurable.map(async session => ({
@@ -1728,12 +1790,14 @@ export function createUsagePacing(host: PacingHost) {
     assessed.clear();
     for (const session of sessions) {
       const isWorthALook = paced.has(session.id) || isWorking(session.id) || adapter.isSteppedDown(session.id);
-      const assessment = isWorthALook ? await lookAt({
-        session,
-        accounts,
-        sampled,
-        now
-      }) : null;
+      const assessment = isWorthALook
+        ? await lookAt({
+            session,
+            accounts,
+            sampled,
+            now
+          })
+        : null;
       if (assessment !== null) {
         assessed.set(session.id, assessment);
       }

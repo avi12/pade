@@ -391,7 +391,7 @@
       }
 
       &:disabled {
-        opacity: 40%;
+        opacity: 0.4;
         cursor: default;
       }
     }
@@ -404,7 +404,7 @@
 
   @keyframes find-bar-in {
     from {
-      opacity: 0%;
+      opacity: 0;
       translate: 0 -6px;
     }
   }

@@ -11,7 +11,11 @@ import { matchesProjectFilter } from "@/lib/workspace/switcher/switcher-rows";
  *  in the rail with no folder behind it, where it could be neither removed nor
  *  deleted. Duplicates stay in; the grouping drops them, keeping each first
  *  place. */
-export function sidebarProjectOrder({ current, pinned, recent }: {
+export function sidebarProjectOrder({
+  current,
+  pinned,
+  recent
+}: {
   current: string;
   pinned: readonly string[];
   recent: readonly string[];
@@ -30,18 +34,25 @@ function isActiveProject(group: SidebarProject) {
  *  project whose last session stops sinks below the ones still running. A
  *  project matches on its shown name or its path; an empty search keeps them
  *  all. */
-export function sidebarSections({ groups, pinned, query, labels }: {
+export function sidebarSections({
+  groups,
+  pinned,
+  query,
+  labels
+}: {
   groups: readonly SidebarProject[];
   pinned: readonly string[];
   query: string;
   labels: Record<string, string>;
 }) {
   const pinnedSet = new Set(pinned.map(normalizePath));
-  const matching = groups.filter(group => matchesProjectFilter({
-    project: group.project,
-    query: query.trim(),
-    labels
-  }));
+  const matching = groups.filter(group =>
+    matchesProjectFilter({
+      project: group.project,
+      query: query.trim(),
+      labels
+    })
+  );
   const unpinned = matching.filter(group => !pinnedSet.has(normalizePath(group.project)));
   return {
     pinned: matching.filter(group => pinnedSet.has(normalizePath(group.project))),

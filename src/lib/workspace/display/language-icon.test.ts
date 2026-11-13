@@ -1,5 +1,6 @@
-import { languageIcon, languageIconOf, ProjectKind } from "@/lib/workspace/display/language-icon";
 import { describe, expect, it } from "vitest";
+
+import { languageIcon, languageIconOf, ProjectKind } from "@/lib/workspace/display/language-icon";
 
 describe("languageIcon", () => {
   it("maps each project kind to its language logo", () => {

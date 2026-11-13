@@ -5,6 +5,8 @@
 // own store; this wires them to the window's sessions and to one another, so
 // the shell only reads the notes they show.
 
+import { onDestroy, onMount } from "svelte";
+
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { mcpRestartTargets } from "@/lib/session/lifecycle/session-restart";
 import { effective } from "@/lib/settings/prefs.svelte";
@@ -21,9 +23,12 @@ import { createUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
 import { createUsageResume } from "@/lib/stores/usage/usageResume.svelte";
 import type { Agent, AgentSession } from "@/lib/types/agent";
 import { isPacingOn } from "@/lib/usage/pacing/engine/pacing-policy";
-import { onDestroy, onMount } from "svelte";
 
-export function createSessionAutomation({ windowSessions, availableAgents, projectLabel }: {
+export function createSessionAutomation({
+  windowSessions,
+  availableAgents,
+  projectLabel
+}: {
   windowSessions: WindowSessions;
   /** The installed agents a handoff may cross over to. */
   availableAgents: () => Agent[];
@@ -85,13 +90,17 @@ export function createSessionAutomation({ windowSessions, availableAgents, proje
   const modelSwitcher = createModelSwitcher({
     isHandingOff: id => autoHandoff.isHandingOff(id),
     rememberChoice({ id, choice }) {
-      windowSessions.sessions = windowSessions.sessions.map(session => session.id === id ? {
-        ...session,
-        modelChoice: {
-          ...session.modelChoice,
-          ...choice
-        }
-      } : session);
+      windowSessions.sessions = windowSessions.sessions.map(session =>
+        session.id === id
+          ? {
+              ...session,
+              modelChoice: {
+                ...session.modelChoice,
+                ...choice
+              }
+            }
+          : session
+      );
     },
     async relaunch(id) {
       const target = windowSessions.sessions.find(session => session.id === id);
@@ -205,7 +214,9 @@ export function createSessionAutomation({ windowSessions, availableAgents, proje
         return;
       }
 
-      showToast(`MCP servers changed - preparing ${targets.length === 1 ? "an agent handoff" : `${targets.length} agent handoffs`}`);
+      showToast(
+        `MCP servers changed - preparing ${targets.length === 1 ? "an agent handoff" : `${targets.length} agent handoffs`}`
+      );
       await Promise.all(
         targets.map(async target => {
           await autoHandoff.restartForConfiguration(target);

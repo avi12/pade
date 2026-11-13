@@ -35,10 +35,7 @@ export function prefillableName(label: string) {
 /** Probe `<root>/<name>` in every root. `workspace_rename` does an `fs::rename`,
  *  which on Windows fails with a raw "os error 32/183" if the target already
  *  exists, so a colliding name is caught up front instead. */
-export async function probeSaveTargets({ name, roots }: {
-  name: string;
-  roots: readonly string[];
-}) {
+export async function probeSaveTargets({ name, roots }: { name: string; roots: readonly string[] }) {
   return await Promise.all(
     roots.map(async root => {
       try {
@@ -67,7 +64,11 @@ export async function probeSaveTargets({ name, roots }: {
 }
 
 /** Whether `name` is known to exist in `root` already. */
-export function isNameTakenIn({ probes, root, name }: {
+export function isNameTakenIn({
+  probes,
+  root,
+  name
+}: {
   probes: readonly SaveProbe[];
   root: string;
   name: string | null;

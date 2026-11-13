@@ -1,5 +1,6 @@
-import { ANSI_COLOR_TOKENS } from "@/lib/terminal/theme/terminal-theme";
 import { z } from "zod";
+
+import { ANSI_COLOR_TOKENS } from "@/lib/terminal/theme/terminal-theme";
 
 /** The light/dark mode the user picks: a scheme of its own, or "system" -
  *  whatever the OS is showing. The skin over it is a separate pick, a

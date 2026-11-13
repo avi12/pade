@@ -1,3 +1,5 @@
+import { untrack } from "svelte";
+
 import {
   loadChatRegistry,
   persistedChatsFromSessions,
@@ -8,17 +10,13 @@ import {
 import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-import { untrack } from "svelte";
 
 /** Every project's persisted chats (lib/session/chats/chat-registry) - the left
  *  rail's memory, loaded once and kept in sync with the live sessions. */
 export function createChatRegistry() {
   let registry = $state<StoredChatRegistry>(loadChatRegistry());
 
-  function forgetChat({ project, chatId }: {
-    project: string;
-    chatId: string;
-  }) {
+  function forgetChat({ project, chatId }: { project: string; chatId: string }) {
     const next = registryWithoutChat({
       registry,
       project,
@@ -32,7 +30,10 @@ export function createChatRegistry() {
   // sessions, each under its own project, labels included, so a relaunch can
   // list and resume them. A chat closed for good leaves through `forgetChat`,
   // never by being absent here.
-  function followSessions({ windowSessions, activeProject }: {
+  function followSessions({
+    windowSessions,
+    activeProject
+  }: {
     windowSessions: WindowSessions;
     activeProject: () => string;
   }) {

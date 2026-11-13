@@ -68,10 +68,7 @@ export interface LinkTerminal {
 // null when the row is blank or all frame (a separator rule). Leading indent -
 // blanks AND a frame bar - and the trailing margin fall outside this span;
 // `rawLastColumn` still records where the row truly ends, frame included.
-export function rowContent({ line, columns }: {
-  line: LinkLine;
-  columns: number;
-}) {
+export function rowContent({ line, columns }: { line: LinkLine; columns: number }) {
   let firstColumn = NO_COLUMN;
   let lastColumn = NO_COLUMN;
   for (let column = 0; column < columns; column += 1) {
@@ -103,10 +100,7 @@ export function rowContent({ line, columns }: {
 // don't count: a row whose text stops mid-row and is merely padded to the edge
 // with a `─` rule (Claude's tool-call underline) did not wrap - stitching the
 // row below it would glue an unrelated line onto the URL.
-export function reachesRightEdge({ content, columns }: {
-  content: RowContent;
-  columns: number;
-}) {
+export function reachesRightEdge({ content, columns }: { content: RowContent; columns: number }) {
   return content.lastColumn >= columns - 1 - RIGHT_EDGE_SLACK;
 }
 
@@ -132,10 +126,7 @@ export function cellText(cell: LinkCell | undefined) {
 // column each character came from. The single home for turning a row's content
 // span into text - both the logical-line builder and the URL-continuation test
 // read from it, so they can never disagree on what a row's text is.
-export function rowGlyphs({ line, content }: {
-  line: LinkLine;
-  content: RowContent;
-}) {
+export function rowGlyphs({ line, content }: { line: LinkLine; content: RowContent }) {
   let text = "";
   const columns: number[] = [];
   for (let column = content.firstColumn; column <= content.lastColumn; column += 1) {

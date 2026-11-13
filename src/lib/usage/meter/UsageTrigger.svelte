@@ -79,7 +79,7 @@
 
     .caret {
       font-size: 0.625rem;
-      opacity: 60%;
+      opacity: 0.6;
     }
   }
 </style>

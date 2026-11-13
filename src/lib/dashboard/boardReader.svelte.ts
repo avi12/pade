@@ -3,9 +3,10 @@
 // and keep announcing while open. Following the windows' snapshots is the
 // shared listener's job (lib/dashboard/boardWindows).
 
+import { onMount } from "svelte";
+
 import { BoardMessageKind, DASHBOARD_HEARTBEAT_MS } from "@/lib/dashboard/agent-board";
 import { createBoardWindows } from "@/lib/dashboard/boardWindows.svelte";
-import { onMount } from "svelte";
 
 export function createBoardReader() {
   const board = createBoardWindows({

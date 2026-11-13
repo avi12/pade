@@ -26,16 +26,17 @@ export function windowRowTransitionName(windowLabel: string) {
 }
 
 /** Whether a listed project is this window's own, whatever the path's spelling. */
-export function isCurrentProject({ project, current }: {
-  project: string;
-  current: string;
-}) {
+export function isCurrentProject({ project, current }: { project: string; current: string }) {
   return normalizePath(project) === normalizePath(current);
 }
 
 /** Whether a project's shown name or its path contains the (trimmed) filter
  *  text, case-insensitively. An empty filter keeps every project. */
-export function matchesProjectFilter({ project, query, labels }: {
+export function matchesProjectFilter({
+  project,
+  query,
+  labels
+}: {
   project: string;
   query: string;
   labels: Record<string, string>;
@@ -49,14 +50,18 @@ export function matchesProjectFilter({ project, query, labels }: {
     displayName({
       path: project,
       labels
-    }).toLowerCase().includes(needle) ||
-    project.toLowerCase().includes(needle)
+    })
+      .toLowerCase()
+      .includes(needle) || project.toLowerCase().includes(needle)
   );
 }
 
 /** The window rows in the label order a drag committed; a label with no row
  *  (its window closed mid-drag) is dropped. */
-export function windowRowsInOrder({ windowRows, order }: {
+export function windowRowsInOrder({
+  windowRows,
+  order
+}: {
   windowRows: readonly WindowInfo[];
   order: readonly string[];
 }) {

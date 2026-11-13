@@ -1,5 +1,6 @@
-import { AccountReading, LimitReset, LimitResetOutcome, Usage } from "@/lib/types/usage";
 import { z } from "zod";
+
+import { AccountReading, LimitReset, LimitResetOutcome, Usage } from "@/lib/types/usage";
 
 export const USAGE_COMMANDS = {
   usageGet: "usage_get",
@@ -13,10 +14,7 @@ export interface UsageCommandProtocol {
   /** Live usage windows for one agent, read from its vendor's own usage
    *  endpoint with the locally-stored token (or the agent's own CLI), and why
    *  there is no reading when the latest ask brought none. */
-  [USAGE_COMMANDS.usageAccountAgent]: (data: {
-    agent: string;
-    forceRefresh: boolean;
-  }) => AccountReading;
+  [USAGE_COMMANDS.usageAccountAgent]: (data: { agent: string; forceRefresh: boolean }) => AccountReading;
   /** The free usage-limit resets Claude's account can spend now, one per
    *  kind (the server's next kind first) - empty when it holds none. */
   [USAGE_COMMANDS.limitResetOffers]: () => LimitReset[];

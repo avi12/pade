@@ -1,11 +1,17 @@
+import { describe, expect, it } from "vitest";
+
 import { EMPTY_PATH_PROBE } from "@/lib/types/workspace";
 import type { PathProbe } from "@/lib/types/workspace";
 import { assessRootPath } from "@/panels/picker/roots/root-path";
-import { describe, expect, it } from "vitest";
 
 const TYPED = "C:\\repositories\\avi";
 
-function assess({ typed = TYPED, roots = [], probed = TYPED, result = {} }: {
+function assess({
+  typed = TYPED,
+  roots = [],
+  probed = TYPED,
+  result = {}
+}: {
   typed?: string;
   roots?: string[];
   probed?: string;

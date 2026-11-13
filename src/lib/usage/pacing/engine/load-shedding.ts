@@ -40,15 +40,22 @@ const MIDDLE_EFFORT_WEIGHT = 1;
 const FULL_PERCENTAGE = 100;
 
 /** What a choice costs per working minute, relative to the others. */
-export function costWeight({ model, effort, ladder = [] }: ModelChoice & {
+export function costWeight({
+  model,
+  effort,
+  ladder = []
+}: ModelChoice & {
   ladder?: readonly string[];
 }) {
   const tierWeight = priceRatio(model ?? "");
-  const place = effort === undefined ? null : effortStep({
-    model: model ?? "",
-    effort,
-    ladder
-  });
+  const place =
+    effort === undefined
+      ? null
+      : effortStep({
+          model: model ?? "",
+          effort,
+          ladder
+        });
   if (place === null) {
     return tierWeight * MIDDLE_EFFORT_WEIGHT;
   }
@@ -58,7 +65,11 @@ export function costWeight({ model, effort, ladder = [] }: ModelChoice & {
 }
 
 /** A session's estimated share-driver of its account's spend. */
-export function sessionLoad({ cost, workingShare, subagents }: {
+export function sessionLoad({
+  cost,
+  workingShare,
+  subagents
+}: {
   cost: number;
   /** How much of the recent time it spent working, 0 to 1. */
   workingShare: number;
@@ -71,10 +82,12 @@ export function sessionLoad({ cost, workingShare, subagents }: {
 /** How much measured load one unit of estimated load stands for, over the
  *  sessions both measured and estimated - so a session nothing measured yet
  *  joins the measured ones on their scale. 1 while nothing is measured. */
-export function measuredPerEstimated(sessions: readonly {
-  measured: number;
-  estimated: number;
-}[]) {
+export function measuredPerEstimated(
+  sessions: readonly {
+    measured: number;
+    estimated: number;
+  }[]
+) {
   let measured = 0;
   let estimated = 0;
   for (const session of sessions) {
@@ -88,7 +101,12 @@ export function measuredPerEstimated(sessions: readonly {
 
 /** The fraction of its spend an account must shed to last until `freeAt` -
  *  null while its burn isn't measured, or when it is already on pace. */
-export function shedFraction({ window, rate, freeAt, now }: {
+export function shedFraction({
+  window,
+  rate,
+  freeAt,
+  now
+}: {
   window: UsageWindow;
   rate: number | null;
   freeAt: number;
@@ -116,7 +134,11 @@ export interface ShedCandidate {
  *  until the savings cover `fraction` of `totalLoad`. With the shed unknown
  *  (`fraction` null - no burn measured yet) only the one biggest saving steps,
  *  the gentlest move that still acts. */
-export function planShedding({ candidates, totalLoad, fraction }: {
+export function planShedding({
+  candidates,
+  totalLoad,
+  fraction
+}: {
   candidates: readonly ShedCandidate[];
   /** Every working session's load on the account, the candidates' included. */
   totalLoad: number;

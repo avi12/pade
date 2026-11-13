@@ -3,8 +3,9 @@
 // entry - trimmed, length-capped, and shape-checked - before it reaches app
 // logic or the backend. One authoritative home for the input schemas (DRY).
 
-import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
 import { z } from "zod";
+
+import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
 
 const MAXIMUM_QUERY_LENGTH = 200;
 const MAXIMUM_PROJECT_NAME_LENGTH = 100;
@@ -18,11 +19,7 @@ const GIT_SUFFIX = ".git";
 
 /** The auto-handoff threshold as typed/slid in Config - a whole percent inside
  *  the allowed band (the band lives in lib/usage/context-level, the SSOT). */
-export const HandoffPercent = z.coerce
-  .number()
-  .int()
-  .min(MINIMUM_HANDOFF_PERCENTAGE)
-  .max(MAXIMUM_HANDOFF_PERCENTAGE);
+export const HandoffPercent = z.coerce.number().int().min(MINIMUM_HANDOFF_PERCENTAGE).max(MAXIMUM_HANDOFF_PERCENTAGE);
 
 /** A restore-a-version query - a short natural-language description. */
 export const RestoreQuery = z.string().trim().min(1).max(MAXIMUM_QUERY_LENGTH);
@@ -62,16 +59,14 @@ export const TerminalFindTerm = z.string().min(1).max(MAXIMUM_QUERY_LENGTH);
 /** The URL-proper forms git clones over, validated by zod's own URL parser and
  *  pinned to git's transports. Git's scp-like `git@host:path` is NOT a URL, so
  *  it's recognised separately (`isScpLike`) rather than forced through here. */
-const StandardCloneUrl = z
-  .url({ protocol: /^(?:https|ssh)$/ })
-  .refine(url => {
-    if (!URL.canParse(url)) {
-      return false;
-    }
+const StandardCloneUrl = z.url({ protocol: /^(?:https|ssh)$/ }).refine(url => {
+  if (!URL.canParse(url)) {
+    return false;
+  }
 
-    const parsed = new URL(url);
-    return !parsed.password && (parsed.protocol !== "https:" || !parsed.username);
-  });
+  const parsed = new URL(url);
+  return !parsed.password && (parsed.protocol !== "https:" || !parsed.username);
+});
 
 /** Scp-like `git@host:path` - a `user@host` head before the first colon. */
 function isScpLike(url: string) {
@@ -126,10 +121,7 @@ export const FirstPrompt = z.string().trim();
 /** Parse a user input without throwing: returns the validated value, or null if
  *  it fails the schema (e.g. empty → no-op). Use `schema.safeParse` directly when
  *  you need the specific error message to show the user. */
-export function parseInput<T>({ schema, raw }: {
-  schema: z.ZodType<T>;
-  raw: unknown;
-}) {
+export function parseInput<T>({ schema, raw }: { schema: z.ZodType<T>; raw: unknown }) {
   const parsed = schema.safeParse(raw);
   return parsed.success ? parsed.data : null;
 }
@@ -137,10 +129,7 @@ export function parseInput<T>({ schema, raw }: {
 /** Live validation for a text field: the schema's own message for a non-empty
  *  invalid value, or null. An empty field yields no message - nothing typed yet -
  *  so callers gate their submit on the schema separately. */
-export function fieldError({ schema, raw }: {
-  schema: z.ZodType;
-  raw: string;
-}) {
+export function fieldError({ schema, raw }: { schema: z.ZodType; raw: string }) {
   if (raw.trim().length === 0) {
     return null;
   }

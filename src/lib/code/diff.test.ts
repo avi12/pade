@@ -1,11 +1,6 @@
-import {
-  DiffKind,
-  firstChangedLine,
-  parseDiff,
-  toSplitRows,
-  unifiedDiff
-} from "@/lib/code/diff";
 import { describe, expect, it } from "vitest";
+
+import { DiffKind, firstChangedLine, parseDiff, toSplitRows, unifiedDiff } from "@/lib/code/diff";
 
 // A small but realistic `git diff` body: file meta, one hunk, a context line,
 // a replaced line (deletion + addition), a second addition, then context.
@@ -170,9 +165,7 @@ describe("unifiedDiff", () => {
         before,
         after
       })
-    ).toBe(
-      "@@ -2,7 +2,7 @@\n b\n c\n d\n-e\n+E\n f\n g\n h"
-    );
+    ).toBe("@@ -2,7 +2,7 @@\n b\n c\n d\n-e\n+E\n f\n g\n h");
   });
 
   it("round-trips through parseDiff into classified, new-file-numbered lines", () => {

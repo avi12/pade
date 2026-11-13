@@ -12,6 +12,8 @@
 // supplies sessions and the handoff through `RecoveryHost` and drives the scan
 // from a component `$effect`.
 
+import { SvelteDate, SvelteMap } from "svelte/reactivity";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { isTurnRunningOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
@@ -25,7 +27,6 @@ import { SessionStatus } from "@/lib/types/agent";
 import type { AgentSession } from "@/lib/types/agent";
 import { CreditsState } from "@/lib/types/usage";
 import type { AccountUsage } from "@/lib/types/usage";
-import { SvelteDate, SvelteMap } from "svelte/reactivity";
 
 /** The usage windows an agent CLI can exhaust - which one names the reset time. */
 export const LimitWindow = {
@@ -75,9 +76,9 @@ const SETTLED_QUIET_MS = 5 * 60_000;
 // printing spaces, so with the escapes stripped words can arrive run together:
 // every gap is optional whitespace.
 const LIMIT_STOP_RE = new RegExp(
-  "(?<reachedWindow>5-hour|session|usage|weekly)?\\s*limit\\s*reached"
-    + "|hit\\s*your\\s*(?:(?<hitWindow>5-hour|session|usage|weekly)\\s*|monthly\\s*spend\\s*)?limit"
-    + "|error\\s*type\\s*rate_limit|rate_limit_error|http\\s*429",
+  "(?<reachedWindow>5-hour|session|usage|weekly)?\\s*limit\\s*reached" +
+    "|hit\\s*your\\s*(?:(?<hitWindow>5-hour|session|usage|weekly)\\s*|monthly\\s*spend\\s*)?limit" +
+    "|error\\s*type\\s*rate_limit|rate_limit_error|http\\s*429",
   "i"
 );
 const RESET_CLOCK_RE = /resets?\s*(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i;
@@ -101,7 +102,12 @@ const hits = new SvelteMap<string, LimitHit>();
 const quietUntil = new Map<string, number>();
 
 /** The next wall-clock occurrence of an "3am" / "3:30pm" style clock time. */
-export function nextOccurrence({ hour, minute, meridiem, now }: {
+export function nextOccurrence({
+  hour,
+  minute,
+  meridiem,
+  now
+}: {
   hour: number;
   minute: number;
   meridiem: string;
@@ -120,10 +126,7 @@ export function nextOccurrence({ hour, minute, meridiem, now }: {
 }
 
 /** Parse the reset clock out of a limit message, or null when it names none. */
-export function parseResetClock({ text, now }: {
-  text: string;
-  now: number;
-}) {
+export function parseResetClock({ text, now }: { text: string; now: number }) {
   const clock = text.match(RESET_CLOCK_RE);
   if (!clock) {
     return null;
@@ -153,10 +156,7 @@ export function isUsageLimitStop(text: string) {
 /** Whether a chunk of agent output is the CLI's usage-limit stop message - and
  *  which window it names, with the reset clock it prints. Null for everything else
  *  (including the softer "approaching usage limit" warning). */
-export function parseLimitHit({ text, now }: {
-  text: string;
-  now: number;
-}) {
+export function parseLimitHit({ text, now }: { text: string; now: number }) {
   const plain = stripAnsi(text);
   const stop = plain.match(LIMIT_STOP_RE);
   if (!stop) {
@@ -174,18 +174,12 @@ export function parseLimitHit({ text, now }: {
   };
 }
 
-function matchingWindow({ hit, account }: {
-  hit: Pick<LimitHit, "window">;
-  account: AccountUsage | null;
-}) {
+function matchingWindow({ hit, account }: { hit: Pick<LimitHit, "window">; account: AccountUsage | null }) {
   return account?.windows.find(candidate => candidate.kind === hit.window);
 }
 
 /** The account's to-the-second reset stamp for the hit's window, when it names one. */
-function accountResetAt({ hit, account }: {
-  hit: Pick<LimitHit, "window">;
-  account: AccountUsage | null;
-}) {
+function accountResetAt({ hit, account }: { hit: Pick<LimitHit, "window">; account: AccountUsage | null }) {
   const stamp = matchingWindow({
     hit,
     account
@@ -201,7 +195,11 @@ function accountResetAt({ hit, account }: {
 /** Judge a stopped session against its account: still blocked, runnable again
  *  (its window reset, or credits carry it), stale (the account never showed it
  *  blocked), or unknown (the account can't say - the reset clock decides). */
-export function assessLimit({ hit, account, now }: {
+export function assessLimit({
+  hit,
+  account,
+  now
+}: {
   hit: Pick<LimitHit, "window" | "resetAt" | "isConfirmed">;
   account: AccountUsage | null;
   now: number;
@@ -228,10 +226,7 @@ export function assessLimit({ hit, account, now }: {
 }
 
 /** With the account silent, the reset clock alone decides - a little after it. */
-function verdictByResetClock({ resetAt, now }: {
-  resetAt: number | null;
-  now: number;
-}) {
+function verdictByResetClock({ resetAt, now }: { resetAt: number | null; now: number }) {
   const isResetPassed = resetAt !== null && now >= resetAt + RESET_BUFFER_MS;
   return isResetPassed ? LimitVerdict.Runnable : LimitVerdict.Unknown;
 }
@@ -239,10 +234,7 @@ function verdictByResetClock({ resetAt, now }: {
 // Record a stop message found in a session's output, unless the session is already
 // waiting or its last message was just settled - a TUI repaints its stop message
 // on every frame.
-function sniffStop({ id, text }: {
-  id: string;
-  text: string;
-}) {
+function sniffStop({ id, text }: { id: string; text: string }) {
   const now = Date.now();
   const isSettled = (quietUntil.get(id) ?? 0) > now;
   if (hits.has(id) || isSettled) {
@@ -263,10 +255,7 @@ function sniffStop({ id, text }: {
 }
 
 /** Feed a chunk of a session's PTY output through the limit sniffer. */
-export function observeUsageLimit({ id, chunk }: {
-  id: string;
-  chunk: string;
-}) {
+export function observeUsageLimit({ id, chunk }: { id: string; chunk: string }) {
   sniffStop({
     id,
     text: chunk
@@ -276,10 +265,7 @@ export function observeUsageLimit({ id, chunk }: {
 /** Feed a session's rendered screen (xterm viewport rows) through the sniffer. The
  *  screen carries what the wire can split - a TUI skips unchanged cells with cursor
  *  moves. */
-export function observeUsageLimitScreen({ id, text }: {
-  id: string;
-  text: string;
-}) {
+export function observeUsageLimitScreen({ id, text }: { id: string; text: string }) {
   if (hits.has(id)) {
     return;
   }
@@ -303,10 +289,7 @@ registerSessionState(SessionStateKey.enum.usageLimit, {
 });
 
 /** Status line shown while a session waits out its limit. */
-function waitingNote({ session, resetAt }: {
-  session: AgentSession;
-  resetAt: number | null;
-}) {
+function waitingNote({ session, resetAt }: { session: AgentSession; resetAt: number | null }) {
   const agent = session.agent.label;
   if (resetAt === null) {
     return `${agent} hit its usage limit - resuming when it resets, or once usage credits can cover it`;
@@ -371,7 +354,12 @@ export function createUsageResume(host: RecoveryHost) {
 
   // Still blocked, or the account can't say: remember what the account confirmed
   // (and its reset stamp) and look again in POLL_MS.
-  function keepWaiting({ session, hit, account, verdict }: {
+  function keepWaiting({
+    session,
+    hit,
+    account,
+    verdict
+  }: {
     session: AgentSession;
     hit: LimitHit;
     account: AccountUsage | null;
@@ -380,10 +368,11 @@ export function createUsageResume(host: RecoveryHost) {
     const waiting = {
       ...hit,
       isConfirmed: hit.isConfirmed || verdict === LimitVerdict.Blocked,
-      resetAt: accountResetAt({
-        hit,
-        account
-      }) ?? hit.resetAt
+      resetAt:
+        accountResetAt({
+          hit,
+          account
+        }) ?? hit.resetAt
     };
     hits.set(session.id, waiting);
     loop.note = waitingNote({

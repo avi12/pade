@@ -1,5 +1,6 @@
-import { InlineKind, inlineMarkdown } from "@/lib/dashboard/summary-markdown";
 import { describe, expect, it } from "vitest";
+
+import { InlineKind, inlineMarkdown } from "@/lib/dashboard/summary-markdown";
 
 describe("inlineMarkdown", () => {
   it("splits bold, code and a link out of the plain text, in order", () => {

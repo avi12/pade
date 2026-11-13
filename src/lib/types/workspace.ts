@@ -1,5 +1,6 @@
-import { Settings } from "@/lib/types/settings";
 import { z } from "zod";
+
+import { Settings } from "@/lib/types/settings";
 
 /** The manifest family that confirms a directory as a package (workspace
  *  member discovery - a folder is a package IFF it holds its own manifest). */
@@ -93,10 +94,10 @@ export const EMPTY_PATH_PROBE: PathProbe = {
 /** A probe tagged with the exact text it describes - the field only trusts the
  *  disk flags once `path` matches the current (trimmed) input, since the probe is
  *  async + debounced. The shape `PathCombobox` binds back to its host. */
-export type TaggedPathProbe = {
+export interface TaggedPathProbe {
   path: string;
   result: PathProbe;
-};
+}
 
 /** The steps a folder move goes through, in order (Rust `RelocateStep`). */
 export const RelocateStep = z.enum(["renaming", "agentMemories", "editorRecents", "links", "settings"]);

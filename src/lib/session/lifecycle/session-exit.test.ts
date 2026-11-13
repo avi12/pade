@@ -1,10 +1,11 @@
+import { describe, expect, it } from "vitest";
+
 import {
   didFailToStart,
   EmptyWorkspaceOutcome,
   emptyWorkspaceOutcome,
   RESPAWN_MINIMUM_LIFETIME_MS
 } from "@/lib/session/lifecycle/session-exit";
-import { describe, expect, it } from "vitest";
 
 describe("didFailToStart", () => {
   it("reads an exit within the minimum lifetime as a failed start", () => {

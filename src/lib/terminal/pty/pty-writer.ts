@@ -8,17 +8,20 @@
  *  Each caller's promise settles after the backend accepted its bytes (or the
  *  endpoint is known gone), so the boot trust-gate and initial-prompt sequence
  *  remains ordered without leaving an awaiter stranded on a failed transport. */
-export function createPtyWriter({ send, onTransportLost }: {
+export function createPtyWriter({
+  send,
+  onTransportLost
+}: {
   /** Deliver one batch of bytes to the PTY. */
   send: (data: string) => Promise<unknown>;
   /** A send failed: this WebView can no longer reach the session. */
   onTransportLost: () => void;
 }) {
   let isWriteInFlight = false;
-  let queuedWrites: Array<{
+  let queuedWrites: {
     data: string;
     settle: () => void;
-  }> = [];
+  }[] = [];
 
   async function flush() {
     isWriteInFlight = true;

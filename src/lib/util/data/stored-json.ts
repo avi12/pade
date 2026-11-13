@@ -15,10 +15,7 @@ function decodedJson(raw: string) {
 
 /** The value stored under `key`, or `null` when it is absent, not JSON, or not
  *  the shape `schema` describes. */
-export function readStoredJson<T>({ key, schema }: {
-  key: string;
-  schema: z.ZodType<T>;
-}) {
+export function readStoredJson<T>({ key, schema }: { key: string; schema: z.ZodType<T> }) {
   const raw = localStorage.getItem(key);
   if (raw === null) {
     return null;
@@ -33,9 +30,6 @@ export function readStoredJson<T>({ key, schema }: {
   return parsed.success ? parsed.data : null;
 }
 
-export function writeStoredJson<T>({ key, value }: {
-  key: string;
-  value: T;
-}) {
+export function writeStoredJson<T>({ key, value }: { key: string; value: T }) {
   localStorage.setItem(key, JSON.stringify(value));
 }

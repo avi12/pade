@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { Command } from "@/lib/ipc/messaging";
 import { showToast, toastText } from "@/lib/stores/ui/toast.svelte";
 import {
@@ -9,26 +11,21 @@ import {
   refreshLimitResetOffers
 } from "@/lib/stores/usage/limitReset.svelte";
 import type { LimitReset } from "@/lib/types/usage";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const mocks = vi.hoisted(() => ({
   sendMessage: vi.fn<(command: string, data?: unknown) => Promise<unknown>>(),
   limitResetOffers: vi.fn<() => Promise<LimitReset[]>>(),
-  claimLimitReset: vi.fn<() => Promise<{
-    reset: boolean;
-    result: string;
-    reason?: string | null;
-  }>>()
+  claimLimitReset: vi.fn<
+    () => Promise<{
+      reset: boolean;
+      result: string;
+      reason?: string | null;
+    }>
+  >()
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage
 }));
 
@@ -164,10 +161,13 @@ describe("several kinds of reset", () => {
   });
 
   it("never spends a kind with nothing to clear", async () => {
-    mocks.limitResetOffers.mockResolvedValue([{
-      ...fableReset,
-      hasUsageToClear: false
-    }, launchReset]);
+    mocks.limitResetOffers.mockResolvedValue([
+      {
+        ...fableReset,
+        hasUsageToClear: false
+      },
+      launchReset
+    ]);
     await refreshLimitResetOffers();
 
     askToResetLimits(fableReset.grantId);

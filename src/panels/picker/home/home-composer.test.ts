@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   NEW_PROJECT_PLACEHOLDER,
   newProjectNameProblem,
@@ -5,7 +7,6 @@ import {
   projectTrigger,
   resolveHomeStart
 } from "@/panels/picker/home/home-composer";
-import { describe, expect, it } from "vitest";
 
 const ROOT = "C:\\repositories";
 
@@ -121,7 +122,12 @@ describe("resolveHomeStart", () => {
 });
 
 describe("projectTrigger", () => {
-  function trigger({ choice, root = ROOT, selectedName = null, selectedPath = "" }: {
+  function trigger({
+    choice,
+    root = ROOT,
+    selectedName = null,
+    selectedPath = ""
+  }: {
     choice: ProjectChoice;
     root?: string;
     selectedName?: string | null;

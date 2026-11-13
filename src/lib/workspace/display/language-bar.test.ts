@@ -1,10 +1,11 @@
+import { describe, expect, it } from "vitest";
+
 import {
   isEnteringAfterCount,
   isLanguageMix,
   languageShareText,
   segmentColors
 } from "@/lib/workspace/display/language-bar";
-import { describe, expect, it } from "vitest";
 
 function share(language: string, perMille: number) {
   return {

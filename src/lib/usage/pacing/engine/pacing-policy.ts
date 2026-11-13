@@ -64,10 +64,7 @@ const DAY_AND_CLOCK = new Intl.DateTimeFormat(undefined, {
 });
 
 /** A time as pacing says it - the clock alone today, with the weekday after. */
-export function spokenTime({ time, now }: {
-  time: number;
-  now: number;
-}) {
+export function spokenTime({ time, now }: { time: number; now: number }) {
   const isToday = DAY.format(time) === DAY.format(now);
   return isToday ? CLOCK.format(time) : DAY_AND_CLOCK.format(time);
 }
@@ -80,11 +77,7 @@ interface PacingFact {
 }
 
 /** A time as a fact ends on: "at 2:49 PM", or as a countdown, "in 6h 59m". */
-export function pacingWhen({ time, now, isCountdown }: {
-  time: number;
-  now: number;
-  isCountdown: boolean;
-}) {
+export function pacingWhen({ time, now, isCountdown }: { time: number; now: number; isCountdown: boolean }) {
   const countdown = resetCountdown({
     iso: new Date(time).toISOString(),
     now
@@ -100,10 +93,7 @@ export function pacingWhen({ time, now, isCountdown }: {
 }
 
 /** A fact as one plain line, its time as a clock time - for the tab badge's hint. */
-export function pacingFactText({ fact, now }: {
-  fact: PacingFact;
-  now: number;
-}) {
+export function pacingFactText({ fact, now }: { fact: PacingFact; now: number }) {
   if (fact.time === null) {
     return fact.text;
   }
@@ -118,7 +108,11 @@ export function pacingFactText({ fact, now }: {
 /** When a held session is back to normal - its tab badge's hint and its
  *  popover both say it. A paused session continues; a slowed one goes back to
  *  its own model and effort. */
-export function pacingResume({ isStopped, resumesAt, original }: {
+export function pacingResume({
+  isStopped,
+  resumesAt,
+  original
+}: {
   isStopped: boolean;
   resumesAt: number | null;
   original: string | null;
@@ -140,7 +134,11 @@ export function pacingResume({ isStopped, resumesAt, original }: {
 /** The facts a paced session's popover lists: why it is held (its window and
  *  when it would run out), what it runs instead of its own choice, and when it
  *  is back to normal (`pacingResume`). */
-export function pacingFacts({ verdict, choice, resume }: {
+export function pacingFacts({
+  verdict,
+  choice,
+  resume
+}: {
   verdict: {
     windowKind: UsageWindowKind;
     utilization: number;
@@ -189,7 +187,12 @@ function verdictFact(verdict: NonNullable<Parameters<typeof pacingFacts>[0]["ver
 /** The Config panel's live line for one window (`paceForecasts`): how much is
  *  spent and when it resets, when it runs out at this pace, and what pacing is
  *  doing about it. A null forecast is a window not yet read. */
-export function pacingPreview({ kind, forecast, slowedCount, now }: {
+export function pacingPreview({
+  kind,
+  forecast,
+  slowedCount,
+  now
+}: {
   kind: PacedWindowKind;
   forecast: PaceForecast | null;
   /** Sessions pacing is slowing right now. */
@@ -220,10 +223,7 @@ export function pacingPreview({ kind, forecast, slowedCount, now }: {
   };
 }
 
-function paceText({ forecast, now }: {
-  forecast: PaceForecast;
-  now: number;
-}) {
+function paceText({ forecast, now }: { forecast: PaceForecast; now: number }) {
   if (!forecast.isMeasured) {
     return "Measuring the pace";
   }
@@ -238,7 +238,12 @@ function paceText({ forecast, now }: {
   })}`;
 }
 
-function actionText({ kind, forecast, slowedCount, now }: {
+function actionText({
+  kind,
+  forecast,
+  slowedCount,
+  now
+}: {
   kind: PacedWindowKind;
   forecast: PaceForecast;
   slowedCount: number;
@@ -249,10 +254,12 @@ function actionText({ kind, forecast, slowedCount, now }: {
     return `Slowing ${sessions} so it lasts`;
   }
 
-  const isOverPace = forecast.isMeasured && isForecastOverPace({
-    forecast,
-    margin: pacingMargin(kind),
-    now
-  });
+  const isOverPace =
+    forecast.isMeasured &&
+    isForecastOverPace({
+      forecast,
+      margin: pacingMargin(kind),
+      now
+    });
   return isOverPace ? "Slowing down the next working session" : "On pace - nothing to slow";
 }

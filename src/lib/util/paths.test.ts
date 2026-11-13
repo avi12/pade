@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   baseName,
   childPath,
@@ -12,7 +14,6 @@ import {
   relativeToRoot,
   shortDisplayName
 } from "@/lib/util/paths";
-import { describe, expect, it } from "vitest";
 
 describe("baseName", () => {
   it("returns the final segment of a Windows path", () => {
@@ -39,9 +40,7 @@ describe("childPath", () => {
         parent: "C:\\repositories\\avi",
         name: "edge-new-tab"
       })
-    ).toBe(
-      "C:\\repositories\\avi\\edge-new-tab"
-    );
+    ).toBe("C:\\repositories\\avi\\edge-new-tab");
   });
 
   it("round-trips through baseName", () => {

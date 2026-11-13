@@ -1,20 +1,15 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { openAction, openChangedFile } from "@/lib/feed/open-change";
 import { Command } from "@/lib/ipc/messaging";
 import type { Ide } from "@/lib/types/editor";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const mocks = vi.hoisted(() => ({
   sendMessage: vi.fn(async () => undefined)
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage
 }));
 

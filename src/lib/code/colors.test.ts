@@ -1,12 +1,6 @@
-import {
-  collectVars,
-  colorAlpha,
-  hexLuminance,
-  isDarkSurface,
-  OPAQUE_ALPHA,
-  resolveColor
-} from "@/lib/code/colors";
 import { describe, expect, it, vi } from "vitest";
+
+import { collectVars, colorAlpha, hexLuminance, isDarkSurface, OPAQUE_ALPHA, resolveColor } from "@/lib/code/colors";
 
 // `resolveColor` gates on `CSS.supports("color", …)`, which Node lacks. A
 // minimal stand-in for the engine's parser keeps these tests focused on what

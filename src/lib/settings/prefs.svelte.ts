@@ -27,10 +27,7 @@ export {
 
 /** Resolve a font-stack CSS custom property (theme.css owns the fallback list) to
  *  its concrete value and prepend the user's chosen font when set. */
-function withChosenFont({ chosen, baseVariable }: {
-  chosen: string | null | undefined;
-  baseVariable: string;
-}) {
+function withChosenFont({ chosen, baseVariable }: { chosen: string | null | undefined; baseVariable: string }) {
   const base = getComputedStyle(document.documentElement).getPropertyValue(baseVariable).trim();
   return chosen ? `"${chosen}", ${base}` : base;
 }
@@ -164,13 +161,7 @@ export const appearance = $state<{
 /** Apply a resolved appearance to the reactive store and the `<html>` data
  *  attributes in one place - the single home for "what is painted right now",
  *  used by both the media-query path and the native OS-theme event. */
-function installAppearance({
-  scheme,
-  palette
-}: {
-  scheme: Scheme;
-  palette: ThemePalette;
-}) {
+function installAppearance({ scheme, palette }: { scheme: Scheme; palette: ThemePalette }) {
   appearance.scheme = scheme;
   appearance.palette = palette;
   document.documentElement.dataset.theme = scheme;

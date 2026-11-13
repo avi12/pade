@@ -1,5 +1,6 @@
-import { glideOffset, risenKey } from "@/lib/ui/reorder-glide";
 import { describe, expect, it } from "vitest";
+
+import { glideOffset, risenKey } from "@/lib/ui/reorder-glide";
 
 describe("risenKey", () => {
   it("is the key of a row that moved toward the top", () => {

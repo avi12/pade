@@ -1,15 +1,13 @@
+import { describe, expect, it } from "vitest";
+
 import type { ModelOption } from "@/lib/types/agent";
 import { PacedWindowKind } from "@/lib/types/pacing";
 import { costWeight } from "@/lib/usage/pacing/engine/load-shedding";
 import { PacePhase, PacingReport } from "@/lib/usage/pacing/shadow-report/pacing-report";
 import type { SessionFacts } from "@/lib/usage/pacing/shadow-report/pacing-report";
 import { choiceFactsOf, paceFactsOf, sessionFactsOf } from "@/lib/usage/pacing/shadow-report/report-facts";
-import { describe, expect, it } from "vitest";
 
-function option({ id, efforts }: {
-  id: string;
-  efforts: string[];
-}) {
+function option({ id, efforts }: { id: string; efforts: string[] }) {
   return {
     id,
     name: id,
@@ -66,13 +64,15 @@ describe("choiceFactsOf", () => {
     });
     expect(facts?.canStepUp).toBe(false);
     expect(facts?.effortSaving).toBeCloseTo(
-      1 - costWeight({
-        model: "claude-opus-5-5",
-        effort: "medium"
-      }) / costWeight({
-        model: "claude-opus-5-5",
-        effort: "high"
-      })
+      1 -
+        costWeight({
+          model: "claude-opus-5-5",
+          effort: "medium"
+        }) /
+          costWeight({
+            model: "claude-opus-5-5",
+            effort: "high"
+          })
     );
     expect(facts?.effortSaving).toBeGreaterThan(0);
     expect(facts?.modelSaving).toBeGreaterThan(0);
@@ -152,7 +152,18 @@ describe("sessionFactsOf", () => {
     hasUsageLimit: false,
     isModelSwitchApplying: false,
     choice: null
-  } satisfies Omit<SessionFacts, "isWorking" | "isSkipped" | "isContinuedRun" | "isShielded" | "workingSince" | "workingShare" | "ownLoad" | "subagents" | "pace">;
+  } satisfies Omit<
+    SessionFacts,
+    | "isWorking"
+    | "isSkipped"
+    | "isContinuedRun"
+    | "isShielded"
+    | "workingSince"
+    | "workingShare"
+    | "ownLoad"
+    | "subagents"
+    | "pace"
+  >;
 
   it("joins what the app reports with what the loop owns into a valid wire report", () => {
     const session = sessionFactsOf({
@@ -165,11 +176,13 @@ describe("sessionFactsOf", () => {
         workingSince: 1000,
         workingShare: 0.5,
         ownLoad: 2,
-        subagents: [{
-          id: "a",
-          description: null,
-          load: 1
-        }],
+        subagents: [
+          {
+            id: "a",
+            description: null,
+            load: 1
+          }
+        ],
         pace: null
       }
     });
@@ -177,11 +190,13 @@ describe("sessionFactsOf", () => {
       windowLabel: "main",
       at: 5000,
       sessions: [session],
-      observed: [{
-        sessionId: "s1",
-        at: 5000,
-        kind: "stepUp"
-      }]
+      observed: [
+        {
+          sessionId: "s1",
+          at: 5000,
+          kind: "stepUp"
+        }
+      ]
     };
     expect(PacingReport.safeParse(report).success).toBe(true);
     expect(session.isWorking).toBe(true);

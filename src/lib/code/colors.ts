@@ -49,11 +49,7 @@ export function collectVars(text: string) {
 /** Resolve a color token to a concrete CSS color for a swatch, or `null` when it
  *  isn't a real color. Traces `var(--x)` through `variables` then the app's
  *  computed styles, following nested vars up to a small depth. */
-export function resolveColor(
-  token: string,
-  variables?: Map<string, string>,
-  depth = 0
-) {
+export function resolveColor(token: string, variables?: Map<string, string>, depth = 0) {
   if (depth > MAX_TRACE_DEPTH) {
     return null;
   }
@@ -107,9 +103,7 @@ const CHANNEL_MAXIMUM = 255;
 /** One sRGB channel, 0–255, linearised for the luminance sum. */
 function linearChannel(byte: number) {
   const value = byte / CHANNEL_MAXIMUM;
-  return value <= GAMMA_TOE_LIMIT
-    ? value / GAMMA_TOE_SLOPE
-    : ((value + GAMMA_OFFSET) / GAMMA_SCALE) ** GAMMA_EXPONENT;
+  return value <= GAMMA_TOE_LIMIT ? value / GAMMA_TOE_SLOPE : ((value + GAMMA_OFFSET) / GAMMA_SCALE) ** GAMMA_EXPONENT;
 }
 
 /** WCAG relative luminance (0 = black, 1 = white) of a `#rgb`/`#rrggbb` colour,

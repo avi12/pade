@@ -8,10 +8,7 @@ import { z } from "zod";
 /** A thrown string with something in it, kept as thrown (untrimmed). */
 const NonBlankText = z.string().refine(text => text.trim().length > 0);
 
-export function errorMessage({ error, fallback }: {
-  error: unknown;
-  fallback: string;
-}) {
+export function errorMessage({ error, fallback }: { error: unknown; fallback: string }) {
   const parsed = NonBlankText.safeParse(error);
   if (parsed.success) {
     return parsed.data;

@@ -42,10 +42,7 @@ export function beginSettingsRequest() {
   return settingsVersions.begin();
 }
 
-export function adoptSettings({ fresh, version }: {
-  fresh: Settings;
-  version: number;
-}) {
+export function adoptSettings({ fresh, version }: { fresh: Settings; version: number }) {
   return settingsVersions.adopt({
     fresh,
     version

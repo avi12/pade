@@ -26,20 +26,13 @@ export interface ChatRestoreHost {
   }) => string;
   select: (id: string) => void;
   isOpen: (id: string) => boolean;
-  setLabel: (target: {
-    id: string;
-    label: string;
-  }) => void;
+  setLabel: (target: { id: string; label: string }) => void;
 }
 
 /** The arguments that reopen this chat's conversation, or none when its
  *  agent resumes through its pinned conversation id alone. A failed lookup
  *  falls back to none - the chat still opens, just fresh. */
-async function resumeArgumentsFor({ chat, project, agent }: {
-  chat: PersistedChat;
-  project: string;
-  agent: Agent;
-}) {
+async function resumeArgumentsFor({ chat, project, agent }: { chat: PersistedChat; project: string; agent: Agent }) {
   return await settledValue({
     promise: sendMessage(Command.agentResumeArgs, {
       command: agent.command,
@@ -62,7 +55,11 @@ export function launchArgumentsFrom(resumeArguments: string[]) {
 
 /** Relaunch one persisted chat on its own conversation, beside whatever the
  *  window already runs. Its session id is kept, so the chat stays itself. */
-export async function restoreChat({ host, project, chat }: {
+export async function restoreChat({
+  host,
+  project,
+  chat
+}: {
   host: ChatRestoreHost;
   project: string;
   chat: PersistedChat;
@@ -94,7 +91,11 @@ export async function restoreChat({ host, project, chat }: {
 /** Whether entering a project also starts a fresh chat: when a first
  *  prompt was written for it, when one was explicitly asked for, or when
  *  there were no persisted chats to bring back. */
-export function shouldStartFreshChat({ initialPrompt, wantNewChat, hasRestoredChats }: {
+export function shouldStartFreshChat({
+  initialPrompt,
+  wantNewChat,
+  hasRestoredChats
+}: {
   initialPrompt?: string;
   wantNewChat: boolean;
   hasRestoredChats: boolean;
@@ -104,7 +105,11 @@ export function shouldStartFreshChat({ initialPrompt, wantNewChat, hasRestoredCh
 
 /** Restore every persisted chat of `project`, then bring the picked chat
  *  (or the one last in front) forward. False when the project has none. */
-export async function restoreProjectChats({ host, project, chatId }: {
+export async function restoreProjectChats({
+  host,
+  project,
+  chatId
+}: {
   host: ChatRestoreHost;
   project: string;
   chatId?: string;

@@ -1,5 +1,7 @@
 // The pane's keyboard and wheel overrides, layered on xterm's own handling.
 
+import type { Terminal } from "@xterm/xterm";
+
 import { AgentId } from "@/lib/agent/agent-icon";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { readClipboardText, writeClipboardText } from "@/lib/ipc/platform";
@@ -10,7 +12,6 @@ import { accumulateWheelNotches } from "@/lib/terminal/input/terminal-scroll";
 import { ERASE_WORD, PAGE_DOWN, PAGE_UP } from "@/lib/terminal/input/terminal-sequences";
 import { wheelScrollsTerminalDocument } from "@/lib/terminal/output/terminal-output";
 import { Key } from "@/lib/ui/keyboard/keys";
-import type { Terminal } from "@xterm/xterm";
 
 // The terminal's own clipboard chords (Ctrl+C with a selection, Ctrl+V),
 // matched case-insensitively.
@@ -49,7 +50,12 @@ function isPlainCtrl(event: KeyboardEvent) {
  *     plain bytes (Windows Terminal gets away with it via win32-input-mode,
  *     which xterm doesn't speak); ^W is the erase-word every line editor
  *     and agent already binds. */
-export function attachKeyOverrides({ terminal, agentId, write, openFind }: {
+export function attachKeyOverrides({
+  terminal,
+  agentId,
+  write,
+  openFind
+}: {
   terminal: Terminal;
   agentId: () => string;
   write: PtyWrite;
@@ -168,7 +174,11 @@ export function attachKeyOverrides({ terminal, agentId, write, openFind }: {
  *  handle: a program that grabbed the mouse (Neovim, a pager, an agent doing its
  *  own wheel handling) wants the wheel as a mouse report, and a plain shell with
  *  real scrollback (baseY > 0) wants its own document scrolled. */
-export function attachWheelForwarding({ terminal, write, onDocumentScroll }: {
+export function attachWheelForwarding({
+  terminal,
+  write,
+  onDocumentScroll
+}: {
   terminal: Terminal;
   write: PtyWrite;
   /** A tick is about to move xterm's own document. */
@@ -197,10 +207,12 @@ export function attachWheelForwarding({ terminal, write, onDocumentScroll }: {
     // Only a tick that moves xterm's own document may hold output back; a tick
     // the agent receives as input must not, or the repaint that IS the scroll
     // is what gets deferred (see wheelScrollsTerminalDocument).
-    if (wheelScrollsTerminalDocument({
-      isAgentOwningMouse,
-      hasNativeScrollback
-    })) {
+    if (
+      wheelScrollsTerminalDocument({
+        isAgentOwningMouse,
+        hasNativeScrollback
+      })
+    ) {
       onDocumentScroll();
     }
 

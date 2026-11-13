@@ -34,10 +34,7 @@ const HANDOFF_APPROACHING_FRACTION = 0.5;
 
 /** Map a context-usage percent (0..100) to its severity relative to the handoff
  *  threshold: ≥75% of the way there is critical, ≥50% is warning, else ok. */
-export function contextLevel({ percentage, threshold }: {
-  percentage: number;
-  threshold: number;
-}) {
+export function contextLevel({ percentage, threshold }: { percentage: number; threshold: number }) {
   const fraction = Math.min(percentage / threshold, 1);
   if (fraction >= HANDOFF_IMMINENT_FRACTION) {
     return ContextLevel.Critical;

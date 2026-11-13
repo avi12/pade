@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from "vitest";
+
 import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
 import {
   enterProjectChats,
@@ -8,7 +10,6 @@ import {
 } from "@/lib/session/chats/project-entry";
 import type { ProjectEntryHost } from "@/lib/session/chats/project-entry";
 import type { RecordedConversation } from "@/lib/types/chat-storage";
-import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
   const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
@@ -35,13 +36,15 @@ const EMPTY_REGISTRY: StoredChatRegistry = {
 };
 
 const PERSISTED_REGISTRY: StoredChatRegistry = {
-  chats: [{
-    id: "persisted",
-    project: PROJECT,
-    agent: AGENT,
-    conversationId: "conversation-persisted",
-    updatedAt: 1
-  }],
+  chats: [
+    {
+      id: "persisted",
+      project: PROJECT,
+      agent: AGENT,
+      conversationId: "conversation-persisted",
+      updatedAt: 1
+    }
+  ],
   activeChatByProject: {},
   lastProject: PROJECT
 };
@@ -70,7 +73,10 @@ interface RunningSession {
   project: string;
 }
 
-function fakeHost({ registry = EMPTY_REGISTRY, running = [] }: {
+function fakeHost({
+  registry = EMPTY_REGISTRY,
+  running = []
+}: {
   registry?: StoredChatRegistry;
   running?: RunningSession[];
 } = {}) {
@@ -115,11 +121,13 @@ function fakeHost({ registry = EMPTY_REGISTRY, running = [] }: {
 describe("resumeRecordedConversation", () => {
   it("selects the chat already running the conversation instead of relaunching it", () => {
     const fake = fakeHost({
-      running: [{
-        id: "live",
-        conversationId: "conversation-recorded",
-        project: PROJECT
-      }]
+      running: [
+        {
+          id: "live",
+          conversationId: "conversation-recorded",
+          project: PROJECT
+        }
+      ]
     });
     resumeRecordedConversation({
       host: fake.host,
@@ -137,16 +145,20 @@ describe("resumeRecordedConversation", () => {
       project: OTHER_PROJECT,
       conversation: conversation({ resumeArguments: ["--resume", "conversation-recorded"] })
     });
-    expect(fake.launches).toEqual([{
-      project: OTHER_PROJECT,
-      conversationId: "conversation-recorded",
-      args: ["--resume", "conversation-recorded"],
-      sessionId: undefined
-    }]);
-    expect(fake.labels).toEqual([{
-      id: FRESH_SESSION_ID,
-      label: "Fix the sidebar"
-    }]);
+    expect(fake.launches).toEqual([
+      {
+        project: OTHER_PROJECT,
+        conversationId: "conversation-recorded",
+        args: ["--resume", "conversation-recorded"],
+        sessionId: undefined
+      }
+    ]);
+    expect(fake.labels).toEqual([
+      {
+        id: FRESH_SESSION_ID,
+        label: "Fix the sidebar"
+      }
+    ]);
   });
 
   it("passes no args when the conversation has no resume args, and no label without a title", () => {
@@ -156,12 +168,14 @@ describe("resumeRecordedConversation", () => {
       project: PROJECT,
       conversation: conversation({ title: null })
     });
-    expect(fake.launches).toEqual([{
-      project: PROJECT,
-      conversationId: "conversation-recorded",
-      args: undefined,
-      sessionId: undefined
-    }]);
+    expect(fake.launches).toEqual([
+      {
+        project: PROJECT,
+        conversationId: "conversation-recorded",
+        args: undefined,
+        sessionId: undefined
+      }
+    ]);
     expect(fake.labels).toEqual([]);
   });
 
@@ -269,11 +283,13 @@ describe("joinProjectChats", () => {
         path: PROJECT
       }
     });
-    expect(fake.freshChats).toEqual([{
-      path: PROJECT,
-      agentId: undefined,
-      initialPrompt: undefined
-    }]);
+    expect(fake.freshChats).toEqual([
+      {
+        path: PROJECT,
+        agentId: undefined,
+        initialPrompt: undefined
+      }
+    ]);
     expect(fake.selected).toEqual([]);
   });
 
@@ -289,22 +305,27 @@ describe("joinProjectChats", () => {
         chatId: "persisted"
       }
     });
-    expect(fake.launches).toEqual([{
-      project: PROJECT,
-      conversationId: "conversation-persisted",
-      args: undefined,
-      sessionId: "persisted"
-    }]);
+    expect(fake.launches).toEqual([
+      {
+        project: PROJECT,
+        conversationId: "conversation-persisted",
+        args: undefined,
+        sessionId: "persisted"
+      }
+    ]);
     expect(fake.freshChats).toEqual([]);
   });
 
   it("brings the project's own live session forward on a plain open", async () => {
     const fake = fakeHost({
-      running: [OTHER_RUNNING, {
-        id: "mine",
-        conversationId: "conversation-mine",
-        project: PROJECT
-      }]
+      running: [
+        OTHER_RUNNING,
+        {
+          id: "mine",
+          conversationId: "conversation-mine",
+          project: PROJECT
+        }
+      ]
     });
     await joinProjectChats({
       host: fake.host,
@@ -325,7 +346,9 @@ describe("joinProjectChats", () => {
         resume: conversation()
       }
     });
-    expect(fake.launches.map(launch => [launch.project, launch.conversationId])).toEqual([[PROJECT, "conversation-recorded"]]);
+    expect(fake.launches.map(launch => [launch.project, launch.conversationId])).toEqual([
+      [PROJECT, "conversation-recorded"]
+    ]);
   });
 });
 
@@ -351,11 +374,13 @@ describe("enterProjectChats", () => {
         agent: AGENT.id
       }
     });
-    expect(fake.freshChats).toEqual([{
-      path: PROJECT,
-      agentId: AGENT.id,
-      initialPrompt: undefined
-    }]);
+    expect(fake.freshChats).toEqual([
+      {
+        path: PROJECT,
+        agentId: AGENT.id,
+        initialPrompt: undefined
+      }
+    ]);
   });
 
   it("skips the restore for a just-created project", async () => {
@@ -394,10 +419,12 @@ describe("enterProjectChats", () => {
       }
     });
     expect(fake.launches).toHaveLength(1);
-    expect(fake.freshChats).toEqual([{
-      path: PROJECT,
-      agentId: undefined,
-      initialPrompt: "build it"
-    }]);
+    expect(fake.freshChats).toEqual([
+      {
+        path: PROJECT,
+        agentId: undefined,
+        initialPrompt: "build it"
+      }
+    ]);
   });
 });

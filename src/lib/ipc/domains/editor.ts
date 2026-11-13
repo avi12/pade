@@ -1,8 +1,9 @@
+import { z } from "zod";
+
 import { NO_REPLY } from "@/lib/ipc/domains/no-reply";
 import type { PathData } from "@/lib/ipc/domains/path-data";
 import { DesignTool, EditorKind, Ide, LanguageShare } from "@/lib/types/editor";
 import { Settings } from "@/lib/types/settings";
-import { z } from "zod";
 
 export const EDITOR_COMMANDS = {
   ideDetect: "ide_detect",
@@ -31,10 +32,7 @@ export interface EditorCommandProtocol {
    *  on every surface. */
   [EDITOR_COMMANDS.ideSuggest]: (data: { cwd: string }) => Ide[];
   /** Persist an explicit editor pick for the project at `cwd`. */
-  [EDITOR_COMMANDS.ideChooseEditor]: (data: {
-    cwd: string;
-    id: string;
-  }) => Settings;
+  [EDITOR_COMMANDS.ideChooseEditor]: (data: { cwd: string; id: string }) => Settings;
   /** The project kinds the rules engine shows, in render/priority order. */
   [EDITOR_COMMANDS.ideKinds]: () => EditorKind[];
   /** Editor ids suited to each project kind (kind → ordered, installed-only). */
@@ -49,18 +47,9 @@ export interface EditorCommandProtocol {
   [EDITOR_COMMANDS.ideAddEditor]: (data: PathData) => Settings;
   [EDITOR_COMMANDS.ideRemoveEditor]: (data: { id: string }) => Settings;
   /** `line` is 1-based, meaningful only when `path` is a file. */
-  [EDITOR_COMMANDS.ideOpen]: (data: {
-    command: string;
-    path?: string;
-    line?: number;
-  }) => void;
+  [EDITOR_COMMANDS.ideOpen]: (data: { command: string; path?: string; line?: number }) => void;
   /** Open a file inside its `project` workspace window, jumping to `line`. */
-  [EDITOR_COMMANDS.ideOpenFile]: (data: {
-    command: string;
-    project: string;
-    file: string;
-    line?: number;
-  }) => void;
+  [EDITOR_COMMANDS.ideOpenFile]: (data: { command: string; project: string; file: string; line?: number }) => void;
   [EDITOR_COMMANDS.openInExplorer]: (data: PathData) => void;
   /** Show a file selected in its folder - never opens or runs the file itself. */
   [EDITOR_COMMANDS.revealInExplorer]: (data: PathData) => void;

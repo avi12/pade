@@ -169,7 +169,7 @@
 <style>
   .new-project-optional {
     font-weight: 400;
-    opacity: 75%;
+    opacity: 0.75;
   }
 
   .new-project-location .new-project-separator {

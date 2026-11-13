@@ -13,12 +13,12 @@ export const InlineKind = {
 } as const;
 type InlineKind = (typeof InlineKind)[keyof typeof InlineKind];
 
-type InlinePiece = {
+interface InlinePiece {
   kind: InlineKind;
   text: string;
   /** A link's web address. */
   url?: string;
-};
+}
 
 /** One pass over the source, each alternative a named group: a code span first
  *  (its content is never read as anything else), then a link, a bare address,

@@ -27,11 +27,11 @@ const SEVERITY_ORDER = [
   label: string;
 }[];
 
-export type SeveritySlice = {
+export interface SeveritySlice {
   level: Level;
   label: string;
   count: number;
-};
+}
 
 // Groups with no limits (unknown agents, or Claude before its usage loads) have
 // no severity, so they're skipped here - but still counted in the running total.
@@ -48,10 +48,10 @@ export function severityBreakdown(agents: AgentGroup[]) {
 
 /** The single limit closest to its cap across every agent, tagged with its owner.
  *  Agents with no limits contribute nothing. */
-export type Spotlight = {
+export interface Spotlight {
   agent: AgentGroup;
   limit: Limit;
-};
+}
 
 /** How far a limit has to fall between two readings to count as having reset.
  *  Usage only climbs within a window, so a fall this size means it started over
@@ -59,10 +59,7 @@ export type Spotlight = {
 const RESET_FALL_PERCENTAGE = 10;
 
 /** A limit's identity across readings: its agent and its label. */
-export function limitKey({ agentId, limit }: {
-  agentId: string;
-  limit: Limit;
-}) {
+export function limitKey({ agentId, limit }: { agentId: string; limit: Limit }) {
   return `${agentId}:${limit.label}`;
 }
 
@@ -80,7 +77,8 @@ export function limitPercentages(groups: AgentGroup[]) {
         limitKey({
           agentId: group.id,
           limit
-        }), limit.percentage
+        }),
+        limit.percentage
       );
     }
   }
@@ -90,7 +88,10 @@ export function limitPercentages(groups: AgentGroup[]) {
 
 /** The limits that just reset: those that fell by {@link RESET_FALL_PERCENTAGE}
  *  or more since the previous reading. */
-export function justResetLimits({ previous, current }: {
+export function justResetLimits({
+  previous,
+  current
+}: {
   previous: ReadonlyMap<string, number>;
   current: ReadonlyMap<string, number>;
 }) {
@@ -115,10 +116,12 @@ export function findSpotlight(agents: AgentGroup[]) {
       continue;
     }
 
-    const isClosestSoFar = !closestRanked || outranks({
-      candidate,
-      incumbent: closestRanked
-    });
+    const isClosestSoFar =
+      !closestRanked ||
+      outranks({
+        candidate,
+        incumbent: closestRanked
+      });
     if (isClosestSoFar) {
       closestRanked = candidate;
       closest = {
@@ -133,10 +136,10 @@ export function findSpotlight(agents: AgentGroup[]) {
 
 // Distinct kind codes actually in play, each with the label it stands for - the
 // legend that decodes the trigger's mono codes.
-type KindLegendEntry = {
+interface KindLegendEntry {
   short: string;
   name: string;
-};
+}
 
 export function buildKindLegend(agents: AgentGroup[]) {
   // Plain-object dedupe (not a Map - this is a pure derivation, not reactive

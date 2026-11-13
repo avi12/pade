@@ -71,10 +71,7 @@ function channelHex(value: number) {
 
 /** The same colour with an alpha channel appended, as the `#rrggbbaa` xterm's
  *  own parser accepts (see `lib/terminal/theme/terminal-theme` on why parse-safety matters). */
-function withAlpha({ color, alpha }: {
-  color: string;
-  alpha: number;
-}) {
+function withAlpha({ color, alpha }: { color: string; alpha: number }) {
   const channels = hexChannels(color);
   if (!channels) {
     return color;
@@ -88,13 +85,7 @@ function withAlpha({ color, alpha }: {
  *  dark theme onto Solarized Light is unreadable, and the app's own light/dark
  *  says nothing about a terminal the user gave a palette of its own. An
  *  unreadable colour falls back to `fallback` - the app's scheme. */
-export function schemeOfBackground({
-  color,
-  fallback
-}: {
-  color: string;
-  fallback: Scheme;
-}) {
+export function schemeOfBackground({ color, fallback }: { color: string; fallback: Scheme }) {
   const luminance = hexLuminance(color);
   if (luminance === null) {
     return fallback;
@@ -109,10 +100,14 @@ export function terminalPaletteProperties(scheme: TerminalScheme) {
     [CODE_BACKGROUND_TOKEN, scheme.background],
     [CODE_FOREGROUND_TOKEN, scheme.foreground],
     [TERMINAL_CURSOR_TOKEN, scheme.cursor ?? scheme.foreground],
-    [TERMINAL_SELECTION_TOKEN, scheme.selection ?? withAlpha({
-      color: scheme.foreground,
-      alpha: DERIVED_SELECTION_ALPHA
-    })]
+    [
+      TERMINAL_SELECTION_TOKEN,
+      scheme.selection ??
+        withAlpha({
+          color: scheme.foreground,
+          alpha: DERIVED_SELECTION_ALPHA
+        })
+    ]
   ]);
   for (const [i, token] of ANSI_COLOR_TOKENS.entries()) {
     properties.set(token, scheme.ansi[i]);

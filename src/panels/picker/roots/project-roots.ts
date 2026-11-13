@@ -28,11 +28,11 @@ export function popularRoot({ roots, recentProjects }: RootsAndRecents) {
  *  exactly what would stop that project from being deletable), plus every root,
  *  whose children are the projects it lists. Deduplicated. */
 export function watchedDirectories({ roots, recentProjects }: RootsAndRecents) {
-  return [...new Set(
-    [
-      ...roots,
-      ...roots.map(parentDirectory),
-      ...recentProjects.map(parentDirectory)
-    ].filter((directory): directory is string => directory !== null)
-  )];
+  return [
+    ...new Set(
+      [...roots, ...roots.map(parentDirectory), ...recentProjects.map(parentDirectory)].filter(
+        (directory): directory is string => directory !== null
+      )
+    )
+  ];
 }

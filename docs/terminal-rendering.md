@@ -13,22 +13,22 @@ point of the document is to stop you re-deriving them.
 A terminal has two screens, and **which one a program paints on decides everything**
 about how a resize must behave. They are opposites, and ADE hosts both.
 
-| | **Normal screen** | **Alternate screen** |
-| --- | --- | --- |
-| What it is | A real document, with real scrollback | A framebuffer the program owns |
-| Who can paint a row | The terminal (it holds the text) | **Only the program** |
-| On resize | xterm can rewrap the text itself - continuously, like a web page | Nothing to reflow: the terminal must wait for the program to repaint, which lands a whole row at a time |
-| Runs there | a shell, an agent with no fullscreen mode, Claude Code with `/tui default` | **Claude Code (as ADE runs it)**, Codex, aider, a pager or editor an agent opens |
+|                     | **Normal screen**                                                          | **Alternate screen**                                                                                    |
+| ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| What it is          | A real document, with real scrollback                                      | A framebuffer the program owns                                                                          |
+| Who can paint a row | The terminal (it holds the text)                                           | **Only the program**                                                                                    |
+| On resize           | xterm can rewrap the text itself - continuously, like a web page           | Nothing to reflow: the terminal must wait for the program to repaint, which lands a whole row at a time |
+| Runs there          | a shell, an agent with no fullscreen mode, Claude Code with `/tui default` | **Claude Code (as ADE runs it)**, Codex, aider, a pager or editor an agent opens                        |
 
 ## What ADE runs Claude Code as
 
 **Whatever the user's own `tui` setting says.** ADE sets no renderer env for Claude -
 exactly as Windows Terminal sets none. Claude's schema offers two:
 
-| `tui` | Renderer | Who owns the scrollback |
-| --- | --- | --- |
+| `tui`        | Renderer                                                | Who owns the scrollback               |
+| ------------ | ------------------------------------------------------- | ------------------------------------- |
 | `fullscreen` | alt-screen, flicker-free (≡ `CLAUDE_CODE_NO_FLICKER=1`) | **Claude**, virtualized inside itself |
-| `default` | the classic main-screen one | **the terminal** |
+| `default`    | the classic main-screen one                             | **the terminal**                      |
 
 ADE used to force `CLAUDE_CODE_NO_FLICKER=1` by env "so it cannot be undone by whatever
 the user's own Claude config says". Overriding the user's renderer choice is not ADE's
@@ -42,14 +42,14 @@ what a wheel tick costs:
 - **`default`** - xterm owns the document and a tick is a local viewport scroll.
 
 **Precedence, and the trap it sets:** `CLAUDE_CODE_NO_FLICKER` beats the `tui` setting, and
-a `settings.json` `env` block sets that variable for *every* Claude, in every terminal. So
+a `settings.json` `env` block sets that variable for _every_ Claude, in every terminal. So
 a user whose settings say `tui: "default"` can still be running fullscreen everywhere and
 not know it - check the `env` block before concluding anything about which renderer is in
 play. (`CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` is the hard opposite lever: it beats both.)
 
 **Do not explain a Windows-Terminal-versus-ADE difference by the screen mode without
 checking that.** Measured on the wire (`portable-pty` harness, plus the live app over CDP),
-the input side is *identical* to Windows Terminal: xterm emits exactly one SGR report per
+the input side is _identical_ to Windows Terminal: xterm emits exactly one SGR report per
 wheel notch, the same one-per-`WHEEL_DELTA` that `mouseInput.cpp`'s
 `_mouseInputState.accumulatedDelta` produces. There is nothing to port. When both terminals
 run the same renderer, what is left is the repaint path itself - ConPTY straight into an
@@ -83,14 +83,14 @@ The grid is whole cells and the pane is not, so a sub-cell remainder always exis
 and has to go somewhere. Which end depends on what the terminal is showing -
 `isBottomAnchored` in `terminalFit.svelte.ts`, driven by `buffer.active.baseY > 0`:
 
-| State | Pin | Why |
-| --- | --- | --- |
-| Conversation still fits (no scrollback) | **top** | Output starts at row 0, so pinning row 0 keeps every line at a fixed y. A resize then moves *nothing* - the pane just reveals or hides empty rows at the bottom. |
-| Conversation scrolls (scrollback exists) | **bottom** | xterm scrolls the document in whole rows, so a top-pinned grid would step the text a full row each time the row count changes. |
+| State                                    | Pin        | Why                                                                                                                                                              |
+| ---------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Conversation still fits (no scrollback)  | **top**    | Output starts at row 0, so pinning row 0 keeps every line at a fixed y. A resize then moves _nothing_ - the pane just reveals or hides empty rows at the bottom. |
+| Conversation scrolls (scrollback exists) | **bottom** | xterm scrolls the document in whole rows, so a top-pinned grid would step the text a full row each time the row count changes.                                   |
 
 Bottom-pinned, a visible line sits at `y = paneBottom - (linesFromEnd + 1) *
 cellHeight` - **no `rows` term in it**. The row xterm scrolls away and the
-remainder the grid gains cancel exactly, so the text is continuous *through* a row
+remainder the grid gains cancel exactly, so the text is continuous _through_ a row
 boundary. Measured, sweeping the pane 5px at a time across three row changes: the
 prompt's hint line held **34px from the pane's bottom edge at every single
 height** (519−485, 514−480, … 469−435).
@@ -100,7 +100,7 @@ height** (519−485, 514−480, … 469−435).
 The grid refits every animation frame (rAF-coalesced `ResizeObserver`), so the text
 tracks the drag. But `pty.resize` - the `SIGWINCH` - fires **only when the column
 count changes**, debounced by `SIGWINCH_SETTLE_MS` (150ms). A vertical drag now
-sends the agent *nothing at all*.
+sends the agent _nothing at all_.
 
 A CLI printing an inline document needs the width: that is what its text wraps to.
 It does not need the height - how much of a document you can see is the terminal's
@@ -132,30 +132,30 @@ any moment anyway - a pager or editor an agent opens, or Claude Code put back wi
 `/tui default`. `terminalSession.svelte.ts` watches `buffer.onBufferChange` and
 `terminalFit.svelte.ts` keeps `isOnAlternateScreen`, and every rule flips on it:
 
-| | Normal screen | Alternate screen |
-| --- | --- | --- |
-| Grid refit | **every frame** - xterm owns the document and reflows it | **on settle only** - see below |
-| `SIGWINCH` | width only, debounced; height **never** | **cols and rows, immediately** - only the agent can paint a row, so a size it hasn't heard is a row nobody paints |
-| Grid anchor | top until it scrolls, then bottom | **top** - see "the stabiliser" below |
-| xterm patch | active | **inert** (gated on `_hasScrollback`) |
+|             | Normal screen                                            | Alternate screen                                                                                                  |
+| ----------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Grid refit  | **every frame** - xterm owns the document and reflows it | **on settle only** - see below                                                                                    |
+| `SIGWINCH`  | width only, debounced; height **never**                  | **cols and rows, immediately** - only the agent can paint a row, so a size it hasn't heard is a row nobody paints |
+| Grid anchor | top until it scrolls, then bottom                        | **top** - see "the stabiliser" below                                                                              |
+| xterm patch | active                                                   | **inert** (gated on `_hasScrollback`)                                                                             |
 
 The grid rule is the surprising one, and it took three attempts to get right.
 
 A fullscreen TUI paints by **diffing against its own model of the screen** - that is
 what makes it flicker-free. Resize the grid under it faster than it can process the
 `SIGWINCH` and its model starts describing a screen that no longer exists; from then on
-it writes only the cells it *believes* changed, so a torn frame **never repairs itself**.
+it writes only the cells it _believes_ changed, so a torn frame **never repairs itself**.
 Measured, resizing every frame through a fast drag: the agent **stopped painting
 altogether** - the pane went blank and stayed blank, the process still alive, typing
 into it producing nothing. This is not cosmetic damage. It wedges the renderer.
 
 The obvious answers both fail:
 
-| Attempt | Result |
-| --- | --- |
-| Resize every frame (as on the normal screen) | Renderer wedged; pane blank, unrecoverable |
-| Freeze the grid for the whole gesture, move it on release | Safe, but then **the TUI only updates when you let go** |
-| Fixed throttle (100ms) | Survived one drag, wedged on the third - a fixed rate just moves the cliff |
+| Attempt                                                   | Result                                                                     |
+| --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Resize every frame (as on the normal screen)              | Renderer wedged; pane blank, unrecoverable                                 |
+| Freeze the grid for the whole gesture, move it on release | Safe, but then **the TUI only updates when you let go**                    |
+| Fixed throttle (100ms)                                    | Survived one drag, wedged on the third - a fixed rate just moves the cliff |
 
 What works is **flow control**: one resize in flight at a time. Give the agent a size,
 wait until it has finished painting it (its output goes quiet for `ALT_REPAINT_QUIET_MS`),
@@ -165,7 +165,7 @@ consecutive fast drags: the frame stays intact every time, and mid-gesture the a
 painted right down to the grid's last row, so it tracks the drag live.
 
 Waiting on its repaint is necessary but **not sufficient**: the agent goes quiet
-*between* the bursts of a single repaint, so the credit comes back early and the resizes
+_between_ the bursts of a single repaint, so the credit comes back early and the resizes
 still pile up. `ALT_FIT_MINIMUM_INTERVAL_MS` (250ms) is the floor on how often it may be
 disturbed at all, whatever the pane is doing.
 
@@ -202,9 +202,9 @@ cannot force DOM parsing and paint into the middle of scroll frames.
 **The wheel deferral is only for a tick that scrolls xterm's own document.** An
 active wheel gesture there defers xterm writes until 120ms of quiet, with a
 one-second ceiling for a continuous gesture, then one coalesced write catches up.
-It must *not* apply when the agent has grabbed the mouse (every fullscreen TUI:
+It must _not_ apply when the agent has grabbed the mouse (every fullscreen TUI:
 Claude, Codex, a pager) or when the tick is forwarded as PageUp/PageDown - there
-the wheel is **input**, and the frame the agent paints back *is* the scroll.
+the wheel is **input**, and the frame the agent paints back _is_ the scroll.
 Deferring it withholds the scroll itself: the agent answered every tick in a few
 ms while the terminal sat on the frames, so a continuous gesture repainted about
 **once per second** instead of once per frame. That was the "PADE's terminal lags
@@ -231,7 +231,7 @@ Three more traps found the hard way:
   it to half height. `paneGrid()` is the one measurement both the fit and the restore read.
 - Every settled gesture owes the agent a **full repaint** (`repaintAgent`), not just the
   ones where we gave up waiting (`ALT_REPAINT_TIMEOUT_MS`). Answering the SIGWINCH is not
-  redrawing the screen: the agent erases the rows *its own model* says it last wrote, and
+  redrawing the screen: the agent erases the rows _its own model_ says it last wrote, and
   a size change is exactly what makes that model wrong - rows it no longer accounts for
   keep whatever they held. Measured 2026-09-06 on a live Claude after the task dock
   opened: a tool result from an earlier frame (`host …` / `packaged: no` / `this build:
@@ -247,13 +247,13 @@ Three more traps found the hard way:
 
 A fullscreen agent's frame is **rigid** - the conversation is nailed to its first row, the
 prompt to its last - and the pane's height is not a whole number of rows. So whichever
-edge is *not* pinned is the one that jumps a whole row every time the row count changes.
+edge is _not_ pinned is the one that jumps a whole row every time the row count changes.
 
 Pinning the **bottom** welds the prompt to the pane's edge, which sounds right and is
 wrong: it makes the entire conversation sawtooth by a row on every boundary. That is the
 "mid-step". Pinning the **top** instead nails the conversation - measured across three row
 boundaries, it does not move by a single pixel (`y = 51` at every height) - and the
-remainder collects at the bottom as a strip of *terminal background*, which is not visible
+remainder collects at the bottom as a strip of _terminal background_, which is not visible
 as anything. The prompt block steps a row instead, into the space that just appeared,
 which is what a terminal getting taller ought to look like.
 
@@ -274,12 +274,12 @@ neighbours, and they read the other way, so xterm paints them disconnected and
 backwards.
 
 **First, find out who is doing the reordering.** This is the trap the whole feature
-fell into, and it costs a day: *correctly rendered* right-to-left text always looks
+fell into, and it costs a day: _correctly rendered_ right-to-left text always looks
 reversed when you transcribe the glyphs left to right, because that is the order they
 sit in. `מידע נוסף` rendered correctly reads `ףסונ עדימ` off the screen - the same
 string you would write down if it were broken. **A screenshot cannot tell you which
 one you are looking at.** The only honest test is to compare two sources that cannot
-both be wrong: the terminal buffer's *code points*
+both be wrong: the terminal buffer's _code points_
 (`row.textContent`, escaped to `\uXXXX` so nothing can re-order them on the way out)
 against what the agent actually wrote (its own transcript in
 `~/.claude/projects/<slug>/<session-id>.jsonl`). If the buffer holds `ךו…`
@@ -287,7 +287,7 @@ where the transcript holds `מת…`, the agent shipped visual order.
 
 **The stream is not the place to fix it.** The obvious design - reshape and reorder
 the PTY bytes on the way in (what `ar-terminal` does for VS Code, and what an
-extension has no other choice about) - is wrong *here*, for reasons that are specific
+extension has no other choice about) - is wrong _here_, for reasons that are specific
 to what ADE does with its buffer:
 
 - It bails on the **alternate screen**, which is where ADE's agents live. A fullscreen
@@ -310,11 +310,11 @@ box borders and aligned columns off the grid. Two rules keep a run honest:
   algorithm calls those neutral and would happily reorder a border into the middle of
   a sentence. Measured: `│ عربي داخل صندوق │` renders with both borders at their exact
   columns and the Arabic joined and reordered between them.
-- interior neutrals stay *inside* a run up to a padding-width gap. A single space is
+- interior neutrals stay _inside_ a run up to a padding-width gap. A single space is
   prose - splitting there would reorder each word on its own and the sentence would
   read backwards - while a wide gap is an agent aligning a table, where joining would
   let one column's text slide into the next.
-- a **digit continues a run but cannot open one**. Digits are *weak* in the bidi
+- a **digit continues a run but cannot open one**. Digits are _weak_ in the bidi
   algorithm: a number that follows right-to-left text is carried along and reordered
   with it, so leaving `11.01.2027` out of the run that ends at `ביותר` left the phrase
   reading one way and the date it belongs to sitting at the row's other end. A number
@@ -325,9 +325,9 @@ Three things to know before changing it:
 
 - **The run box carries the terminal's own `direction: ltr`, not `rtl`.** The browser
   reads the characters and reorders them itself; the base direction only decides where
-  the result is *anchored*. Claiming `rtl` anchored every run to its last column, so a
+  the result is _anchored_. Claiming `rtl` anchored every run to its last column, so a
   phrase narrower than its cells hung off the right with a hole in front of it -
-  `  - ` then a blank third of a row, then the Hebrew. With the grid's own direction
+  ` -` then a blank third of a row, then the Hebrew. With the grid's own direction
   the run starts at its first column and reads away from there, exactly as the same
   string does in any browser. Position it with physical `top`/`left` regardless: a cell
   grid has no writing mode (column 0 is the leftmost cell whatever is printed in it),
@@ -354,7 +354,13 @@ transcript held `מתוך`/`שלב` - the CLI splits each row into per-character
 by embedding level. In the binary:
 
 ```js
-class BidiGate { needed; isNeeded(){ if (this.needed === undefined) this.needed = true; return this.needed } }
+class BidiGate {
+  needed;
+  isNeeded() {
+    if (this.needed === undefined) this.needed = true;
+    return this.needed;
+  }
+}
 function reorderCells(cells) {
   if (!gate.isNeeded() || cells.length === 0) return cells;
   const text = cells.map(c => c.value.replace(/[؜‪-‮⁦-⁩]/g, "�")).join("");
@@ -383,16 +389,19 @@ overlay is not merely hidden, it never exists.
 too.** With the overlay gone the Hebrew was still backwards, and the reason is that a
 DOM row is text in a `<div>`: left alone, the browser runs the bidi algorithm over it
 and moves the cells. Measured with `Range.getBoundingClientRect()` per character - the
-only way to see what is *painted* rather than what is in the DOM - the buffer's `ךותמ`
+only way to see what is _painted_ rather than what is in the DOM - the buffer's `ךותמ`
 came out at descending x, i.e. painted `מתוך`. So `Terminal.svelte` pins the grid:
 
 ```css
 :global(.xterm-rows > div),
-:global(.xterm-rows span) { unicode-bidi: isolate-override; direction: ltr; }
+:global(.xterm-rows span) {
+  unicode-bidi: isolate-override;
+  direction: ltr;
+}
 ```
 
-**Yes, MDN says not to do this** - *"intended for Document Type Definition (DTD)
-designers. Web designers and similar authors should not override it."* That warning is
+**Yes, MDN says not to do this** - _"intended for Document Type Definition (DTD)
+designers. Web designers and similar authors should not override it."_ That warning is
 about **prose**, where directionality is the content's own semantics and belongs in
 `dir` / `<bdo>` markup; the CSS is merely how the browser implements that markup, and
 hand-setting it detaches the meaning from the content. The property is not off-limits,
@@ -401,8 +410,8 @@ markup is just the front door - the HTML spec's own rendering rules are written 
 `div { unicode-bidi: isolate }`, which is why an xterm row was an isolate before we
 touched it.
 
-The markup that says what is meant here is exactly `<bdo>`: *these characters are
-already in the order I want them drawn.* We cannot use it - xterm generates the rows,
+The markup that says what is meant here is exactly `<bdo>`: _these characters are
+already in the order I want them drawn._ We cannot use it - xterm generates the rows,
 so a real `<bdo>` per span means patching its row factory on the hottest path in the
 app to arrive at the same computed style. So the rule applies the identical
 declaration the UA would. Nothing semantic is lost either way: `.xterm-rows` is
@@ -413,10 +422,10 @@ Three more things about that rule, each of which cost a measurement:
 - **`isolate-override`, not `plaintext` or `isolate`.** Only the override half says
   "reordering is strictly in sequence according to `direction`; the implicit part of
   the bidirectional algorithm is ignored". `plaintext` only changes how the base
-  direction is *detected* and still reorders; `isolate` only stops the element
+  direction is _detected_ and still reorders; `isolate` only stops the element
   influencing its siblings. `isolate-override` is both, and is what `<bdo>` maps to.
 - **The spans need it as well as the row.** A block container's override reaches its
-  inline-level descendants but not those inside *another* block container, and xterm
+  inline-level descendants but not those inside _another_ block container, and xterm
   gives every styled span `display: inline-block`. Overriding only `.xterm-rows > div`
   changes nothing.
 - **A stylesheet change does not re-lay-out rows that already exist.** Injecting the
@@ -425,7 +434,7 @@ Three more things about that rule, each of which cost a measurement:
   re-rendered, or reload.
 
 With the grid pinned, right-to-left text is reordered in exactly one place: the agent
-(when it does its own) or the overlay (when it doesn't). Never both, never neither. The cost is Arabic *shaping* in Claude
+(when it does its own) or the overlay (when it doesn't). Never both, never neither. The cost is Arabic _shaping_ in Claude
 sessions: the letters are in the right order but unjoined, because un-reversing them to
 shape and re-reversing to place is a bidi implementation of our own, which is exactly
 what this design refuses to own. Every other agent, and any shell, still gets the
@@ -439,7 +448,7 @@ row - and not even that until the session has printed a right-to-left character 
 
 A PTY has no scrollback of its own, so a terminal that mounts onto a running session -
 a hot-reloaded component, a reloaded window - has nothing to paint and sits blank while
-the agent, quite happily, waits for input. It reads as *"the agent isn't starting"*, and
+the agent, quite happily, waits for input. It reads as _"the agent isn't starting"_, and
 it is the same bug every time. `pty.rs` keeps each session's raw stream and hands it
 back through `pty_history`; every chunk carries a sequence number, so a frontend that is
 already listening to the live feed while it asks for the history can tell which chunks
@@ -474,19 +483,19 @@ Stock xterm loses content in both directions.
 
 ```js
 this.lines.length > this.ybase + this.y + 1
-  ? this.lines.pop()            // "The line is a blank line below the cursor"
+  ? this.lines.pop() // "The line is a blank line below the cursor"
   : (this.ybase++, this.ydisp++);
 ```
 
 The comment asserts the popped line is blank. **The code never checks.** Anything a
-program printed *below* the cursor dies every time the terminal loses a row - and
+program printed _below_ the cursor dies every time the terminal loses a row - and
 Claude Code's `accept edits` hint sits below its prompt box, exactly there. It
 vanished on the first shrink (`hintPresent: false`).
 
 Patched: pop only a genuinely blank trailing line, otherwise scroll, so the content
-moves into scrollback instead of the bin. When it scrolls and the cursor is *not* on
+moves into scrollback instead of the bin. When it scrolls and the cursor is _not_ on
 the last line, the cursor's viewport-relative `y` comes down with `ybase` so it stays
-on the same absolute line (in the stock case the cursor *is* on the last line, and
+on the same absolute line (in the stock case the cursor _is_ on the last line, and
 the `y = min(y, newRows - 1)` clamp below already handles that).
 
 ### Grow refuses to reclaim the scrollback
@@ -499,7 +508,7 @@ if (this.ybase > 0 && this.lines.length <= this.ybase + this.y + addToY + 1) {
 }
 ```
 
-That second test means *"only when there is nothing below the cursor"* - and the hint
+That second test means _"only when there is nothing below the cursor"_ - and the hint
 line is below the cursor. So growing never reclaimed the scrollback; it pushed blank
 lines under the conversation instead. Shrink → grow was therefore **lossy**: the
 conversation marched off the top a row per cycle while the pane filled with dead
@@ -512,7 +521,7 @@ at **43**, no blanks. Lossless.
 
 Both changes are gated on `this._hasScrollback`, which is exactly what tells the two
 buffers apart. The **alternate screen keeps stock behaviour, byte for byte** - it has
-nowhere to scroll a line *to*, and "preserving" content there just shoves the agent's
+nowhere to scroll a line _to_, and "preserving" content there just shoves the agent's
 frame around underneath it. (An earlier ungated version did precisely that.)
 
 Both shipped bundles (`lib/xterm.js`, `lib/xterm.mjs`) carry both changes; the patch
@@ -524,7 +533,7 @@ will "verify" the wrong code.
 ### One throwing chunk froze the terminal forever
 
 xterm parses writes through a queue (`WriteBuffer`). `_innerWrite` loops over the
-queued chunks, and `write()` only schedules that loop when the queue was *empty*.
+queued chunks, and `write()` only schedules that loop when the queue was _empty_.
 If the parser throws on a chunk (seen live: `Cannot set properties of undefined
 (setting 'isWrapped')`), the exception escapes the loop with the failed chunk still
 at the head, and nothing reschedules it. Every later `write()` sees a non-empty
@@ -544,13 +553,13 @@ which the agent's next paint covers, instead of the terminal.
 1. **CSS `scale` to stretch the grid over the sub-cell remainder.** Pins both
    edges, but glyphs breathe ~2.3% and snap back at each row (the user reads it as
    jumping), and it breaks xterm's click mapping (xterm divides pointer px by the
-   *unscaled* cell size), which then needs an xterm patch. **Rejected.**
+   _unscaled_ cell size), which then needs an xterm patch. **Rejected.**
 2. **Freeze the row count during the drag, reflow on release.** Perfectly smooth,
-   and rejected explicitly: *"it will pause the terminal content… I want the
-   resizing to behave identical to a webpage."*
+   and rejected explicitly: _"it will pause the terminal content… I want the
+   resizing to behave identical to a webpage."_
 3. **Bottom-anchoring xterm's buffer resize** (insert a blank at the top on grow;
    never `pop()` on shrink). On the alt buffer it shoved the agent's block down a
-   row and pushed its last line off the end. The *real* bug in that code is
+   row and pushed its last line off the end. The _real_ bug in that code is
    narrower, and is what the patch above fixes: `pop()` discarding a line that
    isn't blank.
 4. **Reaching for a different terminal library.** The library was never the
@@ -558,7 +567,7 @@ which the agent's next paint covers, instead of the terminal.
    patch.
 5. **Expecting the DECSET 2031 `?997` relay to re-theme a running Claude.** It
    does not, on Windows, and the code reads as though it does. Claude's theme is
-   `live override ?? $COLORFGBG ?? dark`; the override is set *only* by the answer
+   `live override ?? $COLORFGBG ?? dark`; the override is set _only_ by the answer
    to an OSC 11 background-color query, and its `?997` handler **throws away the
    scheme the report carries** and re-probes instead - the report is a doorbell,
    not the news. Measured against the real binary under a real `ConPTY` (harness:
@@ -567,7 +576,7 @@ which the agent's next paint covers, instead of the terminal.
    **OSC 0 and nothing else**, and rang-doorbell produced **zero** OSC 11 queries
    in 30s. So there is nothing for a terminal-side OSC 11 handler to answer -
    writing one is dead code here (tried, measured, reverted). Re-measured on
-   2.1.227 with the agent's own `--debug` log as the witness: the doorbell *does*
+   2.1.227 with the agent's own `--debug` log as the witness: the doorbell _does_
    arrive (a query attempt is logged within a second of it) and every attempt ends
    `OSC 11 query … got no response`. An `auto` session's scheme is therefore
    decided by the `$COLORFGBG` it was spawned with and cannot change while it
@@ -575,7 +584,7 @@ which the agent's next paint covers, instead of the terminal.
    lever is a theme file, not the protocol** (see below).
 
    **Nor does pushing the answer it never asked for.** The obvious next idea -
-   the query is unwinnable, but the *answer* is just a matched report, so ring
+   the query is unwinnable, but the _answer_ is just a matched report, so ring
    the doorbell and hand over `OSC 11;rgb:…` in the same write - is also dead,
    measured against 2.1.220 (harness: `portable-pty`, one fresh session per
    variant, answering DA1 the way a real terminal does; all three deliveries -
@@ -585,7 +594,7 @@ which the agent's next paint covers, instead of the terminal.
    match. What kills it is the **fence**: the probe is
    `Promise.all([send(query), flush()])`, `flush()` writes a DA1 (`ESC [ c`)
    sentinel, and any DA1 answer resolves every query queued before it with
-   *undefined*. On Windows the pseudoconsole answers DA1 itself, locally and
+   _undefined_. On Windows the pseudoconsole answers DA1 itself, locally and
    instantly, so the give-up beats anything the host can inject. A host that
    holds the fence open cannot exist - conhost owns that reply. Do not re-try
    this without first re-measuring whether ConPTY still swallows the query.
@@ -595,7 +604,7 @@ which the agent's next paint covers, instead of the terminal.
    2s timeout])`, DCS-wrapped, no DA1 sentinel - so an answer inside that window
    would win. Measured on 2.1.227 with `STY` set: the query still never reaches
    the PTY master, and an answer written blind into the window changes nothing,
-   because ConPTY drops OSC on the way *in* as well. CSI does get through (the
+   because ConPTY drops OSC on the way _in_ as well. CSI does get through (the
    `?997` doorbell proves it); OSC does not, in either direction.
 
    **What DOES re-theme a running session: the theme definition it is using.**
@@ -607,31 +616,32 @@ which the agent's next paint covers, instead of the terminal.
    within 5s**, matching a light-spawned control exactly, with the conversation
    untouched. That is `ThemeConfig::SpawnSelectedLiveTheme` and
    `theming::publish_live_themes`. Note what carries the scheme: the file's
-   *contents*. The launch args only name it, so they are identical on both
+   _contents_. The launch args only name it, so they are identical on both
    schemes - that split is the whole reason a flip can reach a process that is
    already running.
-6. **Putting Claude *into* the flip-restart because a harness says the
+
+6. **Putting Claude _into_ the flip-restart because a harness says the
    `--session-id` race is gone.** It isn't, where it counts. Codex and opencode
    are respawned onto real resume args (`codex resume <uuid>`,
    `opencode --session <id>`); Claude has none, so it is respawned onto the same
    `--session-id` the process just killed was pinned to. A `portable-pty` harness
    - start, kill, respawn on that id at 0ms / 250ms / 1500ms - reports all three
-   surviving to their TUI, and on the strength of that Claude was added to
-   `SPAWN_THEMED_AGENTS`. In the live app the very next flip left a **blank pane
-   stuck at "Starting…"**: the session wedged instead of re-theming. Twice now
-   (2026-08-01, 2026-08-07) this has been tried and reverted. The harness is
-   measuring a narrower thing than the app does - believe the app. Wedging a
-   working session is worse than colours that lag. **Settled for good since
-   2026-08-13:** Claude follows a flip through its watched theme definition, so
-   there is no longer anything to gain by restarting it. `SPAWN_THEMED_AGENTS` is
-   Codex and opencode, and Claude must never be added to it.
+     surviving to their TUI, and on the strength of that Claude was added to
+     `SPAWN_THEMED_AGENTS`. In the live app the very next flip left a **blank pane
+     stuck at "Starting…"**: the session wedged instead of re-theming. Twice now
+     (2026-08-01, 2026-08-07) this has been tried and reverted. The harness is
+     measuring a narrower thing than the app does - believe the app. Wedging a
+     working session is worse than colours that lag. **Settled for good since
+     2026-08-13:** Claude follows a flip through its watched theme definition, so
+     there is no longer anything to gain by restarting it. `SPAWN_THEMED_AGENTS` is
+     Codex and opencode, and Claude must never be added to it.
 
    Closed since: a session that is **busy** when the scheme flips can't be
    respawned then - that would sever the turn in flight - so App holds the flip
    and applies it at the session's next idle prompt (`whenSessionIdle` with no
    timeout, since there is nothing to give up for). `sessionSpawnScheme` records
    the scheme each session actually launched under, so a session that sat out a
-   flip *and its way back* is never restarted for nothing. Until that idle
+   flip _and its way back_ is never restarted for nothing. Until that idle
    moment the agent keeps painting its spawn scheme. For Claude, which is not in
    the set at all, that is the whole story: dark diffs on a light terminal until
    it is next launched, and nothing on Windows can close that gap safely.
@@ -648,7 +658,9 @@ which the agent's next paint covers, instead of the terminal.
   identical `ResizeObserver → fitToPane → term.resize` path and is safe.
 - To inspect the buffer, temporarily expose the terminal after `term.open(host)`:
   ```ts
-  if (import.meta.env.DEV) { Reflect.set(globalThis, "__padeTerm", term); }
+  if (import.meta.env.DEV) {
+    Reflect.set(globalThis, "__padeTerm", term);
+  }
   ```
   then read `__padeTerm.buffer.active` over CDP (`type`, `baseY`, `length`).
   **Remove before committing.**
@@ -662,7 +674,7 @@ which the agent's next paint covers, instead of the terminal.
 
 - **Resume properly on relaunch.** When a session is resumed (green-dot resume,
   `workspace-relocate.ts`, `stores/agent/handoff/handoff.svelte.ts`), PADE seeds the literal prompt
-  `"continue\r"` into a *fresh* conversation, which loses the context. It should
+  `"continue\r"` into a _fresh_ conversation, which loses the context. It should
   launch the agent with its native resume flag instead - a `resume` column in the
   `agents.rs` registry (claude → `--continue`), mirroring `oneshot` and `env`.
   Resumed sessions only; fresh launches stay fresh.

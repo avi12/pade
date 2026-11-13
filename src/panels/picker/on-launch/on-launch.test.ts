@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { StartMode, TEMP_CLEANUP_DAY_CHOICES } from "@/lib/types/settings";
 import { START_MODE_CHOICES, TEMP_CLEANUP_CHOICES } from "@/panels/picker/on-launch/on-launch";
-import { describe, expect, it } from "vitest";
 
 describe("on-launch choices", () => {
   it("offers every start mode once", () => {

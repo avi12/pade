@@ -1,1 +1,347 @@
-{"holdForSaving":[{"fraction":0,"expected":5},{"fraction":0.01,"expected":5},{"fraction":0.02,"expected":5},{"fraction":0.03,"expected":5},{"fraction":0.04,"expected":5},{"fraction":0.05,"expected":5},{"fraction":0.06,"expected":5},{"fraction":0.07,"expected":5},{"fraction":0.08,"expected":5},{"fraction":0.09,"expected":5},{"fraction":0.1,"expected":5},{"fraction":0.11,"expected":5},{"fraction":0.12,"expected":5},{"fraction":0.13,"expected":5},{"fraction":0.14,"expected":5},{"fraction":0.15,"expected":5},{"fraction":0.16,"expected":5},{"fraction":0.17,"expected":5},{"fraction":0.18,"expected":5},{"fraction":0.19,"expected":5},{"fraction":0.2,"expected":5},{"fraction":0.21,"expected":5},{"fraction":0.22,"expected":6},{"fraction":0.23,"expected":6},{"fraction":0.24,"expected":6},{"fraction":0.25,"expected":7},{"fraction":0.26,"expected":7},{"fraction":0.27,"expected":7},{"fraction":0.28,"expected":8},{"fraction":0.29,"expected":8},{"fraction":0.3,"expected":9},{"fraction":0.31,"expected":9},{"fraction":0.32,"expected":9},{"fraction":0.33,"expected":10},{"fraction":0.34,"expected":10},{"fraction":0.35,"expected":11},{"fraction":0.36,"expected":11},{"fraction":0.37,"expected":12},{"fraction":0.38,"expected":12},{"fraction":0.39,"expected":13},{"fraction":0.4,"expected":13},{"fraction":0.41,"expected":14},{"fraction":0.42,"expected":14},{"fraction":0.43,"expected":15},{"fraction":0.44,"expected":16},{"fraction":0.45,"expected":16},{"fraction":0.46,"expected":17},{"fraction":0.47,"expected":18},{"fraction":0.48,"expected":18},{"fraction":0.49,"expected":19},{"fraction":0.5,"expected":20},{"fraction":0.51,"expected":21},{"fraction":0.52,"expected":22},{"fraction":0.53,"expected":23},{"fraction":0.54,"expected":23},{"fraction":0.55,"expected":24},{"fraction":0.56,"expected":25},{"fraction":0.57,"expected":27},{"fraction":0.58,"expected":28},{"fraction":0.59,"expected":29},{"fraction":0.6,"expected":30},{"fraction":0.61,"expected":31},{"fraction":0.62,"expected":33},{"fraction":0.63,"expected":34},{"fraction":0.64,"expected":36},{"fraction":0.65,"expected":37},{"fraction":0.66,"expected":39},{"fraction":0.67,"expected":41},{"fraction":0.68,"expected":43},{"fraction":0.69,"expected":45},{"fraction":0.7,"expected":45},{"fraction":0.71,"expected":45},{"fraction":0.72,"expected":45},{"fraction":0.73,"expected":45},{"fraction":0.74,"expected":45},{"fraction":0.75,"expected":45},{"fraction":0.76,"expected":45},{"fraction":0.77,"expected":45},{"fraction":0.78,"expected":45},{"fraction":0.79,"expected":45},{"fraction":0.8,"expected":45},{"fraction":0.81,"expected":45},{"fraction":0.82,"expected":45},{"fraction":0.83,"expected":45},{"fraction":0.84,"expected":45},{"fraction":0.85,"expected":45},{"fraction":0.86,"expected":45},{"fraction":0.87,"expected":45},{"fraction":0.88,"expected":45},{"fraction":0.89,"expected":45},{"fraction":0.9,"expected":45},{"fraction":0.91,"expected":45},{"fraction":0.92,"expected":45},{"fraction":0.93,"expected":45},{"fraction":0.94,"expected":45},{"fraction":0.95,"expected":45},{"fraction":0.96,"expected":45},{"fraction":0.97,"expected":45},{"fraction":0.98,"expected":45},{"fraction":0.99,"expected":45},{"fraction":1,"expected":45}],"nextSubagentStep":[{"current":null,"shed":null,"expected":{"step":{"step":"gate","holdSeconds":5},"saving":0.2}},{"current":null,"shed":0,"expected":{"step":{"step":"gate","holdSeconds":5},"saving":0.2}},{"current":null,"shed":0.1,"expected":{"step":{"step":"gate","holdSeconds":5},"saving":0.2}},{"current":null,"shed":0.5,"expected":{"step":{"step":"gate","holdSeconds":20},"saving":0.5}},{"current":null,"shed":0.99,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.6923076923076923}},{"current":null,"shed":1,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.6923076923076923}},{"current":{"step":"gate","holdSeconds":5},"shed":null,"expected":{"step":{"step":"gate","holdSeconds":10},"saving":0.16666666666666663}},{"current":{"step":"gate","holdSeconds":5},"shed":0,"expected":{"step":{"step":"gate","holdSeconds":10},"saving":0.16666666666666663}},{"current":{"step":"gate","holdSeconds":5},"shed":0.1,"expected":{"step":{"step":"gate","holdSeconds":10},"saving":0.16666666666666663}},{"current":{"step":"gate","holdSeconds":5},"shed":0.5,"expected":{"step":{"step":"gate","holdSeconds":10},"saving":0.16666666666666663}},{"current":{"step":"gate","holdSeconds":5},"shed":0.99,"expected":{"step":{"step":"gate","holdSeconds":10},"saving":0.16666666666666663}},{"current":{"step":"gate","holdSeconds":5},"shed":1,"expected":{"step":{"step":"gate","holdSeconds":10},"saving":0.16666666666666663}},{"current":{"step":"gate","holdSeconds":10},"shed":null,"expected":{"step":{"step":"gate","holdSeconds":20},"saving":0.25}},{"current":{"step":"gate","holdSeconds":10},"shed":0,"expected":{"step":{"step":"gate","holdSeconds":20},"saving":0.25}},{"current":{"step":"gate","holdSeconds":10},"shed":0.1,"expected":{"step":{"step":"gate","holdSeconds":20},"saving":0.25}},{"current":{"step":"gate","holdSeconds":10},"shed":0.5,"expected":{"step":{"step":"gate","holdSeconds":20},"saving":0.25}},{"current":{"step":"gate","holdSeconds":10},"shed":0.99,"expected":{"step":{"step":"gate","holdSeconds":20},"saving":0.25}},{"current":{"step":"gate","holdSeconds":10},"shed":1,"expected":{"step":{"step":"gate","holdSeconds":20},"saving":0.25}},{"current":{"step":"gate","holdSeconds":20},"shed":null,"expected":{"step":{"step":"gate","holdSeconds":40},"saving":0.33333333333333337}},{"current":{"step":"gate","holdSeconds":20},"shed":0,"expected":{"step":{"step":"gate","holdSeconds":40},"saving":0.33333333333333337}},{"current":{"step":"gate","holdSeconds":20},"shed":0.1,"expected":{"step":{"step":"gate","holdSeconds":40},"saving":0.33333333333333337}},{"current":{"step":"gate","holdSeconds":20},"shed":0.5,"expected":{"step":{"step":"gate","holdSeconds":40},"saving":0.33333333333333337}},{"current":{"step":"gate","holdSeconds":20},"shed":0.99,"expected":{"step":{"step":"gate","holdSeconds":40},"saving":0.33333333333333337}},{"current":{"step":"gate","holdSeconds":20},"shed":1,"expected":{"step":{"step":"gate","holdSeconds":40},"saving":0.33333333333333337}},{"current":{"step":"gate","holdSeconds":25},"shed":null,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.3076923076923077}},{"current":{"step":"gate","holdSeconds":25},"shed":0,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.3076923076923077}},{"current":{"step":"gate","holdSeconds":25},"shed":0.1,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.3076923076923077}},{"current":{"step":"gate","holdSeconds":25},"shed":0.5,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.3076923076923077}},{"current":{"step":"gate","holdSeconds":25},"shed":0.99,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.3076923076923077}},{"current":{"step":"gate","holdSeconds":25},"shed":1,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.3076923076923077}},{"current":{"step":"gate","holdSeconds":40},"shed":null,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.07692307692307687}},{"current":{"step":"gate","holdSeconds":40},"shed":0,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.07692307692307687}},{"current":{"step":"gate","holdSeconds":40},"shed":0.1,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.07692307692307687}},{"current":{"step":"gate","holdSeconds":40},"shed":0.5,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.07692307692307687}},{"current":{"step":"gate","holdSeconds":40},"shed":0.99,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.07692307692307687}},{"current":{"step":"gate","holdSeconds":40},"shed":1,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.07692307692307687}},{"current":{"step":"gate","holdSeconds":44},"shed":null,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.01538461538461533}},{"current":{"step":"gate","holdSeconds":44},"shed":0,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.01538461538461533}},{"current":{"step":"gate","holdSeconds":44},"shed":0.1,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.01538461538461533}},{"current":{"step":"gate","holdSeconds":44},"shed":0.5,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.01538461538461533}},{"current":{"step":"gate","holdSeconds":44},"shed":0.99,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.01538461538461533}},{"current":{"step":"gate","holdSeconds":44},"shed":1,"expected":{"step":{"step":"gate","holdSeconds":45},"saving":0.01538461538461533}},{"current":{"step":"gate","holdSeconds":45},"shed":null,"expected":{"step":{"step":"wrapUp"},"saving":1}},{"current":{"step":"gate","holdSeconds":45},"shed":0,"expected":{"step":{"step":"wrapUp"},"saving":1}},{"current":{"step":"gate","holdSeconds":45},"shed":0.1,"expected":{"step":{"step":"wrapUp"},"saving":1}},{"current":{"step":"gate","holdSeconds":45},"shed":0.5,"expected":{"step":{"step":"wrapUp"},"saving":1}},{"current":{"step":"gate","holdSeconds":45},"shed":0.99,"expected":{"step":{"step":"wrapUp"},"saving":1}},{"current":{"step":"gate","holdSeconds":45},"shed":1,"expected":{"step":{"step":"wrapUp"},"saving":1}},{"current":{"step":"wrapUp"},"shed":null,"expected":null},{"current":{"step":"wrapUp"},"shed":0,"expected":null},{"current":{"step":"wrapUp"},"shed":0.1,"expected":null},{"current":{"step":"wrapUp"},"shed":0.5,"expected":null},{"current":{"step":"wrapUp"},"shed":0.99,"expected":null},{"current":{"step":"wrapUp"},"shed":1,"expected":null}],"easedSubagentStep":[{"current":{"step":"gate","holdSeconds":5},"expected":null},{"current":{"step":"gate","holdSeconds":10},"expected":{"step":"gate","holdSeconds":5}},{"current":{"step":"gate","holdSeconds":20},"expected":{"step":"gate","holdSeconds":10}},{"current":{"step":"gate","holdSeconds":25},"expected":{"step":"gate","holdSeconds":12}},{"current":{"step":"gate","holdSeconds":40},"expected":{"step":"gate","holdSeconds":20}},{"current":{"step":"gate","holdSeconds":44},"expected":{"step":"gate","holdSeconds":22}},{"current":{"step":"gate","holdSeconds":45},"expected":{"step":"gate","holdSeconds":22}},{"current":{"step":"wrapUp"},"expected":{"step":"wrapUp"}}]}
+{
+  "holdForSaving": [
+    { "fraction": 0, "expected": 5 },
+    { "fraction": 0.01, "expected": 5 },
+    { "fraction": 0.02, "expected": 5 },
+    { "fraction": 0.03, "expected": 5 },
+    { "fraction": 0.04, "expected": 5 },
+    { "fraction": 0.05, "expected": 5 },
+    { "fraction": 0.06, "expected": 5 },
+    { "fraction": 0.07, "expected": 5 },
+    { "fraction": 0.08, "expected": 5 },
+    { "fraction": 0.09, "expected": 5 },
+    { "fraction": 0.1, "expected": 5 },
+    { "fraction": 0.11, "expected": 5 },
+    { "fraction": 0.12, "expected": 5 },
+    { "fraction": 0.13, "expected": 5 },
+    { "fraction": 0.14, "expected": 5 },
+    { "fraction": 0.15, "expected": 5 },
+    { "fraction": 0.16, "expected": 5 },
+    { "fraction": 0.17, "expected": 5 },
+    { "fraction": 0.18, "expected": 5 },
+    { "fraction": 0.19, "expected": 5 },
+    { "fraction": 0.2, "expected": 5 },
+    { "fraction": 0.21, "expected": 5 },
+    { "fraction": 0.22, "expected": 6 },
+    { "fraction": 0.23, "expected": 6 },
+    { "fraction": 0.24, "expected": 6 },
+    { "fraction": 0.25, "expected": 7 },
+    { "fraction": 0.26, "expected": 7 },
+    { "fraction": 0.27, "expected": 7 },
+    { "fraction": 0.28, "expected": 8 },
+    { "fraction": 0.29, "expected": 8 },
+    { "fraction": 0.3, "expected": 9 },
+    { "fraction": 0.31, "expected": 9 },
+    { "fraction": 0.32, "expected": 9 },
+    { "fraction": 0.33, "expected": 10 },
+    { "fraction": 0.34, "expected": 10 },
+    { "fraction": 0.35, "expected": 11 },
+    { "fraction": 0.36, "expected": 11 },
+    { "fraction": 0.37, "expected": 12 },
+    { "fraction": 0.38, "expected": 12 },
+    { "fraction": 0.39, "expected": 13 },
+    { "fraction": 0.4, "expected": 13 },
+    { "fraction": 0.41, "expected": 14 },
+    { "fraction": 0.42, "expected": 14 },
+    { "fraction": 0.43, "expected": 15 },
+    { "fraction": 0.44, "expected": 16 },
+    { "fraction": 0.45, "expected": 16 },
+    { "fraction": 0.46, "expected": 17 },
+    { "fraction": 0.47, "expected": 18 },
+    { "fraction": 0.48, "expected": 18 },
+    { "fraction": 0.49, "expected": 19 },
+    { "fraction": 0.5, "expected": 20 },
+    { "fraction": 0.51, "expected": 21 },
+    { "fraction": 0.52, "expected": 22 },
+    { "fraction": 0.53, "expected": 23 },
+    { "fraction": 0.54, "expected": 23 },
+    { "fraction": 0.55, "expected": 24 },
+    { "fraction": 0.56, "expected": 25 },
+    { "fraction": 0.57, "expected": 27 },
+    { "fraction": 0.58, "expected": 28 },
+    { "fraction": 0.59, "expected": 29 },
+    { "fraction": 0.6, "expected": 30 },
+    { "fraction": 0.61, "expected": 31 },
+    { "fraction": 0.62, "expected": 33 },
+    { "fraction": 0.63, "expected": 34 },
+    { "fraction": 0.64, "expected": 36 },
+    { "fraction": 0.65, "expected": 37 },
+    { "fraction": 0.66, "expected": 39 },
+    { "fraction": 0.67, "expected": 41 },
+    { "fraction": 0.68, "expected": 43 },
+    { "fraction": 0.69, "expected": 45 },
+    { "fraction": 0.7, "expected": 45 },
+    { "fraction": 0.71, "expected": 45 },
+    { "fraction": 0.72, "expected": 45 },
+    { "fraction": 0.73, "expected": 45 },
+    { "fraction": 0.74, "expected": 45 },
+    { "fraction": 0.75, "expected": 45 },
+    { "fraction": 0.76, "expected": 45 },
+    { "fraction": 0.77, "expected": 45 },
+    { "fraction": 0.78, "expected": 45 },
+    { "fraction": 0.79, "expected": 45 },
+    { "fraction": 0.8, "expected": 45 },
+    { "fraction": 0.81, "expected": 45 },
+    { "fraction": 0.82, "expected": 45 },
+    { "fraction": 0.83, "expected": 45 },
+    { "fraction": 0.84, "expected": 45 },
+    { "fraction": 0.85, "expected": 45 },
+    { "fraction": 0.86, "expected": 45 },
+    { "fraction": 0.87, "expected": 45 },
+    { "fraction": 0.88, "expected": 45 },
+    { "fraction": 0.89, "expected": 45 },
+    { "fraction": 0.9, "expected": 45 },
+    { "fraction": 0.91, "expected": 45 },
+    { "fraction": 0.92, "expected": 45 },
+    { "fraction": 0.93, "expected": 45 },
+    { "fraction": 0.94, "expected": 45 },
+    { "fraction": 0.95, "expected": 45 },
+    { "fraction": 0.96, "expected": 45 },
+    { "fraction": 0.97, "expected": 45 },
+    { "fraction": 0.98, "expected": 45 },
+    { "fraction": 0.99, "expected": 45 },
+    { "fraction": 1, "expected": 45 }
+  ],
+  "nextSubagentStep": [
+    { "current": null, "shed": null, "expected": { "step": { "step": "gate", "holdSeconds": 5 }, "saving": 0.2 } },
+    { "current": null, "shed": 0, "expected": { "step": { "step": "gate", "holdSeconds": 5 }, "saving": 0.2 } },
+    { "current": null, "shed": 0.1, "expected": { "step": { "step": "gate", "holdSeconds": 5 }, "saving": 0.2 } },
+    { "current": null, "shed": 0.5, "expected": { "step": { "step": "gate", "holdSeconds": 20 }, "saving": 0.5 } },
+    {
+      "current": null,
+      "shed": 0.99,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.6923076923076923 }
+    },
+    {
+      "current": null,
+      "shed": 1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.6923076923076923 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 5 },
+      "shed": null,
+      "expected": { "step": { "step": "gate", "holdSeconds": 10 }, "saving": 0.16666666666666663 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 5 },
+      "shed": 0,
+      "expected": { "step": { "step": "gate", "holdSeconds": 10 }, "saving": 0.16666666666666663 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 5 },
+      "shed": 0.1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 10 }, "saving": 0.16666666666666663 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 5 },
+      "shed": 0.5,
+      "expected": { "step": { "step": "gate", "holdSeconds": 10 }, "saving": 0.16666666666666663 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 5 },
+      "shed": 0.99,
+      "expected": { "step": { "step": "gate", "holdSeconds": 10 }, "saving": 0.16666666666666663 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 5 },
+      "shed": 1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 10 }, "saving": 0.16666666666666663 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 10 },
+      "shed": null,
+      "expected": { "step": { "step": "gate", "holdSeconds": 20 }, "saving": 0.25 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 10 },
+      "shed": 0,
+      "expected": { "step": { "step": "gate", "holdSeconds": 20 }, "saving": 0.25 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 10 },
+      "shed": 0.1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 20 }, "saving": 0.25 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 10 },
+      "shed": 0.5,
+      "expected": { "step": { "step": "gate", "holdSeconds": 20 }, "saving": 0.25 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 10 },
+      "shed": 0.99,
+      "expected": { "step": { "step": "gate", "holdSeconds": 20 }, "saving": 0.25 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 10 },
+      "shed": 1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 20 }, "saving": 0.25 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 20 },
+      "shed": null,
+      "expected": { "step": { "step": "gate", "holdSeconds": 40 }, "saving": 0.33333333333333337 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 20 },
+      "shed": 0,
+      "expected": { "step": { "step": "gate", "holdSeconds": 40 }, "saving": 0.33333333333333337 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 20 },
+      "shed": 0.1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 40 }, "saving": 0.33333333333333337 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 20 },
+      "shed": 0.5,
+      "expected": { "step": { "step": "gate", "holdSeconds": 40 }, "saving": 0.33333333333333337 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 20 },
+      "shed": 0.99,
+      "expected": { "step": { "step": "gate", "holdSeconds": 40 }, "saving": 0.33333333333333337 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 20 },
+      "shed": 1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 40 }, "saving": 0.33333333333333337 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 25 },
+      "shed": null,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.3076923076923077 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 25 },
+      "shed": 0,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.3076923076923077 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 25 },
+      "shed": 0.1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.3076923076923077 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 25 },
+      "shed": 0.5,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.3076923076923077 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 25 },
+      "shed": 0.99,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.3076923076923077 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 25 },
+      "shed": 1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.3076923076923077 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 40 },
+      "shed": null,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.07692307692307687 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 40 },
+      "shed": 0,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.07692307692307687 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 40 },
+      "shed": 0.1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.07692307692307687 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 40 },
+      "shed": 0.5,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.07692307692307687 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 40 },
+      "shed": 0.99,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.07692307692307687 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 40 },
+      "shed": 1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.07692307692307687 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 44 },
+      "shed": null,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.01538461538461533 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 44 },
+      "shed": 0,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.01538461538461533 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 44 },
+      "shed": 0.1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.01538461538461533 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 44 },
+      "shed": 0.5,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.01538461538461533 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 44 },
+      "shed": 0.99,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.01538461538461533 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 44 },
+      "shed": 1,
+      "expected": { "step": { "step": "gate", "holdSeconds": 45 }, "saving": 0.01538461538461533 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 45 },
+      "shed": null,
+      "expected": { "step": { "step": "wrapUp" }, "saving": 1 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 45 },
+      "shed": 0,
+      "expected": { "step": { "step": "wrapUp" }, "saving": 1 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 45 },
+      "shed": 0.1,
+      "expected": { "step": { "step": "wrapUp" }, "saving": 1 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 45 },
+      "shed": 0.5,
+      "expected": { "step": { "step": "wrapUp" }, "saving": 1 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 45 },
+      "shed": 0.99,
+      "expected": { "step": { "step": "wrapUp" }, "saving": 1 }
+    },
+    {
+      "current": { "step": "gate", "holdSeconds": 45 },
+      "shed": 1,
+      "expected": { "step": { "step": "wrapUp" }, "saving": 1 }
+    },
+    { "current": { "step": "wrapUp" }, "shed": null, "expected": null },
+    { "current": { "step": "wrapUp" }, "shed": 0, "expected": null },
+    { "current": { "step": "wrapUp" }, "shed": 0.1, "expected": null },
+    { "current": { "step": "wrapUp" }, "shed": 0.5, "expected": null },
+    { "current": { "step": "wrapUp" }, "shed": 0.99, "expected": null },
+    { "current": { "step": "wrapUp" }, "shed": 1, "expected": null }
+  ],
+  "easedSubagentStep": [
+    { "current": { "step": "gate", "holdSeconds": 5 }, "expected": null },
+    { "current": { "step": "gate", "holdSeconds": 10 }, "expected": { "step": "gate", "holdSeconds": 5 } },
+    { "current": { "step": "gate", "holdSeconds": 20 }, "expected": { "step": "gate", "holdSeconds": 10 } },
+    { "current": { "step": "gate", "holdSeconds": 25 }, "expected": { "step": "gate", "holdSeconds": 12 } },
+    { "current": { "step": "gate", "holdSeconds": 40 }, "expected": { "step": "gate", "holdSeconds": 20 } },
+    { "current": { "step": "gate", "holdSeconds": 44 }, "expected": { "step": "gate", "holdSeconds": 22 } },
+    { "current": { "step": "gate", "holdSeconds": 45 }, "expected": { "step": "gate", "holdSeconds": 22 } },
+    { "current": { "step": "wrapUp" }, "expected": { "step": "wrapUp" } }
+  ]
+}

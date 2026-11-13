@@ -1,18 +1,11 @@
 // The load-shedding fixture: cost weights, shed fractions and shedding plans.
 
-import {
-  between,
-  HOUR,
-  MINUTE,
-  NOW,
-  perHour,
-  pick,
-  random
-} from "./fixture-primitives";
-import { windowOf } from "./usage-pace-fixture";
 import { UsageWindowKind } from "@/lib/types/usage";
 import { costWeight, planShedding, shedFraction } from "@/lib/usage/pacing/engine/load-shedding";
 import type { ShedCandidate } from "@/lib/usage/pacing/engine/load-shedding";
+
+import { between, HOUR, MINUTE, NOW, perHour, pick, random } from "./fixture-primitives";
+import { windowOf } from "./usage-pace-fixture";
 
 const MODELS = [
   "claude-haiku-5-5",
@@ -30,36 +23,44 @@ const EFFORTS = [undefined, "minimal", "low", "medium", "high", "xhigh", "max", 
 const LADDERS: string[][] = [[], ["low", "high"]];
 
 function costWeightCases() {
-  return MODELS.flatMap(model => EFFORTS.flatMap(effort => LADDERS.map(ladder => ({
-    model,
-    effort: effort ?? null,
-    ladder,
-    expected: costWeight({
-      model,
-      effort,
-      ladder
-    })
-  }))));
+  return MODELS.flatMap(model =>
+    EFFORTS.flatMap(effort =>
+      LADDERS.map(ladder => ({
+        model,
+        effort: effort ?? null,
+        ladder,
+        expected: costWeight({
+          model,
+          effort,
+          ladder
+        })
+      }))
+    )
+  );
 }
 
 function shedFractionCases() {
   const rates = [null, 0, perHour(1), perHour(10), perHour(60)];
   const timesLeft = [10 * MINUTE, 100 * MINUTE, 5 * HOUR];
-  return [60, 80, 95].flatMap(utilization => timesLeft.flatMap(timeLeft => rates.map(rate => ({
-    utilization,
-    timeLeft,
-    rate,
-    expected: shedFraction({
-      window: windowOf({
-        kind: UsageWindowKind.enum.session,
+  return [60, 80, 95].flatMap(utilization =>
+    timesLeft.flatMap(timeLeft =>
+      rates.map(rate => ({
         utilization,
-        resetsIn: timeLeft
-      }),
-      rate,
-      freeAt: NOW + timeLeft,
-      now: NOW
-    })
-  }))));
+        timeLeft,
+        rate,
+        expected: shedFraction({
+          window: windowOf({
+            kind: UsageWindowKind.enum.session,
+            utilization,
+            resetsIn: timeLeft
+          }),
+          rate,
+          freeAt: NOW + timeLeft,
+          now: NOW
+        })
+      }))
+    )
+  );
 }
 
 function planSheddingCases() {
@@ -73,11 +74,13 @@ function planSheddingCases() {
       }),
       saving: pick([0, 0.2, 0.4, 0.5, 1])
     }));
-    const totalLoad = candidates.reduce((sum, candidate) => sum + candidate.load, 0) + between({
-      low: 0,
-      high: 30,
-      step: 1
-    });
+    const totalLoad =
+      candidates.reduce((sum, candidate) => sum + candidate.load, 0) +
+      between({
+        low: 0,
+        high: 30,
+        step: 1
+      });
     const fraction = pick([null, 0.1, 0.35, 0.6, 0.95]);
     return {
       candidates,

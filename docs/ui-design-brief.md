@@ -31,23 +31,23 @@ large rounded cards; an expressive type scale; and emphasized easing for motion.
 
 All values are HSL. Two full schemes.
 
-| Role | Light | Dark | Used for |
-| --- | --- | --- | --- |
-| **primary** | `hsl(210 90% 45%)` | `hsl(210 90% 68%)` | brand mark, active/selected, run buttons, focus ring, working state |
-| **on-primary** | `#ffffff` | `hsl(210 90% 12%)` | text/icon on primary |
-| **primary-container** | `hsl(210 90% 92%)` | `hsl(210 55% 22%)` | selected chip/tab/row background |
-| **on-primary-container** | `hsl(210 90% 18%)` | `hsl(210 90% 88%)` | text on primary-container |
-| **tertiary** (green) | `hsl(160 55% 38%)` | `hsl(160 55% 62%)` | success / "ready" / additions / created files |
-| **warn** (amber) | `hsl(28 90% 46%)` | `hsl(28 90% 62%)` | high usage (≥80%), cautions |
-| **crit** (red) | `hsl(352 72% 50%)` | `hsl(352 80% 70%)` | deletions, destructive, close-hover |
-| **surface** | `hsl(210 30% 98%)` | `hsl(214 30% 8%)` | app background |
-| **surface-1** | `hsl(210 28% 96%)` | `hsl(214 28% 11%)` | top bars, cards |
-| **surface-2** | `hsl(210 26% 93%)` | `hsl(214 26% 14%)` | chips, hovers, inset controls |
-| **surface-3** | `hsl(210 24% 89%)` | `hsl(214 24% 19%)` | pills, tags, tracks, tooltips |
-| **on-surface** | `hsl(214 30% 14%)` | `hsl(210 24% 92%)` | primary text |
-| **on-surface-var** | `hsl(214 14% 40%)` | `hsl(214 14% 66%)` | secondary text, metadata |
-| **outline** | `hsl(214 15% 82%)` | `hsl(214 15% 28%)` | hairline dividers (1px), used sparingly |
-| **code-bg / code-fg** | `hsl(210 30% 96%)` / `hsl(214 30% 20%)` | `hsl(214 40% 6%)` / `hsl(210 20% 85%)` | terminal + diff/code surfaces |
+| Role                     | Light                                   | Dark                                   | Used for                                                            |
+| ------------------------ | --------------------------------------- | -------------------------------------- | ------------------------------------------------------------------- |
+| **primary**              | `hsl(210 90% 45%)`                      | `hsl(210 90% 68%)`                     | brand mark, active/selected, run buttons, focus ring, working state |
+| **on-primary**           | `#ffffff`                               | `hsl(210 90% 12%)`                     | text/icon on primary                                                |
+| **primary-container**    | `hsl(210 90% 92%)`                      | `hsl(210 55% 22%)`                     | selected chip/tab/row background                                    |
+| **on-primary-container** | `hsl(210 90% 18%)`                      | `hsl(210 90% 88%)`                     | text on primary-container                                           |
+| **tertiary** (green)     | `hsl(160 55% 38%)`                      | `hsl(160 55% 62%)`                     | success / "ready" / additions / created files                       |
+| **warn** (amber)         | `hsl(28 90% 46%)`                       | `hsl(28 90% 62%)`                      | high usage (≥80%), cautions                                         |
+| **crit** (red)           | `hsl(352 72% 50%)`                      | `hsl(352 80% 70%)`                     | deletions, destructive, close-hover                                 |
+| **surface**              | `hsl(210 30% 98%)`                      | `hsl(214 30% 8%)`                      | app background                                                      |
+| **surface-1**            | `hsl(210 28% 96%)`                      | `hsl(214 28% 11%)`                     | top bars, cards                                                     |
+| **surface-2**            | `hsl(210 26% 93%)`                      | `hsl(214 26% 14%)`                     | chips, hovers, inset controls                                       |
+| **surface-3**            | `hsl(210 24% 89%)`                      | `hsl(214 24% 19%)`                     | pills, tags, tracks, tooltips                                       |
+| **on-surface**           | `hsl(214 30% 14%)`                      | `hsl(210 24% 92%)`                     | primary text                                                        |
+| **on-surface-var**       | `hsl(214 14% 40%)`                      | `hsl(214 14% 66%)`                     | secondary text, metadata                                            |
+| **outline**              | `hsl(214 15% 82%)`                      | `hsl(214 15% 28%)`                     | hairline dividers (1px), used sparingly                             |
+| **code-bg / code-fg**    | `hsl(210 30% 96%)` / `hsl(214 30% 20%)` | `hsl(214 40% 6%)` / `hsl(210 20% 85%)` | terminal + diff/code surfaces                                       |
 
 Neutrals are **blue-tinted** (210–214° hue), never pure grey - this is deliberate,
 part of the M3 tonal system seeded from the blue primary. Prefer stepping between
@@ -132,7 +132,7 @@ Full-window, scrollable, same radial-gradient ground. A centered column
     `primary-container`, 1px primary border, a `✦` glyph, a strong title + small
     subtitle). Hover brightens.
   - **"On launch with no project"** - a small label + a **pill segmented toggle**
-    with two options: *Temp workspace* | *This picker* (selected segment filled
+    with two options: _Temp workspace_ | _This picker_ (selected segment filled
     `primary-container`).
   - Two **checkbox rows** (accent-colored checkboxes, `primary`): "Auto-name temp
     workspaces once the agent starts working" and (Windows only) "Add 'Open in
@@ -143,9 +143,9 @@ Full-window, scrollable, same radial-gradient ground. A centered column
   (mono, 13px - a friendly auto-derived label when present, else the folder name),
   and the **full path** (11px, `on-surface-var`, truncates). Hover fills
   `surface-2`. A trailing **kebab (⋯) button** opens a native popover menu:
-  *Open in Files*, *Open in Terminal*, *Open in <IDE>*, and - for PADE-owned
-  workspaces - a divider then *Rename to a project*, *Move…*, and a `crit`-tinted
-  *Delete workspace*. Inline rename swaps the row for a small text field + Save/Cancel.
+  _Open in Files_, _Open in Terminal_, _Open in <IDE>_, and - for PADE-owned
+  workspaces - a divider then _Rename to a project_, _Move…_, and a `crit`-tinted
+  _Delete workspace_. Inline rename swaps the row for a small text field + Save/Cancel.
 - **Default agent section** (if >1 real agent): title + hint + a row of **choice
   chips** (pills); the selected one is `primary-container` with a primary border.
 - **Root folders section:** an add row - a mono text input (placeholder
@@ -259,10 +259,11 @@ Header "Tasks" + a **⟳ refresh** icon button. Empty state explains: add a mani
 (package.json / Cargo.toml / Makefile / pyproject.toml) and its tasks appear.
 Otherwise scroll area grouped **by manifest**: each group header shows a **kind
 pill** (`npm` = `primary-container`; `cargo` = tertiary-tinted; others = `surface-3`)
-+ the manifest filename (mono, truncates, tooltip = its directory). Each task **row**
-(hover→`surface-2`): the task **name** (bold, 13px), its **command** (mono, 11px,
-`on-surface-var`, truncates), and a trailing filled **"Run"** pill button (primary)
-that launches it in a new terminal tab. Auto-refreshes when a manifest changes.
+
+- the manifest filename (mono, truncates, tooltip = its directory). Each task **row**
+  (hover→`surface-2`): the task **name** (bold, 13px), its **command** (mono, 11px,
+  `on-surface-var`, truncates), and a trailing filled **"Run"** pill button (primary)
+  that launches it in a new terminal tab. Auto-refreshes when a manifest changes.
 
 ### 4.4 Design menu
 
@@ -294,6 +295,7 @@ muted **"usage -"** with a tooltip explaining why. Fill animates on change (300m
 ### 4.7 Session badge (status)
 
 An inline row: a **status dot** + optional mono label + a state phrase.
+
 - **starting** - neutral dot, "Starting…"
 - **working** - **primary** dot, **pulsing**, "Working"
 - **ready** - **tertiary** dot with a soft halo, "Ready - waiting for you" (phrase in tertiary, bold)

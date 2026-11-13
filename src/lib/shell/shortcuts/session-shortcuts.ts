@@ -3,14 +3,20 @@
 // The chords themselves are matched in lib/session/tab-shortcuts and
 // lib/session/panes/pane-shortcuts; this hands them the window's sessions to act on.
 
+import { onMount } from "svelte";
+
 import { registerPaneShortcuts } from "@/lib/session/panes/pane-shortcuts";
 import { ADD_SESSION_MENU_ID } from "@/lib/session/SessionTabs.svelte";
 import { registerTabShortcuts } from "@/lib/session/tab-shortcuts";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import type { Agent, AgentSession } from "@/lib/types/agent";
-import { onMount } from "svelte";
 
-export function registerSessionShortcuts({ windowSessions, isWorkspaceShown, fallbackAgent, closeSession }: {
+export function registerSessionShortcuts({
+  windowSessions,
+  isWorkspaceShown,
+  fallbackAgent,
+  closeSession
+}: {
   windowSessions: WindowSessions;
   /** Whether the workspace screen is up - new tabs only open from there. */
   isWorkspaceShown: () => boolean;
@@ -75,7 +81,8 @@ export function registerSessionShortcuts({ windowSessions, isWorkspaceShown, fal
         }
       },
       tabCount: () => windowSessions.projectSessions.length
-    }));
+    })
+  );
 
   // Pane shortcuts, active while a tab is split into panes: Ctrl+[ / Ctrl+]
   // cycle the active pane (wrapping), Ctrl+Alt+1..9 jump to the nth, and
@@ -89,5 +96,6 @@ export function registerSessionShortcuts({ windowSessions, isWorkspaceShown, fal
       closeActivePane: closeActiveTab,
       paneIds: () => windowSessions.paneIds,
       activeId: () => windowSessions.activeId
-    }));
+    })
+  );
 }

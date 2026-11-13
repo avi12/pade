@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import { SHELL_AGENT_ID } from "@/lib/types/agent";
 import { CreditsState, NoReadingReason, UsageWindowKind } from "@/lib/types/usage";
 import type { AccountUsage, UsageWindow } from "@/lib/types/usage";
@@ -13,15 +15,10 @@ import {
 } from "@/lib/usage/groups/usage-spotlight";
 import type { SeveritySlice } from "@/lib/usage/groups/usage-spotlight";
 import { formatPercent } from "@/lib/util/format";
-import { describe, expect, it } from "vitest";
 
 // A running session bound to `agentId`; only `session.agent` matters to the
 // grouping, so the session id just needs to be distinct for the dedupe test.
-function makeSession({ agentId, label, sessionId }: {
-  agentId: string;
-  label?: string;
-  sessionId?: string;
-}) {
+function makeSession({ agentId, label, sessionId }: { agentId: string; label?: string; sessionId?: string }) {
   return {
     id: sessionId ?? `session-${agentId}`,
     agent: {
@@ -57,11 +54,7 @@ function weeklyWindow(overrides: Partial<UsageWindow> = {}) {
 }
 
 // A per-model window carrying the model's display name as its label.
-function modelWindow({ name, utilization, resetsAt }: {
-  name: string;
-  utilization: number;
-  resetsAt?: string;
-}) {
+function modelWindow({ name, utilization, resetsAt }: { name: string; utilization: number; resetsAt?: string }) {
   return {
     key: name,
     kind: UsageWindowKind.enum.model,
@@ -97,10 +90,7 @@ function claudeSession(sessionId?: string) {
   });
 }
 
-function countAt({ slices, level }: {
-  slices: SeveritySlice[];
-  level: Level;
-}) {
+function countAt({ slices, level }: { slices: SeveritySlice[]; level: Level }) {
   return slices.find(slice => slice.level === level)?.count ?? 0;
 }
 
@@ -291,12 +281,14 @@ describe("buildGroups", () => {
     const [span] = buildGroups({
       accounts: accountsFor({
         opencode: makeAccount({
-          windows: [{
-            key: "codex_2592000s",
-            kind: UsageWindowKind.enum.opaque,
-            label: "30-day",
-            utilization: 0
-          }]
+          windows: [
+            {
+              key: "codex_2592000s",
+              kind: UsageWindowKind.enum.opaque,
+              label: "30-day",
+              utilization: 0
+            }
+          ]
         })
       }),
       sessions: [makeSession({ agentId: "opencode" })],
@@ -340,10 +332,12 @@ describe("buildGroups", () => {
   it("marks an agent with no resolved account unknown, with no limits or plan", () => {
     const [codex] = buildGroups({
       accounts: accountsFor({ claude: makeAccount() }),
-      sessions: [makeSession({
-        agentId: "codex",
-        label: "Codex"
-      })],
+      sessions: [
+        makeSession({
+          agentId: "codex",
+          label: "Codex"
+        })
+      ],
       now
     });
 
@@ -358,7 +352,10 @@ describe("buildGroups", () => {
       reason: NoReadingReason.enum.sign_in_expired,
       signInCommand: "codex"
     };
-    const noReadings = new Map([["codex", expired], ["claude", expired]]);
+    const noReadings = new Map([
+      ["codex", expired],
+      ["claude", expired]
+    ]);
     const groups = buildGroups({
       accounts: accountsFor({ claude: makeAccount() }),
       noReadings,
@@ -378,10 +375,12 @@ describe("buildGroups", () => {
           plan: "Codex plus"
         })
       }),
-      sessions: [makeSession({
-        agentId: "codex",
-        label: "Codex"
-      })],
+      sessions: [
+        makeSession({
+          agentId: "codex",
+          label: "Codex"
+        })
+      ],
       now
     });
 
@@ -465,10 +464,12 @@ describe("buildGroups", () => {
           account: "chatgpt"
         })
       }),
-      sessions: [makeSession({
-        agentId: "opencode",
-        label: "opencode"
-      })],
+      sessions: [
+        makeSession({
+          agentId: "opencode",
+          label: "opencode"
+        })
+      ],
       now
     });
 
@@ -486,11 +487,7 @@ describe("buildGroups", () => {
     });
     const threeAgents = buildGroups({
       accounts: accountsFor({ claude: makeAccount() }),
-      sessions: [
-        claudeSession(),
-        makeSession({ agentId: "codex" }),
-        makeSession({ agentId: "aider" })
-      ],
+      sessions: [claudeSession(), makeSession({ agentId: "codex" }), makeSession({ agentId: "aider" })],
       now
     });
 
@@ -545,10 +542,12 @@ describe("reset countdowns", () => {
     const [claude] = buildGroups({
       accounts: accountsFor({
         claude: makeAccount({
-          windows: [sessionWindow({
-            utilization: 96,
-            resetsAt: "2026-01-01T00:00:00Z"
-          })]
+          windows: [
+            sessionWindow({
+              utilization: 96,
+              resetsAt: "2026-01-01T00:00:00Z"
+            })
+          ]
         })
       }),
       sessions: [claudeSession()],
@@ -583,10 +582,13 @@ describe("panel view-model skips unknown agents", () => {
         ]
       })
     }),
-    sessions: [claudeSession(), makeSession({
-      agentId: "codex",
-      label: "Codex"
-    })],
+    sessions: [
+      claudeSession(),
+      makeSession({
+        agentId: "codex",
+        label: "Codex"
+      })
+    ],
     now
   });
 
@@ -628,7 +630,11 @@ describe("panel view-model skips unknown agents", () => {
   });
 
   describe("extra usage against the real windows", () => {
-    function claudeWith({ sessionPercentage, creditsPercentage, credits }: {
+    function claudeWith({
+      sessionPercentage,
+      creditsPercentage,
+      credits
+    }: {
       sessionPercentage: number;
       creditsPercentage: number;
       credits?: CreditsState;
@@ -729,8 +735,7 @@ describe("panel view-model skips unknown agents", () => {
 
 describe("usageResetTime", () => {
   it("parses a reset time, trimming the endpoint's microseconds", () => {
-    expect(usageResetTime("2026-08-15T09:30:00.123456Z"))
-      .toBe(Date.parse("2026-08-15T09:30:00.123Z"));
+    expect(usageResetTime("2026-08-15T09:30:00.123456Z")).toBe(Date.parse("2026-08-15T09:30:00.123Z"));
   });
 
   // `resetsAt` is nullish - a vendor states a reset only when it knows one - and
@@ -765,10 +770,12 @@ describe("justResetLimits", () => {
   }
 
   it("spots a weekly limit that started over", () => {
-    expect([...justResetLimits({
-      previous: readingOf(100),
-      current: readingOf(0)
-    })]).toEqual(["claude:Weekly"]);
+    expect([
+      ...justResetLimits({
+        previous: readingOf(100),
+        current: readingOf(0)
+      })
+    ]).toEqual(["claude:Weekly"]);
   });
 
   it("ignores usage that only climbed, or barely moved", () => {

@@ -8,85 +8,89 @@ const TRAILING_SLASH = /\/$/;
 /** Azure DevOps addresses a branch as the `version` query `GB<branch>`. */
 const AZURE_BRANCH_VERSION_PREFIX = "GB";
 
-type RemoteProvider = {
+interface RemoteProvider {
   matches: (remoteUrl: URL) => boolean;
   branchUrl: (remoteUrl: URL, branch: string) => string;
   commitUrl: (remoteUrl: URL, commit: string) => string;
-};
+}
 
-function pathTargetUrl({ remoteUrl, segment, target }: {
-  remoteUrl: URL;
-  segment: string;
-  target: string;
-}) {
+function pathTargetUrl({ remoteUrl, segment, target }: { remoteUrl: URL; segment: string; target: string }) {
   return `${remoteUrl.toString().replace(TRAILING_SLASH, "")}${segment}${encodeURIComponent(target)}`;
 }
 
 const REMOTE_PROVIDERS: readonly RemoteProvider[] = [
   {
     matches: remoteUrl => remoteUrl.hostname === "github.com",
-    branchUrl: (remoteUrl, branch) => pathTargetUrl({
-      remoteUrl,
-      segment: "/tree/",
-      target: branch
-    }),
-    commitUrl: (remoteUrl, commit) => pathTargetUrl({
-      remoteUrl,
-      segment: "/commit/",
-      target: commit
-    })
+    branchUrl: (remoteUrl, branch) =>
+      pathTargetUrl({
+        remoteUrl,
+        segment: "/tree/",
+        target: branch
+      }),
+    commitUrl: (remoteUrl, commit) =>
+      pathTargetUrl({
+        remoteUrl,
+        segment: "/commit/",
+        target: commit
+      })
   },
   {
     matches: remoteUrl => remoteUrl.hostname === "gitlab.com",
-    branchUrl: (remoteUrl, branch) => pathTargetUrl({
-      remoteUrl,
-      segment: "/-/tree/",
-      target: branch
-    }),
-    commitUrl: (remoteUrl, commit) => pathTargetUrl({
-      remoteUrl,
-      segment: "/-/commit/",
-      target: commit
-    })
+    branchUrl: (remoteUrl, branch) =>
+      pathTargetUrl({
+        remoteUrl,
+        segment: "/-/tree/",
+        target: branch
+      }),
+    commitUrl: (remoteUrl, commit) =>
+      pathTargetUrl({
+        remoteUrl,
+        segment: "/-/commit/",
+        target: commit
+      })
   },
   {
     matches: remoteUrl => remoteUrl.hostname === "bitbucket.org",
-    branchUrl: (remoteUrl, branch) => pathTargetUrl({
-      remoteUrl,
-      segment: "/src/",
-      target: branch
-    }),
-    commitUrl: (remoteUrl, commit) => pathTargetUrl({
-      remoteUrl,
-      segment: "/commits/",
-      target: commit
-    })
+    branchUrl: (remoteUrl, branch) =>
+      pathTargetUrl({
+        remoteUrl,
+        segment: "/src/",
+        target: branch
+      }),
+    commitUrl: (remoteUrl, commit) =>
+      pathTargetUrl({
+        remoteUrl,
+        segment: "/commits/",
+        target: commit
+      })
   },
   {
     matches: remoteUrl => ["codeberg.org", "gitea.com"].includes(remoteUrl.hostname),
-    branchUrl: (remoteUrl, branch) => pathTargetUrl({
-      remoteUrl,
-      segment: "/src/branch/",
-      target: branch
-    }),
-    commitUrl: (remoteUrl, commit) => pathTargetUrl({
-      remoteUrl,
-      segment: "/commit/",
-      target: commit
-    })
+    branchUrl: (remoteUrl, branch) =>
+      pathTargetUrl({
+        remoteUrl,
+        segment: "/src/branch/",
+        target: branch
+      }),
+    commitUrl: (remoteUrl, commit) =>
+      pathTargetUrl({
+        remoteUrl,
+        segment: "/commit/",
+        target: commit
+      })
   },
   {
-    matches: remoteUrl => remoteUrl.hostname === "dev.azure.com"
-      || remoteUrl.hostname.endsWith(".visualstudio.com"),
+    matches: remoteUrl => remoteUrl.hostname === "dev.azure.com" || remoteUrl.hostname.endsWith(".visualstudio.com"),
     branchUrl(remoteUrl, branch) {
       remoteUrl.searchParams.set("version", `${AZURE_BRANCH_VERSION_PREFIX}${branch}`);
       return remoteUrl.toString();
     },
-    commitUrl: (remoteUrl, commit) => pathTargetUrl({
-      remoteUrl,
-      segment: "/commit/",
-      target: commit
-    })
+    commitUrl: (remoteUrl, commit) =>
+      pathTargetUrl({
+        remoteUrl,
+        segment: "/commit/",
+        target: commit
+      })
   }
 ];
 const CONVENTIONAL_DEFAULT_BRANCHES = ["main", "master"] as const;
@@ -101,15 +105,21 @@ function knownRemote(remoteUrl: string) {
 
   const url = new URL(remoteUrl);
   const provider = REMOTE_PROVIDERS.find(candidate => candidate.matches(url));
-  return provider ? {
-    provider,
-    url
-  } : null;
+  return provider
+    ? {
+        provider,
+        url
+      }
+    : null;
 }
 
 /** Resolve a browsable branch URL for a known remote provider. Unknown hosts
  * safely retain the repository root until a provider entry is added. */
-export function repositoryTargetUrl({ remoteUrl, branch, defaultBranch }: {
+export function repositoryTargetUrl({
+  remoteUrl,
+  branch,
+  defaultBranch
+}: {
   remoteUrl: string;
   branch?: string;
   defaultBranch?: string | null;
@@ -131,10 +141,7 @@ export function repositoryTargetUrl({ remoteUrl, branch, defaultBranch }: {
 
 /** Resolve a commit URL through the known remote provider. Unknown or malformed
  * remotes return null rather than fabricating a GitHub-shaped route. */
-export function repositoryCommitUrl({ remoteUrl, commit }: {
-  remoteUrl: string | null;
-  commit: string;
-}) {
+export function repositoryCommitUrl({ remoteUrl, commit }: { remoteUrl: string | null; commit: string }) {
   if (!remoteUrl) {
     return null;
   }
@@ -168,12 +175,16 @@ async function launchRepositoryUrl(url: string) {
   }
 }
 
-export async function openRepositoryTarget({ project, knownRemoteUrl, branch }: {
+export async function openRepositoryTarget({
+  project,
+  knownRemoteUrl,
+  branch
+}: {
   project: string;
   knownRemoteUrl?: string | null;
   branch?: string;
 }) {
-  const remoteUrl = knownRemoteUrl || await readRemoteUrl(project);
+  const remoteUrl = knownRemoteUrl || (await readRemoteUrl(project));
   if (!remoteUrl) {
     showToast("No Git remote configured");
     return null;

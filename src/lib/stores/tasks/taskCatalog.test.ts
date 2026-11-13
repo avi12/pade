@@ -1,8 +1,9 @@
+import { describe, expect, it, vi } from "vitest";
+
 import { createTaskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { knownTaskCommands, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
 import { ManifestMatch, TaskManifestDescriptor } from "@/lib/types/terminal";
 import type { TaskGroup } from "@/lib/types/terminal";
-import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   sendMessage: vi.fn(async () => undefined),
@@ -10,23 +11,22 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage,
   onMessage: mocks.onMessage
 }));
 
-function group({ project, command }: {
-  project: string;
-  command: string;
-}) {
+function group({ project, command }: { project: string; command: string }) {
   return {
     manifest: "package.json",
     dir: project,
     kind: "npm",
-    tasks: [{
-      name: command,
-      command
-    }]
+    tasks: [
+      {
+        name: command,
+        command
+      }
+    ]
   } satisfies TaskGroup;
 }
 
@@ -55,15 +55,19 @@ describe("task catalog", () => {
     const staleRefresh = catalog.refresh("alpha");
     project = "beta";
     const currentRefresh = catalog.refresh("beta");
-    beta.resolve([group({
-      project: "beta",
-      command: "pnpm test"
-    })]);
+    beta.resolve([
+      group({
+        project: "beta",
+        command: "pnpm test"
+      })
+    ]);
     await currentRefresh;
-    alpha.resolve([group({
-      project: "alpha",
-      command: "pnpm build"
-    })]);
+    alpha.resolve([
+      group({
+        project: "alpha",
+        command: "pnpm build"
+      })
+    ]);
     await staleRefresh;
 
     expect(catalog.snapshot.project).toBe("beta");
@@ -71,10 +75,12 @@ describe("task catalog", () => {
   });
 
   it("feeds PTY detection from the same accepted group snapshot", async () => {
-    const groups = [group({
-      project: "demo",
-      command: "pnpm check"
-    })];
+    const groups = [
+      group({
+        project: "demo",
+        command: "pnpm check"
+      })
+    ];
     const catalog = createTaskCatalog({
       project: () => "demo",
       descriptors: async () => [],
@@ -84,24 +90,23 @@ describe("task catalog", () => {
     await catalog.initialize();
 
     expect(catalog.snapshot.groups).toBe(groups);
-    expect(knownTaskCommands(catalog.snapshot)).toEqual([{
-      key: taskKey({
-        directory: "demo",
-        command: "pnpm check"
-      }),
-      command: "pnpm check",
-      label: "pnpm check",
-      kind: "npm",
-      dir: "demo"
-    }]);
+    expect(knownTaskCommands(catalog.snapshot)).toEqual([
+      {
+        key: taskKey({
+          directory: "demo",
+          command: "pnpm check"
+        }),
+        command: "pnpm check",
+        label: "pnpm check",
+        kind: "npm",
+        dir: "demo"
+      }
+    ]);
   });
 
   it("re-scans when a watched manifest changes, by name or by extension", async () => {
     let listCalls = 0;
-    let notify: ((change: {
-      root: string;
-      path: string;
-    }) => void) | undefined;
+    let notify: ((change: { root: string; path: string }) => void) | undefined;
     const catalog = createTaskCatalog({
       project: () => "demo",
       descriptors: async () => [
@@ -179,14 +184,18 @@ describe("task catalog", () => {
       match: ManifestMatch.enum.extension,
       value: ".csproj"
     });
-    expect(() => TaskManifestDescriptor.parse({
-      match: ManifestMatch.enum.name,
-      value: ""
-    })).toThrow();
-    expect(() => TaskManifestDescriptor.parse({
-      match: "glob",
-      value: "*.csproj"
-    })).toThrow();
+    expect(() =>
+      TaskManifestDescriptor.parse({
+        match: ManifestMatch.enum.name,
+        value: ""
+      })
+    ).toThrow();
+    expect(() =>
+      TaskManifestDescriptor.parse({
+        match: "glob",
+        value: "*.csproj"
+      })
+    ).toThrow();
   });
 
   it("retries a failed subscription without duplicating the successful one", async () => {
@@ -194,10 +203,12 @@ describe("task catalog", () => {
     let activeListeners = 0;
     const catalog = createTaskCatalog({
       project: () => "demo",
-      descriptors: async () => [{
-        match: ManifestMatch.enum.name,
-        value: "Makefile"
-      }],
+      descriptors: async () => [
+        {
+          match: ManifestMatch.enum.name,
+          value: "Makefile"
+        }
+      ],
       list: async () => [],
       async onChange() {
         attempts += 1;

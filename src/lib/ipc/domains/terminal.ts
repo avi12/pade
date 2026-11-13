@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { NO_REPLY } from "@/lib/ipc/domains/no-reply";
 import type { ModelChoice } from "@/lib/types/agent";
 import {
@@ -12,13 +14,12 @@ import {
   TaskManifestDescriptor
 } from "@/lib/types/terminal";
 import type { Scheme } from "@/lib/types/theme";
-import { z } from "zod";
 
 /** A task the agent started itself, addressed by its session and command line. */
-type SessionTask = {
+interface SessionTask {
   id: string;
   command: string;
-};
+}
 
 export const TERMINAL_COMMANDS = {
   ptySpawn: "pty_spawn",
@@ -59,15 +60,8 @@ export interface TerminalCommandProtocol {
     conversationId?: string;
     modelChoice?: ModelChoice;
   }) => void;
-  [TERMINAL_COMMANDS.ptyWrite]: (data: {
-    id: string;
-    data: string;
-  }) => void;
-  [TERMINAL_COMMANDS.ptyResize]: (data: {
-    id: string;
-    cols: number;
-    rows: number;
-  }) => void;
+  [TERMINAL_COMMANDS.ptyWrite]: (data: { id: string; data: string }) => void;
+  [TERMINAL_COMMANDS.ptyResize]: (data: { id: string; cols: number; rows: number }) => void;
   [TERMINAL_COMMANDS.ptyKill]: (data: { id: string }) => void;
   /** Every live session the backend still hosts - the roster a reloaded window
    *  re-attaches from (see `session-restore`). */
@@ -80,11 +74,7 @@ export interface TerminalCommandProtocol {
   /** Whether a task the agent started is still running under its tree. */
   [TERMINAL_COMMANDS.sessionTaskRunning]: (data: SessionTask) => boolean;
   /** Launch a task as a tracked runner (the dock) that streams its output. */
-  [TERMINAL_COMMANDS.runnerStart]: (data: {
-    id: string;
-    command: string;
-    cwd?: string | null;
-  }) => void;
+  [TERMINAL_COMMANDS.runnerStart]: (data: { id: string; command: string; cwd?: string | null }) => void;
   [TERMINAL_COMMANDS.runnerStop]: (data: { id: string }) => void;
   [TERMINAL_COMMANDS.runnerList]: () => RunnerInfo[];
   [TERMINAL_COMMANDS.tasksDescriptors]: () => TaskManifestDescriptor[];

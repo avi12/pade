@@ -4,12 +4,13 @@
 // in `window-session-lifecycle` and the `windowSessions` facade only read and
 // write it through here.
 
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+
 import { frontProject, sessionsOfProject } from "@/lib/session/chats/session-projects";
 import { forgetSession } from "@/lib/session/lifecycle/session-scope";
 import { layoutWithoutSession, layoutWithoutSessions, wrappedIndex } from "@/lib/session/panes/pane-layout";
 import type { PaneLayout } from "@/lib/session/panes/pane-layout";
 import type { AgentSession } from "@/lib/types/agent";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 export class WindowLayout {
   sessions = $state<AgentSession[]>([]);
@@ -145,18 +146,19 @@ export class WindowLayout {
 
   // Hand a session the args that resume its own conversation, so the restart
   // that follows reopens it rather than starting a blank one.
-  applyResumeArgs({ id, args }: {
-    id: string;
-    args: string[];
-  }) {
+  applyResumeArgs({ id, args }: { id: string; args: string[] }) {
     if (args.length === 0) {
       return;
     }
 
-    this.sessions = this.sessions.map(session => session.id === id ? {
-      ...session,
-      args
-    } : session);
+    this.sessions = this.sessions.map(session =>
+      session.id === id
+        ? {
+            ...session,
+            args
+          }
+        : session
+    );
   }
 
   /** Re-attach the sessions a reload orphaned, stamped as launched-now so one

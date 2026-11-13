@@ -97,7 +97,7 @@
     color: var(--on-surface-variant);
     text-align: end;
     white-space: nowrap;
-    opacity: 55%;
+    opacity: 0.55;
     user-select: none;
 
     .line-number {

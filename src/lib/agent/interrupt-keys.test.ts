@@ -1,8 +1,9 @@
+import { describe, expect, it } from "vitest";
+
 import { AgentId } from "@/lib/agent/agent-icon";
 import { interruptKeysOf } from "@/lib/agent/interrupt-keys";
 import { ESCAPE } from "@/lib/terminal/input/terminal-sequences";
 import type { ClaudeKeybindings } from "@/lib/types/agent";
-import { describe, expect, it } from "vitest";
 
 const CONTROL_X = String.fromCharCode(0x18);
 const CONTROL_K = String.fromCharCode(0x0b);
@@ -10,10 +11,12 @@ const CONTROL_G = String.fromCharCode(0x07);
 
 function chat(bindings: Record<string, string | null>): ClaudeKeybindings {
   return {
-    bindings: [{
-      context: "Chat",
-      bindings
-    }]
+    bindings: [
+      {
+        context: "Chat",
+        bindings
+      }
+    ]
   };
 }
 
@@ -67,12 +70,14 @@ describe("interruptKeysOf", () => {
     const keys = interruptKeysOf({
       command: AgentId.Claude,
       keybindings: {
-        bindings: [{
-          context: "Global",
-          bindings: {
-            escape: null
+        bindings: [
+          {
+            context: "Global",
+            bindings: {
+              escape: null
+            }
           }
-        }]
+        ]
       }
     });
     expect(keys?.interrupt?.keystrokes).toEqual([ESCAPE]);

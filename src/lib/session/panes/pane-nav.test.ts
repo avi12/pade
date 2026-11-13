@@ -1,5 +1,6 @@
-import { nextPaneId, paneIdAt, previousPaneId } from "@/lib/session/panes/pane-nav";
 import { describe, expect, it } from "vitest";
+
+import { nextPaneId, paneIdAt, previousPaneId } from "@/lib/session/panes/pane-nav";
 
 const panes = ["a", "b", "c", "d"];
 

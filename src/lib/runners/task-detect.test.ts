@@ -1,5 +1,6 @@
-import { isTaskInvocation } from "@/lib/runners/task-detect";
 import { describe, expect, it } from "vitest";
+
+import { isTaskInvocation } from "@/lib/runners/task-detect";
 
 // ESC (0x1b) built from its code point so no raw control byte sits in the source.
 const ESC = String.fromCharCode(0x1b);
@@ -33,7 +34,7 @@ describe("isTaskInvocation", () => {
     // The way an agent actually runs a task: a cd prefix, extra flags, a redirect.
     expect(
       isTaskInvocation({
-        line: "Bash(cd \"C:/repo/app\" && pnpm dev)",
+        line: 'Bash(cd "C:/repo/app" && pnpm dev)',
         command: "pnpm dev"
       })
     ).toBe(true);

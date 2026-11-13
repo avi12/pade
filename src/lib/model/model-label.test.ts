@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   bareModel,
   effortBars,
@@ -8,7 +10,6 @@ import {
   modelName,
   shortModelName
 } from "@/lib/model/model-label";
-import { describe, expect, it } from "vitest";
 
 describe("lowerEffort", () => {
   it("steps one level down the model's own ladder", () => {
@@ -257,18 +258,22 @@ describe("effortBars", () => {
 
 describe("effortTone", () => {
   it("gives each level of a five-level ladder its own tone", () => {
-    const tones = [1, 2, 3, 4, 5].map(step => effortTone({
-      step,
-      steps: 5
-    }));
+    const tones = [1, 2, 3, 4, 5].map(step =>
+      effortTone({
+        step,
+        steps: 5
+      })
+    );
     expect(tones).toEqual([1, 2, 3, 4, 5]);
   });
 
   it("spans the coolest to the hottest tone on a shorter ladder", () => {
-    const tones = [1, 2, 3, 4].map(step => effortTone({
-      step,
-      steps: 4
-    }));
+    const tones = [1, 2, 3, 4].map(step =>
+      effortTone({
+        step,
+        steps: 4
+      })
+    );
     expect(tones).toEqual([1, 2, 4, 5]);
   });
 

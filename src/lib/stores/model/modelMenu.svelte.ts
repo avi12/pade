@@ -26,10 +26,7 @@ interface ModelMenuTarget {
 let target = $state<ModelMenuTarget | null>(null);
 
 /** Hang the menu off this chip, showing `session`'s models. */
-export async function openModelMenu({ session, opener }: {
-  session: AgentSession;
-  opener: ModelMenuOpener;
-}) {
+export async function openModelMenu({ session, opener }: { session: AgentSession; opener: ModelMenuOpener }) {
   target = {
     sessionId: session.id,
     opener

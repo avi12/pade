@@ -6,6 +6,9 @@
 // moved session keeps its process - only its owner changes - and the
 // receiving window re-attaches its terminal.
 
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { onDestroy, onMount } from "svelte";
+
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { closeWindow } from "@/lib/ipc/platform";
 import { liveSessionOf, snapshotSessionOf } from "@/lib/session/lifecycle/session-restore";
@@ -22,8 +25,6 @@ import { showToast } from "@/lib/stores/ui/toast.svelte";
 import type { AgentSession } from "@/lib/types/agent";
 import { WindowMode } from "@/lib/types/window";
 import type { OpenTarget } from "@/lib/types/window";
-import type { UnlistenFn } from "@tauri-apps/api/event";
-import { onDestroy, onMount } from "svelte";
 
 /** What the shell lends the hand-offs. */
 interface WindowHandoffsHost {
@@ -61,10 +62,7 @@ export function createWindowHandoffs(host: WindowHandoffsHost) {
   }
 
   /** Open a new window that receives `handoff` (and the PTYs of `sessions`). */
-  async function sendToNewWindow({ handoff, sessions }: {
-    handoff: WindowHandoff;
-    sessions: readonly AgentSession[];
-  }) {
+  async function sendToNewWindow({ handoff, sessions }: { handoff: WindowHandoff; sessions: readonly AgentSession[] }) {
     try {
       await sendMessage(Command.windowCreate, {
         mode: WindowMode.enum.handoff,
@@ -136,10 +134,12 @@ export function createWindowHandoffs(host: WindowHandoffsHost) {
   /** Take in live sessions, their PTYs already moved here, titled as they were. */
   function adoptSessions(handoff: SessionsHandoff) {
     windowSessions.adopt({
-      adopted: handoff.sessions.map(saved => liveSessionOf({
-        saved,
-        fallbackProject: saved.project
-      })),
+      adopted: handoff.sessions.map(saved =>
+        liveSessionOf({
+          saved,
+          fallbackProject: saved.project
+        })
+      ),
       activeId: handoff.activeId
     });
   }

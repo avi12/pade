@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import { SubagentStepKind } from "@/lib/types/pacing";
 import {
   easedSubagentStep,
@@ -9,7 +11,6 @@ import {
   nextSubagentStep,
   NO_SPAWN_SHED
 } from "@/lib/usage/pacing/engine/subagent-steps";
-import { describe, expect, it } from "vitest";
 
 const WRAP_UP = {
   step: SubagentStepKind.enum.wrapUp

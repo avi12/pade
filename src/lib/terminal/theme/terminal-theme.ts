@@ -210,9 +210,7 @@ export function xtermTheme({ readToken }: { readToken: (name: string) => string 
  *  they must stay translucent is written down); the active match takes the
  *  accent as a 1px edge on top, which is the one mark that can be solid without
  *  hiding the word underneath it. */
-export function xtermSearchDecorations({ readToken }: {
-  readToken: (name: string) => string;
-}) {
+export function xtermSearchDecorations({ readToken }: { readToken: (name: string) => string }) {
   function color(name: string) {
     return xtermSafeColor(readToken(name));
   }

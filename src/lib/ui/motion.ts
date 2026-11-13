@@ -38,15 +38,21 @@ export function prefersReducedMotion() {
 
 // One coordinate of a cubic Bézier with anchors fixed at 0 and 1 (P0 = 0,
 // P3 = 1), for progress `t` in [0, 1], shaped by the two control points.
-function bezierAxis({ controlOne, controlTwo, curveProgress }: {
+function bezierAxis({
+  controlOne,
+  controlTwo,
+  curveProgress
+}: {
   controlOne: number;
   controlTwo: number;
   curveProgress: number;
 }) {
   const inverse = 1 - curveProgress;
-  return (3 * inverse * inverse * curveProgress * controlOne)
-    + (3 * inverse * curveProgress * curveProgress * controlTwo)
-    + (curveProgress * curveProgress * curveProgress);
+  return (
+    3 * inverse * inverse * curveProgress * controlOne +
+    3 * inverse * curveProgress * curveProgress * controlTwo +
+    curveProgress * curveProgress * curveProgress
+  );
 }
 
 /** The M3 "emphasized" easing curve - `cubic-bezier(0.2, 0, 0, 1)`, the same
@@ -60,11 +66,12 @@ export function emphasized(progress: number) {
   for (let step = 0; step < BISECTION_STEPS; step += 1) {
     adjustedProgress = (low + high) / 2;
 
-    const isBelowTarget = bezierAxis({
-      controlOne: EMPHASIZED_X_CONTROL_ONE,
-      controlTwo: EMPHASIZED_X_CONTROL_TWO,
-      curveProgress: adjustedProgress
-    }) < progress;
+    const isBelowTarget =
+      bezierAxis({
+        controlOne: EMPHASIZED_X_CONTROL_ONE,
+        controlTwo: EMPHASIZED_X_CONTROL_TWO,
+        curveProgress: adjustedProgress
+      }) < progress;
     if (isBelowTarget) {
       low = adjustedProgress;
     } else {
@@ -108,16 +115,11 @@ export function revealBlock(node: Element, { duration = REVEAL_DURATION }: { dur
  *  row: its block-size and the flex `gap` the row holds glide together with a
  *  fade and a small sideways slide. Svelte drives `progress` 0→1 on the way in
  *  and 1→0 on the way out, so one builder serves both directions. */
-function slideRow({ node, duration }: {
-  node: Element;
-  duration: number;
-}) {
+function slideRow({ node, duration }: { node: Element; duration: number }) {
   const { height } = node.getBoundingClientRect();
   // The list's own `gap` still reserves space for a row of zero height; a
   // matching negative end-margin retires it in step with the collapse.
-  const gap = node.parentElement
-    ? parseFloat(getComputedStyle(node.parentElement).rowGap) || 0
-    : 0;
+  const gap = node.parentElement ? parseFloat(getComputedStyle(node.parentElement).rowGap) || 0 : 0;
   // An element's own leading margin (an error line's 6px offset) collapses in
   // step too - left at full size it would pop the exact instant the row's
   // height reaches zero.
@@ -141,7 +143,7 @@ function slideRow({ node, duration }: {
       margin-block-end: ${-gap * remaining}px;
       padding-block: ${progress * paddingBlockStart}px ${progress * paddingBlockEnd}px;
       opacity: ${progress};
-      transform: translateX(${-ROW_SLIDE_DISTANCE * remaining}px) scale(${1 - (ROW_SHRINK * remaining)});
+      transform: translateX(${-ROW_SLIDE_DISTANCE * remaining}px) scale(${1 - ROW_SHRINK * remaining});
     `
   };
 }
@@ -204,14 +206,9 @@ export function growInline(node: Element, { duration = GROW_INLINE_DURATION }: {
 /** Inline-axis collapse geometry shared by {@link collapsePane} and
  *  {@link growInline}: Svelte drives `progress` 1→0 on the way out and 0→1 on
  *  the way in, so one builder serves both. */
-function slideInline({ node, duration }: {
-  node: Element;
-  duration: number;
-}) {
+function slideInline({ node, duration }: { node: Element; duration: number }) {
   const { width } = node.getBoundingClientRect();
-  const gap = node.parentElement
-    ? parseFloat(getComputedStyle(node.parentElement).columnGap) || 0
-    : 0;
+  const gap = node.parentElement ? parseFloat(getComputedStyle(node.parentElement).columnGap) || 0 : 0;
 
   return {
     duration: motionDuration(duration),
@@ -222,7 +219,7 @@ function slideInline({ node, duration }: {
       inline-size: ${progress * width}px;
       margin-inline-end: ${-gap * remaining}px;
       opacity: ${progress};
-      scale: ${1 - (PANE_SHRINK * remaining)};
+      scale: ${1 - PANE_SHRINK * remaining};
     `
   };
 }

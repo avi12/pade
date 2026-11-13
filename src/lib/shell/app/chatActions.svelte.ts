@@ -4,7 +4,7 @@ import type { ProjectFlow } from "@/lib/shell/app/projectFlow.svelte";
 import type { ScreenPhase } from "@/lib/shell/app/screenPhase.svelte";
 import { HandoffKind } from "@/lib/shell/handoff/window-handoff";
 import type { createWindowHandoffs } from "@/lib/shell/handoff/windowHandoffs.svelte";
-import WorkspaceScreen from "@/lib/shell/screen/WorkspaceScreen.svelte";
+import type WorkspaceScreen from "@/lib/shell/screen/WorkspaceScreen.svelte";
 import { runChatClick } from "@/lib/shell/sidebar/chats/chat-click";
 import type { ChatClickHost, ChatPick, ConversationPick } from "@/lib/shell/sidebar/chats/chat-click";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
@@ -101,10 +101,7 @@ export function createChatActions({
     });
   }
 
-  async function deleteChat({ project, chatId }: {
-    project: string;
-    chatId: string;
-  }) {
+  async function deleteChat({ project, chatId }: { project: string; chatId: string }) {
     registry.forgetChat({
       project,
       chatId

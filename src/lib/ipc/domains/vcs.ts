@@ -1,19 +1,14 @@
-import { FeedImage, FeedVideo, WatchedRootEvent } from "@/lib/types/feed";
-import {
-  Commit,
-  CommitDetail,
-  PullOutcome,
-  RestoreCandidate,
-  StatusEntry
-} from "@/lib/types/vcs";
 import { z } from "zod";
 
+import { FeedImage, FeedVideo, WatchedRootEvent } from "@/lib/types/feed";
+import { Commit, CommitDetail, PullOutcome, RestoreCandidate, StatusEntry } from "@/lib/types/vcs";
+
 /** One file of one commit, `path` repository-relative as `vcsCommit` lists it. */
-type CommitPathData = {
+interface CommitPathData {
   cwd: string;
   sha: string;
   path: string;
-};
+}
 
 export const VCS_COMMANDS = {
   vcsStatus: "vcs_status",
@@ -46,15 +41,8 @@ export const VCS_EVENTS = {
 
 export interface VcsCommandProtocol {
   [VCS_COMMANDS.vcsStatus]: (data: { cwd: string }) => StatusEntry[];
-  [VCS_COMMANDS.vcsLog]: (data: {
-    cwd: string;
-    limit: number;
-  }) => Commit[];
-  [VCS_COMMANDS.vcsDiff]: (data: {
-    cwd: string;
-    path: string;
-    staged: boolean;
-  }) => string;
+  [VCS_COMMANDS.vcsLog]: (data: { cwd: string; limit: number }) => Commit[];
+  [VCS_COMMANDS.vcsDiff]: (data: { cwd: string; path: string; staged: boolean }) => string;
   [VCS_COMMANDS.vcsBranches]: (data: { cwd: string }) => string[];
   /** Current HEAD branch per project path; non-repo / detached paths are omitted. */
   [VCS_COMMANDS.vcsBranchOf]: (data: { paths: string[] }) => Record<string, string>;
@@ -62,18 +50,12 @@ export interface VcsCommandProtocol {
   [VCS_COMMANDS.vcsRemoteBranches]: (data: { cwd: string }) => string[];
   /** Check `branch` out; answers the branch HEAD ended on, rejects with git's
    *  own refusal. */
-  [VCS_COMMANDS.vcsSwitchBranch]: (data: {
-    cwd: string;
-    branch: string;
-  }) => string;
+  [VCS_COMMANDS.vcsSwitchBranch]: (data: { cwd: string; branch: string }) => string;
   /** Fast-forward from `origin` (never a merge commit); `refusedDirty` with
    *  uncommitted tracked changes, rejects when the branch has diverged. */
   [VCS_COMMANDS.vcsPull]: (data: { cwd: string }) => PullOutcome;
   /** One commit's message body, per-file stats, and branch. */
-  [VCS_COMMANDS.vcsCommit]: (data: {
-    cwd: string;
-    sha: string;
-  }) => CommitDetail;
+  [VCS_COMMANDS.vcsCommit]: (data: { cwd: string; sha: string }) => CommitDetail;
   /** Raw unified diff for one path within a commit. */
   [VCS_COMMANDS.vcsCommitDiff]: (data: CommitPathData) => string;
   /** A commit's image as a `data:` URL (a deleted one as its parent had it),
@@ -103,22 +85,11 @@ export interface VcsCommandProtocol {
     username?: string;
     password?: string;
   }) => string;
-  [VCS_COMMANDS.vcsWorktreeAdd]: (data: {
-    cwd: string;
-    branch: string;
-    create: boolean;
-  }) => string;
+  [VCS_COMMANDS.vcsWorktreeAdd]: (data: { cwd: string; branch: string; create: boolean }) => string;
   /** Rank prior commits by a natural-language description of the version. */
-  [VCS_COMMANDS.vcsRestoreCandidates]: (data: {
-    cwd: string;
-    query: string;
-    limit?: number;
-  }) => RestoreCandidate[];
+  [VCS_COMMANDS.vcsRestoreCandidates]: (data: { cwd: string; query: string; limit?: number }) => RestoreCandidate[];
   /** Non-destructively check the commit out on a `pade/restore-<sha>` branch. */
-  [VCS_COMMANDS.vcsRestoreCheckout]: (data: {
-    cwd: string;
-    sha: string;
-  }) => string;
+  [VCS_COMMANDS.vcsRestoreCheckout]: (data: { cwd: string; sha: string }) => string;
 }
 
 export const VCS_RESPONSE_SCHEMAS = {

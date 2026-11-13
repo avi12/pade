@@ -64,10 +64,7 @@ async function routeFromAddress(dependencies: BootDependencies) {
   return true;
 }
 
-async function bootRoute({ dependencies, route }: {
-  dependencies: BootDependencies;
-  route: BootRoute;
-}) {
+async function bootRoute({ dependencies, route }: { dependencies: BootDependencies; route: BootRoute }) {
   const { projectFlow, screen } = dependencies;
   if (route.kind === WindowRoute.Temp) {
     await projectFlow.startInTempWorkspace();
@@ -85,10 +82,7 @@ async function bootRoute({ dependencies, route }: {
 
 // A window spawned to receive sessions another window handed it: take them
 // in, or - when nothing arrived after all - just open the project.
-async function bootFromHandoff({ dependencies, path }: {
-  dependencies: BootDependencies;
-  path: string;
-}) {
+async function bootFromHandoff({ dependencies, path }: { dependencies: BootDependencies; path: string }) {
   const { windowSessions, takeHandoffs, projectFlow, screen, repository } = dependencies;
   windowSessions.enter(path);
   const hasTakenHandoff = await takeHandoffs();
@@ -134,10 +128,12 @@ async function bootFromLaunchContext(dependencies: BootDependencies) {
 // still on disk. False when there is nothing to continue, or it is gone.
 async function restoreLastProject({ registry, projectFlow, repository }: BootDependencies) {
   const lastProject = registry.registry.lastProject;
-  const hasLastChats = lastProject !== "" && chatsForProject({
-    registry: registry.registry,
-    project: lastProject
-  }).length > 0;
+  const hasLastChats =
+    lastProject !== "" &&
+    chatsForProject({
+      registry: registry.registry,
+      project: lastProject
+    }).length > 0;
   if (!hasLastChats) {
     return false;
   }

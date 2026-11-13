@@ -4,12 +4,8 @@ import type { WindowInfo } from "@/lib/types/window";
 import { normalizePath } from "@/lib/util/paths";
 
 /** The other window that has this project open, if any. */
-export function otherWindowWith({ windowRows, path }: {
-  windowRows: readonly WindowInfo[];
-  path: string;
-}) {
-  return windowRows.find(windowRow => !windowRow.isCurrent
-    && normalizePath(windowRow.path) === normalizePath(path));
+export function otherWindowWith({ windowRows, path }: { windowRows: readonly WindowInfo[]; path: string }) {
+  return windowRows.find(windowRow => !windowRow.isCurrent && normalizePath(windowRow.path) === normalizePath(path));
 }
 
 /** Whether a click on a project asks for it in a new window rather than this

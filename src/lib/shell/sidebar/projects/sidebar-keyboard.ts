@@ -27,7 +27,11 @@ const ITEM_SELECTOR = "[data-sidebar-item]";
 
 /** Where `key` moves focus from `position`, given each line's control count;
  *  null when it would leave the rail or stay put. */
-export function nextSidebarPosition({ key, position, lineLengths }: {
+export function nextSidebarPosition({
+  key,
+  position,
+  lineLengths
+}: {
   key: string;
   position: SidebarPosition;
   lineLengths: readonly number[];
@@ -94,7 +98,7 @@ export function sidebarArrowKeys(element: HTMLElement) {
     const lines = [...element.querySelectorAll<HTMLElement>(LINE_SELECTOR)]
       .filter(line => line.checkVisibility())
       .map(line => [
-        ...line.matches(ITEM_SELECTOR) ? [line] : [],
+        ...(line.matches(ITEM_SELECTOR) ? [line] : []),
         ...line.querySelectorAll<HTMLElement>(ITEM_SELECTOR)
       ]);
     const line = lines.findIndex(items => items.includes(target));

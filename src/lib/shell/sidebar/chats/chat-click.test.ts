@@ -1,8 +1,9 @@
+import { describe, expect, it, vi } from "vitest";
+
 import { HandoffKind } from "@/lib/shell/handoff/window-handoff";
 import { ChatClickAction, chatClickAction, runChatClick } from "@/lib/shell/sidebar/chats/chat-click";
 import type { ChatClickHost } from "@/lib/shell/sidebar/chats/chat-click";
 import type { AgentSession } from "@/lib/types/agent";
-import { describe, expect, it, vi } from "vitest";
 
 const PROJECT = "C:\\repositories\\pade";
 const LIVE: AgentSession = {
@@ -26,7 +27,12 @@ function fakeHost() {
   } satisfies ChatClickHost;
 }
 
-function click({ host, liveSession, elsewhere, opensNewWindow = false }: {
+function click({
+  host,
+  liveSession,
+  elsewhere,
+  opensNewWindow = false
+}: {
   host: ChatClickHost;
   liveSession?: AgentSession;
   elsewhere?: {

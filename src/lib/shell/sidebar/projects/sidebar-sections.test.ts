@@ -1,10 +1,11 @@
+import { describe, expect, it } from "vitest";
+
 import type { SidebarProject } from "@/lib/session/chats/chat-registry";
 import {
   firstListedProject,
   sidebarProjectOrder,
   sidebarSections
 } from "@/lib/shell/sidebar/projects/sidebar-sections";
-import { describe, expect, it } from "vitest";
 
 const PADE = "C:\\repositories\\pade";
 const POLL = "C:\\repositories\\poll";

@@ -1,7 +1,8 @@
+import { describe, expect, it, vi } from "vitest";
+
 import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
 import { restoreProjectChats, shouldStartFreshChat } from "@/lib/session/chats/chat-restore";
 import type { ChatRestoreHost } from "@/lib/session/chats/chat-restore";
-import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
   const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
@@ -21,14 +22,16 @@ const AGENT = {
 
 function registry(): StoredChatRegistry {
   return {
-    chats: [{
-      id: "a",
-      project: PROJECT,
-      agent: AGENT,
-      label: "Fix the sidebar",
-      conversationId: "conversation-a",
-      updatedAt: 1
-    }],
+    chats: [
+      {
+        id: "a",
+        project: PROJECT,
+        agent: AGENT,
+        label: "Fix the sidebar",
+        conversationId: "conversation-a",
+        updatedAt: 1
+      }
+    ],
     activeChatByProject: {
       [PROJECT]: "a"
     },
@@ -101,10 +104,12 @@ describe("restoreProjectChats", () => {
     });
     expect(restored).toBe(true);
     expect(fake.launched).toEqual(["a"]);
-    expect(fake.labels).toEqual([{
-      id: "a",
-      label: "Fix the sidebar"
-    }]);
+    expect(fake.labels).toEqual([
+      {
+        id: "a",
+        label: "Fix the sidebar"
+      }
+    ]);
     expect(fake.selected).toEqual(["a"]);
   });
 

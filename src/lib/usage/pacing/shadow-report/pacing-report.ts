@@ -2,9 +2,10 @@
 // the engine only compares what it would decide with what this window decided).
 // The wire shapes are the contract with src-tauri/src/pacing/facts.rs.
 
+import { z } from "zod";
+
 import { PacedWindowKind } from "@/lib/types/pacing";
 import { SubagentReport } from "@/lib/usage/pacing/engine/account-round";
-import { z } from "zod";
 
 /** Where a paced session is: asked to stop and still finishing its step,
  *  stopped and waiting for room, or restarted by the user while over pace. */
@@ -104,7 +105,8 @@ export type PacingReport = z.infer<typeof PacingReport>;
 /** The engine's shadow comparison so far, for inspection. */
 export const ShadowSummary = z.object({
   counts: z.partialRecord(
-    ObservedKind, z.object({
+    ObservedKind,
+    z.object({
       agree: z.number().int().nonnegative(),
       disagree: z.number().int().nonnegative()
     })

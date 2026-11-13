@@ -15,5 +15,11 @@
     },
     "types": ["svelte", "vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte", "scripts/pacing-fixtures.ts", "scripts/file-size/**/*.ts","scripts/pacing-fixtures/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "scripts/pacing-fixtures.ts",
+    "scripts/file-size/**/*.ts",
+    "scripts/pacing-fixtures/**/*.ts"
+  ]
 }

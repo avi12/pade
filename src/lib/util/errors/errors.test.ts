@@ -1,5 +1,6 @@
-import { errorMessage } from "@/lib/util/errors/errors";
 import { describe, expect, it } from "vitest";
+
+import { errorMessage } from "@/lib/util/errors/errors";
 
 describe("errorMessage", () => {
   it("passes a non-blank string through untouched", () => {

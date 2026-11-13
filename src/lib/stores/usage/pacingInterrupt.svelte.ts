@@ -8,6 +8,8 @@
 // the usage panel for the user to stop by hand, never pressed in a loop.
 // The decisions are lib/usage/pacing/session-control/terminal-stop; this runs them.
 
+import { SvelteMap } from "svelte/reactivity";
+
 import { interruptKeys } from "@/lib/agent/interrupt-keys";
 import type { InterruptKeys, KeyPress } from "@/lib/agent/interrupt-keys";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
@@ -24,7 +26,6 @@ import {
   stopVerdict
 } from "@/lib/usage/pacing/session-control/terminal-stop";
 import { afterDelay } from "@/lib/util/async/delay";
-import { SvelteMap } from "svelte/reactivity";
 
 /** How long a session's hook has to take the stop on its next tool call. */
 const HOOK_GRACE_MS = 10_000;
@@ -53,10 +54,13 @@ interface UnstoppedSubagent {
 }
 
 /** Each session's subagents the terminal stop gave up on (reactive). */
-const unstopped = new SvelteMap<string, {
-  sessionName: string;
-  subagents: readonly UnstoppedSubagent[];
-}>();
+const unstopped = new SvelteMap<
+  string,
+  {
+    sessionName: string;
+    subagents: readonly UnstoppedSubagent[];
+  }
+>();
 /** Each session's current run, so a newer stop or a resume ends an older one. */
 const runs = new Map<string, symbol>();
 
@@ -74,10 +78,7 @@ export function forgetTerminalStop(id: string) {
   unstopped.delete(id);
 }
 
-async function press({ id, keyPress }: {
-  id: string;
-  keyPress: KeyPress;
-}) {
+async function press({ id, keyPress }: { id: string; keyPress: KeyPress }) {
   for (let i = 0; i < keyPress.presses; i++) {
     if (i > 0) {
       await afterDelay(PRESS_GAP_MS);
@@ -93,10 +94,7 @@ async function press({ id, keyPress }: {
   }
 }
 
-async function pressAll({ id, presses }: {
-  id: string;
-  presses: readonly KeyPress[];
-}) {
+async function pressAll({ id, presses }: { id: string; presses: readonly KeyPress[] }) {
   for (const [i, keyPress] of presses.entries()) {
     if (i > 0) {
       await afterDelay(STOP_ALL_SETTLE_MS);
@@ -125,7 +123,11 @@ async function hookStopSeenAt(conversationId: string | undefined) {
 /** Wait out the grace, then whether a rest the hook should hold through is
  *  ignored by it: the session still works and its hook noted no held call since
  *  the rest was written (`restWrittenAt`, epoch ms) - it predates the hold. */
-export async function isRestIgnoredByHook({ conversationId, restWrittenAt, isWorking }: {
+export async function isRestIgnoredByHook({
+  conversationId,
+  restWrittenAt,
+  isWorking
+}: {
   conversationId: string | undefined;
   restWrittenAt: number;
   isWorking: () => boolean;
@@ -151,10 +153,7 @@ interface TerminalStopRequest {
 }
 
 /** Wait out the grace, then whether the session's own hook took the stop. */
-async function isTakenByHook({ request, keys }: {
-  request: TerminalStopRequest;
-  keys: InterruptKeys;
-}) {
+async function isTakenByHook({ request, keys }: { request: TerminalStopRequest; keys: InterruptKeys }) {
   if (!keys.hasMidTurnStopHook) {
     return false;
   }
@@ -170,7 +169,10 @@ async function isTakenByHook({ request, keys }: {
 /** Whether the session has a subagent running: the screen lists background
  *  agents, or a subagent's transcript was written lately - each alone misses
  *  some, and the interrupt alone leaves every one of them running. */
-export async function hasRunningSubagents({ session, hasBackgroundAgents }: {
+export async function hasRunningSubagents({
+  session,
+  hasBackgroundAgents
+}: {
   session: AgentSession;
   hasBackgroundAgents: boolean;
 }) {
@@ -187,10 +189,7 @@ export async function hasRunningSubagents({ session, hasBackgroundAgents }: {
 
 /** One press of the keys, then the subagents still writing after it - none
  *  when no subagent was running. */
-async function pressAndVerify({ request, keys }: {
-  request: TerminalStopRequest;
-  keys: InterruptKeys;
-}) {
+async function pressAndVerify({ request, keys }: { request: TerminalStopRequest; keys: InterruptKeys }) {
   const { session } = request;
   const isAnySubagentRunning = await hasRunningSubagents({
     session,
@@ -241,13 +240,15 @@ export async function stopThroughTerminal(request: TerminalStopRequest) {
 
     // The hook taking the stop ends the turn it refused, but a subagent still
     // writing outlives that - so the keys still go in while one runs.
-    const isTakenByHookAlone = await isTakenByHook({
-      request,
-      keys
-    }) && !await hasRunningSubagents({
-      session,
-      hasBackgroundAgents: request.hasBackgroundAgents()
-    });
+    const isTakenByHookAlone =
+      (await isTakenByHook({
+        request,
+        keys
+      })) &&
+      !(await hasRunningSubagents({
+        session,
+        hasBackgroundAgents: request.hasBackgroundAgents()
+      }));
     if (isTakenByHookAlone) {
       return;
     }

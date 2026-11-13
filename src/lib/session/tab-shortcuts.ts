@@ -58,25 +58,26 @@ export const TAB_SHORTCUTS = {
     label: "Ctrl+Tab or Alt+Right",
     description: "Select the next tab",
     matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }) =>
-      !shiftKey && !metaKey && (
-        (key === Key.Tab && ctrlKey && !altKey)
-        || (key === Key.ArrowRight && altKey && !ctrlKey)
-      )
+      !shiftKey &&
+      !metaKey &&
+      ((key === Key.Tab && ctrlKey && !altKey) || (key === Key.ArrowRight && altKey && !ctrlKey))
   },
   [TabAction.Previous]: {
     label: "Ctrl+Shift+Tab or Alt+Left",
     description: "Select the previous tab",
     matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }) =>
-      !metaKey && (
-        (key === Key.Tab && ctrlKey && shiftKey && !altKey)
-        || (key === Key.ArrowLeft && altKey && !ctrlKey && !shiftKey)
-      )
+      !metaKey &&
+      ((key === Key.Tab && ctrlKey && shiftKey && !altKey) ||
+        (key === Key.ArrowLeft && altKey && !ctrlKey && !shiftKey))
   }
-} as const satisfies Record<TabAction, {
-  label: string;
-  description: string;
-  matches: (chord: KeyChord) => boolean;
-}>;
+} as const satisfies Record<
+  TabAction,
+  {
+    label: string;
+    description: string;
+    matches: (chord: KeyChord) => boolean;
+  }
+>;
 
 /** Map a key chord to the tab action it triggers, or null when it is not one. */
 export function matchTabShortcut(chord: KeyChord) {
@@ -101,10 +102,7 @@ const LAST_TAB_KEY = "9";
  *  Ctrl+8 → eighth, but only while that tab exists - a number past the last tab
  *  is a no-op; Ctrl+9 → the LAST tab, however many there are. Plain Ctrl only:
  *  any Shift/Alt/Meta, or no tabs at all, disqualifies it. */
-export function matchTabSelection({ chord, count }: {
-  chord: KeyChord;
-  count: number;
-}) {
+export function matchTabSelection({ chord, count }: { chord: KeyChord; count: number }) {
   const { key, ctrlKey, shiftKey, altKey, metaKey } = chord;
   const isPlainCtrl = ctrlKey && !shiftKey && !altKey && !metaKey;
   if (!isPlainCtrl || count === 0) {
@@ -148,10 +146,12 @@ export function registerTabShortcuts(handlers: TabShortcutHandlers) {
     const action = matchTabShortcut(e);
     // Only reach for the number matcher when it isn't an action chord already.
     const iSelectedTab =
-      action === null ? matchTabSelection({
-        chord: e,
-        count: handlers.tabCount()
-      }) : null;
+      action === null
+        ? matchTabSelection({
+            chord: e,
+            count: handlers.tabCount()
+          })
+        : null;
     if (action === null && iSelectedTab === null) {
       return;
     }

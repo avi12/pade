@@ -25,10 +25,11 @@
 //
 // The registration with xterm lives in wrapped-link-provider.ts.
 
+import type { ILink } from "@xterm/xterm";
+
 import { reachesRightEdge, rowContent, rowGlyphs } from "@/lib/terminal/links/wrapped-url/row-content";
 import type { CellPosition, LinkBuffer, LinkTerminal } from "@/lib/terminal/links/wrapped-url/row-content";
 import { findUrls, hasScheme, isBareToken, URL_PATTERN_GLOBAL } from "@/lib/terminal/links/wrapped-url/url-pattern";
-import type { ILink } from "@xterm/xterm";
 
 // Ceiling on how many characters we stitch across, matching the addon's own
 // guard so a runaway match can't scan the whole scrollback.
@@ -54,10 +55,7 @@ const MINIMUM_URL_CONTINUATION = 2;
 // for host-only, `localhost`, IPv6 `[::1]`, bare IPs, ports, and fragments alike.
 // A qualifying match must start on the upper row and reach at least
 // `MINIMUM_URL_CONTINUATION` chars past the boundary.
-function urlContinuesOntoLower({ upperText, lowerText }: {
-  upperText: string;
-  lowerText: string;
-}) {
+function urlContinuesOntoLower({ upperText, lowerText }: { upperText: string; lowerText: string }) {
   const boundary = upperText.length;
   for (const match of (upperText + lowerText).matchAll(URL_PATTERN_GLOBAL)) {
     const isStartingOnUpperRow = match.index < boundary;
@@ -75,7 +73,12 @@ function urlContinuesOntoLower({ upperText, lowerText }: {
 // column (via `rowGlyphs`), so a leading indent and a trailing margin never leak a
 // stray space into the joined URL. The single home for turning a row range into
 // text - the growth checks read its text, the caller keeps its cells.
-function windowGlyphs({ buffer, columns, topRow, bottomRow }: {
+function windowGlyphs({
+  buffer,
+  columns,
+  topRow,
+  bottomRow
+}: {
   buffer: LinkBuffer;
   columns: number;
   topRow: number;
@@ -122,7 +125,12 @@ function windowGlyphs({ buffer, columns, topRow, bottomRow }: {
 // scheme is on the top row) runs across the boundary into the lower row. Testing
 // the WHOLE window, not just its last row, is what lets a URL that already spans
 // several rows keep growing - its later rows carry no scheme of their own.
-function continuesBelow({ buffer, columns, topRow, bottomRow }: {
+function continuesBelow({
+  buffer,
+  columns,
+  topRow,
+  bottomRow
+}: {
   buffer: LinkBuffer;
   columns: number;
   topRow: number;
@@ -146,14 +154,19 @@ function continuesBelow({ buffer, columns, topRow, bottomRow }: {
   }
 
   const lastLine = buffer.getLine(bottomRow);
-  const lastContent = lastLine && rowContent({
-    line: lastLine,
-    columns
-  });
-  if (lastContent && reachesRightEdge({
-    content: lastContent,
-    columns
-  })) {
+  const lastContent =
+    lastLine &&
+    rowContent({
+      line: lastLine,
+      columns
+    });
+  if (
+    lastContent &&
+    reachesRightEdge({
+      content: lastContent,
+      columns
+    })
+  ) {
     return true;
   }
 
@@ -192,7 +205,12 @@ function continuesBelow({ buffer, columns, topRow, bottomRow }: {
 // the scheme row directly above, so a URL hovered on its LAST row still walks up
 // through its scheme-less middle rows to the row that starts it. The scheme guard
 // keeps this from gluing an unrelated line above a URL that's already whole.
-function continuesAbove({ buffer, columns, topRow, bottomRow }: {
+function continuesAbove({
+  buffer,
+  columns,
+  topRow,
+  bottomRow
+}: {
   buffer: LinkBuffer;
   columns: number;
   topRow: number;
@@ -215,10 +233,12 @@ function continuesAbove({ buffer, columns, topRow, bottomRow }: {
     return true;
   }
 
-  if (reachesRightEdge({
-    content: upperContent,
-    columns
-  })) {
+  if (
+    reachesRightEdge({
+      content: upperContent,
+      columns
+    })
+  ) {
     return true;
   }
 
@@ -232,10 +252,12 @@ function continuesAbove({ buffer, columns, topRow, bottomRow }: {
     topRow,
     bottomRow
   }).text;
-  if (urlContinuesOntoLower({
-    upperText,
-    lowerText: windowText
-  })) {
+  if (
+    urlContinuesOntoLower({
+      upperText,
+      lowerText: windowText
+    })
+  ) {
     return true;
   }
 
@@ -246,18 +268,14 @@ function continuesAbove({ buffer, columns, topRow, bottomRow }: {
 // down to its end - and flatten it into one string with a parallel cell for every
 // character. Growing up first lets the downward walk see the scheme once a URL
 // hovered mid-way has been rejoined to its first row.
-function buildLogicalLine({ buffer, columns, anchorRow }: {
-  buffer: LinkBuffer;
-  columns: number;
-  anchorRow: number;
-}) {
+function buildLogicalLine({ buffer, columns, anchorRow }: { buffer: LinkBuffer; columns: number; anchorRow: number }) {
   let topRow = anchorRow;
   let bottomRow = anchorRow;
 
   while (
-    topRow > 0
-    && bottomRow - topRow + 1 < MAXIMUM_LOGICAL_ROWS
-    && continuesAbove({
+    topRow > 0 &&
+    bottomRow - topRow + 1 < MAXIMUM_LOGICAL_ROWS &&
+    continuesAbove({
       buffer,
       columns,
       topRow,
@@ -268,8 +286,8 @@ function buildLogicalLine({ buffer, columns, anchorRow }: {
   }
 
   while (
-    bottomRow - topRow + 1 < MAXIMUM_LOGICAL_ROWS
-    && continuesBelow({
+    bottomRow - topRow + 1 < MAXIMUM_LOGICAL_ROWS &&
+    continuesBelow({
       buffer,
       columns,
       topRow,
@@ -331,7 +349,11 @@ export interface WrappedLink extends ILink {
 // opens it whole. (xterm's own web-links addon uses one multi-row range, but only
 // stitches genuine soft-wraps, where the upper row is full to the edge with no
 // padding to expose.)
-export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
+export function computeLinks({
+  terminal,
+  bufferLineNumber,
+  openUrl
+}: {
   terminal: LinkTerminal;
   bufferLineNumber: number;
   openUrl: (uri: string) => void;

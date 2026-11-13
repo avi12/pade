@@ -3,17 +3,12 @@
 // with every store and the backend stubbed. Pins behaviour so the module can be
 // split safely.
 
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { forgetSession, rekeySession } from "@/lib/session/lifecycle/session-scope";
 import { createWindowSessions } from "@/lib/shell/windowSessions.svelte";
 import type { Agent, AgentSession } from "@/lib/types/agent";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const PROJECT = "C:\\work\\one";
 const OTHER_PROJECT = "C:\\work\\two";
@@ -31,7 +26,10 @@ vi.mock("@/lib/session/lifecycle/session-scope", () => ({
   rekeySession: vi.fn()
 }));
 vi.mock("@/lib/shell/session-launch", () => ({
-  newSession: ({ options, project }: {
+  newSession: ({
+    options,
+    project
+  }: {
     options: {
       agent: Agent;
       sessionId?: string;

@@ -1,12 +1,7 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { AgentSession } from "@/lib/types/agent";
 import { saveTempWorkspace } from "@/lib/workspace/save/save-temp-workspace";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const calls: string[] = [];
 const migration: {

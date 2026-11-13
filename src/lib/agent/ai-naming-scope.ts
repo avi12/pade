@@ -19,10 +19,7 @@ import { withRecordEntry } from "@/lib/util/data/record-entry";
 const AI_NAMING_DEFAULT = false;
 
 /** This project's explicit choice, or `undefined` when it follows the global. */
-export function projectNamingChoice({ prefs, project }: {
-  prefs: Prefs;
-  project: string;
-}) {
+export function projectNamingChoice({ prefs, project }: { prefs: Prefs; project: string }) {
   return prefs.aiSessionNamingProjects?.[project];
 }
 
@@ -35,20 +32,23 @@ export function globalNaming(prefs: Prefs) {
  *  project override → global default → off. Every caller reads it through here,
  *  so the Config panel's control, the picker's checkbox and what the tabs
  *  actually do can never disagree. */
-export function aiNamingEnabled({ prefs, project }: {
-  prefs: Prefs;
-  project: string;
-}) {
-  return projectNamingChoice({
-    prefs,
-    project
-  }) ?? globalNaming(prefs);
+export function aiNamingEnabled({ prefs, project }: { prefs: Prefs; project: string }) {
+  return (
+    projectNamingChoice({
+      prefs,
+      project
+    }) ?? globalNaming(prefs)
+  );
 }
 
 /** The `aiSessionNamingProjects` record with this project set to `choice` - or
  *  with its key dropped when `choice` is `undefined`, which is how a project
  *  goes back to following the global default. */
-export function withProjectNamingChoice({ prefs, project, choice }: {
+export function withProjectNamingChoice({
+  prefs,
+  project,
+  choice
+}: {
   prefs: Prefs;
   project: string;
   choice: boolean | undefined;

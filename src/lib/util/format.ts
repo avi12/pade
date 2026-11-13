@@ -14,11 +14,7 @@ const SINGULAR_COUNT = 1;
 
 /** A count with its noun as one string, so no template whitespace can split
  *  them - "1 file", "1,234 files". `plural` defaults to the noun plus "s". */
-export function formatQuantity({ count, noun, plural = `${noun}s` }: {
-  count: number;
-  noun: string;
-  plural?: string;
-}) {
+export function formatQuantity({ count, noun, plural = `${noun}s` }: { count: number; noun: string; plural?: string }) {
   return `${formatCount(count)} ${count === SINGULAR_COUNT ? noun : plural}`;
 }
 
@@ -78,10 +74,7 @@ const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
  *  ("41s", "3m", "2h", "5d"). One home for every relative age the UI prints -
  *  the Change Feed's card labels, its "watching since" line, and a project's
  *  last access in the switcher read the same clock. */
-export function formatAge({ stamp, now }: {
-  stamp: number;
-  now: number;
-}) {
+export function formatAge({ stamp, now }: { stamp: number; now: number }) {
   const seconds = Math.max(0, Math.round((now - stamp) / MILLISECONDS_PER_SECOND));
   if (seconds < SECONDS_PER_MINUTE) {
     return `${formatCount(seconds)}s`;

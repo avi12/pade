@@ -55,24 +55,28 @@ export function createWindowSessions(host: WindowSessionsHost) {
     enter(project: string) {
       layout.fallbackProject = project;
     },
-    launch: (options: LaunchOptions) => launchSession({
-      context,
-      options
-    }),
+    launch: (options: LaunchOptions) =>
+      launchSession({
+        context,
+        options
+      }),
     select: (id: string) => layout.select(id),
     step: (delta: number) => layout.step(delta),
-    close: (session: AgentSession) => closeSession({
-      context,
-      session
-    }),
-    exited: (id: string) => sessionExited({
-      context,
-      id
-    }),
-    closeSessions: (ids: readonly string[]) => closeSessions({
-      layout,
-      ids
-    }),
+    close: (session: AgentSession) =>
+      closeSession({
+        context,
+        session
+      }),
+    exited: (id: string) =>
+      sessionExited({
+        context,
+        id
+      }),
+    closeSessions: (ids: readonly string[]) =>
+      closeSessions({
+        layout,
+        ids
+      }),
     closeAllGracefully: () => closeAllGracefully(layout),
     restart,
     applyResumeArgs: (resume: Parameters<WindowLayout["applyResumeArgs"]>[0]) => layout.applyResumeArgs(resume),
@@ -90,19 +94,18 @@ export function createWindowSessions(host: WindowSessionsHost) {
     release: (ids: readonly string[]) => layout.release(ids),
     /** Take in sessions another window handed over, their PTYs already moved
      *  here and still running. */
-    adopt: ({ adopted, activeId }: {
-      adopted: readonly AgentSession[];
-      activeId: string | null;
-    }) => adoptSessions({
-      context,
-      adopted,
-      activeId
-    }),
+    adopt: ({ adopted, activeId }: { adopted: readonly AgentSession[]; activeId: string | null }) =>
+      adoptSessions({
+        context,
+        adopted,
+        activeId
+      }),
     /** Drop one session handed off to a successor, leaving the active pane alone. */
-    removeHandedOff: (id: string) => removeHandedOff({
-      context,
-      id
-    })
+    removeHandedOff: (id: string) =>
+      removeHandedOff({
+        context,
+        id
+      })
   });
 }
 

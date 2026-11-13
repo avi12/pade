@@ -2,7 +2,7 @@
 // one agent's group of limits.
 
 import type { IconName } from "@/lib/Icon.svelte";
-import { UsageWindowKind } from "@/lib/types/usage";
+import type { UsageWindowKind } from "@/lib/types/usage";
 import type { NoReading } from "@/lib/types/usage";
 
 /** Consumption severity, applied as a CSS class: blue while there's room, amber
@@ -15,7 +15,7 @@ export const Level = {
 
 export type Level = (typeof Level)[keyof typeof Level];
 
-export type Limit = {
+export interface Limit {
   label: string;
   sub: string;
   reset: string;
@@ -44,9 +44,9 @@ export type Limit = {
   /** Extra usage with no monthly cap: nothing to run out of, so it reads as the
    *  month's spend and is never the limit anything is close to. */
   isUncapped: boolean;
-};
+}
 
-export type AgentGroup = {
+export interface AgentGroup {
   /** The agent registry id (`claude`, `codex`, …) - the dedupe + sort key. */
   id: string;
   name: string;
@@ -61,4 +61,4 @@ export type AgentGroup = {
    *  the backend said; `null` for an agent with a reading. */
   noReading: NoReading | null;
   limits: Limit[];
-};
+}

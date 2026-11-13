@@ -1,5 +1,6 @@
-import { nextSidebarPosition, SidebarKey } from "@/lib/shell/sidebar/projects/sidebar-keyboard";
 import { describe, expect, it } from "vitest";
+
+import { nextSidebarPosition, SidebarKey } from "@/lib/shell/sidebar/projects/sidebar-keyboard";
 
 // A project header with + and options, a live chat with its stop button, a
 // recorded conversation, then the next project's header.

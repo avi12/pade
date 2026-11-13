@@ -1,14 +1,8 @@
+import { z } from "zod";
+
 import { NO_REPLY } from "@/lib/ipc/domains/no-reply";
 import type { PathData } from "@/lib/ipc/domains/path-data";
-import {
-  ChangeEvent,
-  FeedDiff,
-  FeedImage,
-  FeedVideo,
-  WatchedRootEvent,
-  WatchStatus
-} from "@/lib/types/feed";
-import { z } from "zod";
+import { ChangeEvent, FeedDiff, FeedImage, FeedVideo, WatchedRootEvent, WatchStatus } from "@/lib/types/feed";
 
 export const FEED_COMMANDS = {
   watchProjects: "watch_projects",

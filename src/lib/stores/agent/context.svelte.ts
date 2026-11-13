@@ -17,9 +17,10 @@
 //      over-counts badly and must never end a session; it feeds only the soft
 //      tab gauge (`contextPercentage`), never auto-handoff / resume / retry.
 
+import { SvelteMap } from "svelte/reactivity";
+
 import { modelName } from "@/lib/model/model-label";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
-import { SvelteMap } from "svelte/reactivity";
 
 /** Rough characters-per-token ratio for the PTY-estimate fallback. */
 const CHARACTERS_PER_TOKEN = 4;
@@ -64,10 +65,7 @@ interface ContextSignal {
 const signals = new SvelteMap<string, ContextSignal>();
 
 /** Scale a token count like "123", "45k", "1m" to an absolute number. */
-function scaleTokens({ numberText, suffix }: {
-  numberText: string;
-  suffix: string | undefined;
-}) {
+function scaleTokens({ numberText, suffix }: { numberText: string; suffix: string | undefined }) {
   const base = Number(numberText.replaceAll(",", ""));
   if (!Number.isFinite(base)) {
     return null;
@@ -77,10 +75,7 @@ function scaleTokens({ numberText, suffix }: {
 }
 
 /** `part` as a percent of `whole`, capped at a full window. */
-function cappedPercentage({ part, whole }: {
-  part: number;
-  whole: number;
-}) {
+function cappedPercentage({ part, whole }: { part: number; whole: number }) {
   return Math.min(FULL_PERCENTAGE, (part / whole) * FULL_PERCENTAGE);
 }
 
@@ -107,13 +102,15 @@ const CONTEXT_LOW_RE = /context\s+low\s*\(\s*(\d{1,3})\s*%/;
 // the room left before the compaction point, not the window - a 1M session can
 // compact at 300k - so it feeds `compactionHeadroom` and is stripped before
 // the percent-used parse, which would otherwise read "2% until" as 98% full.
-const COMPACTION_HEADROOM_RE = /(\d{1,3})\s*%\s*until\s+auto-?\s*compact|left\s+until\s+auto-?\s*compact\s*:?\s*(\d{1,3})\s*%/;
+const COMPACTION_HEADROOM_RE =
+  /(\d{1,3})\s*%\s*until\s+auto-?\s*compact|left\s+until\s+auto-?\s*compact\s*:?\s*(\d{1,3})\s*%/;
 const COMPACTION_HEADROOM_STRIP_RE = new RegExp(COMPACTION_HEADROOM_RE.source, "g");
 // The bare "left … N%" arm needs a context/window anchor: an agent transcript
 // can carry arbitrary pasted content (CSS with `left:` and percentages dumped
 // by a tool call), and an unanchored match there read as "context nearly full"
 // on a session that was at 3% - a false handoff.
-const REMAINING_RE = /(\d{1,3})\s*%\s*(?:context\s*)?(?:left|remaining)|(?:context|window)[^%\d]{0,24}(?:left|remaining)[^%\d]{0,24}(\d{1,3})\s*%/;
+const REMAINING_RE =
+  /(\d{1,3})\s*%\s*(?:context\s*)?(?:left|remaining)|(?:context|window)[^%\d]{0,24}(?:left|remaining)[^%\d]{0,24}(\d{1,3})\s*%/;
 const USED_RE = /(\d{1,3})\s*%\s*context|context[^%\d]{0,24}(\d{1,3})\s*%/;
 const RATIO_RE = /([\d,]+)\s*(k|m)?\s*\/\s*([\d,]+)\s*(k|m)?\s*tokens/;
 
@@ -168,9 +165,7 @@ function parseUsedPercentage(text: string) {
       return null;
     }
 
-    return isRemaining
-      ? Math.max(0, FULL_PERCENTAGE - percentage)
-      : Math.min(FULL_PERCENTAGE, percentage);
+    return isRemaining ? Math.max(0, FULL_PERCENTAGE - percentage) : Math.min(FULL_PERCENTAGE, percentage);
   }
 
   return parseRatioPercentage(lower);
@@ -221,9 +216,9 @@ function parseTokenSignals(text: string) {
   const windowBanner = lower.match(WINDOW_RE);
   const windowTokens = windowBanner
     ? scaleTokens({
-      numberText: windowBanner[1],
-      suffix: windowBanner[2]
-    })
+        numberText: windowBanner[1],
+        suffix: windowBanner[2]
+      })
     : null;
 
   let reportedTokens = 0;
@@ -244,11 +239,7 @@ function parseTokenSignals(text: string) {
 }
 
 /** Fold one observation's parse results into a session's stored signal. */
-function absorb({ id, text, characters }: {
-  id: string;
-  text: string;
-  characters: number;
-}) {
+function absorb({ id, text, characters }: { id: string; text: string; characters: number }) {
   const previous = signals.get(id) ?? EMPTY_SIGNAL;
   const parsed = parseUsedPercentage(text);
   const tokens = parseTokenSignals(text);
@@ -262,10 +253,7 @@ function absorb({ id, text, characters }: {
 }
 
 /** Feed a chunk of a session's PTY output through the context signals. */
-export function observeContext({ id, chunk }: {
-  id: string;
-  chunk: string;
-}) {
+export function observeContext({ id, chunk }: { id: string; chunk: string }) {
   absorb({
     id,
     text: chunk,
@@ -280,10 +268,7 @@ export function observeContext({ id, chunk }: {
  *  parser needs. The screen always does; this is the reliable source for the
  *  parsed percent. Never counts toward the byte estimate: these are repainted
  *  cells, not new output. */
-export function observeContextScreen({ id, text }: {
-  id: string;
-  text: string;
-}) {
+export function observeContextScreen({ id, text }: { id: string; text: string }) {
   absorb({
     id,
     text,
@@ -334,10 +319,7 @@ const FALLBACK_WINDOW_TOKENS = 1_000_000;
  *  pins it high, and dividing that by a guessed window fires a false handoff on an
  *  agent, like Codex, that prints no window banner. Ending a session needs a real
  *  denominator, so the handoff path passes `allowFallback: false`. */
-function tokensDerivedPercentage({ signal, allowFallback }: {
-  signal: ContextSignal;
-  allowFallback: boolean;
-}) {
+function tokensDerivedPercentage({ signal, allowFallback }: { signal: ContextSignal; allowFallback: boolean }) {
   if (signal.reportedTokens === 0) {
     return null;
   }
@@ -387,13 +369,15 @@ export function contextPercentage(id: string) {
     return null;
   }
 
-  return loggedPercentage(signal)
-    ?? signal.parsedPercentage
-    ?? tokensDerivedPercentage({
+  return (
+    loggedPercentage(signal) ??
+    signal.parsedPercentage ??
+    tokensDerivedPercentage({
       signal,
       allowFallback: true
-    })
-    ?? estimatedPercentage(signal);
+    }) ??
+    estimatedPercentage(signal)
+  );
 }
 
 /** The session's context fill as the AGENT ITSELF accounts for it, or null when
@@ -417,10 +401,14 @@ export function measuredContextPercentage(id: string) {
     return null;
   }
 
-  return loggedPercentage(signal) ?? signal.parsedPercentage ?? tokensDerivedPercentage({
-    signal,
-    allowFallback: false
-  });
+  return (
+    loggedPercentage(signal) ??
+    signal.parsedPercentage ??
+    tokensDerivedPercentage({
+      signal,
+      allowFallback: false
+    })
+  );
 }
 
 /** Record what the agent's own session log says about this session: the tokens
@@ -432,7 +420,11 @@ export function measuredContextPercentage(id: string) {
  *  The window never overrides one the agent's own `(N context)` banner supplied,
  *  so a live reading still wins; the token count always overwrites, because a
  *  newer turn is strictly better than the turn before it. */
-export function observeSessionLog({ id, usedTokens, windowTokens }: {
+export function observeSessionLog({
+  id,
+  usedTokens,
+  windowTokens
+}: {
   id: string;
   usedTokens: number | null;
   windowTokens: number | null;
@@ -448,7 +440,12 @@ export function observeSessionLog({ id, usedTokens, windowTokens }: {
 /** Record the model and effort the agent itself reported for this session.
  *  Each reading replaces the last whole - the agent reports both together, and
  *  a model switch can drop the effort (a model without one). */
-export function observeRunningModel({ id, model, effort, isUltracode }: {
+export function observeRunningModel({
+  id,
+  model,
+  effort,
+  isUltracode
+}: {
   id: string;
   model: string;
   effort: string | null;

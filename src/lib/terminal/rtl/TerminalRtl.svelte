@@ -160,7 +160,7 @@
     }
 
     .dim {
-      opacity: 50%;
+      opacity: 0.5;
     }
 
     .italic {
@@ -201,7 +201,7 @@
 
   @keyframes terminal-caret-blink {
     50% {
-      opacity: 0%;
+      opacity: 0;
     }
   }
 

@@ -86,10 +86,7 @@ interface Project {
 // case preserved (the display name keeps its real casing). Matching the root
 // prefix is case-insensitive so a drive-letter difference on Windows still lines
 // up; the events genuinely live under the root, so this can't mis-attribute.
-function relativeSegments({ path, workspaceRoot }: {
-  path: string;
-  workspaceRoot: string;
-}) {
+function relativeSegments({ path, workspaceRoot }: { path: string; workspaceRoot: string }) {
   const forwardPath = path.replaceAll("\\", "/");
   const forwardRoot = workspaceRoot.replaceAll("\\", "/").replace(TRAILING_SLASHES, "");
   const isUnderRoot = forwardPath.toLowerCase().startsWith(`${forwardRoot.toLowerCase()}/`);
@@ -101,11 +98,7 @@ function relativeSegments({ path, workspaceRoot }: {
 // manifest members exist. A path under a container maps to its member folder
 // (honouring an `@scope/name` two-segment member); everything else maps to the
 // repo itself.
-function projectOf({ path, workspaceRoot, repository }: {
-  path: string;
-  workspaceRoot: string;
-  repository: Project;
-}) {
+function projectOf({ path, workspaceRoot, repository }: { path: string; workspaceRoot: string; repository: Project }) {
   const segments = relativeSegments({
     path,
     workspaceRoot
@@ -150,7 +143,12 @@ function memberRole(memberPath: string) {
 // segments are compared (case-insensitively, matching the root-prefix rule) so
 // `apps/web` never captures `apps/web-admin`; outside every member the repo
 // itself is the bucket.
-function projectFromMembers({ path, workspaceRoot, members, repository }: {
+function projectFromMembers({
+  path,
+  workspaceRoot,
+  members,
+  repository
+}: {
   path: string;
   workspaceRoot: string;
   members: WorkspaceMember[];
@@ -216,7 +214,11 @@ function collapseRepeats(events: ChangeEvent[]) {
  *  its deepest enclosing member; without any, the folder-name convention is the
  *  fallback. The groups are ordered by their most-recent change, so the
  *  just-touched project leads - matching the flat feed's newest-first feel. */
-export function groupChanges({ events, workspaceRoot, members = [] }: {
+export function groupChanges({
+  events,
+  workspaceRoot,
+  members = []
+}: {
   events: ChangeEvent[];
   workspaceRoot: string;
   members?: WorkspaceMember[];
@@ -233,18 +235,19 @@ export function groupChanges({ events, workspaceRoot, members = [] }: {
   const groupsById = new Map<string, ChangeGroup>();
 
   for (const event of events) {
-    const project = manifestMembers.length > 0
-      ? projectFromMembers({
-        path: event.path,
-        workspaceRoot,
-        members: manifestMembers,
-        repository
-      })
-      : projectOf({
-        path: event.path,
-        workspaceRoot,
-        repository
-      });
+    const project =
+      manifestMembers.length > 0
+        ? projectFromMembers({
+            path: event.path,
+            workspaceRoot,
+            members: manifestMembers,
+            repository
+          })
+        : projectOf({
+            path: event.path,
+            workspaceRoot,
+            repository
+          });
     let group = groupsById.get(project.id);
     if (group === undefined) {
       group = {

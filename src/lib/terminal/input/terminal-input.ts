@@ -22,10 +22,8 @@ const TILDE_FINAL_BYTE = "~";
  *  burst - the reliable way to submit a composer a paste left holding text. */
 export const PROMPT_SUBMIT = ENTER;
 
-export const BRACKETED_PASTE_START =
-  `${CONTROL_SEQUENCE_INTRODUCER}${BRACKETED_PASTE_START_PARAMETER}${TILDE_FINAL_BYTE}`;
-export const BRACKETED_PASTE_END =
-  `${CONTROL_SEQUENCE_INTRODUCER}${BRACKETED_PASTE_END_PARAMETER}${TILDE_FINAL_BYTE}`;
+export const BRACKETED_PASTE_START = `${CONTROL_SEQUENCE_INTRODUCER}${BRACKETED_PASTE_START_PARAMETER}${TILDE_FINAL_BYTE}`;
+export const BRACKETED_PASTE_END = `${CONTROL_SEQUENCE_INTRODUCER}${BRACKETED_PASTE_END_PARAMETER}${TILDE_FINAL_BYTE}`;
 
 /** Text inserted from outside the terminal, framed so embedded newlines stay in
  * the active composer's paste instead of becoming shell Enter keystrokes. */
@@ -34,7 +32,7 @@ export function pastedText(text: string) {
 }
 
 const PATH_SEPARATOR = " ";
-const PATH_QUOTE = "\"";
+const PATH_QUOTE = '"';
 
 /** File paths as typed into an agent's composer - the form a pasted clipboard
  *  image and a file dropped onto the terminal both arrive in. A path holding a
@@ -48,7 +46,12 @@ export function pathsAsPromptText(paths: readonly string[]) {
 
 /** Add source coordinates to code copied from an inline diff so the agent can
  * locate the selection without inferring its file or line range. */
-export function referencedSnippet({ path, anchorLine, focusLine, snippet }: {
+export function referencedSnippet({
+  path,
+  anchorLine,
+  focusLine,
+  snippet
+}: {
   path: string;
   anchorLine: number;
   focusLine: number;
@@ -65,9 +68,9 @@ export function submittedPrompt(prompt: string) {
 }
 
 /** Shift+Enter alone - the chord that types a newline into the composer. */
-export function isPromptNewlineShortcut(event: Pick<KeyboardEvent,
-  "key" | "shiftKey" | "altKey" | "ctrlKey" | "metaKey"
->) {
+export function isPromptNewlineShortcut(
+  event: Pick<KeyboardEvent, "key" | "shiftKey" | "altKey" | "ctrlKey" | "metaKey">
+) {
   const isShiftOnly = event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
   return event.key === Key.Enter && isShiftOnly;
 }

@@ -1,7 +1,8 @@
+import { mkdirSync } from "node:fs";
+
 import { buildApplication } from "./build.mjs";
 import { CARGO_MANIFEST, OUTPUT_DIRECTORY, run } from "./environment.mjs";
 import { buildMsix } from "./msix.mjs";
-import { mkdirSync } from "node:fs";
 
 /** Build the exe and the MSIX for `version` into `release/`. Answers every file
  *  the release attaches. */

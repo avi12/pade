@@ -16,10 +16,7 @@ export interface ProjectOption {
  *  start with it first, each group in the order given (the project menu's
  *  recents first, then the scanned rest). Nothing for a blank name, and never
  *  more than `MAX_PROJECT_SUGGESTIONS`. */
-export function matchingProjects({ options, typed }: {
-  options: readonly ProjectOption[];
-  typed: string;
-}) {
+export function matchingProjects({ options, typed }: { options: readonly ProjectOption[]; typed: string }) {
   const query = typed.trim().toLowerCase();
   if (query.length === 0) {
     return [];
@@ -56,7 +53,12 @@ export const SuggestionStepKind = {
  *  reopening a dismissed list), Enter picks the highlighted row, Escape
  *  closes an open list. Enter with nothing highlighted is the field's, so it
  *  still starts the new project. */
-export function suggestionKeyStep({ key, highlightedIndex, count, isListVisible }: {
+export function suggestionKeyStep({
+  key,
+  highlightedIndex,
+  count,
+  isListVisible
+}: {
   key: string;
   /** The highlighted row, -1 while none. */
   highlightedIndex: number;

@@ -1,5 +1,6 @@
-import { RecordedConversation } from "@/lib/types/chat-storage";
 import { z } from "zod";
+
+import type { RecordedConversation } from "@/lib/types/chat-storage";
 
 /** How a spawned window routes off its `?w=` query string - `window_create`
  *  encodes the target here and the Rust `window` module emits the same tokens.
@@ -17,7 +18,7 @@ export type WindowDirection = z.infer<typeof WindowDirection>;
 /** Where the picker hands a chosen or freshly-created project back to the app:
  *  the project path, plus - for a create - an optional first prompt to seed and
  *  the agent id to launch it with (both absent when reopening an existing one). */
-export type OpenTarget = {
+export interface OpenTarget {
   path: string;
   initialPrompt?: string;
   agent?: string;
@@ -32,7 +33,7 @@ export type OpenTarget = {
   /** A recorded conversation to resume when the project opens (the
    *  sidebar's `/resume` list). */
   resume?: RecordedConversation;
-};
+}
 
 export const LaunchContext = z.object({
   hasProject: z.boolean(),

@@ -119,7 +119,7 @@
 
     .font-preview {
       font-size: 0.6875rem;
-      opacity: 70%;
+      opacity: 0.7;
     }
   }
 </style>

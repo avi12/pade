@@ -28,21 +28,18 @@ export interface HandoffContext {
   state: HandoffState;
   timers: ReturnType<typeof createHandoffTimers>;
   /** Run the whole handoff - from a trigger, or again once a late doc arrives. */
-  runHandoff: (request: {
-    session: AgentSession;
-    reason: HandoffReason;
-    isMidTurn?: boolean;
-  }) => Promise<void>;
+  runHandoff: (request: { session: AgentSession; reason: HandoffReason; isMidTurn?: boolean }) => Promise<void>;
 }
 
-export function isStillOpen({ context, sessionId }: {
-  context: HandoffContext;
-  sessionId: string;
-}) {
+export function isStillOpen({ context, sessionId }: { context: HandoffContext; sessionId: string }) {
   return context.host.sessions().some(candidate => candidate.id === sessionId);
 }
 
-export function docPathOf({ context, session, name }: {
+export function docPathOf({
+  context,
+  session,
+  name
+}: {
   context: HandoffContext;
   session: AgentSession;
   name: string;
@@ -50,7 +47,12 @@ export function docPathOf({ context, session, name }: {
   return `${context.host.projectDirectory(session)}/${name}`;
 }
 
-async function submitHandoffRequest({ context, session, doc, reason }: {
+async function submitHandoffRequest({
+  context,
+  session,
+  doc,
+  reason
+}: {
   context: HandoffContext;
   session: AgentSession;
   doc: string;
@@ -79,7 +81,11 @@ async function submitHandoffRequest({ context, session, doc, reason }: {
 // Hold the handoff until the agent reports no work in flight, so ending the
 // session never severs a workflow or background agent it is still running.
 // Resolves whether the session is still here to hand off.
-async function waitForRunningWork({ context, session, reason }: {
+async function waitForRunningWork({
+  context,
+  session,
+  reason
+}: {
   context: HandoffContext;
   session: AgentSession;
   reason: HandoffReason;
@@ -100,7 +106,12 @@ async function waitForRunningWork({ context, session, reason }: {
 
 // The same gate, skipped when the handoff has to beat the agent's own
 // compaction: then the running turn is exactly what it must not wait for.
-export async function waitForRunningWorkUnlessMidTurn({ context, session, reason, isMidTurn }: {
+export async function waitForRunningWorkUnlessMidTurn({
+  context,
+  session,
+  reason,
+  isMidTurn
+}: {
   context: HandoffContext;
   session: AgentSession;
   reason: HandoffReason;
@@ -124,7 +135,12 @@ export async function waitForRunningWorkUnlessMidTurn({ context, session, reason
 // previous attempt already produced it: a request sent to a busy agent gets
 // queued and answered long after the wait below expired, so a retry must
 // consume the doc that late answer wrote instead of asking for a second one.
-export async function askForDoc({ context, session, doc, reason }: {
+export async function askForDoc({
+  context,
+  session,
+  doc,
+  reason
+}: {
   context: HandoffContext;
   session: AgentSession;
   doc: string;
@@ -149,16 +165,19 @@ export async function askForDoc({ context, session, doc, reason }: {
   // The watcher can simply have missed the write (an ignored path, a
   // torn-down subscription), so a timeout gets one direct disk probe before
   // giving up.
-  return await waitForFile({
-    timers: context.timers,
-    isStillOpen: sessionId => isStillOpen({
-      context,
-      sessionId
-    }),
-    sessionId: session.id,
-    docPath,
-    name: doc
-  }) || await isFileOnDisk(docPath);
+  return (
+    (await waitForFile({
+      timers: context.timers,
+      isStillOpen: sessionId =>
+        isStillOpen({
+          context,
+          sessionId
+        }),
+      sessionId: session.id,
+      docPath,
+      name: doc
+    })) || (await isFileOnDisk(docPath))
+  );
 }
 
 // Never cycle without the doc actually on disk: killing the session and
@@ -169,26 +188,35 @@ export async function askForDoc({ context, session, doc, reason }: {
 // scan that finds the session ready again retries - askForDoc's first probe
 // then short-circuits onto the doc the late answer wrote, so the cycle
 // completes instead of dying here forever.
-export async function requestHandoffDoc({ context, session, doc, reason }: {
+export async function requestHandoffDoc({
+  context,
+  session,
+  doc,
+  reason
+}: {
   context: HandoffContext;
   session: AgentSession;
   doc: string;
   reason: HandoffReason;
 }) {
   const { state } = context;
-  if (await askForDoc({
-    context,
-    session,
-    doc,
-    reason
-  })) {
+  if (
+    await askForDoc({
+      context,
+      session,
+      doc,
+      reason
+    })
+  ) {
     return true;
   }
 
-  if (!isStillOpen({
-    context,
-    sessionId: session.id
-  })) {
+  if (
+    !isStillOpen({
+      context,
+      sessionId: session.id
+    })
+  ) {
     state.abandonHandoff(session.id);
     return false;
   }
@@ -214,7 +242,12 @@ export async function requestHandoffDoc({ context, session, doc, reason }: {
 // doc can still appear: an answer queued behind a long turn, or the user moving
 // a doc the agent wrote somewhere else into place. A slow disk look picks it up
 // and finishes the handoff, as long as the session is still open.
-function watchForLateDoc({ context, session, doc, reason }: {
+function watchForLateDoc({
+  context,
+  session,
+  doc,
+  reason
+}: {
   context: HandoffContext;
   session: AgentSession;
   doc: string;
@@ -227,14 +260,16 @@ function watchForLateDoc({ context, session, doc, reason }: {
     name: doc
   });
   async function look() {
-    if (!isStillOpen({
-      context,
-      sessionId: session.id
-    })) {
+    if (
+      !isStillOpen({
+        context,
+        sessionId: session.id
+      })
+    ) {
       return;
     }
 
-    if (!await isFileOnDisk(docPath)) {
+    if (!(await isFileOnDisk(docPath))) {
       timers.trackTimer({
         handler: look,
         delayMs: LATE_DOC_POLL_MS

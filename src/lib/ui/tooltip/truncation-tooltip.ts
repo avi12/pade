@@ -27,7 +27,10 @@ const NO_BUBBLE: Bubble = { text: "" };
  *  mark) or a trigger of this same bubble (a language bar segment) - speaks
  *  for itself, so over it the trigger's bubble steps aside and the two never
  *  stack. */
-function isOverNestedTooltip({ elTrigger, target }: {
+function isOverNestedTooltip({
+  elTrigger,
+  target
+}: {
   elTrigger: HTMLElement;
   target: EventTarget | null | undefined;
 }) {
@@ -124,15 +127,20 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
  *  untruncated line clipped forever) and precedes the bubble showing. With real
  *  layout in hand the DOM's own overflow answer is exact, and re-checking per
  *  hover tracks panel resizes for free. */
-export function truncationTooltip({ tooltip: text, restingTooltip, measureSelector }: {
+export function truncationTooltip({
+  tooltip: text,
+  restingTooltip,
+  measureSelector
+}: {
   tooltip: TooltipText;
   restingTooltip?: TooltipText;
   measureSelector?: string;
 }) {
   return overflowTooltip(elTrigger => {
     const elsMeasured = measureSelector ? [...elTrigger.querySelectorAll(measureSelector)] : [elTrigger];
-    const elClipped = elsMeasured.find(elMeasured =>
-      elMeasured.scrollWidth > elMeasured.clientWidth || elMeasured.scrollHeight > elMeasured.clientHeight);
+    const elClipped = elsMeasured.find(
+      elMeasured => elMeasured.scrollWidth > elMeasured.clientWidth || elMeasured.scrollHeight > elMeasured.clientHeight
+    );
     if (elClipped) {
       // The bubble finishes the clipped line, so it reads in that line's face.
       return {

@@ -182,7 +182,7 @@
     }
 
     &::backdrop {
-      background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 55%));
+      background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 0.55));
       animation: fadein 160ms var(--ease);
     }
   }
@@ -286,7 +286,7 @@
     transition: background 120ms var(--ease);
 
     &:disabled {
-      opacity: 55%;
+      opacity: 0.55;
       cursor: default;
     }
 

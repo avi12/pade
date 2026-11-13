@@ -17,10 +17,14 @@ const enqueueSettingsRequest = createSerialQueue();
  *  taken at call time, so request order - not response order - decides. */
 function queueSettingsRequest<T>(request: (adopt: (fresh: Settings) => void) => Promise<T>) {
   const version = beginSettingsRequest();
-  return enqueueSettingsRequest(() => request(fresh => adoptSettings({
-    fresh,
-    version
-  })));
+  return enqueueSettingsRequest(() =>
+    request(fresh =>
+      adoptSettings({
+        fresh,
+        version
+      })
+    )
+  );
 }
 
 /** `sendMessage` for a command that answers the whole settings: the reply is

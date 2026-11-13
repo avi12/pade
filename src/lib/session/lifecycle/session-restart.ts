@@ -13,10 +13,7 @@ import { normalizePath } from "@/lib/util/paths";
 /** The sessions an MCP-config change should hand off: those running an agent the
  *  config governs, whose working directory IS the directory that changed (a
  *  per-branch worktree keeps its own config, so a root change leaves it alone). */
-export function mcpRestartTargets({ sessions, change }: {
-  sessions: readonly AgentSession[];
-  change: McpChange;
-}) {
+export function mcpRestartTargets({ sessions, change }: { sessions: readonly AgentSession[]; change: McpChange }) {
   const changedRoot = normalizePath(change.root);
   return sessions.filter(session => {
     const isGovernedAgent = change.agents.includes(session.agent.id);
@@ -31,7 +28,12 @@ export function mcpRestartTargets({ sessions, change }: {
  *  restart), so the agent resumes rather than re-sends. Pure - the caller
  *  assigns the results to its reactive state and does the side effects (kill,
  *  bookkeeping). */
-export function rekeyLayout({ sessions, paneIds, activeId, rekeyed }: {
+export function rekeyLayout({
+  sessions,
+  paneIds,
+  activeId,
+  rekeyed
+}: {
   sessions: readonly AgentSession[];
   paneIds: readonly string[];
   activeId: string | null;
@@ -40,10 +42,12 @@ export function rekeyLayout({ sessions, paneIds, activeId, rekeyed }: {
   return {
     sessions: sessions.map(session => {
       const restartedId = rekeyed[session.id];
-      return restartedId ? {
-        ...session,
-        id: restartedId
-      } : session;
+      return restartedId
+        ? {
+            ...session,
+            id: restartedId
+          }
+        : session;
     }),
     paneIds: paneIds.map(id => rekeyed[id] ?? id),
     activeId: activeId === null ? null : (rekeyed[activeId] ?? activeId)

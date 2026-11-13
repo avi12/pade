@@ -1,8 +1,9 @@
+import { onMount } from "svelte";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { realAgents as toRealAgents } from "@/lib/types/agent";
 import type { Agent } from "@/lib/types/agent";
 import { settledValue } from "@/lib/util/async/settled";
-import { onMount } from "svelte";
 
 // Agent detection runs a subprocess per agent, so cap how long the boot waits
 // on it - a stall must never freeze the splash. An empty list just routes to

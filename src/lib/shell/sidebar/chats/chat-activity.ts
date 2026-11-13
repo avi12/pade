@@ -28,10 +28,7 @@ export function chatStatus(chat: Pick<SidebarChat, "id" | "status">) {
 
 /** What a chat is doing: a live agent at its prompt waits on the user, one
  *  starting up or mid-turn is working, and anything not running is idle. */
-export function chatActivity({ isLive, status }: {
-  isLive: boolean;
-  status: SessionStatus;
-}) {
+export function chatActivity({ isLive, status }: { isLive: boolean; status: SessionStatus }) {
   if (!isLive || status === SessionStatus.enum.exited) {
     return ChatActivity.Idle;
   }
@@ -67,7 +64,12 @@ export function activityCounts(activities: Iterable<ChatActivity>) {
  *  sits further down (so the chat in front never hides), or every chat once
  *  the user asked for all of them. A single chat past the limit shows rather
  *  than hide behind a "Show 1 more" link as tall as itself. */
-export function shownChats<Chat extends Pick<SidebarChat, "id">>({ chats, activeChatId, isShowingAll, limit = SHOWN_CHAT_LIMIT }: {
+export function shownChats<Chat extends Pick<SidebarChat, "id">>({
+  chats,
+  activeChatId,
+  isShowingAll,
+  limit = SHOWN_CHAT_LIMIT
+}: {
   chats: readonly Chat[];
   activeChatId: string | null;
   isShowingAll: boolean;

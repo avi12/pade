@@ -100,10 +100,7 @@ const AGENT_INTERRUPT_SHORTCUTS: Readonly<Partial<Record<string, AgentInterruptS
 /** The chord a shortcut is pressed with under the user's keybindings: the
  *  default while it still means this action (a user binding adds to the
  *  defaults), else the user's last chord for it, else none. Pure. */
-function resolveChord({ shortcut, keybindings }: {
-  shortcut: AgentShortcut;
-  keybindings: ClaudeKeybindings | null;
-}) {
+function resolveChord({ shortcut, keybindings }: { shortcut: AgentShortcut; keybindings: ClaudeKeybindings | null }) {
   const binding = shortcut.binding;
   if (binding === null || keybindings === null) {
     return shortcut.chord;
@@ -132,7 +129,10 @@ function resolveChord({ shortcut, keybindings }: {
   return isDefaultKept ? shortcut.chord : userChord;
 }
 
-function keyPress({ shortcut, keybindings }: {
+function keyPress({
+  shortcut,
+  keybindings
+}: {
   shortcut: AgentShortcut | null;
   keybindings: ClaudeKeybindings | null;
 }) {
@@ -145,18 +145,17 @@ function keyPress({ shortcut, keybindings }: {
     keybindings
   });
   const keystrokes = chord === null ? null : encodeChord(chord);
-  return keystrokes === null ? null : {
-    keystrokes,
-    presses: shortcut.presses
-  };
+  return keystrokes === null
+    ? null
+    : {
+        keystrokes,
+        presses: shortcut.presses
+      };
 }
 
 /** `command`'s interrupt keys under `keybindings`, or null for an agent PADE
  *  knows none for. Pure. */
-export function interruptKeysOf({ command, keybindings }: {
-  command: string;
-  keybindings: ClaudeKeybindings | null;
-}) {
+export function interruptKeysOf({ command, keybindings }: { command: string; keybindings: ClaudeKeybindings | null }) {
   const shortcuts = AGENT_INTERRUPT_SHORTCUTS[command];
   if (shortcuts === undefined) {
     return null;

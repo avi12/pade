@@ -14,9 +14,10 @@
 // dependency as the context-percent and usage-limit parsers. An agent that
 // announces no such glyph reports nothing, and every gate built on it stays open.
 
+import { SvelteMap } from "svelte/reactivity";
+
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { createSettleWaiters } from "@/lib/stores/session/settle-waiters";
-import { SvelteMap } from "svelte/reactivity";
 
 /** What an agent's own terminal title says about its work. */
 export const AgentActivity = {
@@ -68,9 +69,7 @@ export function readTitles(text: string) {
   const lastStart = text.lastIndexOf(SEQUENCE_START);
   const tail = lastStart === -1 ? "" : text.slice(lastStart);
   const isTailTerminated = tail.includes(BELL) || tail.includes(STRING_TERMINATOR);
-  const isEndingMidSequence = lastStart >= consumedTo
-    && !isTailTerminated
-    && tail.length <= MAXIMUM_CARRIED_LENGTH;
+  const isEndingMidSequence = lastStart >= consumedTo && !isTailTerminated && tail.length <= MAXIMUM_CARRIED_LENGTH;
   return {
     titles,
     carried: isEndingMidSequence ? tail : ""
@@ -86,10 +85,7 @@ const settleWaiters = createSettleWaiters();
 /** Feed a session's PTY output (live chunks, or the history replayed on attach)
  *  through the title reader. The latest title wins; one without an activity
  *  glyph clears the report, since the agent no longer announces one. */
-export function observeAgentActivity({ id, chunk }: {
-  id: string;
-  chunk: string;
-}) {
+export function observeAgentActivity({ id, chunk }: { id: string; chunk: string }) {
   const { titles, carried } = readTitles(`${carriedSequences.get(id) ?? ""}${chunk}`);
   if (carried) {
     carriedSequences.set(id, carried);
@@ -157,10 +153,7 @@ const backgroundAgentsOnScreen = new Map<string, number>();
 
 /** Feed a session's rendered screen (xterm viewport rows) through the turn and
  *  background-agent readers. */
-export function observeTurnOnScreen({ id, text }: {
-  id: string;
-  text: string;
-}) {
+export function observeTurnOnScreen({ id, text }: { id: string; text: string }) {
   turnRunningOnScreen.set(id, showsTurnRunning(text));
   backgroundAgentsOnScreen.set(id, backgroundAgentsShown(text));
 }

@@ -1,7 +1,8 @@
+import type { UnlistenFn } from "@tauri-apps/api/event";
+
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import type { HandoffTimers } from "@/lib/stores/agent/handoff/handoff-timers";
 import { settledValue } from "@/lib/util/async/settled";
-import type { UnlistenFn } from "@tauri-apps/api/event";
 
 // Generous: an agent at a near-full context writes its handoff slowly, and a
 // timeout that beats the write used to strand the successor without a doc.
@@ -28,7 +29,13 @@ export async function isFileOnDisk(path: string) {
 // `continue-*.md` never emits, which used to strand the cycle on the full
 // timeout), and a direct disk poll (authoritative regardless of ignore rules).
 // Whichever sees it first wins.
-export function waitForFile({ timers, isStillOpen, sessionId, docPath, name }: {
+export function waitForFile({
+  timers,
+  isStillOpen,
+  sessionId,
+  docPath,
+  name
+}: {
   timers: HandoffTimers;
   isStillOpen: (sessionId: string) => boolean;
   sessionId: string;

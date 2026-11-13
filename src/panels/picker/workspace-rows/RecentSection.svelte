@@ -228,7 +228,7 @@
       }
 
       &:disabled {
-        opacity: 50%;
+        opacity: 0.5;
         filter: none;
         cursor: default;
       }

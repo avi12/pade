@@ -1,5 +1,6 @@
-import { parseAnsi, stripAnsi } from "@/lib/terminal/output/ansi";
 import { describe, expect, it } from "vitest";
+
+import { parseAnsi, stripAnsi } from "@/lib/terminal/output/ansi";
 
 // ESC (0x1b) built from its code point so no raw control byte sits in the source.
 const ESC = String.fromCharCode(0x1b);
@@ -34,18 +35,24 @@ describe("parseAnsi", () => {
   });
 
   it("maps foreground, bright, and background colours to palette tokens", () => {
-    expect(parseAnsi(`${ESC}[32mg`)).toEqual([{
-      text: "g",
-      color: "var(--terminal-green)"
-    }]);
-    expect(parseAnsi(`${ESC}[91mr`)).toEqual([{
-      text: "r",
-      color: "var(--terminal-bright-red)"
-    }]);
-    expect(parseAnsi(`${ESC}[44mb`)).toEqual([{
-      text: "b",
-      background: "var(--terminal-blue)"
-    }]);
+    expect(parseAnsi(`${ESC}[32mg`)).toEqual([
+      {
+        text: "g",
+        color: "var(--terminal-green)"
+      }
+    ]);
+    expect(parseAnsi(`${ESC}[91mr`)).toEqual([
+      {
+        text: "r",
+        color: "var(--terminal-bright-red)"
+      }
+    ]);
+    expect(parseAnsi(`${ESC}[44mb`)).toEqual([
+      {
+        text: "b",
+        background: "var(--terminal-blue)"
+      }
+    ]);
   });
 
   it("carries bold/italic/underline styles onto the segment", () => {
@@ -101,10 +108,12 @@ describe("parseAnsi", () => {
   });
 
   it("maps a 256-colour palette index inside 0–15, and skips one above it", () => {
-    expect(parseAnsi(`${ESC}[38;5;12mx`)).toEqual([{
-      text: "x",
-      color: "var(--terminal-bright-blue)"
-    }]);
+    expect(parseAnsi(`${ESC}[38;5;12mx`)).toEqual([
+      {
+        text: "x",
+        color: "var(--terminal-bright-blue)"
+      }
+    ]);
     expect(parseAnsi(`${ESC}[38;5;200mx`)).toEqual([{ text: "x" }]);
   });
 
@@ -113,11 +122,7 @@ describe("parseAnsi", () => {
   });
 
   it("skips unmodelled codes (cursor moves) and keeps the text", () => {
-    expect(parseAnsi(`a${ESC}[2Kb${ESC}[5mc`)).toEqual([
-      { text: "a" },
-      { text: "b" },
-      { text: "c" }
-    ]);
+    expect(parseAnsi(`a${ESC}[2Kb${ESC}[5mc`)).toEqual([{ text: "a" }, { text: "b" }, { text: "c" }]);
   });
 
   it("returns a single empty segment for empty input", () => {

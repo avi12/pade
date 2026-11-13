@@ -26,11 +26,12 @@
 // are its own. A session stepped by a round is skipped until its window reports
 // again, so a report older than the step never steps it twice.
 
+import { z } from "zod";
+
 import { SubagentStep } from "@/lib/types/pacing";
 import { lightestToRestore, planShedding } from "@/lib/usage/pacing/engine/load-shedding";
 import type { ShedCandidate } from "@/lib/usage/pacing/engine/load-shedding";
 import { easedSubagentStep, isBlockingSpawns, nextSubagentStep } from "@/lib/usage/pacing/engine/subagent-steps";
-import { z } from "zod";
 
 /** The channel the windows share the round on (they share an origin). */
 export const PACING_CHANNEL = "pade.usage-pacing";
@@ -56,10 +57,12 @@ const SessionReport = z.object({
   load: z.number().nonnegative(),
   /** Over pace by its own project's settings: what the account must shed
    *  (null while unmeasured) and what its next step saves of its own load. */
-  overPace: z.object({
-    shed: z.number().nullable(),
-    saving: z.number().min(0).max(1)
-  }).nullable(),
+  overPace: z
+    .object({
+      shed: z.number().nullable(),
+      saving: z.number().min(0).max(1)
+    })
+    .nullable(),
   /** Stepped down, with room to step back up. */
   canStepUp: z.boolean(),
   /** On pace with room to spare. */
@@ -139,7 +142,11 @@ export function reportLifetime(pollMs: number) {
 }
 
 /** The reports still current at `now`. */
-export function freshReports({ reports, now, lifetimeMs }: {
+export function freshReports({
+  reports,
+  now,
+  lifetimeMs
+}: {
   reports: Iterable<WindowReport>;
   now: number;
   lifetimeMs: number;
@@ -153,10 +160,7 @@ export function roundLeader(reports: readonly Pick<WindowReport, "label">[]) {
 }
 
 /** How the round keys one subagent: its session and its own id. */
-export function subagentKey({ sessionId, subagentId }: {
-  sessionId: string;
-  subagentId: string;
-}) {
+export function subagentKey({ sessionId, subagentId }: { sessionId: string; subagentId: string }) {
   return `${sessionId}/${subagentId}`;
 }
 
@@ -166,13 +170,15 @@ const SUBAGENT_CANDIDATE = "subagent:";
 
 /** Every running subagent of an account's sessions, under its round key. */
 function subagentsOf(sessions: readonly SessionReport[]) {
-  return sessions.flatMap(session => session.subagents.map(subagent => ({
-    key: subagentKey({
-      sessionId: session.id,
-      subagentId: subagent.id
-    }),
-    load: subagent.load
-  })));
+  return sessions.flatMap(session =>
+    session.subagents.map(subagent => ({
+      key: subagentKey({
+        sessionId: session.id,
+        subagentId: subagent.id
+      }),
+      load: subagent.load
+    }))
+  );
 }
 
 /** What the account must shed: the most any of its over-pace sessions asks
@@ -192,10 +198,7 @@ function accountShed(sessions: readonly SessionReport[]) {
 
 /** An account on pace: once every session on it has room, each hold eases and
  *  the lightest stepped-down session climbs back. */
-function easeAccount({ sessions, steps }: {
-  sessions: readonly SessionReport[];
-  steps: SubagentSteps;
-}) {
+function easeAccount({ sessions, steps }: { sessions: readonly SessionReport[]; steps: SubagentSteps }) {
   const hasRoom = sessions.every(session => session.hasRoom);
   const nextSteps: SubagentSteps = {};
   for (const { key } of subagentsOf(sessions)) {
@@ -218,7 +221,12 @@ function easeAccount({ sessions, steps }: {
 
 /** Every step the account could take this round: each over-pace session not
  *  stepped since its report, and each subagent with a step left. */
-function shedCandidates({ sessions, steps, steppedAt, shed }: {
+function shedCandidates({
+  sessions,
+  steps,
+  steppedAt,
+  shed
+}: {
   sessions: readonly SessionReport[];
   steps: SubagentSteps;
   steppedAt: ReadonlyMap<string, number>;
@@ -260,7 +268,11 @@ function shedCandidates({ sessions, steps, steppedAt, shed }: {
 
 /** An account over pace: the steps that save the most of it go first, until
  *  they cover its shed. */
-function shedAccount({ sessions, steps, steppedAt }: {
+function shedAccount({
+  sessions,
+  steps,
+  steppedAt
+}: {
   sessions: readonly SessionReport[];
   steps: SubagentSteps;
   steppedAt: ReadonlyMap<string, number>;
@@ -302,7 +314,11 @@ function shedAccount({ sessions, steps, steppedAt }: {
 }
 
 /** One account's sessions and the round's say over them. */
-function planAccount({ sessions, steps, steppedAt }: {
+function planAccount({
+  sessions,
+  steps,
+  steppedAt
+}: {
   sessions: readonly SessionReport[];
   steps: SubagentSteps;
   steppedAt: ReadonlyMap<string, number>;
@@ -324,7 +340,13 @@ function planAccount({ sessions, steps, steppedAt }: {
 
 /** The round over every fresh window's sessions, account by account, and the
  *  subagent steps it leaves - a subagent no longer reported loses its step. */
-export function planRound({ reports, steps, steppedAt, leader, now }: {
+export function planRound({
+  reports,
+  steps,
+  steppedAt,
+  leader,
+  now
+}: {
   reports: readonly WindowReport[];
   /** The round's subagent steps so far, by `subagentKey`. */
   steps: SubagentSteps;
@@ -336,7 +358,7 @@ export function planRound({ reports, steps, steppedAt, leader, now }: {
   const byAccount = new Map<string, SessionReport[]>();
   for (const report of reports) {
     for (const session of report.sessions) {
-      byAccount.set(session.accountKey, [...byAccount.get(session.accountKey) ?? [], session]);
+      byAccount.set(session.accountKey, [...(byAccount.get(session.accountKey) ?? []), session]);
     }
   }
 
@@ -372,15 +394,22 @@ export function planRound({ reports, steps, steppedAt, leader, now }: {
         name: session.name,
         isBlockingSpawns: account.isBlockingSpawns,
         subagents: session.subagents.flatMap(subagent => {
-          const step = account.steps[subagentKey({
-            sessionId: session.id,
-            subagentId: subagent.id
-          })];
-          return step === undefined ? [] : [{
-            id: subagent.id,
-            description: subagent.description,
-            step
-          }];
+          const step =
+            account.steps[
+              subagentKey({
+                sessionId: session.id,
+                subagentId: subagent.id
+              })
+            ];
+          return step === undefined
+            ? []
+            : [
+                {
+                  id: subagent.id,
+                  description: subagent.description,
+                  step
+                }
+              ];
         })
       });
     }

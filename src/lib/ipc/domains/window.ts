@@ -1,9 +1,10 @@
+import { z } from "zod";
+
 import { NO_REPLY } from "@/lib/ipc/domains/no-reply";
 import type { PathData } from "@/lib/ipc/domains/path-data";
 import { Scheme } from "@/lib/types/theme";
 import { DragDropPayload, DragOverPayload, LaunchContext, WindowInfo } from "@/lib/types/window";
 import type { WindowDirection, WindowMode } from "@/lib/types/window";
-import { z } from "zod";
 
 export const WINDOW_COMMANDS = {
   restart: "restart",
@@ -65,11 +66,7 @@ export interface WindowCommandProtocol {
   /** Move this window's live sessions to the open window `to` (same PTYs, still
    *  running), park the payload describing them there and focus it; false when
    *  `to` is not another open window. */
-  [WINDOW_COMMANDS.windowHandOff]: (data: {
-    to: string;
-    sessions: string[];
-    payload: string;
-  }) => boolean;
+  [WINDOW_COMMANDS.windowHandOff]: (data: { to: string; sessions: string[]; payload: string }) => boolean;
   /** The hand-off payloads parked for this window, taken as they are read. */
   [WINDOW_COMMANDS.windowTakeHandoffs]: () => string[];
   [WINDOW_COMMANDS.launchContext]: () => LaunchContext;

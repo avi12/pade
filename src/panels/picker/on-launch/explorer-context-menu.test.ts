@@ -1,12 +1,13 @@
-import { setExplorerContextMenu } from "@/panels/picker/on-launch/explorer-context-menu";
 import { describe, expect, it, vi } from "vitest";
+
+import { setExplorerContextMenu } from "@/panels/picker/on-launch/explorer-context-menu";
 
 const mocks = vi.hoisted(() => ({
   sendMessage: vi.fn(async (_command: string) => undefined)
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
   sendMessage: mocks.sendMessage
 }));
 

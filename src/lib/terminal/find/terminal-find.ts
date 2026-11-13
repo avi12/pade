@@ -91,10 +91,7 @@ export function matchFindOptionChord({ key, ctrlKey, shiftKey, altKey, metaKey }
 /** Whether the term can be searched for as typed. A literal always can; a
  *  half-written pattern ("(", "a{2,") cannot, and asking the engine to compile it
  *  would throw on the keystroke that got there - so the bar says so instead. */
-export function isSearchablePattern({ term, isRegex }: {
-  term: string;
-  isRegex: boolean;
-}) {
+export function isSearchablePattern({ term, isRegex }: { term: string; isRegex: boolean }) {
   if (!isRegex) {
     return true;
   }
@@ -111,7 +108,12 @@ export function isSearchablePattern({ term, isRegex }: {
  *  zero matches is a finding, an empty box is not. `resultIndex` is -1 when the
  *  addon has more matches than it will decorate (it stops tracking which one is
  *  active), so the total is all that can honestly be shown there. */
-export function findResultLabel({ term, resultIndex, resultCount, isSearchable = true }: {
+export function findResultLabel({
+  term,
+  resultIndex,
+  resultCount,
+  isSearchable = true
+}: {
   term: string;
   resultIndex: number;
   resultCount: number;

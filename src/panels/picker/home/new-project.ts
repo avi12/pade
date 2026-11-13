@@ -20,11 +20,7 @@ interface NewProjectHandoff {
 
 /** The open request for a just-created workspace, carrying the optional first
  *  prompt and the picked agent. */
-function createdTarget({ path, prompt, agent }: {
-  path: string;
-  prompt: string;
-  agent: string | null;
-}) {
+function createdTarget({ path, prompt, agent }: { path: string; prompt: string; agent: string | null }) {
   return {
     path,
     initialPrompt: prompt || undefined,
@@ -67,7 +63,14 @@ export async function startTempWorkspace({ rawPrompt, agent, onopen }: NewProjec
  *  authoritative re-probe - a fast Enter can outrun the debounced live check,
  *  and the backend's create_dir_all would silently "create" an existing folder -
  *  whose answer goes to `onprobe` so the inline reason shows if it blocks. */
-export async function submitNewProject({ root, rawName, rawPrompt, agent, onopen, onprobe }: NewProjectHandoff & {
+export async function submitNewProject({
+  root,
+  rawName,
+  rawPrompt,
+  agent,
+  onopen,
+  onprobe
+}: NewProjectHandoff & {
   root: string;
   rawName: string;
   rawPrompt: string;
@@ -129,7 +132,14 @@ export async function submitNewProject({ root, rawName, rawPrompt, agent, onopen
 
 /** Carry out what the home composer's Start resolved to: open the chosen
  *  project, create a new one first, or start a throwaway workspace. */
-export async function startFromHome({ resolution, rawName, rawPrompt, agent, onopen, onprobe }: NewProjectHandoff & {
+export async function startFromHome({
+  resolution,
+  rawName,
+  rawPrompt,
+  agent,
+  onopen,
+  onprobe
+}: NewProjectHandoff & {
   resolution: HomeStart;
   rawName: string;
   rawPrompt: string;

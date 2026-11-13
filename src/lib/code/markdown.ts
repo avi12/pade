@@ -31,7 +31,7 @@ function escapeHtml(text: string) {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
+    .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
 
@@ -56,10 +56,7 @@ function safeUrl(url: string) {
  *  Runs on already-escaped text, and its `[^\s<]+` stops at the first `<`, so it
  *  never reaches into an emphasis tag or an existing anchor. */
 function linkify(escaped: string) {
-  return escaped.replaceAll(
-    /(https?:\/\/[^\s<]+)/g,
-    match => `<a href="${match}">${match}</a>`
-  );
+  return escaped.replaceAll(/(https?:\/\/[^\s<]+)/g, match => `<a href="${match}">${match}</a>`);
 }
 
 /** Inline emphasis/strikethrough on a run of plain (link-free) text: escape it
@@ -227,10 +224,7 @@ function renderTable(cursor: Cursor) {
   return `<table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-function renderFence({ cursor, fence }: {
-  cursor: Cursor;
-  fence: string;
-}) {
+function renderFence({ cursor, fence }: { cursor: Cursor; fence: string }) {
   cursor.skip(); // opening fence
   const closingFence = fence[0].repeat(MINIMUM_FENCE_LENGTH);
   const body: string[] = [];
@@ -258,17 +252,18 @@ function renderBlockquote(cursor: Cursor) {
 
 /** The whitespace width a nested block must clear to belong to the current list
  *  item: the item's own indent plus its marker and the space after it. */
-function itemContentIndent({ indent, marker }: {
-  indent: string;
-  marker: string;
-}) {
+function itemContentIndent({ indent, marker }: { indent: string; marker: string }) {
   return indent.length + marker.length + MARKER_GAP;
 }
 
 /** The lines belonging to one list item beyond its first: continuation and
  *  nested-block lines dedented to the item's content column, stopping at a blank
  *  line or the next same-or-shallower list marker. Advances `cursor` past them. */
-function collectItemLines({ cursor, firstLine, contentIndent }: {
+function collectItemLines({
+  cursor,
+  firstLine,
+  contentIndent
+}: {
   cursor: Cursor;
   firstLine: string;
   contentIndent: number;
@@ -277,8 +272,7 @@ function collectItemLines({ cursor, firstLine, contentIndent }: {
   cursor.skip();
   while (!cursor.done) {
     const line = cursor.peek();
-    const isNextItem =
-      LIST_ITEM.test(line) && (line.length - line.trimStart().length) < contentIndent;
+    const isNextItem = LIST_ITEM.test(line) && line.length - line.trimStart().length < contentIndent;
     if (line.trim() === "" || isNextItem) {
       break;
     }
@@ -347,12 +341,7 @@ function renderParagraph(cursor: Cursor) {
 function startsTable(cursor: Cursor) {
   const header = cursor.peek();
   const delimiter = cursor.ahead(1);
-  return (
-    header.includes(PIPE) &&
-    delimiter !== undefined &&
-    TABLE_DELIMITER.test(delimiter) &&
-    delimiter.includes("-")
-  );
+  return header.includes(PIPE) && delimiter !== undefined && TABLE_DELIMITER.test(delimiter) && delimiter.includes("-");
 }
 
 function renderBlocks(lines: string[]) {
@@ -497,8 +486,7 @@ const MARKDOWN_STYLE = `
 
 /** The Preview iframe's CSP for rendered markdown: inline styles and `data:`
  *  images and fonts only. */
-const MARKDOWN_CONTENT_SECURITY_POLICY =
-  "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:";
+const MARKDOWN_CONTENT_SECURITY_POLICY = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:";
 
 /** The CSP for untrusted repository HTML: no network, script, frame, form, or
  *  object load at all. */
@@ -507,13 +495,17 @@ const SANDBOXED_HTML_CONTENT_SECURITY_POLICY =
 
 /** A self-contained HTML document for an iframe's `srcdoc`, stamped with
  *  `contentSecurityPolicy` before anything else in its head. */
-function htmlDocument({ contentSecurityPolicy, head = "", body }: {
+function htmlDocument({
+  contentSecurityPolicy,
+  head = "",
+  body
+}: {
   contentSecurityPolicy: string;
   head?: string;
   body: string;
 }) {
   return (
-    "<!doctype html><html><head><meta charset=\"utf-8\">" +
+    '<!doctype html><html><head><meta charset="utf-8">' +
     `<meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}">` +
     `${head}</head><body>${body}</body></html>`
   );

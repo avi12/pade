@@ -46,22 +46,25 @@ export function storageSummary(storage: ChatStorage) {
 
 /** Each agent's share, largest first, by the name the picker shows it under
  *  ("Claude Code 12.3 GB · Codex 139 MB"). */
-export function agentShares({ storage, agents }: {
-  storage: ChatStorage;
-  agents: readonly Agent[];
-}) {
+export function agentShares({ storage, agents }: { storage: ChatStorage; agents: readonly Agent[] }) {
   return storage.agents
-    .map(share => `${agentName({
-      agentId: share.agentId,
-      agents
-    })} ${formatBytes(share.bytes)}`)
+    .map(
+      share =>
+        `${agentName({
+          agentId: share.agentId,
+          agents
+        })} ${formatBytes(share.bytes)}`
+    )
     .join(" · ");
 }
 
 /** Why the chats stay over the total limit after a cleanup, when they do:
  *  last week's chats and each project's newest are never deleted. `null`
  *  when the total fits, or there is no total limit. */
-export function keptAboveLimit({ storage, storageLimitMegabytes }: {
+export function keptAboveLimit({
+  storage,
+  storageLimitMegabytes
+}: {
   storage: ChatStorage;
   storageLimitMegabytes: number | null;
 }) {
@@ -78,21 +81,14 @@ export function keptAboveLimit({ storage, storageLimitMegabytes }: {
   return `Recent chats, and each project's newest, still take ${formatBytes(keptBytes)}, so the total stays above ${formatMegabytes(storageLimitMegabytes)} until they're a week old`;
 }
 
-function agentName({ agentId, agents }: {
-  agentId: string;
-  agents: readonly Agent[];
-}) {
+function agentName({ agentId, agents }: { agentId: string; agents: readonly Agent[] }) {
   return agents.find(agent => agent.id === agentId)?.label ?? agentId;
 }
 
 /** One deleted chat as the confirmation lists it: its title, and which agent
  *  and folder it belongs to, its size and when it was last used ("Claude Code
  *  · edge-plus · 206 MB · 10d ago"). */
-export function deletedChatRow({ chat, agents, now }: {
-  chat: DeletedChat;
-  agents: readonly Agent[];
-  now: number;
-}) {
+export function deletedChatRow({ chat, agents, now }: { chat: DeletedChat; agents: readonly Agent[]; now: number }) {
   const details = [
     agentName({
       agentId: chat.agentId,
@@ -124,10 +120,7 @@ export function unlistedChats(cleanup: ChatStorage["cleanup"]) {
 }
 
 /** What the ticked chats add up to - all that confirming deletes. */
-export function tickedCleanup({ cleanup, ticked }: {
-  cleanup: ChatStorage["cleanup"];
-  ticked: ReadonlySet<string>;
-}) {
+export function tickedCleanup({ cleanup, ticked }: { cleanup: ChatStorage["cleanup"]; ticked: ReadonlySet<string> }) {
   let bytes = 0;
   for (const chat of cleanup.chats) {
     if (ticked.has(chat.id)) {

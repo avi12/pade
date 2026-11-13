@@ -11,10 +11,13 @@ import { displayName } from "@/lib/util/paths";
 // as the status line + icon hover. Keyed by the kind ids from language-icon.ts /
 // the Rust kind registry, plus the `typescript` narrowing a web project can report.
 // A kind absent here shows no language - just "Playing PADE / Working on <project>".
-const LANGUAGES: Record<string, {
-  image: string;
-  label: string;
-}> = {
+const LANGUAGES: Record<
+  string,
+  {
+    image: string;
+    label: string;
+  }
+> = {
   web: {
     image: "javascript",
     label: "JavaScript"
@@ -61,7 +64,7 @@ const LANGUAGES: Record<string, {
   }
 };
 
-type PresenceState = {
+interface PresenceState {
   isEnabled: boolean;
   isProjectShown: boolean;
   project: string;
@@ -70,7 +73,7 @@ type PresenceState = {
   labels: Record<string, string>;
   /** The open project's detected kind (from `ide_project_kinds`), if any. */
   kind?: string;
-};
+}
 
 /** A closed Discord (or any IPC hiccup) must never reach the UI, so a failed
  *  presence call is only noted for whoever is debugging. */

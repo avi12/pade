@@ -15,7 +15,14 @@ import { armNewProjectDetection } from "@/lib/stores/workspace/active-project/ne
 import type { OpenTarget } from "@/lib/types/window";
 
 /** How a project is entered in this window, and the way back to the picker. */
-export function createProjectFlow({ windowSessions, repository, screen, registry, detection, leave }: {
+export function createProjectFlow({
+  windowSessions,
+  repository,
+  screen,
+  registry,
+  detection,
+  leave
+}: {
   windowSessions: WindowSessions;
   repository: ReturnType<typeof createActiveRepository>;
   screen: ScreenPhase;
@@ -25,26 +32,28 @@ export function createProjectFlow({ windowSessions, repository, screen, registry
 }) {
   // A create-form agent pick wins outright; otherwise honor the per-project
   // override, then the workspace default.
-  function preferredAgentFor({ path, agentId }: {
-    path: string;
-    agentId?: string;
-  }) {
+  function preferredAgentFor({ path, agentId }: { path: string; agentId?: string }) {
     const preferredId = agentId ?? settings.projectAgents[path] ?? settings.defaultAgent;
     return detection.agents.find(agent => agent.id === preferredId);
   }
 
   // Launch a fresh chat in `path` on its preferred agent (a create-form
   // pick, else the per-project/default one, else the best installed).
-  function launchFreshChat({ path, agentId, initialPrompt }: {
+  function launchFreshChat({
+    path,
+    agentId,
+    initialPrompt
+  }: {
     path: string;
     agentId?: string;
     initialPrompt?: string;
   }) {
     windowSessions.launch({
-      agent: preferredAgentFor({
-        path,
-        agentId
-      }) ?? detection.bestAgent,
+      agent:
+        preferredAgentFor({
+          path,
+          agentId
+        }) ?? detection.bestAgent,
       project: path,
       initialPrompt
     });
@@ -70,10 +79,11 @@ export function createProjectFlow({ windowSessions, repository, screen, registry
   // A project another window has in front is focused there instead of opened
   // twice - unless this window already runs it. True when it was focused.
   async function isFocusedElsewhere(project: string) {
-    const isRunHere = sessionsOfProject({
-      sessions: windowSessions.sessions,
-      project
-    }).length > 0;
+    const isRunHere =
+      sessionsOfProject({
+        sessions: windowSessions.sessions,
+        project
+      }).length > 0;
     if (isRunHere) {
       return false;
     }
@@ -119,7 +129,7 @@ export function createProjectFlow({ windowSessions, repository, screen, registry
   // window with sessions - of any project - starts or brings forward one
   // session of it beside them, and the window's project context follows.
   async function openProject(target: OpenTarget) {
-    if (leave.isInFlight || await isFocusedElsewhere(target.path)) {
+    if (leave.isInFlight || (await isFocusedElsewhere(target.path))) {
       return;
     }
 

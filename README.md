@@ -52,12 +52,12 @@ Full status per requirement: [`docs/requirements.md`](docs/requirements.md).
 
 ## Stack
 
-| Layer      | Choice                                  |
-| ---------- | --------------------------------------- |
-| Shell/core | Tauri 2 + Rust                          |
-| Terminal   | xterm.js + WebGL, `portable-pty`        |
-| Watcher    | `notify`                                |
-| Frontend   | Svelte 5 + Vite                         |
+| Layer      | Choice                                        |
+| ---------- | --------------------------------------------- |
+| Shell/core | Tauri 2 + Rust                                |
+| Terminal   | xterm.js + WebGL, `portable-pty`              |
+| Watcher    | `notify`                                      |
+| Frontend   | Svelte 5 + Vite                               |
 | Theme      | Material 3 Expressive (light/dark, OS-follow) |
 
 ## Prerequisites

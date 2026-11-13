@@ -283,7 +283,7 @@
   .new-chat {
     block-size: 26px;
     inline-size: 24px;
-    opacity: var(--row-kebab-opacity, 55%);
+    opacity: var(--row-kebab-opacity, 0.55);
 
     /* Cyberpunk: a square hit target, lit cyan on hover like the design. The
        icon jitters, not the button: a translated button would hold its own

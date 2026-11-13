@@ -1,21 +1,16 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { beginTabDrag } from "@/lib/session/tabs/tab-drag";
 import { Axis } from "@/lib/ui/drag/reorder/reorder-types";
 import type { BeginReorderOptions } from "@/lib/ui/drag/reorder/reorder-types";
 import { testStandIn } from "@/lib/util/test-stand-in";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const mocks = vi.hoisted(() => ({
   beginReorder: vi.fn<(options: BeginReorderOptions) => void>()
 }));
 
 vi.mock("@/lib/ui/drag/reorder/drag-reorder", async importOriginal => ({
-  ...await importOriginal<typeof import("@/lib/ui/drag/reorder/drag-reorder")>(),
+  ...(await importOriginal<typeof import("@/lib/ui/drag/reorder/drag-reorder")>()),
   beginReorder: mocks.beginReorder
 }));
 

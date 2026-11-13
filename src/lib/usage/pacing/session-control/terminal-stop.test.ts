@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import type { InterruptKeys } from "@/lib/agent/interrupt-keys";
 import {
   interruptPresses,
@@ -7,7 +9,6 @@ import {
   StopVerdict,
   stopVerdict
 } from "@/lib/usage/pacing/session-control/terminal-stop";
-import { describe, expect, it } from "vitest";
 
 const ESCAPE_PRESS = {
   keystrokes: ["esc"],

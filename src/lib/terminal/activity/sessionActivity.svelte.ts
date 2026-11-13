@@ -15,7 +15,9 @@ const RESIZE_SETTLE_MS = 400;
 // chunk after typing pauses longer than this is genuinely the agent.
 const KEYSTROKE_ECHO_MS = 250;
 
-export function createSessionActivity({ onSettled }: {
+export function createSessionActivity({
+  onSettled
+}: {
   /** A working session just fell quiet and is ready again. */
   onSettled: () => void;
 }) {
@@ -37,8 +39,7 @@ export function createSessionActivity({ onSettled }: {
       // Ignore the agent's own resize-repaint: it isn't the agent working, so a
       // settled "ready" session shouldn't blink to "working" when its pane is
       // revealed and refitted. Real work arrives outside the settle window.
-      const isResizeEcho =
-        status === SessionStatus.enum.ready && Date.now() - lastResizeAt < RESIZE_SETTLE_MS;
+      const isResizeEcho = status === SessionStatus.enum.ready && Date.now() - lastResizeAt < RESIZE_SETTLE_MS;
       if (isResizeEcho) {
         return;
       }
@@ -48,8 +49,7 @@ export function createSessionActivity({ onSettled }: {
       // must not flash its indicator per keypress. Enter never stamps the
       // window (see noteInput), so a submitted prompt flips to working
       // immediately.
-      const isKeystrokeEcho =
-        status === SessionStatus.enum.ready && Date.now() - lastKeystrokeAt < KEYSTROKE_ECHO_MS;
+      const isKeystrokeEcho = status === SessionStatus.enum.ready && Date.now() - lastKeystrokeAt < KEYSTROKE_ECHO_MS;
       if (isKeystrokeEcho) {
         return;
       }

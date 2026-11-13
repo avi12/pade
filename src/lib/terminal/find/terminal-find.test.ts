@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   FindOption,
   findResultLabel,
@@ -5,15 +7,16 @@ import {
   isSearchablePattern,
   matchFindOptionChord
 } from "@/lib/terminal/find/terminal-find";
-import { describe, expect, it } from "vitest";
 
-function chord(overrides: Partial<{
-  key: string;
-  ctrlKey: boolean;
-  shiftKey: boolean;
-  altKey: boolean;
-  metaKey: boolean;
-}> = {}) {
+function chord(
+  overrides: Partial<{
+    key: string;
+    ctrlKey: boolean;
+    shiftKey: boolean;
+    altKey: boolean;
+    metaKey: boolean;
+  }> = {}
+) {
   return {
     key: "f",
     ctrlKey: false,

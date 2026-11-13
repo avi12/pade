@@ -6,6 +6,7 @@ decide, from facts the windows report, and compares with what the TypeScript act
 nothing. Phase 2 (a later, separate change) switches the engine on and deletes the TypeScript copies.
 
 ## Principles (non-negotiable, from AGENTS.md and the user)
+
 - Strong types: newtypes for epoch ms / percentages / rates, enums for closed sets, discriminated unions in TS
   (zod, `z.infer`), no stringly-typed state, no `any`, no `as` casts in Rust, exhaustive matches.
 - DRY / SSOT: the pure math already exists in Rust (`src-tauri/src/pacing/*`, ported from TS and
@@ -20,6 +21,7 @@ nothing. Phase 2 (a later, separate change) switches the engine on and deletes t
   never hold the app-wide mutex across I/O.
 
 ## What reports what (phase 1)
+
 The frontend keeps owning everything only a window can see (screen parsing, model switching, terminal keys).
 Each scan (every 60 s, per window) it sends ONE report to the backend:
 
@@ -64,14 +66,14 @@ ObservedKind  = "stepEffortDown" | "stepModelDown" | "stepUp" | "rest" | "stop" 
 
 Meaning of each kind (the TS call site it stands for; the engine's `Decision` maps one to one):
 
-| Kind | TS decision point |
-| --- | --- |
-| `stepEffortDown` / `stepModelDown` | `stepModel` took the step (`adapter.stepDown`, effort / model) |
-| `stepUp` | `restoreAssessed` stepped one notch back up (`adapter.stepUp`) |
-| `rest` / `stop` | `pause` with a rest / a stop |
-| `resume` | `resume`: lifted a pause, from `releaseOnePerAccount`, `continueAtReset` or a stand-down |
-| `release` | `forgetPace` without a continue: an overridden session released, or one owned elsewhere |
-| `none` | the session was looked at and nothing was decided (ignored by the comparison) |
+| Kind                               | TS decision point                                                                        |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| `stepEffortDown` / `stepModelDown` | `stepModel` took the step (`adapter.stepDown`, effort / model)                           |
+| `stepUp`                           | `restoreAssessed` stepped one notch back up (`adapter.stepUp`)                           |
+| `rest` / `stop`                    | `pause` with a rest / a stop                                                             |
+| `resume`                           | `resume`: lifted a pause, from `releaseOnePerAccount`, `continueAtReset` or a stand-down |
+| `release`                          | `forgetPace` without a continue: an overridden session released, or one owned elsewhere  |
+| `none`                             | the session was looked at and nothing was decided (ignored by the comparison)            |
 
 `isRestPending` in the TS (`phase == pausing && restMs !== null`) is `phase == pausing && restUntil !== null`
 in the engine: the two are always set together, so `restMs` is not sent.
@@ -83,34 +85,37 @@ Usage readings (windows, utilization, resets) are NOT reported: the engine reads
 Rust usage module (`usage_account_agent`'s data path), once per tick per agent - one SSOT.
 
 ## Rust side (new, under `src-tauri/src/pacing/`)
+
 Reuse existing modules: `usage_pace`, `load_shedding`, `account_round`, `subagent_steps`, `policy`,
 `token_price`, `units`, `reset_time`. Add (one file per concern):
-- `facts.rs`   - the types above (serde, strong newtypes), plus `Decision` (see below).
+
+- `facts.rs` - the types above (serde, strong newtypes), plus `Decision` (see below).
 - `registry.rs`- latest report per window label with freshness expiry (replaces the BroadcastChannel round
-                 reports; reuse `account_round::fresh_reports`/`round_leader` semantics where they apply; there is no leader
-                 election in the backend - one engine).
+  reports; reuse `account_round::fresh_reports`/`round_leader` semantics where they apply; there is no leader
+  election in the backend - one engine).
 - `samples.rs` - per account-window burn samples (replaces the TS `samples` map + localStorage): record one
-                 reading per tick while any session of the account works, bounded history
-                 (RATE_HISTORY), persisted under the PADE data dir so a restart keeps it. Uses `usage_pace::burn_rate`.
-- `engine.rs`  - the PURE core: `fn decide(inputs: &EngineInputs) -> EngineOutcome` (CHANGED from `Vec<Decision>`:
-                 the outcome also carries the round's memory - subagent steps, when each session was stepped, when each
-                 account last released one - and the accounts whose burn samples must start over). Port the decision logic of
-                 `src/lib/stores/usage/usagePacing.svelte.ts` (assess working sessions, climb the step ladder, rest vs stop
-                 via `work_rhythm`, advance paused sessions, release/continue, restore with room, the account-wide round)
-                 as a pure function over `EngineInputs { now, sessions, accounts (readings), samples, ... }`.
-                 `Decision` is an enum: StepEffortDown{session}, StepModelDown{session}, StepUp{session},
-                 Rest{session, until}, Stop{session}, Resume{session}, Release{session},
-                 Throttle{session, throttle} (round output), RestoreChoice{session}.
-- `shadow.rs`  - compares `Decision`s with the window's `ObservedDecision`s (match by session + kind within one
-                 scan), appends one JSONL line per scan to `<data dir>/pacing-shadow.jsonl` (agree/disagree,
-                 both sides, the relevant facts) - bounded size (rotate/truncate), never blocks.
-- `pacing.rs`  - wiring: the `pacing_report` command (async; clone/release locks before I/O), a tick task
-                 (every 60 s via the Tauri async runtime, event/lifecycle driven where possible) that reads usage,
-                 samples, runs `decide`, records the shadow comparison; and `pacing_shadow_summary` command
-                 returning counts (agree/disagree per kind, last N disagreements) for inspection.
-Shadow mode means: NO control-file writes, NO events that change behaviour, NO PTY writes.
+  reading per tick while any session of the account works, bounded history
+  (RATE_HISTORY), persisted under the PADE data dir so a restart keeps it. Uses `usage_pace::burn_rate`.
+- `engine.rs` - the PURE core: `fn decide(inputs: &EngineInputs) -> EngineOutcome` (CHANGED from `Vec<Decision>`:
+  the outcome also carries the round's memory - subagent steps, when each session was stepped, when each
+  account last released one - and the accounts whose burn samples must start over). Port the decision logic of
+  `src/lib/stores/usage/usagePacing.svelte.ts` (assess working sessions, climb the step ladder, rest vs stop
+  via `work_rhythm`, advance paused sessions, release/continue, restore with room, the account-wide round)
+  as a pure function over `EngineInputs { now, sessions, accounts (readings), samples, ... }`.
+  `Decision` is an enum: StepEffortDown{session}, StepModelDown{session}, StepUp{session},
+  Rest{session, until}, Stop{session}, Resume{session}, Release{session},
+  Throttle{session, throttle} (round output), RestoreChoice{session}.
+- `shadow.rs` - compares `Decision`s with the window's `ObservedDecision`s (match by session + kind within one
+  scan), appends one JSONL line per scan to `<data dir>/pacing-shadow.jsonl` (agree/disagree,
+  both sides, the relevant facts) - bounded size (rotate/truncate), never blocks.
+- `pacing.rs` - wiring: the `pacing_report` command (async; clone/release locks before I/O), a tick task
+  (every 60 s via the Tauri async runtime, event/lifecycle driven where possible) that reads usage,
+  samples, runs `decide`, records the shadow comparison; and `pacing_shadow_summary` command
+  returning counts (agree/disagree per kind, last N disagreements) for inspection.
+  Shadow mode means: NO control-file writes, NO events that change behaviour, NO PTY writes.
 
 ## Frontend side
+
 - `src/lib/stores/usage/pacingReport.svelte.ts`: builds `PacingReport` from the existing stores each scan
   (reads from `usagePacing`'s own state - do not recompute anything that already has an owner) and sends
   it via `sendMessage(Command.pacingReport, ...)`. Records each decision the TS actually takes during the scan as
@@ -121,6 +126,7 @@ Shadow mode means: NO control-file writes, NO events that change behaviour, NO P
   behaviour change. Pure helpers in `src/lib/usage/pacing/` (`engine/` is what Rust mirrors, `shadow-report/` the report shaping).
 
 ## Verification the work must include
+
 - Rust: unit tests for every `decide` branch (ported from the behaviours in `usage-pacing.test.ts`, the
   `usage-pace`/`account-round` tests and the TS code paths), registry freshness, samples persistence round trip,
   shadow comparison logic.
@@ -129,6 +135,7 @@ Shadow mode means: NO control-file writes, NO events that change behaviour, NO P
 - ARCHITECTURE.md module map + docs/requirements.md note (shadow phase) in the same change.
 
 ## Shadow comparison and summary (as built)
+
 - `Decision::RestoreChoice` (back on the user's own model and effort) and `Decision::Throttle` have no `ObservedKind`:
   the TypeScript records nothing for them, so neither is compared.
 - Comparison is a multiset of (session, kind) per tick. A step the TypeScript took that the engine did not decide is a

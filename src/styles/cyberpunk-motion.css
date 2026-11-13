@@ -150,17 +150,23 @@
 /* The short chromatic jitter on whatever the pointer lands on. */
 @keyframes cyber-jitter {
   0% {
-    text-shadow: 2px 0 var(--cyber-glitch-1), -2px 0 var(--cyber-glitch-2);
+    text-shadow:
+      2px 0 var(--cyber-glitch-1),
+      -2px 0 var(--cyber-glitch-2);
     translate: 1px 0;
   }
 
   25% {
-    text-shadow: -2px 0 var(--cyber-glitch-1), 2px 0 var(--cyber-glitch-2);
+    text-shadow:
+      -2px 0 var(--cyber-glitch-1),
+      2px 0 var(--cyber-glitch-2);
     translate: -1px 0;
   }
 
   50% {
-    text-shadow: 1px 0 var(--cyber-glitch-1), -1px 0 var(--cyber-glitch-2);
+    text-shadow:
+      1px 0 var(--cyber-glitch-1),
+      -1px 0 var(--cyber-glitch-2);
     translate: 0 1px;
   }
 

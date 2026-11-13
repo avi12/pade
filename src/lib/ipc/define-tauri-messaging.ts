@@ -4,10 +4,11 @@
 // schema, so malformed data fails loudly at the boundary rather than deep in
 // the UI.
 
-import { windowLabel } from "@/lib/ipc/platform";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { z } from "zod";
+
+import { windowLabel } from "@/lib/ipc/platform";
 
 /** One protocol entry: what the caller sends in, what comes back. */
 type ProtocolEntry = (data: never) => unknown;
@@ -21,7 +22,10 @@ type EventPayload<Entry extends ProtocolEntry> = Parameters<Entry>[0];
 export function defineTauriMessaging<
   CommandProtocolMap extends { [CommandKey in keyof CommandProtocolMap]: ProtocolEntry },
   EventProtocolMap extends { [EventKey in keyof EventProtocolMap]: ProtocolEntry }
->({ responseSchemas, payloadSchemas }: {
+>({
+  responseSchemas,
+  payloadSchemas
+}: {
   responseSchemas: { [CommandKey in keyof CommandProtocolMap]: z.ZodType<ReturnType<CommandProtocolMap[CommandKey]>> };
   payloadSchemas: { [EventKey in keyof EventProtocolMap]: z.ZodType<EventPayload<EventProtocolMap[EventKey]>> };
 }) {

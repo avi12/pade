@@ -22,14 +22,16 @@ export function subagentStepsFixture() {
       fraction,
       expected: holdForSaving(fraction)
     })),
-    nextSubagentStep: currents.flatMap(current => [null, 0, 0.1, 0.5, 0.99, 1].map(shed => ({
-      current,
-      shed,
-      expected: nextSubagentStep({
-        current: current ?? undefined,
-        shed
-      })
-    }))),
+    nextSubagentStep: currents.flatMap(current =>
+      [null, 0, 0.1, 0.5, 0.99, 1].map(shed => ({
+        current,
+        shed,
+        expected: nextSubagentStep({
+          current: current ?? undefined,
+          shed
+        })
+      }))
+    ),
     easedSubagentStep: steps.map(current => ({
       current,
       expected: easedSubagentStep(current)

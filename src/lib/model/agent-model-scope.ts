@@ -14,40 +14,42 @@ import { withRecordEntry } from "@/lib/util/data/record-entry";
 
 /** The workspace's own starting model for `agent`, or `undefined` to follow
  *  the PADE-wide one. */
-export function projectModelDefault({ prefs, project, agent }: {
-  prefs: Prefs;
-  project: string;
-  agent: string;
-}) {
+export function projectModelDefault({ prefs, project, agent }: { prefs: Prefs; project: string; agent: string }) {
   return prefs.agentModelProjects?.[project]?.[agent];
 }
 
 /** Every PADE workspace's starting model for `agent`, or `undefined` to start
  *  on the agent's own default. */
-export function globalModelDefault({ prefs, agent }: {
-  prefs: Prefs;
-  agent: string;
-}) {
+export function globalModelDefault({ prefs, agent }: { prefs: Prefs; agent: string }) {
   return prefs.agentModelGlobal?.[agent];
 }
 
 /** What a new session starts on: an explicit choice (a handoff successor
  *  keeping its predecessor's) wins, else the workspace's default for the
  *  agent, else every workspace's. */
-export function startingModelChoice({ explicit, prefs, project, agent }: {
+export function startingModelChoice({
+  explicit,
+  prefs,
+  project,
+  agent
+}: {
   explicit: ModelChoice | undefined;
   prefs: Prefs;
   project: string;
   agent: string;
 }) {
-  return explicit ?? projectModelDefault({
-    prefs,
-    project,
-    agent
-  }) ?? globalModelDefault({
-    prefs,
-    agent
-  });
+  return (
+    explicit ??
+    projectModelDefault({
+      prefs,
+      project,
+      agent
+    }) ??
+    globalModelDefault({
+      prefs,
+      agent
+    })
+  );
 }
 
 /** `choice`, or undefined when it picks nothing - cleared back a level. */
@@ -59,7 +61,12 @@ function keptChoice(choice: ModelChoice | undefined) {
 /** The `agentModelProjects` record with this workspace's `agent` default set to
  *  `choice`, or dropped when `choice` picks nothing (and the workspace dropped
  *  once it has no defaults left). */
-export function withProjectModelDefault({ prefs, project, agent, choice }: {
+export function withProjectModelDefault({
+  prefs,
+  project,
+  agent,
+  choice
+}: {
   prefs: Prefs;
   project: string;
   agent: string;
@@ -80,7 +87,11 @@ export function withProjectModelDefault({ prefs, project, agent, choice }: {
 
 /** The `agentModelGlobal` record with `agent`'s default set to `choice`, or
  *  dropped when `choice` picks nothing. */
-export function withGlobalModelDefault({ prefs, agent, choice }: {
+export function withGlobalModelDefault({
+  prefs,
+  agent,
+  choice
+}: {
   prefs: Prefs;
   agent: string;
   choice: ModelChoice | undefined;

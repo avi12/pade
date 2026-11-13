@@ -87,7 +87,7 @@
     }
 
     .dim {
-      opacity: 70%;
+      opacity: 0.7;
     }
 
     .italic {

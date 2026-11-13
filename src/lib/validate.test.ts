@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   CloneUrl,
   FirstPrompt,
@@ -11,7 +13,6 @@ import {
   SessionName,
   WorkspaceLabel
 } from "@/lib/validate";
-import { describe, expect, it } from "vitest";
 
 describe("WorkspaceLabel", () => {
   it("keeps free text that a folder name couldn't hold", () => {

@@ -1,5 +1,6 @@
-import { WindowShortcut, windowShortcutFor } from "@/lib/shell/shortcuts/window-shortcuts";
 import { describe, expect, it } from "vitest";
+
+import { WindowShortcut, windowShortcutFor } from "@/lib/shell/shortcuts/window-shortcuts";
 
 function chord(overrides: Partial<Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "shiftKey" | "altKey">>) {
   return {

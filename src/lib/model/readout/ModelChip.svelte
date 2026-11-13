@@ -129,6 +129,6 @@
   .caret {
     flex-shrink: 0;
     font-size: 0.5625rem;
-    opacity: 60%;
+    opacity: 0.6;
   }
 </style>

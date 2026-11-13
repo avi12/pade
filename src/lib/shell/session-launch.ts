@@ -30,10 +30,7 @@ export interface LaunchOptions {
 }
 
 /** A fresh session for `project`, launched as `options` say. */
-export function newSession({ options, project }: {
-  options: LaunchOptions;
-  project: string;
-}) {
+export function newSession({ options, project }: { options: LaunchOptions; project: string }) {
   const session: AgentSession = {
     id: options.sessionId ?? crypto.randomUUID(),
     agent: options.agent,

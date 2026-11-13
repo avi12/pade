@@ -1,15 +1,10 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { Command, EventType } from "@/lib/ipc/messaging";
 import { setFrontProjectSource } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import { feedStore, keepFeedsOf } from "@/lib/stores/workspace/change-feed/feed.svelte";
 import { ChangeKind } from "@/lib/types/feed";
 import type { ChangeEvent } from "@/lib/types/feed";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const FRONT = "C:/repositories/avi/pade";
 const BEHIND = "C:/repositories/avi/youtube-time-manager";
@@ -43,10 +38,7 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
 
 let front = FRONT;
 
-function change({ root, name }: {
-  root: string;
-  name: string;
-}) {
+function change({ root, name }: { root: string; name: string }) {
   return {
     id: `${root}-${name}`,
     root,

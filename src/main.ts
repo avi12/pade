@@ -1,15 +1,15 @@
+import { mount } from "svelte";
+
 import App from "@/App.svelte";
 import { DARK_SCHEME_QUERY, loadPrefs } from "@/lib/settings/prefs.svelte";
 import { isDashboardAddress } from "@/lib/shell/window/window-route";
 import { Scheme } from "@/lib/types/theme";
+
 import "@/theme.css";
-import { mount } from "svelte";
 
 // Resolve a concrete theme synchronously before first paint to avoid a flash;
 // loadPrefs() then applies the persisted choice (mode + fonts).
-document.documentElement.dataset.theme = matchMedia(DARK_SCHEME_QUERY).matches
-  ? Scheme.enum.dark
-  : Scheme.enum.light;
+document.documentElement.dataset.theme = matchMedia(DARK_SCHEME_QUERY).matches ? Scheme.enum.dark : Scheme.enum.light;
 
 // Apply the persisted prefs before mounting, keeping the pre-paint fallback
 // theme if they can't be read. Awaited so the first terminal spawn (which

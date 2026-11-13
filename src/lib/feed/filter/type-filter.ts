@@ -30,23 +30,19 @@ export function countExtensions(events: ChangeEvent[]) {
 
 /** Whether every listed type is ticked - the popover's "Select all" then reads
  *  "Clear". An empty list is never "all selected". */
-export function isEveryTypeSelected({ counts, selected }: {
-  counts: ExtensionCount[];
-  selected: ReadonlySet<string>;
-}) {
+export function isEveryTypeSelected({ counts, selected }: { counts: ExtensionCount[]; selected: ReadonlySet<string> }) {
   return counts.length > 0 && counts.every(item => selected.has(item.extension));
 }
 
 /** The chip's reading of the selection: "All types" when nothing (or
  *  everything) is ticked, else how many of the listed types are kept. */
-export function typeFilterLabel({ counts, selected }: {
-  counts: ExtensionCount[];
-  selected: ReadonlySet<string>;
-}) {
-  const isNoFilterActive = selected.size === 0 || isEveryTypeSelected({
-    counts,
-    selected
-  });
+export function typeFilterLabel({ counts, selected }: { counts: ExtensionCount[]; selected: ReadonlySet<string> }) {
+  const isNoFilterActive =
+    selected.size === 0 ||
+    isEveryTypeSelected({
+      counts,
+      selected
+    });
   if (isNoFilterActive) {
     return "All types";
   }
@@ -55,10 +51,7 @@ export function typeFilterLabel({ counts, selected }: {
 }
 
 /** The events the selection keeps - all of them when nothing is ticked. */
-export function filterByExtension({ events, selected }: {
-  events: ChangeEvent[];
-  selected: ReadonlySet<string>;
-}) {
+export function filterByExtension({ events, selected }: { events: ChangeEvent[]; selected: ReadonlySet<string> }) {
   if (selected.size === 0) {
     return events;
   }

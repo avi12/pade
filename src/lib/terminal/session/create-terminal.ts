@@ -1,10 +1,11 @@
 // Building a pane's xterm instance: its options, its theme and its links.
 
+import { Terminal } from "@xterm/xterm";
+
 import { effective } from "@/lib/settings/prefs.svelte";
 import { openTerminalLink } from "@/lib/terminal/links/open-terminal-link";
 import { registerWrappedLinkProvider } from "@/lib/terminal/links/wrapped-url/wrapped-link-provider";
 import { rootTokenReader, xtermTheme } from "@/lib/terminal/theme/terminal-theme";
-import { Terminal } from "@xterm/xterm";
 
 // xterm's font-size option is in px, so the CSS --ui-scale does not reach it.
 const TERMINAL_FONT_SIZE = 13;

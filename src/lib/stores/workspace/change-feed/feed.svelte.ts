@@ -9,12 +9,13 @@
 // the held root it belongs to, so every project gathers its own feed whether it
 // is in front or not; the panel shows the front project's.
 
+import { SvelteMap } from "svelte/reactivity";
+
 import { eventsForLiveWatch, readFeedSnapshot, saveFeedSnapshot } from "@/lib/feed/watch/feed-snapshot";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import type { ChangeEvent } from "@/lib/types/feed";
 import { baseName } from "@/lib/util/paths";
-import { SvelteMap } from "svelte/reactivity";
 
 // Newest first, per project. Capped so a busy agent session can't grow this
 // unbounded.
@@ -144,7 +145,10 @@ async function refilterIgnored(root: string) {
     return;
   }
 
-  feedsByProject.set(root, current.filter(event => !nowIgnored.has(event.path)));
+  feedsByProject.set(
+    root,
+    current.filter(event => !nowIgnored.has(event.path))
+  );
 }
 
 /** Subscribe once to the backend feed stream. Idempotent - a second call is a

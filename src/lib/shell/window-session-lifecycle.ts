@@ -30,11 +30,7 @@ export interface WindowSessionsHost {
    *  the window or moved to another one. */
   onRetired: (session: AgentSession) => void;
   /** The window's last session just ended; the shell decides what next. */
-  onEmptied: (ended: {
-    agent: Agent;
-    project: string;
-    isFailedStart: boolean;
-  }) => void;
+  onEmptied: (ended: { agent: Agent; project: string; isFailedStart: boolean }) => void;
 }
 
 export interface LifecycleContext {
@@ -44,10 +40,7 @@ export interface LifecycleContext {
   seedNaming: (session: AgentSession) => void;
 }
 
-export function launchSession({ context, options }: {
-  context: LifecycleContext;
-  options: LaunchOptions;
-}) {
+export function launchSession({ context, options }: { context: LifecycleContext; options: LaunchOptions }) {
   const { layout, host, namesWithAi } = context;
   const session = newSession({
     options,
@@ -75,7 +68,7 @@ export function launchSession({ context, options }: {
   layout.sessionLaunchedAt.set(session.id, Date.now());
 
   if (isReplacing) {
-    layout.paneIds = layout.paneIds.map(paneId => paneId === options.replacing ? session.id : paneId);
+    layout.paneIds = layout.paneIds.map(paneId => (paneId === options.replacing ? session.id : paneId));
 
     if (layout.activeId === options.replacing) {
       layout.activeId = session.id;
@@ -97,10 +90,7 @@ export function launchSession({ context, options }: {
 
 // Kill these sessions' PTYs and detach them, claiming each exit event as a
 // hand-close so the exit handler never respawns or re-routes over it.
-export async function closeSessions({ layout, ids }: {
-  layout: WindowLayout;
-  ids: readonly string[];
-}) {
+export async function closeSessions({ layout, ids }: { layout: WindowLayout; ids: readonly string[] }) {
   for (const id of ids) {
     layout.closingByHand.add(id);
   }
@@ -129,10 +119,12 @@ export async function closeAllGracefully(layout: WindowLayout) {
   }
 
   await Promise.all(
-    layout.sessions.map(session => whenSessionIdle({
-      id: session.id,
-      timeoutMs: GRACEFUL_LEAVE_TIMEOUT_MS
-    }))
+    layout.sessions.map(session =>
+      whenSessionIdle({
+        id: session.id,
+        timeoutMs: GRACEFUL_LEAVE_TIMEOUT_MS
+      })
+    )
   );
   await closeSessions({
     layout,
@@ -140,10 +132,7 @@ export async function closeAllGracefully(layout: WindowLayout) {
   });
 }
 
-export async function closeSession({ context, session }: {
-  context: LifecycleContext;
-  session: AgentSession;
-}) {
+export async function closeSession({ context, session }: { context: LifecycleContext; session: AgentSession }) {
   const { layout, host } = context;
   layout.closingByHand.add(session.id);
   await sendMessage(Command.ptyKill, { id: session.id });
@@ -174,10 +163,7 @@ export async function closeSession({ context, session }: {
 }
 
 // A self-exit right after launch is a failed start, never respawned into a loop.
-function isFailedStart({ layout, id }: {
-  layout: WindowLayout;
-  id: string;
-}) {
+function isFailedStart({ layout, id }: { layout: WindowLayout; id: string }) {
   return didFailToStart({
     launchedAt: layout.sessionLaunchedAt.get(id) ?? 0,
     now: Date.now()
@@ -185,10 +171,7 @@ function isFailedStart({ layout, id }: {
 }
 
 // The PTY exited on its own - e.g. the user pressed Ctrl-C to quit the agent.
-export async function sessionExited({ context, id }: {
-  context: LifecycleContext;
-  id: string;
-}) {
+export async function sessionExited({ context, id }: { context: LifecycleContext; id: string }) {
   const { layout, host } = context;
   const session = layout.sessions.find(candidate => candidate.id === id);
   if (layout.closingByHand.has(id) || !session) {
@@ -218,7 +201,10 @@ export async function sessionExited({ context, id }: {
 // remounts, respawns its agent (resuming its conversation via the session id),
 // and the pane layout follows. The shared core behind every in-place restart
 // (spawn-time theme changes, a model switch).
-export async function restartSessions({ context, targets }: {
+export async function restartSessions({
+  context,
+  targets
+}: {
   context: LifecycleContext;
   targets: readonly AgentSession[];
 }) {
@@ -257,7 +243,11 @@ export async function restartSessions({ context, targets }: {
 /** Take in sessions another window handed over, their PTYs already moved
  *  here and still running: each terminal re-attaches through its usual
  *  path (spawn is a no-op for a live session, `pty_history` replays it). */
-export function adoptSessions({ context, adopted, activeId }: {
+export function adoptSessions({
+  context,
+  adopted,
+  activeId
+}: {
   context: LifecycleContext;
   adopted: readonly AgentSession[];
   activeId: string | null;
@@ -278,10 +268,7 @@ export function adoptSessions({ context, adopted, activeId }: {
 }
 
 /** Drop one session handed off to a successor, leaving the active pane alone. */
-export function removeHandedOff({ context, id }: {
-  context: LifecycleContext;
-  id: string;
-}) {
+export function removeHandedOff({ context, id }: { context: LifecycleContext; id: string }) {
   const { layout, host } = context;
   const handedOff = layout.sessions.find(session => session.id === id);
   if (handedOff !== undefined) {

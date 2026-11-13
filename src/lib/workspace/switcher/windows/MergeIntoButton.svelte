@@ -37,7 +37,7 @@
     font: inherit;
     font-size: 0.6875rem;
     white-space: nowrap;
-    opacity: 0%;
+    opacity: 0;
     cursor: pointer;
     transition: opacity 120ms var(--ease), background 120ms var(--ease), color 120ms var(--ease);
 
@@ -46,7 +46,7 @@
     }
 
     :global(:where(:hover, :focus-within)) > & {
-      opacity: 100%;
+      opacity: 1;
     }
 
     &:hover,

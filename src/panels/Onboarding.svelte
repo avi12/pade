@@ -132,12 +132,12 @@
       color: var(--primary);
       font-weight: 600;
       font-size: 0.75rem;
-      opacity: 0%;
+      opacity: 0;
       transition: opacity 200ms var(--ease);
     }
 
     &:hover .switch {
-      opacity: 100%;
+      opacity: 1;
     }
 
     .eyebrow {

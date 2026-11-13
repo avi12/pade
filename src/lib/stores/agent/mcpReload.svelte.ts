@@ -3,11 +3,13 @@
 // normal reload path. Only if that pending session then reports an MCP reload
 // failure do we ask App to intervene with the safe document handoff.
 
-import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
-import { stripAnsi } from "@/lib/terminal/output/ansi";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
-const FAILURE_RE = /(?:\bmcp\b[\s\S]{0,200}\b(?:error|fail(?:ed|ure)?|invalid|unable)\b|\b(?:error|fail(?:ed|ure)?|invalid|unable)\b[\s\S]{0,200}\bmcp\b)/i;
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
+import { stripAnsi } from "@/lib/terminal/output/ansi";
+
+const FAILURE_RE =
+  /(?:\bmcp\b[\s\S]{0,200}\b(?:error|fail(?:ed|ure)?|invalid|unable)\b|\b(?:error|fail(?:ed|ure)?|invalid|unable)\b[\s\S]{0,200}\bmcp\b)/i;
 const SUCCESS_RE = /\bmcp\b[\s\S]{0,200}\b(?:reloaded|reload succeeded)\b/i;
 const OUTPUT_TAIL_LENGTH = 1_000;
 
@@ -29,10 +31,7 @@ export function parseMcpReloadFailure({ text }: { text: string }) {
 }
 
 /** Feed one PTY chunk into the bounded detector for a pending session. */
-export function observeMcpReload({ id, chunk }: {
-  id: string;
-  chunk: string;
-}) {
+export function observeMcpReload({ id, chunk }: { id: string; chunk: string }) {
   const previous = pending.get(id);
   if (previous === undefined || failed.has(id)) {
     return;

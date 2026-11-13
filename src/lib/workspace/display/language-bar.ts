@@ -52,10 +52,7 @@ export function isLanguageMix(shares: readonly LanguageShare[]) {
 type CountedShares = readonly LanguageShare[] | null | undefined;
 
 /** Whether a recount added a language the previous count didn't have. */
-function isGainingLanguage({ previous, current }: {
-  previous: CountedShares;
-  current: CountedShares;
-}) {
+function isGainingLanguage({ previous, current }: { previous: CountedShares; current: CountedShares }) {
   if (previous === undefined || !current) {
     return false;
   }
@@ -69,7 +66,12 @@ function isGainingLanguage({ previous, current }: {
  *  land on screen: a count made ahead of the scroll, for a row just out of
  *  view, paints at rest, while one a fast scroll outruns grows in as it
  *  arrives. A count with no bar to draw ends any entrance. */
-export function isEnteringAfterCount({ previous, current, isEntering, isOnScreen }: {
+export function isEnteringAfterCount({
+  previous,
+  current,
+  isEntering,
+  isOnScreen
+}: {
   previous: CountedShares;
   current: CountedShares;
   isEntering: boolean;
@@ -79,10 +81,12 @@ export function isEnteringAfterCount({ previous, current, isEntering, isOnScreen
     return current === undefined && isEntering;
   }
 
-  const hasNewSegments = previous === undefined || isGainingLanguage({
-    previous,
-    current
-  });
+  const hasNewSegments =
+    previous === undefined ||
+    isGainingLanguage({
+      previous,
+      current
+    });
   return isEntering || (isOnScreen && hasNewSegments);
 }
 
@@ -93,26 +97,22 @@ export function languageShareText(share: LanguageShare) {
 
 function channels(hex: string) {
   return [RED_START, GREEN_START, BLUE_START].map(start =>
-    parseInt(hex.slice(start, start + CHANNEL_DIGITS), HEX_RADIX));
+    parseInt(hex.slice(start, start + CHANNEL_DIGITS), HEX_RADIX)
+  );
 }
 
-function colorDistance({ from, to }: {
-  from: string;
-  to: string;
-}) {
+function colorDistance({ from, to }: { from: string; to: string }) {
   const toChannels = channels(to);
   return Math.hypot(...channels(from).map((channel, i) => channel - toChannels[i]));
 }
 
 /** How far a candidate sits from the nearest colour already in the bar. */
-function clearance({ candidate, taken }: {
-  candidate: string;
-  taken: readonly string[];
-}) {
+function clearance({ candidate, taken }: { candidate: string; taken: readonly string[] }) {
   let nearest = Number.POSITIVE_INFINITY;
   for (const color of taken) {
     nearest = Math.min(
-      nearest, colorDistance({
+      nearest,
+      colorDistance({
         from: candidate,
         to: color
       })
@@ -123,10 +123,7 @@ function clearance({ candidate, taken }: {
 }
 
 /** The candidate standing furthest from every colour already in the bar. */
-function furthestFrom({ candidates, taken }: {
-  candidates: readonly string[];
-  taken: readonly string[];
-}) {
+function furthestFrom({ candidates, taken }: { candidates: readonly string[]; taken: readonly string[] }) {
   let furthest = candidates[0];
   let furthestClearance = Number.NEGATIVE_INFINITY;
   for (const candidate of candidates) {
@@ -151,15 +148,19 @@ export function segmentColors(shares: readonly LanguageShare[]) {
   const taken: string[] = [];
   for (const share of shares) {
     const candidates = LANGUAGE_COLORS[share.language] ?? [FALLBACK_COLOR];
-    const clear = candidates.find(candidate => clearance({
-      candidate,
-      taken
-    }) >= MINIMUM_COLOR_DISTANCE);
+    const clear = candidates.find(
+      candidate =>
+        clearance({
+          candidate,
+          taken
+        }) >= MINIMUM_COLOR_DISTANCE
+    );
     taken.push(
-      clear ?? furthestFrom({
-        candidates,
-        taken
-      })
+      clear ??
+        furthestFrom({
+          candidates,
+          taken
+        })
     );
   }
 

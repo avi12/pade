@@ -81,7 +81,10 @@
   border-radius: var(--radius-medium);
   background: var(--popover-menu-background);
   list-style: none;
-  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
 
   /* The row every menu is a stack of, and its one home. Six menus had each
      written the same full-width, transparent, primary-on-hover button into their
@@ -108,7 +111,9 @@
     font-size: 0.8125rem;
     text-align: start;
     cursor: pointer;
-    transition: color 120ms var(--ease), background 120ms var(--ease);
+    transition:
+      color 120ms var(--ease),
+      background 120ms var(--ease);
 
     &:hover {
       background: var(--primary-container);

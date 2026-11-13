@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { UI_SCALE_MAXIMUM, UI_SCALE_MINIMUM, UI_SCALE_STEP } from "@/lib/settings/prefs-bounds";
 import { steppedUiScale } from "@/lib/settings/ui-scale";
-import { describe, expect, it } from "vitest";
 
 describe("steppedUiScale", () => {
   it("steps up and down by the given delta", () => {

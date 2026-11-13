@@ -1,9 +1,10 @@
+import { describe, expect, it } from "vitest";
+
 import {
   terminalFlushMode,
   TerminalFlushMode,
   wheelScrollsTerminalDocument
 } from "@/lib/terminal/output/terminal-output";
-import { describe, expect, it } from "vitest";
 
 describe("wheelScrollsTerminalDocument", () => {
   it("defers only for a wheel tick moving xterm's own viewport", () => {
@@ -12,8 +13,7 @@ describe("wheelScrollsTerminalDocument", () => {
         isAgentOwningMouse: false,
         hasNativeScrollback: true
       })
-    )
-      .toBe(true);
+    ).toBe(true);
   });
 
   it("never defers while a fullscreen agent owns the mouse - the repaint IS the scroll", () => {
@@ -22,8 +22,7 @@ describe("wheelScrollsTerminalDocument", () => {
         isAgentOwningMouse: true,
         hasNativeScrollback: false
       })
-    )
-      .toBe(false);
+    ).toBe(false);
     // Claude on the alternate screen: grabbed the mouse, and xterm may still hold
     // scrollback from before the switch. The tick is still input, not a scroll.
     expect(
@@ -31,8 +30,7 @@ describe("wheelScrollsTerminalDocument", () => {
         isAgentOwningMouse: true,
         hasNativeScrollback: true
       })
-    )
-      .toBe(false);
+    ).toBe(false);
   });
 
   it("never defers when the tick is forwarded as PageUp/PageDown", () => {
@@ -41,8 +39,7 @@ describe("wheelScrollsTerminalDocument", () => {
         isAgentOwningMouse: false,
         hasNativeScrollback: false
       })
-    )
-      .toBe(false);
+    ).toBe(false);
   });
 });
 
@@ -55,8 +52,7 @@ describe("terminalFlushMode", () => {
         isReadingScrollback: false,
         isScrolling: false
       })
-    )
-      .toBe(TerminalFlushMode.AnimationFrame);
+    ).toBe(TerminalFlushMode.AnimationFrame);
   });
 
   it("bounds output paints in an unfocused window", () => {
@@ -67,8 +63,7 @@ describe("terminalFlushMode", () => {
         isReadingScrollback: false,
         isScrolling: false
       })
-    )
-      .toBe(TerminalFlushMode.Background);
+    ).toBe(TerminalFlushMode.Background);
   });
 
   it("bounds output paints for a hidden tab", () => {
@@ -79,8 +74,7 @@ describe("terminalFlushMode", () => {
         isReadingScrollback: false,
         isScrolling: false
       })
-    )
-      .toBe(TerminalFlushMode.Background);
+    ).toBe(TerminalFlushMode.Background);
   });
 
   it("bounds output paints while the user reads scrollback", () => {
@@ -91,8 +85,7 @@ describe("terminalFlushMode", () => {
         isReadingScrollback: true,
         isScrolling: false
       })
-    )
-      .toBe(TerminalFlushMode.Background);
+    ).toBe(TerminalFlushMode.Background);
   });
 
   it("defers output paints during an active wheel gesture", () => {
@@ -103,7 +96,6 @@ describe("terminalFlushMode", () => {
         isReadingScrollback: true,
         isScrolling: true
       })
-    )
-      .toBe(TerminalFlushMode.Deferred);
+    ).toBe(TerminalFlushMode.Deferred);
   });
 });

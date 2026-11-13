@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import {
   chatsForProject,
   isChatRegistryKey,
@@ -10,13 +12,6 @@ import {
 } from "@/lib/session/chats/chat-registry";
 import { SessionStatus } from "@/lib/types/agent";
 import type { AgentSession } from "@/lib/types/agent";
-import {
-  afterEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const PROJECT = "C:\\repositories\\pade";
 const OTHER_PROJECT = "C:\\repositories\\poll";
@@ -72,10 +67,13 @@ function recorded(conversationId: string, title: string | null) {
   };
 }
 
-function elsewhere(id: string, extra: Partial<{
-  project: string;
-  conversationId: string;
-}> = {}) {
+function elsewhere(
+  id: string,
+  extra: Partial<{
+    project: string;
+    conversationId: string;
+  }> = {}
+) {
   return {
     id,
     project: PROJECT,
@@ -281,21 +279,26 @@ describe("sidebarProjects", () => {
       activeProject: PROJECT,
       liveSessions: [],
       liveLabels: {},
-      elsewhereSessions: [elsewhere("a"), elsewhere("far", {
-        project: OTHER_PROJECT,
-        conversationId: "conversation-b"
-      })],
-      recordedConversations: project => project === PROJECT ? [recorded("conversation-a", "Running elsewhere")] : []
+      elsewhereSessions: [
+        elsewhere("a"),
+        elsewhere("far", {
+          project: OTHER_PROJECT,
+          conversationId: "conversation-b"
+        })
+      ],
+      recordedConversations: project => (project === PROJECT ? [recorded("conversation-a", "Running elsewhere")] : [])
     });
-    expect(groups[0]?.chats).toEqual([{
-      id: "a",
-      project: PROJECT,
-      label: "Elsewhere a",
-      agentId: "claude",
-      isLive: true,
-      windowLabel: "w-2",
-      status: SessionStatus.enum.working
-    }]);
+    expect(groups[0]?.chats).toEqual([
+      {
+        id: "a",
+        project: PROJECT,
+        label: "Elsewhere a",
+        agentId: "claude",
+        isLive: true,
+        windowLabel: "w-2",
+        status: SessionStatus.enum.working
+      }
+    ]);
     expect(groups[1]?.chats.map(chat => [chat.id, chat.windowLabel])).toEqual([["far", "w-2"]]);
   });
 

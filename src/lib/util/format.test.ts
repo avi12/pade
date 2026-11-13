@@ -1,11 +1,6 @@
-import {
-  formatAge,
-  formatCount,
-  formatPercent,
-  formatQuantity,
-  formatTimestamp
-} from "@/lib/util/format";
 import { describe, expect, it } from "vitest";
+
+import { formatAge, formatCount, formatPercent, formatQuantity, formatTimestamp } from "@/lib/util/format";
 
 // The wrappers delegate localisation to Intl, so these assertions pin what the
 // module owns - rounding, digit preservation, suffixes - not any one locale's

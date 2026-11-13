@@ -1,5 +1,6 @@
-import { DOT_SLOT, MORE_SLOT, packTabs, TAB_GAP } from "@/lib/session/tab-fit";
 import { describe, expect, it } from "vitest";
+
+import { DOT_SLOT, MORE_SLOT, packTabs, TAB_GAP } from "@/lib/session/tab-fit";
 
 // Four 100px-wide tabs in strip order - wide enough that the tier boundaries
 // land on round numbers (DOT_SLOT is 28, MORE_SLOT is 40 with the 6px gap).

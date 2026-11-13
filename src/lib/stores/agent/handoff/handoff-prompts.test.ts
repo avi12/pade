@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   handoffDocName,
   handoffPrompt,
@@ -7,7 +9,6 @@ import {
   successorPrompt
 } from "@/lib/stores/agent/handoff/handoff-prompts";
 import { BRACKETED_PASTE_END, PROMPT_SUBMIT } from "@/lib/terminal/input/terminal-input";
-import { describe, expect, it } from "vitest";
 
 describe("handoffSlug", () => {
   it("lowercases and kebabs a workspace label", () => {

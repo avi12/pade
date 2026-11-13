@@ -139,21 +139,20 @@ function uncappedCreditsWindows(account: AccountUsage) {
     return [];
   }
 
-  return [{
-    key: UNCAPPED_CREDITS_KEY,
-    kind: UsageWindowKind.enum.credits,
-    label: EXTRA_USAGE_LABEL,
-    utilization: 0
-  }];
+  return [
+    {
+      key: UNCAPPED_CREDITS_KEY,
+      kind: UsageWindowKind.enum.credits,
+      label: EXTRA_USAGE_LABEL,
+      utilization: 0
+    }
+  ];
 }
 
 // A window's utilization as shown. It belongs to the window that ended at
 // `resetsAt`; once that boundary passes, retaining it is knowingly stale, so
 // the new window's zero baseline shows while UsageMeter forces a fresh read.
-function windowPercentage({ window, now }: {
-  window: UsageWindow;
-  now: number;
-}) {
+function windowPercentage({ window, now }: { window: UsageWindow; now: number }) {
   const hasReset = hasResetPassed({
     resetsAt: window.resetsAt,
     now
@@ -163,7 +162,12 @@ function windowPercentage({ window, now }: {
 
 // One window as the meter's limit row: its label and kind letter, its reading
 // (money for uncapped extra usage, a percentage otherwise) and its reset.
-function windowLimit({ window, account, percentage, now }: {
+function windowLimit({
+  window,
+  account,
+  percentage,
+  now
+}: {
   window: UsageWindow;
   account: AccountUsage;
   percentage: number;
@@ -200,10 +204,7 @@ function windowLimit({ window, account, percentage, now }: {
 // per-feature limits like a Codex-Spark window) - unless it is the account's
 // only limit (Copilot's premium interactions), which then reads as the 0% it
 // is rather than as no reading at all.
-function buildLimits({ account, now }: {
-  account: AccountUsage;
-  now: number;
-}) {
+function buildLimits({ account, now }: { account: AccountUsage; now: number }) {
   const limits: Limit[] = [];
   const windows: UsageWindow[] = [...account.windows, ...uncappedCreditsWindows(account)];
   const hasOtherLimits = windows.length > 1;
@@ -235,7 +236,12 @@ function buildLimits({ account, now }: {
 // usage signal for it), carrying why when the backend said. No agent is
 // special-cased - the account decides. The composer's LLM menu builds one per
 // installed agent, running or not.
-export function buildAgentGroup({ agent, account, noReading = null, now }: {
+export function buildAgentGroup({
+  agent,
+  account,
+  noReading = null,
+  now
+}: {
   agent: Agent;
   account: AccountUsage | null;
   noReading?: NoReading | null;
@@ -250,10 +256,12 @@ export function buildAgentGroup({ agent, account, noReading = null, now }: {
     icon: agentIconName(agent.id),
     isUnknown: !hasUsage,
     noReading: hasUsage ? null : noReading,
-    limits: hasUsage ? buildLimits({
-      account,
-      now
-    }) : []
+    limits: hasUsage
+      ? buildLimits({
+          account,
+          now
+        })
+      : []
   };
 }
 
@@ -287,7 +295,12 @@ function sortWorstFirst(groups: AgentGroup[]) {
  *  one ChatGPT subscription) collapse into the first-seen agent's group - one
  *  account is never shown twice. Each agent reads its own windows from
  *  `accounts` (missing/`null` ⇒ an unknown group). Sorted worst-first. */
-export function buildGroups({ accounts, noReadings = new Map(), sessions, now }: {
+export function buildGroups({
+  accounts,
+  noReadings = new Map(),
+  sessions,
+  now
+}: {
   accounts: ReadonlyMap<string, AccountUsage | null>;
   /** Why each agent without an account has no reading, by agent id. */
   noReadings?: ReadonlyMap<string, NoReading>;

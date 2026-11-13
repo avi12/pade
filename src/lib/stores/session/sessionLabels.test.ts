@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it } from "vitest";
+
 import {
   forgetSession,
   rekeySession,
@@ -5,7 +7,6 @@ import {
   savedSessionState
 } from "@/lib/session/lifecycle/session-scope";
 import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-import { afterEach, describe, expect, it } from "vitest";
 
 afterEach(() => {
   forgetSession("a");

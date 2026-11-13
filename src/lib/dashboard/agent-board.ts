@@ -7,9 +7,10 @@
 // watching (and only then spend a model call summarizing their agents); a row
 // click asks the owning window to bring that session's tab forward.
 
+import { z } from "zod";
+
 import { SessionStatus } from "@/lib/types/agent";
 import { formatAge, formatQuantity } from "@/lib/util/format";
-import { z } from "zod";
 
 export const BOARD_CHANNEL = "pade.agents-board";
 
@@ -60,7 +61,14 @@ const BoardWindow = z.object({
 });
 export type BoardWindow = z.infer<typeof BoardWindow>;
 
-export const BoardMessageKind = z.enum(["dashboardOpen", "dashboardClosed", "rollCall", "window", "windowGone", "focus"]);
+export const BoardMessageKind = z.enum([
+  "dashboardOpen",
+  "dashboardClosed",
+  "rollCall",
+  "window",
+  "windowGone",
+  "focus"
+]);
 export type BoardMessageKind = z.infer<typeof BoardMessageKind>;
 
 const BoardMessage = z.discriminatedUnion("kind", [
@@ -98,7 +106,11 @@ export const NO_BOARD_WINDOWS: ReadonlyMap<string, BoardWindow> = new Map();
  *  same map comes back for the listener's own window - a channel delivers a
  *  window's posts to its other listeners too - and for a snapshot that repeats
  *  the last one, so neither redraws what reads the board. */
-export function windowsAfterMessage({ windows, message, ownLabel }: {
+export function windowsAfterMessage({
+  windows,
+  message,
+  ownLabel
+}: {
   windows: ReadonlyMap<string, BoardWindow>;
   message: BoardMessage;
   ownLabel: string;
@@ -124,7 +136,10 @@ export function windowsAfterMessage({ windows, message, ownLabel }: {
 
 /** The windows still open - one that closed without saying goodbye (a crash,
  *  a kill) leaves the board once `window_list` no longer lists it. */
-export function windowsStillOpen({ windows, openLabels }: {
+export function windowsStillOpen({
+  windows,
+  openLabels
+}: {
   windows: ReadonlyMap<string, BoardWindow>;
   openLabels: readonly string[];
 }) {
@@ -140,7 +155,10 @@ export function windowsStillOpen({ windows, openLabels }: {
 export type ElsewhereSession = BoardAgent & { windowLabel: string };
 
 /** Every session the other windows run, for this window's left rail. */
-export function elsewhereSessions({ windows, ownLabel }: {
+export function elsewhereSessions({
+  windows,
+  ownLabel
+}: {
   windows: ReadonlyMap<string, BoardWindow>;
   ownLabel: string;
 }) {
@@ -259,10 +277,7 @@ function lastActivity(window: BoardWindow) {
 }
 
 /** Each sort as a comparison; every one falls back to the project's name. */
-function sortKeyComparison({ sort, order }: {
-  sort: BoardSort;
-  order: readonly string[];
-}) {
+function sortKeyComparison({ sort, order }: { sort: BoardSort; order: readonly string[] }) {
   function position(window: BoardWindow) {
     const index = order.indexOf(window.label);
     return index === -1 ? order.length : index;
@@ -281,7 +296,11 @@ function sortKeyComparison({ sort, order }: {
  *  "Open windows" order (window labels as `window_list` gives them - the one
  *  order the switcher and the Ctrl+Alt+[ / ] cycle read too); a window not in it
  *  yet sorts after. */
-export function orderedWindows({ windows, order, sort }: {
+export function orderedWindows({
+  windows,
+  order,
+  sort
+}: {
   windows: Iterable<BoardWindow>;
   order: readonly string[];
   sort: BoardSort;
@@ -290,8 +309,9 @@ export function orderedWindows({ windows, order, sort }: {
     sort,
     order
   });
-  return [...windows].sort((left, right) =>
-    compare(left, right) || left.projectLabel.localeCompare(right.projectLabel));
+  return [...windows].sort(
+    (left, right) => compare(left, right) || left.projectLabel.localeCompare(right.projectLabel)
+  );
 }
 
 /** How many agents are in each state across every window - the states that
@@ -304,20 +324,15 @@ export function boardTally(windows: Iterable<BoardWindow>) {
     }
   }
 
-  return AGENT_STATE_ORDER
-    .map(state => ({
-      state,
-      count: states.filter(counted => counted === state).length
-    }))
-    .filter(entry => entry.count > 0);
+  return AGENT_STATE_ORDER.map(state => ({
+    state,
+    count: states.filter(counted => counted === state).length
+  })).filter(entry => entry.count > 0);
 }
 
 /** A project card's one-line facts: its agents, the files they changed, and
  *  how long ago the last change landed. */
-export function windowFacts({ board, now }: {
-  board: BoardWindow;
-  now: number;
-}) {
+export function windowFacts({ board, now }: { board: BoardWindow; now: number }) {
   const facts = [
     formatQuantity({
       count: board.agents.length,
@@ -350,17 +365,19 @@ export function changedFiles(events: readonly { path: string }[]) {
 }
 
 /** Whether the dashboard announced itself recently enough to count as open. */
-export function isDashboardOpen({ seenAt, now }: {
-  seenAt: number | null;
-  now: number;
-}) {
+export function isDashboardOpen({ seenAt, now }: { seenAt: number | null; now: number }) {
   return seenAt !== null && now - seenAt < DASHBOARD_PRESENCE_MS;
 }
 
 /** Whether an agent's summary should be refreshed now: never more often than
  *  MINIMUM_SUMMARY_GAP_MS; a first one once it works or waits, a fresh one
  *  once it stops after a stretch of work, and a periodic one while it works. */
-export function isSummaryDue({ status, statusSince, summarizedAt, now }: {
+export function isSummaryDue({
+  status,
+  statusSince,
+  summarizedAt,
+  now
+}: {
   status: SessionStatus;
   statusSince: number;
   summarizedAt: number | null;

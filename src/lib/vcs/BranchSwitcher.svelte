@@ -220,12 +220,12 @@
     }
 
     .branch-pill-remote {
-      opacity: 70%;
+      opacity: 0.7;
       transition: opacity 150ms var(--ease);
     }
 
     &:hover .branch-pill-remote {
-      opacity: 100%;
+      opacity: 1;
     }
 
     .branch-pill-name {
@@ -241,7 +241,7 @@
     .caret {
       flex-shrink: 0;
       font-size: 0.625rem;
-      opacity: 70%;
+      opacity: 0.7;
       transition: rotate 150ms var(--ease);
     }
   }

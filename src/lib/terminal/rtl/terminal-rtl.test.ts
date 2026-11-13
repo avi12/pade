@@ -1,12 +1,7 @@
-import type { RtlPart, RtlTextPart } from "@/lib/terminal/rtl/terminal-rtl";
-import {
-  containsRtl,
-  rowSelection,
-  RtlPartKind,
-  rtlRow,
-  rtlRuns
-} from "@/lib/terminal/rtl/terminal-rtl";
 import { describe, expect, it } from "vitest";
+
+import type { RtlPart, RtlTextPart } from "@/lib/terminal/rtl/terminal-rtl";
+import { containsRtl, rowSelection, RtlPartKind, rtlRow, rtlRuns } from "@/lib/terminal/rtl/terminal-rtl";
 
 /** A row of cells from a plain string, one cell per code point (which is how a
  *  terminal buffer stores them), all painted with the defaults. */
@@ -33,7 +28,7 @@ function isText(part: RtlPart): part is RtlTextPart {
 
 /** The run's parts as a readable sequence - text verbatim, the caret as `|`. */
 function sequence(parts: readonly RtlPart[]) {
-  return parts.map(part => isText(part) ? part.text : "|");
+  return parts.map(part => (isText(part) ? part.text : "|"));
 }
 
 describe("containsRtl", () => {
@@ -52,24 +47,30 @@ describe("containsRtl", () => {
 
 describe("rtlRuns", () => {
   it("covers exactly the right-to-left columns", () => {
-    expect(columnsOf("ab عربي cd")).toEqual([{
-      startColumn: 3,
-      endColumn: 7
-    }]);
+    expect(columnsOf("ab عربي cd")).toEqual([
+      {
+        startColumn: 3,
+        endColumn: 7
+      }
+    ]);
   });
 
   it("keeps a whole phrase in one run so it is reordered as a sentence", () => {
-    expect(columnsOf("מידע נוסף")).toEqual([{
-      startColumn: 0,
-      endColumn: 9
-    }]);
+    expect(columnsOf("מידע נוסף")).toEqual([
+      {
+        startColumn: 0,
+        endColumn: 9
+      }
+    ]);
   });
 
   it("trims the neutrals at a run's edges - they belong to the text beside them", () => {
-    expect(columnsOf("  عربي  ")).toEqual([{
-      startColumn: 2,
-      endColumn: 6
-    }]);
+    expect(columnsOf("  عربي  ")).toEqual([
+      {
+        startColumn: 2,
+        endColumn: 6
+      }
+    ]);
   });
 
   it("ends a run at a letter that reads left to right", () => {
@@ -86,17 +87,21 @@ describe("rtlRuns", () => {
   });
 
   it("ends a run at a box-drawing glyph, so a TUI's frame is never reordered", () => {
-    expect(columnsOf("│عربي│")).toEqual([{
-      startColumn: 1,
-      endColumn: 5
-    }]);
+    expect(columnsOf("│عربي│")).toEqual([
+      {
+        startColumn: 1,
+        endColumn: 5
+      }
+    ]);
   });
 
   it("splits across column padding but not across a word space", () => {
-    expect(columnsOf("عربي عربي")).toEqual([{
-      startColumn: 0,
-      endColumn: 9
-    }]);
+    expect(columnsOf("عربي عربي")).toEqual([
+      {
+        startColumn: 0,
+        endColumn: 9
+      }
+    ]);
     expect(columnsOf("عربي          عربي")).toEqual([
       {
         startColumn: 0,
@@ -110,17 +115,21 @@ describe("rtlRuns", () => {
   });
 
   it("carries a number the phrase pulls along with it", () => {
-    expect(columnsOf("מועד: 11.01.2027")).toEqual([{
-      startColumn: 0,
-      endColumn: 16
-    }]);
+    expect(columnsOf("מועד: 11.01.2027")).toEqual([
+      {
+        startColumn: 0,
+        endColumn: 16
+      }
+    ]);
   });
 
   it("leaves a number that comes before any right-to-left text alone", () => {
-    expect(columnsOf("2027 עדכון")).toEqual([{
-      startColumn: 5,
-      endColumn: 10
-    }]);
+    expect(columnsOf("2027 עדכון")).toEqual([
+      {
+        startColumn: 5,
+        endColumn: 10
+      }
+    ]);
   });
 
   it("finds nothing in a row with no right-to-left text", () => {
@@ -137,10 +146,14 @@ describe("rtlRow", () => {
   });
 
   it("splits a part only where the styling actually changes", () => {
-    const emphasised = row("مرحبا").map((cell, index) => index < 2 ? {
-      ...cell,
-      bold: true
-    } : cell);
+    const emphasised = row("مرحبا").map((cell, index) =>
+      index < 2
+        ? {
+            ...cell,
+            bold: true
+          }
+        : cell
+    );
 
     const [run] = rtlRow({ cells: emphasised });
     expect(sequence(run?.parts ?? [])).toEqual(["مر", "حبا"]);

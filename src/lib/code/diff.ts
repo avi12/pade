@@ -102,42 +102,48 @@ export function parseDiff(raw: string) {
     if (kind === DiffKind.Removed) {
       const number = oldLine;
       oldLine += 1;
-      return number > 0 ? {
-        text,
-        kind,
-        oldLine: number
-      } : {
-        text,
-        kind
-      };
+      return number > 0
+        ? {
+            text,
+            kind,
+            oldLine: number
+          }
+        : {
+            text,
+            kind
+          };
     }
 
     if (kind === DiffKind.Added) {
       const number = newLine;
       newLine += 1;
-      return number > 0 ? {
-        text,
-        kind,
-        newLine: number
-      } : {
-        text,
-        kind
-      };
+      return number > 0
+        ? {
+            text,
+            kind,
+            newLine: number
+          }
+        : {
+            text,
+            kind
+          };
     }
 
     const oldNumber = oldLine;
     const newNumber = newLine;
     oldLine += 1;
     newLine += 1;
-    return newNumber > 0 ? {
-      text,
-      kind,
-      oldLine: oldNumber,
-      newLine: newNumber
-    } : {
-      text,
-      kind
-    };
+    return newNumber > 0
+      ? {
+          text,
+          kind,
+          oldLine: oldNumber,
+          newLine: newNumber
+        }
+      : {
+          text,
+          kind
+        };
   });
 }
 
@@ -252,10 +258,7 @@ function splitLines(text: string) {
 /** The line-level edit script for a wholly-different region: every old line
  *  removed, then every new line inserted. The fallback when the region is too
  *  large to align, and the base case when one side is empty. */
-function replaceChanges({ before, after }: {
-  before: string[];
-  after: string[];
-}) {
+function replaceChanges({ before, after }: { before: string[]; after: string[] }) {
   return [
     ...before.map(text => ({
       operation: LineOp.Delete,
@@ -270,12 +273,8 @@ function replaceChanges({ before, after }: {
 
 /** The LCS table for two regions: `lengths[iBefore][iAfter]` is the length of
  *  the longest common subsequence of `before[iBefore..]` and `after[iAfter..]`. */
-function lcsLengths({ before, after }: {
-  before: string[];
-  after: string[];
-}) {
-  const lengths = Array.from({ length: before.length + 1 }, () =>
-    Array.from({ length: after.length + 1 }, () => 0));
+function lcsLengths({ before, after }: { before: string[]; after: string[] }) {
+  const lengths = Array.from({ length: before.length + 1 }, () => Array.from({ length: after.length + 1 }, () => 0));
   for (let iBefore = before.length - 1; iBefore >= 0; iBefore -= 1) {
     for (let iAfter = after.length - 1; iAfter >= 0; iAfter -= 1) {
       lengths[iBefore][iAfter] =
@@ -290,11 +289,7 @@ function lcsLengths({ before, after }: {
 
 /** Walk the LCS table from the top-left, keeping shared lines and preferring a
  *  delete over an insert on a tie, then flush whatever either side has left. */
-function backtrackChanges({ before, after, lengths }: {
-  before: string[];
-  after: string[];
-  lengths: number[][];
-}) {
+function backtrackChanges({ before, after, lengths }: { before: string[]; after: string[]; lengths: number[][] }) {
   const changes: LineChange[] = [];
   let iBefore = 0;
   let iAfter = 0;
@@ -337,10 +332,7 @@ function backtrackChanges({ before, after, lengths }: {
 
 /** Align two changed regions by longest common subsequence (classic DP +
  *  backtrack), or fall back to a wholesale replace when the region is too large. */
-function middleChanges({ before, after }: {
-  before: string[];
-  after: string[];
-}) {
+function middleChanges({ before, after }: { before: string[]; after: string[] }) {
   const isEitherEmpty = before.length === 0 || after.length === 0;
   const isTooLarge = before.length * after.length > MAX_DIFF_CELLS;
   if (isEitherEmpty || isTooLarge) {
@@ -362,10 +354,7 @@ function middleChanges({ before, after }: {
 
 /** The full edit script from `before` to `after`, peeling the shared prefix and
  *  suffix off as context before aligning only the region that differs. */
-function lineChanges({ before, after }: {
-  before: string[];
-  after: string[];
-}) {
+function lineChanges({ before, after }: { before: string[]; after: string[] }) {
   let head = 0;
   const sharedLimit = Math.min(before.length, after.length);
   while (head < sharedLimit && before[head] === after[head]) {
@@ -426,10 +415,7 @@ function hunkHeader(hunk: PlacedChange[]) {
  *  hunks with up to `DIFF_CONTEXT` lines of surrounding context and emits the
  *  `@@` headers `parseDiff` reads, so the shared parse+render path draws it.
  *  Returns "" when the texts are identical (the card shows "No preview"). */
-export function unifiedDiff({ before, after }: {
-  before: string;
-  after: string;
-}) {
+export function unifiedDiff({ before, after }: { before: string; after: string }) {
   const changes = lineChanges({
     before: splitLines(before),
     after: splitLines(after)

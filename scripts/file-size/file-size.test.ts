@@ -1,12 +1,6 @@
-import {
-  countCodeLines,
-  FILE_SIZE_LIMIT,
-  isMeasuredPath,
-  judgeSizes,
-  tightenBaseline,
-  Verdict
-} from "./file-size";
 import { describe, expect, it } from "vitest";
+
+import { countCodeLines, FILE_SIZE_LIMIT, isMeasuredPath, judgeSizes, tightenBaseline, Verdict } from "./file-size";
 
 describe("isMeasuredPath", () => {
   it("measures source files and skips tests, fixtures and icons", () => {
@@ -24,7 +18,15 @@ describe("isMeasuredPath", () => {
 
 describe("countCodeLines", () => {
   it("skips blank lines and comment-only lines", () => {
-    const text = ["// note", "", "const a = 1;", "/* block", "still comment */", "const b = 2; // trailing", "/** doc */"].join("\n");
+    const text = [
+      "// note",
+      "",
+      "const a = 1;",
+      "/* block",
+      "still comment */",
+      "const b = 2; // trailing",
+      "/** doc */"
+    ].join("\n");
     expect(
       countCodeLines({
         path: "a.ts",
@@ -55,7 +57,16 @@ describe("countCodeLines", () => {
   });
 
   it("counts a Svelte file's script, template and style together", () => {
-    const text = ["<script>", "  let a = 1;", "</script>", "<!-- note -->", "<p>{a}</p>", "<style>", "  p { color: red; }", "</style>"].join("\n");
+    const text = [
+      "<script>",
+      "  let a = 1;",
+      "</script>",
+      "<!-- note -->",
+      "<p>{a}</p>",
+      "<style>",
+      "  p { color: red; }",
+      "</style>"
+    ].join("\n");
     expect(
       countCodeLines({
         path: "A.svelte",
@@ -84,12 +95,14 @@ describe("judgeSizes", () => {
       },
       baseline: {}
     });
-    expect(findings).toEqual([{
-      path: "a.ts",
-      size: FILE_SIZE_LIMIT + 1,
-      recorded: undefined,
-      kind: Verdict.Fail
-    }]);
+    expect(findings).toEqual([
+      {
+        path: "a.ts",
+        size: FILE_SIZE_LIMIT + 1,
+        recorded: undefined,
+        kind: Verdict.Fail
+      }
+    ]);
   });
 
   it("passes a new file at the limit", () => {

@@ -10,12 +10,13 @@
 //
 // The pure half (where a member lives, what to call it) is `lib/workspace/members/workspace-members`.
 
+import { untrack } from "svelte";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import type { WorkspaceMember } from "@/lib/types/workspace";
 import { settledValue } from "@/lib/util/async/settled";
 import { memberPath } from "@/lib/workspace/members/workspace-members";
-import { untrack } from "svelte";
 
 // The project the members below were loaded for. Not a copy of the front
 // project: it changes only as a load starts, so `activeMemberIn` can refuse to
@@ -97,9 +98,7 @@ export async function loadWorkspaceMembers(projectRoot: string) {
  *  (a branch switch, a `git init`, a fresh clone inside the workspace). */
 export async function refreshMemberBranches() {
   const asked = root;
-  const paths = list
-    .filter(member => member.repository)
-    .map(member => pathOfMember(member));
+  const paths = list.filter(member => member.repository).map(member => pathOfMember(member));
   if (paths.length === 0) {
     branchByPath = {};
     return;

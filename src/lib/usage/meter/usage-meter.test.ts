@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import { type AccountUsage, type NoReading, NoReadingReason, UsageWindowKind } from "@/lib/types/usage";
 import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-model";
 import { limitKey } from "@/lib/usage/groups/usage-spotlight";
@@ -19,12 +21,8 @@ import {
   usageAriaLabel,
   withLastGoodReadings
 } from "@/lib/usage/meter/usage-meter";
-import { describe, expect, it } from "vitest";
 
-function makeLimit({ label, level }: {
-  label: string;
-  level: Level;
-}) {
+function makeLimit({ label, level }: { label: string; level: Level }) {
   return {
     label,
     sub: "",
@@ -41,11 +39,7 @@ function makeLimit({ label, level }: {
   } satisfies Limit;
 }
 
-function makeGroup({ id, levels, noReading = null }: {
-  id: string;
-  levels: Level[];
-  noReading?: NoReading | null;
-}) {
+function makeGroup({ id, levels, noReading = null }: { id: string; levels: Level[]; noReading?: NoReading | null }) {
   return {
     id,
     name: id,
@@ -54,10 +48,12 @@ function makeGroup({ id, levels, noReading = null }: {
     icon: "bolt",
     isUnknown: levels.length === 0,
     noReading,
-    limits: levels.map((level, i) => makeLimit({
-      label: `limit ${i}`,
-      level
-    }))
+    limits: levels.map((level, i) =>
+      makeLimit({
+        label: `limit ${i}`,
+        level
+      })
+    )
   } satisfies AgentGroup;
 }
 
@@ -275,10 +271,15 @@ describe("withLastGoodReadings", () => {
   it("rides out a refused reading on the last real one", () => {
     const { accounts } = withLastGoodReadings({
       fresh: new Map([["claude", null]]),
-      kept: new Map([["claude", {
-        account: reading,
-        at: NOW - KEEP_LAST_READING_MS + 1
-      }]]),
+      kept: new Map([
+        [
+          "claude",
+          {
+            account: reading,
+            at: NOW - KEEP_LAST_READING_MS + 1
+          }
+        ]
+      ]),
       now: NOW
     });
     expect(accounts.get("claude")).toBe(reading);
@@ -286,11 +287,19 @@ describe("withLastGoodReadings", () => {
 
   it("lets a reading older than the limit go, and has nothing for an agent never read", () => {
     const { accounts } = withLastGoodReadings({
-      fresh: new Map([["claude", null], ["codex", null]]),
-      kept: new Map([["claude", {
-        account: reading,
-        at: NOW - KEEP_LAST_READING_MS - 1
-      }]]),
+      fresh: new Map([
+        ["claude", null],
+        ["codex", null]
+      ]),
+      kept: new Map([
+        [
+          "claude",
+          {
+            account: reading,
+            at: NOW - KEEP_LAST_READING_MS - 1
+          }
+        ]
+      ]),
       now: NOW
     });
     expect(accounts.get("claude")).toBeNull();
@@ -339,10 +348,7 @@ describe("limitTooltip", () => {
 });
 
 describe("noReadingFace", () => {
-  function groupWhy({ reason, signInCommand = null }: {
-    reason: NoReadingReason;
-    signInCommand?: string | null;
-  }) {
+  function groupWhy({ reason, signInCommand = null }: { reason: NoReadingReason; signInCommand?: string | null }) {
     return makeGroup({
       id: "OpenCode",
       levels: [],
@@ -443,14 +449,20 @@ describe("noReadingsOf", () => {
       signInCommand: "codex"
     };
     const noReadings = noReadingsOf([
-      ["codex", {
-        account: null,
-        noReading: why
-      }],
-      ["claude", {
-        account: makeAccount([]),
-        noReading: null
-      }],
+      [
+        "codex",
+        {
+          account: null,
+          noReading: why
+        }
+      ],
+      [
+        "claude",
+        {
+          account: makeAccount([]),
+          noReading: null
+        }
+      ],
       ["copilot", null]
     ]);
     expect([...noReadings]).toEqual([["codex", why]]);

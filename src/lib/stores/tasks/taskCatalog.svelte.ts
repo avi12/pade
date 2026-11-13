@@ -2,14 +2,15 @@
 // change refreshes, stale-request rejection, and errors; every consumer reads
 // the same accepted TaskGroup[] rather than fetching or reconstructing it.
 
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { untrack } from "svelte";
+
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import type { ChangeEvent } from "@/lib/types/feed";
 import { ManifestMatch } from "@/lib/types/terminal";
 import type { TaskGroup, TaskManifestDescriptor } from "@/lib/types/terminal";
 import { baseName } from "@/lib/util/paths";
-import type { UnlistenFn } from "@tauri-apps/api/event";
-import { untrack } from "svelte";
 
 export type TaskCatalogSnapshot = Readonly<{
   project: string;
@@ -18,14 +19,14 @@ export type TaskCatalogSnapshot = Readonly<{
   error: string | null;
 }>;
 
-type TaskCatalogDependencies = {
+interface TaskCatalogDependencies {
   /** The project whose tasks the catalog lists - the window's front one. */
   project: () => string;
   descriptors: () => Promise<TaskManifestDescriptor[]>;
   list: (project: string) => Promise<TaskGroup[]>;
   /** A watched file changed - in any project the window holds. */
   onChange: (callback: (change: Pick<ChangeEvent, "root" | "path">) => void) => Promise<UnlistenFn>;
-};
+}
 
 const defaultDependencies: TaskCatalogDependencies = {
   project: frontProject,
@@ -37,10 +38,7 @@ const defaultDependencies: TaskCatalogDependencies = {
 /** Whether a changed path is one of the manifests the backend reads - an exact
  *  file name, or a file carrying a manifest extension. Case-insensitive, like
  *  the backend's own match: a `.CSPROJ` is still a project. */
-function isManifestPath({ descriptors, path }: {
-  descriptors: TaskManifestDescriptor[];
-  path: string;
-}) {
+function isManifestPath({ descriptors, path }: { descriptors: TaskManifestDescriptor[]; path: string }) {
   const name = baseName(path).toLowerCase();
   return descriptors.some(descriptor => {
     const value = descriptor.value.toLowerCase();
@@ -48,9 +46,7 @@ function isManifestPath({ descriptors, path }: {
   });
 }
 
-export function createTaskCatalog(
-  dependencies: TaskCatalogDependencies = defaultDependencies
-) {
+export function createTaskCatalog(dependencies: TaskCatalogDependencies = defaultDependencies) {
   let snapshot = $state<TaskCatalogSnapshot>({
     project: "",
     groups: [],
@@ -111,10 +107,12 @@ export function createTaskCatalog(
     try {
       const descriptors = await dependencies.descriptors();
       const nextUnlisten = await dependencies.onChange(({ root, path }) => {
-        const isListedManifest = root === currentProject() && isManifestPath({
-          descriptors,
-          path
-        });
+        const isListedManifest =
+          root === currentProject() &&
+          isManifestPath({
+            descriptors,
+            path
+          });
         if (isListedManifest) {
           refreshAfterManifestChange();
         }

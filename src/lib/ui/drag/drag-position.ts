@@ -10,10 +10,7 @@ interface Measurable {
  *  the position is scaled by the device pixel ratio first. An element that is
  *  not rendered has an empty rect and never matches; one only made invisible
  *  keeps its rect, so the caller checks that itself. */
-export function isDragOverElement({ element, position }: {
-  element: Measurable;
-  position: DragPosition;
-}) {
+export function isDragOverElement({ element, position }: { element: Measurable; position: DragPosition }) {
   const rectangle = element.getBoundingClientRect();
   const x = position.x / devicePixelRatio;
   const y = position.y / devicePixelRatio;

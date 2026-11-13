@@ -22,9 +22,7 @@ export function isEditingText(elFocused: Element | null) {
   }
 
   return (
-    elFocused.isContentEditable ||
-    elFocused instanceof HTMLInputElement ||
-    elFocused instanceof HTMLTextAreaElement
+    elFocused.isContentEditable || elFocused instanceof HTMLInputElement || elFocused instanceof HTMLTextAreaElement
   );
 }
 
@@ -33,7 +31,8 @@ export function isEditingText(elFocused: Element | null) {
  *  moves DOM focus to that button - so the next keystroke reaches the agent
  *  without a manual click back into the pane. No-op if the pane isn't mounted. */
 export function focusTerminalPane(paneId: string) {
-  const elSlot = [...document.querySelectorAll<HTMLElement>(`[${PANE_ID_ATTRIBUTE}]`)]
-    .find(elCandidate => elCandidate.getAttribute(PANE_ID_ATTRIBUTE) === paneId);
+  const elSlot = [...document.querySelectorAll<HTMLElement>(`[${PANE_ID_ATTRIBUTE}]`)].find(
+    elCandidate => elCandidate.getAttribute(PANE_ID_ATTRIBUTE) === paneId
+  );
   elSlot?.querySelector<HTMLTextAreaElement>(`.${XTERM_HELPER_TEXTAREA}`)?.focus();
 }

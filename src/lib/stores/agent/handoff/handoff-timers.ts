@@ -11,10 +11,7 @@ export function createHandoffTimers() {
 
   // Track one timer in the pending set and return its id, so every timer we
   // create is registered for teardown in exactly one place.
-  function trackTimer({ handler, delayMs }: {
-    handler: () => void;
-    delayMs: number;
-  }) {
+  function trackTimer({ handler, delayMs }: { handler: () => void; delayMs: number }) {
     const timer = setTimeout(handler, delayMs);
     pendingTimers.add(timer);
     return timer;

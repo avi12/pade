@@ -112,6 +112,6 @@
     display: inline-flex;
     gap: 2px;
     align-items: center;
-    opacity: 85%;
+    opacity: 0.85;
   }
 </style>

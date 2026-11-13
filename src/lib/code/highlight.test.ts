@@ -1,6 +1,7 @@
+import { describe, expect, it, vi } from "vitest";
+
 import { isSyntax, TokenClass, tokenize, tokenizeMarkdown } from "@/lib/code/highlight";
 import type { Token } from "@/lib/code/highlight";
-import { describe, expect, it, vi } from "vitest";
 
 // The color branch resolves swatches through `CSS.supports`, which Node lacks.
 // Same minimal stand-in as colors.test.ts, so these tests pin what highlight.ts
@@ -104,10 +105,12 @@ describe("tokenize", () => {
   });
 
   it("keeps a hyphenated identifier whole", () => {
-    expect(tokenize("mask-image")).toEqual([{
-      text: "mask-image",
-      tokenClass: TokenClass.Plain
-    }]);
+    expect(tokenize("mask-image")).toEqual([
+      {
+        text: "mask-image",
+        tokenClass: TokenClass.Plain
+      }
+    ]);
   });
 
   it("does not turn a keyword before `(` into a function", () => {
@@ -118,7 +121,12 @@ describe("tokenize", () => {
     const tokens = tokenize("const width = 42;");
 
     expect(tokens.map(token => token.tokenClass)).toEqual([
-      TokenClass.Keyword, TokenClass.Plain, TokenClass.Plain, TokenClass.Plain, TokenClass.Number, TokenClass.Plain
+      TokenClass.Keyword,
+      TokenClass.Plain,
+      TokenClass.Plain,
+      TokenClass.Plain,
+      TokenClass.Number,
+      TokenClass.Plain
     ]);
   });
 
@@ -130,10 +138,12 @@ describe("tokenize", () => {
   });
 
   it("returns a single plain token for text with no matches", () => {
-    expect(tokenize("=+;")).toEqual([{
-      text: "=+;",
-      tokenClass: TokenClass.Plain
-    }]);
+    expect(tokenize("=+;")).toEqual([
+      {
+        text: "=+;",
+        tokenClass: TokenClass.Plain
+      }
+    ]);
   });
 });
 
@@ -166,11 +176,7 @@ describe("tokenizeMarkdown", () => {
 
   it("colors structure: headings, quotes, list markers, inline spans", () => {
     const tokens = tokenizeMarkdown(
-      [
-        "# Title",
-        "> a quote",
-        "- item with `code` and **bold** and [a link](https://x)"
-      ].join("\n")
+      ["# Title", "> a quote", "- item with `code` and **bold** and [a link](https://x)"].join("\n")
     );
 
     expect(markdownClassOf(tokens, "# Title")).toBe(TokenClass.Keyword);
@@ -183,13 +189,7 @@ describe("tokenizeMarkdown", () => {
   });
 
   it("hands fenced code blocks to the generic scanner", () => {
-    const tokens = tokenizeMarkdown(
-      [
-        "```ts",
-        "const answer = 42;",
-        "```"
-      ].join("\n")
-    );
+    const tokens = tokenizeMarkdown(["```ts", "const answer = 42;", "```"].join("\n"));
 
     expect(markdownClassOf(tokens, "```ts")).toBe(TokenClass.Comment);
     expect(markdownClassOf(tokens, "const")).toBe(TokenClass.Keyword);
@@ -198,7 +198,9 @@ describe("tokenizeMarkdown", () => {
 
   it("round-trips the exact text, newlines included", () => {
     const source = "# H\n\ntext `x`\n";
-    const rebuilt = tokenizeMarkdown(source).map(token => token.text).join("");
+    const rebuilt = tokenizeMarkdown(source)
+      .map(token => token.text)
+      .join("");
     expect(rebuilt).toBe(source);
   });
 });

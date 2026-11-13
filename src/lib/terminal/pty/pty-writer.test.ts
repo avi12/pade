@@ -1,5 +1,6 @@
-import { createPtyWriter } from "@/lib/terminal/pty/pty-writer";
 import { describe, expect, it, vi } from "vitest";
+
+import { createPtyWriter } from "@/lib/terminal/pty/pty-writer";
 
 function deferred() {
   return Promise.withResolvers<void>();

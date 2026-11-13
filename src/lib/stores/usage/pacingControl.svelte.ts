@@ -28,20 +28,14 @@ export type ControlTarget = Pick<AgentSession, "conversationId"> & {
 /** What each part was last set to, by conversation and part. */
 const written = new Map<string, string>();
 
-function writtenKey({ conversationId, part }: {
-  conversationId: string;
-  part: ControlPart["part"];
-}) {
+function writtenKey({ conversationId, part }: { conversationId: string; part: ControlPart["part"] }) {
   return `${conversationId}:${part}`;
 }
 
 /** Set one part of a session's control. A session that hasn't started its
  *  conversation has nothing for an agent to read yet. Never rejects: a failed
  *  write is retried the next time the part is set. */
-export async function setControlPart({ target, part }: {
-  target: ControlTarget;
-  part: ControlPart;
-}) {
+export async function setControlPart({ target, part }: { target: ControlTarget; part: ControlPart }) {
   const conversationId = target.conversationId;
   if (conversationId === undefined) {
     return;
@@ -70,10 +64,7 @@ export async function setControlPart({ target, part }: {
 }
 
 /** Set whether a session is being stopped. */
-export async function setStopPart({ target, isStopped }: {
-  target: ControlTarget;
-  isStopped: boolean;
-}) {
+export async function setStopPart({ target, isStopped }: { target: ControlTarget; isStopped: boolean }) {
   await setControlPart({
     target,
     part: {
@@ -85,10 +76,7 @@ export async function setStopPart({ target, isStopped }: {
 
 /** Set when a session's rest ends, its tool calls held until then; null lifts
  *  the rest. */
-export async function setRestPart({ target, restUntil }: {
-  target: ControlTarget;
-  restUntil: PacingRestUntil;
-}) {
+export async function setRestPart({ target, restUntil }: { target: ControlTarget; restUntil: PacingRestUntil }) {
   await setControlPart({
     target,
     part: {
@@ -105,10 +93,7 @@ export const NO_THROTTLE: PacingThrottle = {
 };
 
 /** Set a session's throttle; an empty one lifts it. */
-export async function setThrottlePart({ target, throttle }: {
-  target: ControlTarget;
-  throttle: PacingThrottle;
-}) {
+export async function setThrottlePart({ target, throttle }: { target: ControlTarget; throttle: PacingThrottle }) {
   await setControlPart({
     target,
     part: {

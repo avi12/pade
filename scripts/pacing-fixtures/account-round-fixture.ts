@@ -1,9 +1,10 @@
 // The account-round fixture: session and window reports planned into rounds.
 
-import { between, NOW, pick, random } from "./fixture-primitives";
-import { gate, WRAP_UP } from "./subagent-steps-fixture";
 import { planRound } from "@/lib/usage/pacing/engine/account-round";
 import type { SessionReport, SubagentSteps, WindowReport } from "@/lib/usage/pacing/engine/account-round";
+
+import { between, NOW, pick, random } from "./fixture-primitives";
+import { gate, WRAP_UP } from "./subagent-steps-fixture";
 
 const ACCOUNTS = ["avi@example.com", "someone@example.com"];
 
@@ -23,10 +24,12 @@ function sessionReportOf(id: string): SessionReport {
       high: 60,
       step: 0.5
     }),
-    overPace: isOverPace ? {
-      shed: pick([null, 0.1, 0.25, 0.3, 0.6, 0.9]),
-      saving: pick([0, 0.2, 0.5, 1])
-    } : null,
+    overPace: isOverPace
+      ? {
+          shed: pick([null, 0.1, 0.25, 0.3, 0.6, 0.9]),
+          saving: pick([0, 0.2, 0.5, 1])
+        }
+      : null,
     canStepUp: random() > 0.6,
     hasRoom: random() > 0.5,
     subagents: Array.from({ length: Math.floor(random() * 4) }, (_, i) => ({
@@ -46,7 +49,9 @@ function windowReportsOf() {
   return Array.from({ length: windowCount }, (_, windowIndex): WindowReport => ({
     label: pick(WINDOW_LABELS) + (windowIndex === 0 ? "" : `-${windowIndex}`),
     at: NOW,
-    sessions: Array.from({ length: 1 + Math.floor(random() * 3) }, (_, sessionIndex) => sessionReportOf(`w${windowIndex}s${sessionIndex}`))
+    sessions: Array.from({ length: 1 + Math.floor(random() * 3) }, (_, sessionIndex) =>
+      sessionReportOf(`w${windowIndex}s${sessionIndex}`)
+    )
   }));
 }
 

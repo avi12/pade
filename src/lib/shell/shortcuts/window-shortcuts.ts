@@ -46,10 +46,7 @@ function cycleShortcut(event: ChordEvent) {
 }
 
 /** The window-level action `event` asks for, or null for any other key. */
-export function windowShortcutFor({ event, isDevelopment }: {
-  event: ChordEvent;
-  isDevelopment: boolean;
-}) {
+export function windowShortcutFor({ event, isDevelopment }: { event: ChordEvent; isDevelopment: boolean }) {
   const letter = event.key.toLowerCase();
   const isReload = event.key === RELOAD_KEY || (event.ctrlKey && event.shiftKey && letter === RELOAD_LETTER);
   if (isDevelopment && isReload) {

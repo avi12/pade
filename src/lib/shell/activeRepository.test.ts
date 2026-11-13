@@ -1,13 +1,8 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
-import { z } from "zod";
 
 const ROOT = "C:\\repositories\\avi\\pade";
 const OTHER = "C:\\repositories\\avi\\youtube-time-manager";

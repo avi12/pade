@@ -1,6 +1,7 @@
+import { z } from "zod";
+
 import { NO_REPLY } from "@/lib/ipc/domains/no-reply";
 import { UpdateStatus } from "@/lib/types/update";
-import { z } from "zod";
 
 export const SYSTEM_COMMANDS = {
   clipboardImageSave: "clipboard_image_save",

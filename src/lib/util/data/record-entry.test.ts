@@ -1,5 +1,6 @@
-import { withRecordEntry } from "@/lib/util/data/record-entry";
 import { describe, expect, it } from "vitest";
+
+import { withRecordEntry } from "@/lib/util/data/record-entry";
 
 describe("withRecordEntry", () => {
   it("sets the key on a copy, leaving the original untouched", () => {

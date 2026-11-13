@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   aiNamingEnabled,
   globalNaming,
@@ -5,7 +7,6 @@ import {
   withProjectNamingChoice
 } from "@/lib/agent/ai-naming-scope";
 import type { Prefs } from "@/lib/types/settings";
-import { describe, expect, it } from "vitest";
 
 const PROJECT = "C:\\repositories\\avi\\pade";
 const OTHER = "C:\\repositories\\avi\\any-stt";

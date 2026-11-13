@@ -189,7 +189,7 @@
     }
 
     &::backdrop {
-      background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 55%));
+      background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 0.55));
       animation: fadein 160ms var(--ease);
     }
   }
@@ -219,7 +219,7 @@
     margin: 0;
     padding: 24px;
     border: none;
-    background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 55%));
+    background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 0.55));
     color: inherit;
     transition:
       opacity 160ms var(--ease),

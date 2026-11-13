@@ -11,11 +11,12 @@
 // held again - never inherits another watch's changes, so liveness stays the
 // backend's claim, never this snapshot's.
 
+import { z } from "zod";
+
 import { windowLabel } from "@/lib/ipc/platform";
 import { ChangeEvent } from "@/lib/types/feed";
 import type { WatchStatus } from "@/lib/types/feed";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
-import { z } from "zod";
 
 function snapshotStorageKey() {
   return `pade.change-feed:${windowLabel()}`;
@@ -53,7 +54,11 @@ export function readFeedSnapshot() {
 /** The events the snapshot holds for `root` when they were collected under the
  *  watch still live on it (`watch_status { root }` reports the same arming),
  *  else none. Pure, so the liveness rule is unit-testable. */
-export function eventsForLiveWatch({ snapshot, root, watch }: {
+export function eventsForLiveWatch({
+  snapshot,
+  root,
+  watch
+}: {
   snapshot: FeedSnapshot | null;
   root: string;
   watch: Pick<WatchStatus, "armedAt">;

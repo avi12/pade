@@ -44,7 +44,11 @@ export function createAutoHandoff(host: HandoffHost) {
   // best-effort: swallow any failure (including deleting a doc the agent never
   // wrote on the timeout path) and clear the in-flight marker + note so a later
   // scan can retry.
-  async function runHandoff({ session, reason, isMidTurn = false }: {
+  async function runHandoff({
+    session,
+    reason,
+    isMidTurn = false
+  }: {
     session: AgentSession;
     reason: HandoffReason;
     isMidTurn?: boolean;
@@ -69,19 +73,22 @@ export function createAutoHandoff(host: HandoffHost) {
       return state.note || state.deferredNote;
     },
     check: () => scanForHandoffs(context),
-    force: (session: AgentSession) => forceHandoff({
-      context,
-      session
-    }),
+    force: (session: AgentSession) =>
+      forceHandoff({
+        context,
+        session
+      }),
     isHandingOff: (sessionId: string) => state.isHandingOff(sessionId),
-    restartForConfiguration: (session: AgentSession) => restartForConfiguration({
-      context,
-      session
-    }),
-    writeHandoffDoc: (session: AgentSession) => writeHandoffDoc({
-      context,
-      session
-    }),
+    restartForConfiguration: (session: AgentSession) =>
+      restartForConfiguration({
+        context,
+        session
+      }),
+    writeHandoffDoc: (session: AgentSession) =>
+      writeHandoffDoc({
+        context,
+        session
+      }),
     dispose: timers.dispose
   };
 }

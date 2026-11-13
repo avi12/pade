@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import { PacedWindowKind } from "@/lib/types/pacing";
 import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
 import {
@@ -11,14 +13,17 @@ import {
 } from "@/lib/usage/pacing/engine/pacing-policy";
 import { paceForecasts, RESET_GRACE_MS } from "@/lib/usage/pacing/engine/usage-pace";
 import type { PaceForecast } from "@/lib/usage/pacing/engine/usage-pace";
-import { describe, expect, it } from "vitest";
 
 const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
-function forecast({ utilization, runsOutIn, resetsIn }: {
+function forecast({
+  utilization,
+  runsOutIn,
+  resetsIn
+}: {
   utilization: number;
   runsOutIn: number | null;
   resetsIn: number;
@@ -39,7 +44,10 @@ function forecast({ utilization, runsOutIn, resetsIn }: {
   } satisfies PaceForecast;
 }
 
-function sessionPreview({ slowedCount = 0, ...shape }: Parameters<typeof forecast>[0] & {
+function sessionPreview({
+  slowedCount = 0,
+  ...shape
+}: Parameters<typeof forecast>[0] & {
   slowedCount?: number;
 }) {
   return pacingPreview({
@@ -63,22 +71,25 @@ describe("pacingPreview", () => {
     const resetsIn = 3 * DAY_MS;
     const preview = pacingPreview({
       kind: PacedWindowKind.enum.weekly,
-      forecast: paceForecasts({
-        account: {
-          windows: [{
-            key: "seven_day",
-            kind: UsageWindowKind.enum.weekly,
-            label: "Weekly",
-            utilization: 90,
-            resetsAt: new Date(NOW + resetsIn).toISOString()
-          }],
-          plan: "Max",
-          source: "test",
-          credits: CreditsState.enum.off
-        },
-        now: NOW,
-        rateOf: () => null
-      }).weekly ?? null,
+      forecast:
+        paceForecasts({
+          account: {
+            windows: [
+              {
+                key: "seven_day",
+                kind: UsageWindowKind.enum.weekly,
+                label: "Weekly",
+                utilization: 90,
+                resetsAt: new Date(NOW + resetsIn).toISOString()
+              }
+            ],
+            plan: "Max",
+            source: "test",
+            credits: CreditsState.enum.off
+          },
+          now: NOW,
+          rateOf: () => null
+        }).weekly ?? null,
       slowedCount: 0,
       now: NOW
     });

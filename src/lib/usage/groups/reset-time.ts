@@ -30,10 +30,7 @@ export function usageResetTime(iso: string | null | undefined) {
   return new Date(iso.replace(SUB_MILLISECOND_DIGITS, "$1")).getTime();
 }
 
-export function hasResetPassed({ resetsAt, now }: {
-  resetsAt: string | null | undefined;
-  now: number;
-}) {
+export function hasResetPassed({ resetsAt, now }: { resetsAt: string | null | undefined; now: number }) {
   const resetMilliseconds = usageResetTime(resetsAt);
   return Number.isFinite(resetMilliseconds) && resetMilliseconds <= now;
 }
@@ -56,10 +53,7 @@ export function resetTimestamp(iso: string | null | undefined) {
 
 // ISO reset time → a live "in …" countdown (largest two units), or "". Consumers
 // phrase it: the spotlight prefixes "resets", each limit row shows it as-is.
-export function resetCountdown({ iso, now }: {
-  iso: string | null | undefined;
-  now: number;
-}) {
+export function resetCountdown({ iso, now }: { iso: string | null | undefined; now: number }) {
   const remaining = usageResetTime(iso) - now;
   const isResetAhead = Number.isFinite(remaining) && remaining > 0;
   if (!isResetAhead) {

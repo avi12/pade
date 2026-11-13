@@ -1,5 +1,6 @@
-import { settledValue } from "@/lib/util/async/settled";
 import { describe, expect, it } from "vitest";
+
+import { settledValue } from "@/lib/util/async/settled";
 
 describe("settledValue", () => {
   it("passes a resolved value through", async () => {

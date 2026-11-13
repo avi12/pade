@@ -9,19 +9,19 @@ import { modelOption } from "@/lib/stores/model/modelOptions.svelte";
 
 /** Null until the agent has reported a model. Without `command`, the model
  *  family's usual ladder stands in for its own. */
-export function sessionModelLook({ sessionId, command }: {
-  sessionId: string;
-  command?: string;
-}) {
+export function sessionModelLook({ sessionId, command }: { sessionId: string; command?: string }) {
   const running = sessionModel(sessionId);
   if (running === null) {
     return null;
   }
 
-  const ladder = command === undefined ? undefined : modelOption({
-    command,
-    model: running.id
-  })?.efforts.map(option => option.id);
+  const ladder =
+    command === undefined
+      ? undefined
+      : modelOption({
+          command,
+          model: running.id
+        })?.efforts.map(option => option.id);
   return {
     running,
     ...runningModelLook({

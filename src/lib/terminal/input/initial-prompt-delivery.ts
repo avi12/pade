@@ -40,7 +40,12 @@ const TRUST_GATE_KEY_BYTES = {
 const PROMPT_SUBMIT_SETTLE_MS = 1_200;
 const PROMPT_MAXIMUM_ATTEMPTS = 8;
 
-export function createInitialPromptDelivery({ prompt, write, isWorking, settle }: {
+export function createInitialPromptDelivery({
+  prompt,
+  write,
+  isWorking,
+  settle
+}: {
   /** The session's first prompt, while it still waits to be delivered. */
   prompt: () => string | undefined;
   write: (data: string) => Promise<void>;
@@ -187,8 +192,8 @@ export function createInitialPromptDelivery({ prompt, write, isWorking, settle }
         return;
       }
 
-      const mayPressKey = isTrustGateOnScreen && !isTrustGateAwaitingRepaint
-        && trustGateKeysSent < TRUST_GATE_MAXIMUM_KEYS;
+      const mayPressKey =
+        isTrustGateOnScreen && !isTrustGateAwaitingRepaint && trustGateKeysSent < TRUST_GATE_MAXIMUM_KEYS;
       if (!key || !mayPressKey) {
         return;
       }

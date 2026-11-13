@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import type { Ide } from "@/lib/types/editor";
 import { editorSelectId, editorsForKind } from "@/panels/picker/editors/editor-options";
-import { describe, expect, it } from "vitest";
 
 function ide(id: string) {
   return {

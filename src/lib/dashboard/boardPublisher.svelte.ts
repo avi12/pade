@@ -6,6 +6,9 @@
 // - keep each agent's AI summary fresh. Summaries cost a model call, so no one
 // pays for them unwatched.
 
+import { onDestroy, onMount } from "svelte";
+import { SvelteMap } from "svelte/reactivity";
+
 import {
   BOARD_CHANNEL,
   BoardMessageKind,
@@ -25,8 +28,6 @@ import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { feedStore } from "@/lib/stores/workspace/change-feed/feed.svelte";
 import type { AgentSession, SessionStatus } from "@/lib/types/agent";
-import { onDestroy, onMount } from "svelte";
-import { SvelteMap } from "svelte/reactivity";
 
 /** How often a working agent's summary is reconsidered while the dashboard is
  *  open - the status changes that matter most re-check at once. */
@@ -37,7 +38,11 @@ const NO_SUMMARY = {
   at: null
 };
 
-export function publishToBoard({ project, projectLabel, windowSessions }: {
+export function publishToBoard({
+  project,
+  projectLabel,
+  windowSessions
+}: {
   /** The window's open project; empty while none is. */
   project: () => string;
   projectLabel: () => string;
@@ -45,14 +50,20 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
 }) {
   const channel = new BroadcastChannel(BOARD_CHANNEL);
   const label = windowLabel();
-  const statusSince = new SvelteMap<string, {
-    status: SessionStatus;
-    at: number;
-  }>();
-  const summaries = new SvelteMap<string, {
-    text: string;
-    at: number;
-  }>();
+  const statusSince = new SvelteMap<
+    string,
+    {
+      status: SessionStatus;
+      at: number;
+    }
+  >();
+  const summaries = new SvelteMap<
+    string,
+    {
+      text: string;
+      at: number;
+    }
+  >();
   const summarizing = new Set<string>();
   let dashboardSeenAt = $state<number | null>(null);
   let now = $state(Date.now());
@@ -150,12 +161,15 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
   }
 
   function isSessionSummaryDue(session: AgentSession) {
-    return !summarizing.has(session.id) && isSummaryDue({
-      status: sessionStatus(session.id),
-      statusSince: statusSinceOf(session.id),
-      summarizedAt: summaries.get(session.id)?.at ?? null,
-      now
-    });
+    return (
+      !summarizing.has(session.id) &&
+      isSummaryDue({
+        status: sessionStatus(session.id),
+        statusSince: statusSinceOf(session.id),
+        summarizedAt: summaries.get(session.id)?.at ?? null,
+        now
+      })
+    );
   }
 
   $effect(() => {
@@ -174,10 +188,7 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
 
   /** Bring a session's tab forward - into the active pane when it is already
    *  on screen in a split, else on its own. */
-  function focusSession({ target, sessionId }: {
-    target: string;
-    sessionId: string;
-  }) {
+  function focusSession({ target, sessionId }: { target: string; sessionId: string }) {
     if (target !== label) {
       return;
     }

@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   isCurrentProject,
   matchesProjectFilter,
@@ -5,7 +7,6 @@ import {
   windowRowsInOrder,
   windowRowTransitionName
 } from "@/lib/workspace/switcher/switcher-rows";
-import { describe, expect, it } from "vitest";
 
 const PROJECT = "C:\\repositories\\avi\\poll-avi";
 

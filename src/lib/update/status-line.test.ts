@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { Updater } from "@/lib/types/update";
 import { INSTALL_MSIX_NOTICE, updateStatusLine } from "@/lib/update/status-line";
-import { describe, expect, it } from "vitest";
 
 const CURRENT = "0.11.1";
 const NEWER = {

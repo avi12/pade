@@ -20,7 +20,11 @@ const SUBMIT_ATTEMPTS = 6;
 
 /** Paste `text` into a session's composer and submit it. `wait` is the caller's
  *  delay, so one that tears down its timers on dispose can cancel the retries. */
-export async function submitPastedPrompt({ id, text, wait }: {
+export async function submitPastedPrompt({
+  id,
+  text,
+  wait
+}: {
   id: string;
   text: string;
   wait: (milliseconds: number) => Promise<unknown>;

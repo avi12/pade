@@ -11,12 +11,7 @@ import { bareModel, lowerEffort } from "@/lib/model/model-label";
 import type { ModelChoice, ModelOption } from "@/lib/types/agent";
 
 /** Family words by cost tier, cheapest tier first. */
-const COST_TIERS = [
-  ["haiku", "mini", "nano", "flash", "lite"],
-  ["sonnet"],
-  ["opus"],
-  ["fable"]
-] as const;
+const COST_TIERS = [["haiku", "mini", "nano", "flash", "lite"], ["sonnet"], ["opus"], ["fable"]] as const;
 /** The tiers' shape, so a table keyed by tier has exactly one entry each. */
 export type CostTiers = typeof COST_TIERS;
 export const NO_TIER = -1;
@@ -32,10 +27,7 @@ export function costTier(model: string) {
 
 /** The dearest catalog model in a tier below `model`'s but not below the
  *  coding floor - the gentlest cheaper step - or undefined when there is none. */
-function cheaperModel({ model, options }: {
-  model: string;
-  options: readonly ModelOption[];
-}) {
+function cheaperModel({ model, options }: { model: string; options: readonly ModelOption[] }) {
   const tier = costTier(model);
   if (tier === NO_TIER) {
     return undefined;
@@ -57,7 +49,11 @@ function cheaperModel({ model, options }: {
 
 /** The same model one effort level lower, on its own ladder from the catalog -
  *  or null at the bottom, or for a model with no effort. */
-export function lowerEffortChoice({ model, effort, options }: {
+export function lowerEffortChoice({
+  model,
+  effort,
+  options
+}: {
   model: string;
   effort: string | null;
   options: readonly ModelOption[];
@@ -86,10 +82,7 @@ export function lowerEffortChoice({ model, effort, options }: {
 /** What a paced session's subagents may run: `model` when they ask for
  *  nothing it allows, and every catalog model no dearer than it. A model in no
  *  known tier allows only itself. */
-export function subagentCap({ model, options }: {
-  model: string;
-  options: readonly ModelOption[];
-}) {
+export function subagentCap({ model, options }: { model: string; options: readonly ModelOption[] }) {
   const tier = costTier(model);
   const cheaperOrEqual = options
     .filter(option => tier !== NO_TIER && costTier(option.id) !== NO_TIER && costTier(option.id) <= tier)
@@ -102,10 +95,7 @@ export function subagentCap({ model, options }: {
 
 /** The next cheaper model at its recommended effort level - or null when no
  *  cheaper one is known. */
-export function cheaperModelChoice({ model, options }: {
-  model: string;
-  options: readonly ModelOption[];
-}) {
+export function cheaperModelChoice({ model, options }: { model: string; options: readonly ModelOption[] }) {
   const cheaper = cheaperModel({
     model,
     options

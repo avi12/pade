@@ -29,9 +29,9 @@ type PaneAction = (typeof PaneAction)[keyof typeof PaneAction];
 type PaneShortcut =
   | { action: typeof PaneAction.Previous | typeof PaneAction.Next | typeof PaneAction.Close }
   | {
-    action: typeof PaneAction.SelectAt;
-    iPane: number;
-  };
+      action: typeof PaneAction.SelectAt;
+      iPane: number;
+    };
 
 /** The digit keys that pick a pane by position - Ctrl+Alt+1..9 select the
  *  1st..9th pane. This literal list is their authoritative home. */
@@ -45,10 +45,7 @@ const CLOSE_PANE_KEY = "w";
  *  pane by position (only while it exists - a number past the last pane is a
  *  no-op) · Ctrl+Alt+W close the active pane. Every action needs at least one
  *  pane and the exact modifier set; Meta always disqualifies. */
-export function matchPaneShortcut({ chord, paneCount }: {
-  chord: KeyChord;
-  paneCount: number;
-}) {
+export function matchPaneShortcut({ chord, paneCount }: { chord: KeyChord; paneCount: number }) {
   const { key, ctrlKey, shiftKey, altKey, metaKey } = chord;
   if (paneCount === 0 || !ctrlKey || metaKey) {
     return null;
@@ -81,10 +78,12 @@ export function matchPaneShortcut({ chord, paneCount }: {
 
   const iPane = PANE_NUMBER_KEYS.indexOf(key);
   const isExistingPane = iPane !== -1 && iPane < paneCount;
-  return isExistingPane ? {
-    action: PaneAction.SelectAt,
-    iPane
-  } : null;
+  return isExistingPane
+    ? {
+        action: PaneAction.SelectAt,
+        iPane
+      }
+    : null;
 }
 
 /** The handler wiring the app supplies. Prev/next/by-position all resolve to a
@@ -136,7 +135,11 @@ export function registerPaneShortcuts(handlers: PaneShortcutHandlers) {
   return () => removeEventListener("keydown", onKeyDown, { capture: true });
 }
 
-function runShortcut({ shortcut, handlers, paneIds }: {
+function runShortcut({
+  shortcut,
+  handlers,
+  paneIds
+}: {
   shortcut: PaneShortcut;
   handlers: PaneShortcutHandlers;
   paneIds: readonly string[];
@@ -159,7 +162,11 @@ function runShortcut({ shortcut, handlers, paneIds }: {
 /** The session id a selection shortcut lands on: the pane at a picked position,
  *  or the pane a step away from the active one. Null when it can't resolve (no
  *  active pane for a step, or an empty split). */
-function resolveTargetId({ shortcut, paneIds, activeId }: {
+function resolveTargetId({
+  shortcut,
+  paneIds,
+  activeId
+}: {
   shortcut: PaneShortcut;
   paneIds: readonly string[];
   activeId: string | null;

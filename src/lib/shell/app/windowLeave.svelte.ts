@@ -1,12 +1,16 @@
+import { onMount } from "svelte";
+
 import { onWindowCloseRequested } from "@/lib/ipc/platform";
 import { clearDiscordPresence } from "@/lib/shell/window/discord-presence";
 import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { stopAllRunners } from "@/lib/stores/tasks/runners.svelte";
-import { onMount } from "svelte";
 
 /** Deliberate leaves of the window's workspace: switching project, going back
  *  to the picker, closing PADE. */
-export function createWindowLeave({ windowSessions, isWindowFocused }: {
+export function createWindowLeave({
+  windowSessions,
+  isWindowFocused
+}: {
   windowSessions: WindowSessions;
   isWindowFocused: () => boolean;
 }) {

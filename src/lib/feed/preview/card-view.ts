@@ -24,14 +24,14 @@ export interface MediaView {
 
 export type CardView =
   | {
-    kind: typeof CardViewKind.Message | typeof CardViewKind.Loading;
-    text: string;
-  }
+      kind: typeof CardViewKind.Message | typeof CardViewKind.Loading;
+      text: string;
+    }
   | MediaView
   | {
-    kind: typeof CardViewKind.Document;
-    source: string;
-  }
+      kind: typeof CardViewKind.Document;
+      source: string;
+    }
   | { kind: typeof CardViewKind.Diff };
 
 /** A card's cached previews, `undefined` while a fetch has not landed. */
@@ -68,11 +68,7 @@ function loading(text: string) {
 
 // An empty preview is either the backend having nothing to show or the fetch
 // having failed - the reader is told which.
-function emptyMessage({ isErrored, failed, empty }: {
-  isErrored: boolean;
-  failed: string;
-  empty: string;
-}) {
+function emptyMessage({ isErrored, failed, empty }: { isErrored: boolean; failed: string; empty: string }) {
   return message(isErrored ? failed : empty);
 }
 

@@ -1,5 +1,6 @@
-import { UsageWindowKind } from "@/lib/types/usage";
 import { z } from "zod";
+
+import { UsageWindowKind } from "@/lib/types/usage";
 
 /** The steps usage pacing climbs, in order, while an agent stays on track to
  *  run out of usage before its window resets (lib/usage/pacing/engine/pacing-policy). */

@@ -3,6 +3,9 @@
 // replaying history, streaming output, input, resizing, and status. The pane
 // component (panels/Terminal) owns only the view and its reactive glue.
 
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import type { Terminal } from "@xterm/xterm";
+
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { appearance } from "@/lib/settings/prefs.svelte";
 import { observeTurnOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
@@ -32,12 +35,15 @@ import { SessionStatus } from "@/lib/types/agent";
 import type { AgentSession } from "@/lib/types/agent";
 import type { PtyChunk } from "@/lib/types/terminal";
 import { errorMessage } from "@/lib/util/errors/errors";
-import type { UnlistenFn } from "@tauri-apps/api/event";
-import type { Terminal } from "@xterm/xterm";
 
 const CONTEXT_SCREEN_SAMPLE_MS = 1000;
 
-export function createTerminalSession({ session, view, openFind, onexit }: {
+export function createTerminalSession({
+  session,
+  view,
+  openFind,
+  onexit
+}: {
   session: () => AgentSession;
   /** Whether the pane is laid out and visible, and its window focused. */
   view: () => {
@@ -66,10 +72,11 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
 
   const activity = createSessionActivity({ onSettled: () => delivery.deliverIfReady() });
   const writeToPty = createPtyWriter({
-    send: data => sendMessage(Command.ptyWrite, {
-      id: session().id,
-      data
-    }),
+    send: data =>
+      sendMessage(Command.ptyWrite, {
+        id: session().id,
+        data
+      }),
     onTransportLost: () => activity.markExited()
   });
   // A new-project first prompt is NOT sent on mount: a fresh agent gates on a
@@ -137,8 +144,8 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
     },
     flushContext() {
       const buffer = terminal?.buffer.active;
-      const isReadingScrollback = buffer !== undefined && buffer.type !== Screen.Alternate
-        && buffer.viewportY < buffer.baseY;
+      const isReadingScrollback =
+        buffer !== undefined && buffer.type !== Screen.Alternate && buffer.viewportY < buffer.baseY;
       return {
         ...view(),
         isReadingScrollback
@@ -199,10 +206,7 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
 
   // Subscribe to this session's events. Events are filtered by id so sibling
   // sessions don't cross-write. False when the pane was torn down meanwhile.
-  async function listenToSession({ grid, elPane }: {
-    grid: Terminal;
-    elPane: HTMLElement;
-  }) {
+  async function listenToSession({ grid, elPane }: { grid: Terminal; elPane: HTMLElement }) {
     const isDataListening = keepListening([
       await onMessage(EventType.ptyData, ({ data: chunk }) => {
         if (chunk.id === session().id) {
@@ -251,10 +255,7 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
 
   // Wire the terminal's own events: keystrokes out to the PTY, the key and wheel
   // overrides, and every change of scroll, screen and size.
-  function attachTerminalEvents({ grid, elPane }: {
-    grid: Terminal;
-    elPane: HTMLElement;
-  }) {
+  function attachTerminalEvents({ grid, elPane }: { grid: Terminal; elPane: HTMLElement }) {
     grid.onData(data => {
       if (isFocusReport(data)) {
         return;
@@ -291,10 +292,12 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
         colorScheme.reportToSubscribedAgent();
       }
     });
-    grid.onResize(({ cols: columns, rows }) => fit.handleGridResize({
-      columns,
-      rows
-    }));
+    grid.onResize(({ cols: columns, rows }) =>
+      fit.handleGridResize({
+        columns,
+        rows
+      })
+    );
     fit.observePane(elPane);
   }
 
@@ -362,11 +365,7 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
     }
   }
 
-  async function paintHistory({ grid, data, alternate }: {
-    grid: Terminal;
-    data: string;
-    alternate: boolean;
-  }) {
+  async function paintHistory({ grid, data, alternate }: { grid: Terminal; data: string; alternate: boolean }) {
     // A fullscreen program's history is not a document, it is a stream of edits to a
     // framebuffer - and once the buffer has been trimmed, the edits that built the
     // frame are half gone, so replaying it paints a torn one. Switch to the alternate
@@ -403,10 +402,7 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
   }
 
   /** Listen, spawn (or re-attach to) the agent, and replay what it already said. */
-  async function start({ grid, elPane }: {
-    grid: Terminal;
-    elPane: HTMLElement;
-  }) {
+  async function start({ grid, elPane }: { grid: Terminal; elPane: HTMLElement }) {
     const isListening = await listenToSession({
       grid,
       elPane
@@ -444,10 +440,7 @@ export function createTerminalSession({ session, view, openFind, onexit }: {
       return isRightToLeftSeen;
     },
     /** Build the terminal into `elHost`, fitted to the measuring frame `elPane`. */
-    open({ elHost, elPane }: {
-      elHost: HTMLElement;
-      elPane: HTMLElement;
-    }) {
+    open({ elHost, elPane }: { elHost: HTMLElement; elPane: HTMLElement }) {
       const grid = createTerminal(elHost);
       terminal = grid;
       elViewport = elPane;

@@ -8,6 +8,8 @@
 // labels via `AutoNameHost` and owns the mount lifecycle; the watcher
 // subscription lives here.
 
+import type { UnlistenFn } from "@tauri-apps/api/event";
+
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
@@ -15,7 +17,6 @@ import { ChangeKind } from "@/lib/types/feed";
 import type { ChangeEvent } from "@/lib/types/feed";
 import { LabelSource } from "@/lib/types/workspace";
 import { isTemporaryWorkspace, normalizePath } from "@/lib/util/paths";
-import type { UnlistenFn } from "@tauri-apps/api/event";
 
 const DISTINCT_FILES_BEFORE_NAMING = 3;
 const LEADING_SLASH = /^\//;
@@ -23,10 +24,7 @@ const LEADING_SLASH = /^\//;
 /** The normalized changed path when it carries naming signal for the workspace
  *  - inside the tree and not a dotfile/dot-dir (e.g. .git, .claude) - else
  *  null. Doubles as the distinct-files key. */
-export function namingSignal({ projectDirectory, changedPath }: {
-  projectDirectory: string;
-  changedPath: string;
-}) {
+export function namingSignal({ projectDirectory, changedPath }: { projectDirectory: string; changedPath: string }) {
   const base = normalizePath(projectDirectory);
   const touched = normalizePath(changedPath);
   if (!touched.startsWith(base)) {
@@ -62,10 +60,7 @@ export function createAutoNamer(host: AutoNameHost) {
   }
 
   /** Record `touched` for `project`; how many distinct paths it has seen so far. */
-  function recordTouch({ project, touched }: {
-    project: string;
-    touched: string;
-  }) {
+  function recordTouch({ project, touched }: { project: string; touched: string }) {
     const touchedPaths = touchedByProject.get(project) ?? new Set<string>();
     touchedPaths.add(touched);
     touchedByProject.set(project, touchedPaths);

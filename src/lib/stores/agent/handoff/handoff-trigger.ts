@@ -50,10 +50,7 @@ export function scanForHandoffs(context: HandoffContext) {
 // guard as the scan, none of its idle/threshold gates: the caller has
 // already decided this session must cycle. It still waits for the agent's
 // running work to finish before asking for the doc (see handoff).
-export function forceHandoff({ context, session }: {
-  context: HandoffContext;
-  session: AgentSession;
-}) {
+export function forceHandoff({ context, session }: { context: HandoffContext; session: AgentSession }) {
   if (context.state.isHandingOff(session.id)) {
     return;
   }
@@ -68,7 +65,10 @@ export function forceHandoff({ context, session }: {
 // An MCP membership change must launch the same governed agent again so it
 // reads the new configuration. Unlike a context-limit handoff, this bypasses
 // quota-based crossover while retaining the document-first safety sequence.
-export async function restartForConfiguration({ context, session }: {
+export async function restartForConfiguration({
+  context,
+  session
+}: {
   context: HandoffContext;
   session: AgentSession;
 }) {

@@ -1,8 +1,13 @@
-import { cheaperModelChoice, costTier, lowerEffortChoice, subagentCap } from "@/lib/model/model-cost";
-import type { ModelOption } from "@/lib/types/agent";
 import { describe, expect, it } from "vitest";
 
-function option({ id, efforts, recommendedEffort = null }: {
+import { cheaperModelChoice, costTier, lowerEffortChoice, subagentCap } from "@/lib/model/model-cost";
+import type { ModelOption } from "@/lib/types/agent";
+
+function option({
+  id,
+  efforts,
+  recommendedEffort = null
+}: {
   id: string;
   efforts: string[];
   recommendedEffort?: string | null;
@@ -143,10 +148,12 @@ describe("cheaperModelChoice", () => {
     expect(
       cheaperModelChoice({
         model: "gpt-5.6-sol",
-        options: [option({
-          id: "gpt-5.6-sol",
-          efforts: ["minimal", "low"]
-        })]
+        options: [
+          option({
+            id: "gpt-5.6-sol",
+            efforts: ["minimal", "low"]
+          })
+        ]
       })
     ).toBeNull();
   });

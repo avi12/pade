@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { createPtyStream } from "@/lib/terminal/pty/pty-stream";
 import type { PtyChunk } from "@/lib/types/terminal";
-import { describe, expect, it } from "vitest";
 
 function chunk(seq: number) {
   return {

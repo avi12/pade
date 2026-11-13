@@ -20,21 +20,22 @@
 
 .scroll-fade {
   scrollbar-width: none;
-  mask-image:
-    linear-gradient(
-      to bottom,
-      var(--scroll-fade-top) 0%,
-      rgb(0 0 0) 24px,
-      rgb(0 0 0) calc(100% - 24px),
-      var(--scroll-fade-bottom) 100%
-    );
+  mask-image: linear-gradient(
+    to bottom,
+    var(--scroll-fade-top) 0%,
+    rgb(0 0 0) 24px,
+    rgb(0 0 0) calc(100% - 24px),
+    var(--scroll-fade-bottom) 100%
+  );
 
   @supports (animation-timeline: scroll(self)) {
     animation:
       scroll-fade-top-unmask linear both,
       scroll-fade-bottom-unmask linear both;
     animation-timeline: scroll(self), scroll(self);
-    animation-range: 0 24px, calc(100% - 24px) 100%;
+    animation-range:
+      0 24px,
+      calc(100% - 24px) 100%;
   }
 
   &::-webkit-scrollbar {

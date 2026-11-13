@@ -2,17 +2,11 @@
 // needs no browser: what a press, a move, a release, an Escape and a drop-out each
 // commit, report and clean up. Pins behaviour so the engine can be split safely.
 
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { beginReorder } from "@/lib/ui/drag/reorder/drag-reorder";
 import { Axis } from "@/lib/ui/drag/reorder/reorder-types";
 import type { BeginReorderOptions } from "@/lib/ui/drag/reorder/reorder-types";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from "vitest";
 
 const SLOT_WIDTH = 100;
 const SLOT_HEIGHT = 20;
@@ -57,10 +51,7 @@ vi.mock("@/lib/ui/drag/reorder/reorder-geometry", async importOriginal => {
   const original = await importOriginal<typeof import("@/lib/ui/drag/reorder/reorder-geometry")>();
   return {
     ...original,
-    measureSiblings: ({ elParent, idAttribute }: {
-      elParent: FakeElement;
-      idAttribute: string;
-    }) =>
+    measureSiblings: ({ elParent, idAttribute }: { elParent: FakeElement; idAttribute: string }) =>
       elParent.children.map((elItem, i) => ({
         id: elItem.getAttribute(idAttribute) ?? "",
         elItem,
@@ -88,19 +79,13 @@ class FakeElement {
 type Listener = (e: unknown) => void;
 const listeners = new Map<string, Set<Listener>>();
 
-function fire({ type, detail }: {
-  type: string;
-  detail: Record<string, unknown>;
-}) {
+function fire({ type, detail }: { type: string; detail: Record<string, unknown> }) {
   for (const listener of listeners.get(type) ?? []) {
     listener(detail);
   }
 }
 
-function pointer({ type, x }: {
-  type: string;
-  x: number;
-}) {
+function pointer({ type, x }: { type: string; x: number }) {
   fire({
     type,
     detail: {

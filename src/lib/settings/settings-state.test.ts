@@ -1,5 +1,6 @@
-import { createSerialQueue, createVersionedAdopter, replaceRecord } from "@/lib/settings/settings-state";
 import { describe, expect, it } from "vitest";
+
+import { createSerialQueue, createVersionedAdopter, replaceRecord } from "@/lib/settings/settings-state";
 
 describe("settings adoption", () => {
   it("replaces records so removed optional keys do not survive", () => {

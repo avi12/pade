@@ -1,5 +1,6 @@
-import { projectsToReread } from "@/lib/stores/session/conversation-reread";
 import { describe, expect, it } from "vitest";
+
+import { projectsToReread } from "@/lib/stores/session/conversation-reread";
 
 const LISTED = ["C:\\repositories\\pade", "C:/repositories/other"];
 
@@ -19,9 +20,7 @@ describe("projectsToReread", () => {
         listed: LISTED,
         changedProject: "c:/Repositories/pade/"
       })
-    ).toEqual([
-      "C:\\repositories\\pade"
-    ]);
+    ).toEqual(["C:\\repositories\\pade"]);
   });
 
   it("re-reads nothing for a project no longer listed", () => {

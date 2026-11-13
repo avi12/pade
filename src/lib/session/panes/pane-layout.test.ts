@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   layoutWithoutPane,
   layoutWithoutSession,
@@ -9,7 +11,6 @@ import {
 } from "@/lib/session/panes/pane-layout";
 import { DropSide } from "@/lib/session/panes/reorder";
 import type { AgentSession } from "@/lib/types/agent";
-import { describe, expect, it } from "vitest";
 
 const CLAUDE = {
   id: "claude",
@@ -31,10 +32,7 @@ function ids(sessions: AgentSession[]) {
   return sessions.map(each => each.id);
 }
 
-function rectangle({ left, width }: {
-  left: number;
-  width: number;
-}) {
+function rectangle({ left, width }: { left: number; width: number }) {
   return {
     left,
     right: left + width,
@@ -98,13 +96,15 @@ describe("paneAtPoint", () => {
   it("never targets a collapsed pane", () => {
     expect(
       paneAtPoint({
-        panes: [{
-          id: "a",
-          rectangle: rectangle({
-            left: 0,
-            width: 0
-          })
-        }],
+        panes: [
+          {
+            id: "a",
+            rectangle: rectangle({
+              left: 0,
+              width: 0
+            })
+          }
+        ],
         x: 0,
         y: 50
       })
@@ -205,10 +205,14 @@ describe("layoutWithoutSession", () => {
   it("hands the front to the leaving session's own project while it has another", () => {
     const layout = layoutWithoutSession({
       layout: {
-        sessions: [session("a"), {
-          ...session("other"),
-          project: "C:\\repositories\\poll"
-        }, session("b")],
+        sessions: [
+          session("a"),
+          {
+            ...session("other"),
+            project: "C:\\repositories\\poll"
+          },
+          session("b")
+        ],
         paneIds: ["b"],
         activeId: "b"
       },

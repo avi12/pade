@@ -6,17 +6,15 @@
 // carries it there, so a session moved before its prompt went in still gets it.
 // A restart drops it - the restarted agent resumes rather than re-sends.
 
-import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { z } from "zod";
+
+import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 
 const pending = new Map<string, string>();
 
 /** File a session's first prompt for delivery - a session launched without one
  *  has nothing pending. */
-export function setPendingPrompt({ id, prompt }: {
-  id: string;
-  prompt: string | undefined;
-}) {
+export function setPendingPrompt({ id, prompt }: { id: string; prompt: string | undefined }) {
   if (prompt === undefined) {
     return;
   }

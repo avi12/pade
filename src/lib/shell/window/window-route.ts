@@ -45,9 +45,9 @@ export function windowRouteFor(search: string) {
   const isProjectMode = mode === WindowMode.enum.open || mode === WindowMode.enum.handoff;
   const path = isProjectMode
     ? parseInput({
-      schema: FolderPath,
-      raw: query.get(PATH_PARAMETER)
-    })
+        schema: FolderPath,
+        raw: query.get(PATH_PARAMETER)
+      })
     : null;
   if (path === null) {
     return { kind: WindowRoute.LaunchContext } as const;

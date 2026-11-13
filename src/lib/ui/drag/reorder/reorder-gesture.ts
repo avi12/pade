@@ -4,6 +4,8 @@
 // at-a-time latch; everything that reads or writes the gesture lives here, on the
 // one `ReorderGesture` record.
 
+import { tick } from "svelte";
+
 import { committedOrderOnDrop, insertionIndex } from "@/lib/session/panes/reorder";
 import { axisCenter, measureSiblings, reflowSiblings, slotTranslate } from "@/lib/ui/drag/reorder/reorder-geometry";
 import type { Point, Sibling } from "@/lib/ui/drag/reorder/reorder-geometry";
@@ -19,7 +21,6 @@ import {
 } from "@/lib/ui/drag/reorder/reorder-lift";
 import type { OverflowSave } from "@/lib/ui/drag/reorder/reorder-lift";
 import type { BeginReorderOptions, DropTarget } from "@/lib/ui/drag/reorder/reorder-types";
-import { tick } from "svelte";
 
 const NOT_FOUND = -1;
 
@@ -57,7 +58,15 @@ export interface ReorderGesture {
   elShield: HTMLElement | null;
 }
 
-export function createGesture({ options, elParent, draggedId, isHorizontal, isReducedMotion, threshold, release }: {
+export function createGesture({
+  options,
+  elParent,
+  draggedId,
+  isHorizontal,
+  isReducedMotion,
+  threshold,
+  release
+}: {
   options: BeginReorderOptions;
   elParent: HTMLElement;
   draggedId: string;
@@ -107,18 +116,17 @@ function snapshot(gesture: ReorderGesture) {
 
   gesture.originalIds = gesture.siblings.map(sibling => sibling.id);
   gesture.iOriginalById = new Map(gesture.siblings.map((sibling, i) => [sibling.id, i]));
-  gesture.centers = gesture.siblings.map(slot => axisCenter({
-    slot,
-    isHorizontal
-  }));
+  gesture.centers = gesture.siblings.map(slot =>
+    axisCenter({
+      slot,
+      isHorizontal
+    })
+  );
   gesture.iFrom = gesture.iOriginalById.get(draggedId) ?? NOT_FOUND;
   gesture.iCurrent = gesture.iFrom;
 }
 
-function updateOutsideHints({ gesture, point }: {
-  gesture: ReorderGesture;
-  point: Point;
-}) {
+function updateOutsideHints({ gesture, point }: { gesture: ReorderGesture; point: Point }) {
   const { outsideSelector, itemSelector } = gesture.options;
   if (!outsideSelector) {
     return;
@@ -169,10 +177,7 @@ function startDrag(gesture: ReorderGesture) {
   );
 }
 
-function followPointer({ gesture, e }: {
-  gesture: ReorderGesture;
-  e: PointerEvent;
-}) {
+function followPointer({ gesture, e }: { gesture: ReorderGesture; e: PointerEvent }) {
   const { draggedId, siblings, iFrom, isHorizontal } = gesture;
   const draggedSlot = siblings[iFrom];
   const projectedLeft = e.clientX - gesture.grabOffsetX;
@@ -184,9 +189,7 @@ function followPointer({ gesture, e }: {
   const iBefore = insertionIndex({
     centers: gesture.centers,
     fromIndex: gesture.iCurrent,
-    draggedCenter: isHorizontal
-      ? projectedLeft + draggedSlot.width / 2
-      : projectedTop + draggedSlot.height / 2
+    draggedCenter: isHorizontal ? projectedLeft + draggedSlot.width / 2 : projectedTop + draggedSlot.height / 2
   });
   if (iBefore !== gesture.iLastBefore) {
     gesture.iLastBefore = iBefore;
@@ -218,10 +221,7 @@ function followPointer({ gesture, e }: {
 
 /** Advance the gesture to a pointer position; false when the pressed item
  *  vanished before it could lift (the caller then cancels). */
-export function movePointer({ gesture, e }: {
-  gesture: ReorderGesture;
-  e: PointerEvent;
-}) {
+export function movePointer({ gesture, e }: { gesture: ReorderGesture; e: PointerEvent }) {
   gesture.lastPointerX = e.clientX;
   gesture.lastPointerY = e.clientY;
 
@@ -294,10 +294,7 @@ function dropOutside(gesture: ReorderGesture) {
 // no-op left the caller's list out of sync with the DOM the engine had moved, and
 // a later selection reconciled against that stale order and dropped the tab; the
 // design engine commits `lastOrder ?? ids.slice()` for exactly this reason.
-async function finalizeCommit({ gesture, isCancelled }: {
-  gesture: ReorderGesture;
-  isCancelled: boolean;
-}) {
+async function finalizeCommit({ gesture, isCancelled }: { gesture: ReorderGesture; isCancelled: boolean }) {
   const order = committedOrderOnDrop({
     ids: gesture.originalIds,
     fromIndex: gesture.iFrom,
@@ -323,10 +320,7 @@ async function finalizeCommit({ gesture, isCancelled }: {
 // Spring the lifted item from its release point to the target slot (the open gap,
 // or home on cancel), fading the shadow out; commit the reorder only once it has
 // settled, so nothing jumps.
-function settleIntoSlot({ gesture, isCancelled }: {
-  gesture: ReorderGesture;
-  isCancelled: boolean;
-}) {
+function settleIntoSlot({ gesture, isCancelled }: { gesture: ReorderGesture; isCancelled: boolean }) {
   const { siblings, iFrom } = gesture;
   const elDragged = siblings[iFrom].elItem;
   const isReturningHome = isCancelled || gesture.iLastBefore < 0;
@@ -359,10 +353,7 @@ function settleIntoSlot({ gesture, isCancelled }: {
 
 /** Drop the shield and restore the page, then either pop out (outside), spring home
  *  (cancel), or spring into the new slot and commit (normal drop). */
-export function endGesture({ gesture, isCancelled }: {
-  gesture: ReorderGesture;
-  isCancelled: boolean;
-}) {
+export function endGesture({ gesture, isCancelled }: { gesture: ReorderGesture; isCancelled: boolean }) {
   document.body.style.userSelect = gesture.bodyUserSelect;
   gesture.elShield?.remove();
   gesture.elShield = null;

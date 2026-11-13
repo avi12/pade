@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { createObservedRecorder } from "@/lib/usage/pacing/shadow-report/observed-decisions";
 import { ObservedKind } from "@/lib/usage/pacing/shadow-report/pacing-report";
-import { describe, expect, it } from "vitest";
 
 const NOW = 1_000;
 
@@ -12,11 +13,13 @@ describe("createObservedRecorder", () => {
       kind: ObservedKind.enum.rest,
       at: NOW
     });
-    expect(recorder.drain(NOW + 1)).toEqual([{
-      sessionId: "a",
-      kind: ObservedKind.enum.rest,
-      at: NOW
-    }]);
+    expect(recorder.drain(NOW + 1)).toEqual([
+      {
+        sessionId: "a",
+        kind: ObservedKind.enum.rest,
+        at: NOW
+      }
+    ]);
     expect(recorder.drain(NOW + 2)).toEqual([]);
   });
 

@@ -11,10 +11,7 @@ import type { Terminal } from "@xterm/xterm";
 /** Run `sample` at most once per `intervalMs`: at once when the last sample is
  *  old enough, otherwise once at the end of the interval however many requests
  *  land inside it. */
-export function createScreenSampler({ intervalMs, sample }: {
-  intervalMs: number;
-  sample: () => void;
-}) {
+export function createScreenSampler({ intervalMs, sample }: { intervalMs: number; sample: () => void }) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastSampleAt = 0;
   let isDisposed = false;

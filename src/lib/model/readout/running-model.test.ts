@@ -1,5 +1,6 @@
-import { runningModelLook } from "@/lib/model/readout/running-model";
 import { describe, expect, it } from "vitest";
+
+import { runningModelLook } from "@/lib/model/readout/running-model";
 
 const OPUS = {
   id: "claude-opus-5-5",

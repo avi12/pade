@@ -113,7 +113,11 @@ function addRow(row: RunnerTask & Pick<RunnerRow, "id" | "attached">) {
 
 /** Append lines from one stream, each under a fresh id, trimming the head back to
  *  the cap once it runs a batch past it. */
-function appendLines({ row, texts, stream }: Pick<RunnerLine, "stream"> & {
+function appendLines({
+  row,
+  texts,
+  stream
+}: Pick<RunnerLine, "stream"> & {
   row: RunnerRow;
   texts: readonly string[];
 }) {
@@ -211,10 +215,7 @@ let attachedPoll: ReturnType<typeof setInterval> | undefined;
 /** The attached row already tracking `command` for this session, if any. One
  *  lookup serving both the idempotent attach below and `taskRuns`, which skips
  *  asking the OS about a task the dock is already showing. */
-export function attachedRunner({ sessionId, command }: {
-  sessionId: string;
-  command: string;
-}) {
+export function attachedRunner({ sessionId, command }: { sessionId: string; command: string }) {
   return rows.find(row => row.attached?.sessionId === sessionId && row.command === command);
 }
 
@@ -222,7 +223,14 @@ export function attachedRunner({ sessionId, command }: {
  *  that kills the agent's process, but no captured output (PADE never owned it).
  *  Idempotent per (session, command) so repeated detections never stack rows.
  *  Returns the row id. */
-export function attachRunner({ sessionId, label, kind, command, cwd, project }: RunnerTask & {
+export function attachRunner({
+  sessionId,
+  label,
+  kind,
+  command,
+  cwd,
+  project
+}: RunnerTask & {
   sessionId: string;
 }) {
   const existing = attachedRunner({
@@ -308,10 +316,7 @@ function rerunDivider() {
  * it afresh under a new backend id. `preserve` keeps the captured output and
  * appends a timestamped divider before the new run's lines; otherwise the pane
  * starts clean. */
-export async function rerunRunner({ id, preserve }: {
-  id: string;
-  preserve: boolean;
-}) {
+export async function rerunRunner({ id, preserve }: { id: string; preserve: boolean }) {
   const row = rowById(id);
   if (!row) {
     return;
@@ -349,11 +354,7 @@ export async function rerunRunner({ id, preserve }: {
     });
     return;
   }
-  showToast(
-    preserve
-      ? `Re-running “${row.label}” · kept previous output`
-      : `Re-running “${row.label}”`
-  );
+  showToast(preserve ? `Re-running “${row.label}” · kept previous output` : `Re-running “${row.label}”`);
 }
 
 /** Stop a runner and drop it from the dock. An attached runner isn't ours to
@@ -397,10 +398,7 @@ export function setRunnerOrder(orderedIds: string[]) {
 }
 
 /** Pipe a runner's captured output into an agent session's input. */
-export async function pipeRunner({ id, sessionId }: {
-  id: string;
-  sessionId: string;
-}) {
+export async function pipeRunner({ id, sessionId }: { id: string; sessionId: string }) {
   const row = rowById(id);
   if (!row || !sessionId) {
     return;

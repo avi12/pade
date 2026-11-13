@@ -15,6 +15,8 @@
 // app shell supplies sessions and the handoff through `RecoveryHost` and drives
 // the scan from a component `$effect`.
 
+import { SvelteMap } from "svelte/reactivity";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { createRecoveryLoop } from "@/lib/stores/agent/recoveryLoop.svelte";
@@ -23,7 +25,6 @@ import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { CONTINUE_PROMPT, hasUsageLimit, isUsageLimitStop } from "@/lib/stores/usage/usageResume.svelte";
 import { SessionStatus } from "@/lib/types/agent";
 import type { AgentSession } from "@/lib/types/agent";
-import { SvelteMap } from "svelte/reactivity";
 
 /** How often a stuck session is nudged to continue. */
 const RETRY_MS = 30_000;
@@ -51,8 +52,8 @@ const API_ERROR_SIGNALS = [
 // (500 milliseconds, not an HTTP status) never counts.
 const HTTP_STATUS_LEAD_IN = "(?:http|https|status|error|code|response)";
 const API_ERROR_RE = new RegExp(
-  `${API_ERROR_SIGNALS.join("|")}`
-    + `|${HTTP_STATUS_LEAD_IN}[^0-9a-z]{0,6}(?:${SERVER_ERROR_STATUS.join("|")})(?![0-9a-z])`,
+  `${API_ERROR_SIGNALS.join("|")}` +
+    `|${HTTP_STATUS_LEAD_IN}[^0-9a-z]{0,6}(?:${SERVER_ERROR_STATUS.join("|")})(?![0-9a-z])`,
   "i"
 );
 
@@ -68,10 +69,7 @@ export function parseApiError({ text }: { text: string }) {
 /** Feed a chunk of a session's PTY output through the API-error sniffer. A TUI
  *  repaints its error on every frame, so a session already marked (or already
  *  scheduled for retry) is left alone, as is one waiting out a usage limit. */
-export function observeApiError({ id, chunk }: {
-  id: string;
-  chunk: string;
-}) {
+export function observeApiError({ id, chunk }: { id: string; chunk: string }) {
   if (hits.has(id) || hasUsageLimit(id)) {
     return;
   }

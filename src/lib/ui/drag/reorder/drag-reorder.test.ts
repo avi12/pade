@@ -5,8 +5,9 @@
 // nothing), so the caller's session list can't drift out of sync with the DOM the
 // engine moved and later drop the "dropped-in-place" tab.
 
-import { committedOrderOnDrop } from "@/lib/session/panes/reorder";
 import { describe, expect, it } from "vitest";
+
+import { committedOrderOnDrop } from "@/lib/session/panes/reorder";
 
 describe("committedOrderOnDrop", () => {
   const ids = ["a", "b", "c"];

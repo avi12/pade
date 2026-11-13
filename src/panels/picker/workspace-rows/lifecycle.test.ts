@@ -1,6 +1,7 @@
+import { describe, expect, it, vi } from "vitest";
+
 import type { LifecycleHost } from "@/panels/picker/workspace-rows/lifecycle.svelte";
 import { createWorkspaceLifecycle } from "@/panels/picker/workspace-rows/lifecycle.svelte";
-import { describe, expect, it, vi } from "vitest";
 
 const PROJECT = "C:\\repositories\\avi\\poll-avi";
 const RENAMED = "C:\\repositories\\avi\\poll";
@@ -79,11 +80,13 @@ describe("folder rename", () => {
   it("is withheld for a project another window has open", async () => {
     const lifecycle = createWorkspaceLifecycle(
       host({
-        openWindows: async () => [{
-          label: "second",
-          path: PROJECT,
-          isCurrent: false
-        }]
+        openWindows: async () => [
+          {
+            label: "second",
+            path: PROJECT,
+            isCurrent: false
+          }
+        ]
       })
     );
     expect(lifecycle.canRenameFolder(PROJECT)).toBe(true);
@@ -100,11 +103,13 @@ describe("folder rename", () => {
             throw new Error("window list unavailable");
           }
 
-          return [{
-            label: "second",
-            path: PROJECT,
-            isCurrent: false
-          }];
+          return [
+            {
+              label: "second",
+              path: PROJECT,
+              isCurrent: false
+            }
+          ];
         }
       })
     );

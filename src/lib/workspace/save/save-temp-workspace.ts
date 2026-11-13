@@ -22,21 +22,12 @@ interface SaveTempHost {
   writeHandoffDoc: (session: AgentSession) => Promise<string | null>;
   /** Point the window at the saved project. */
   reroot: (path: string) => void;
-  launch: (options: {
-    agent: Agent;
-    project: string;
-    cwd: string;
-    initialPrompt?: string;
-  }) => void;
+  launch: (options: { agent: Agent; project: string; cwd: string; initialPrompt?: string }) => void;
   /** Kill and detach these sessions as a deliberate close. */
   closeSessions: (ids: readonly string[]) => Promise<void>;
 }
 
-export async function saveTempWorkspace({ name, root, host }: {
-  name: string;
-  root?: string;
-  host: SaveTempHost;
-}) {
+export async function saveTempWorkspace({ name, root, host }: { name: string; root?: string; host: SaveTempHost }) {
   // 1. Have the live agent dump a handoff doc INTO THE TEMP first, so it rides
   //    along in the copy and the successor continues from it.
   const handoffDoc = host.continuing ? await host.writeHandoffDoc(host.continuing) : null;

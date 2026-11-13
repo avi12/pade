@@ -67,7 +67,7 @@
     }
 
     &:not(.selected) {
-      opacity: 0%;
+      opacity: 0;
       visibility: hidden;
       transition:
         opacity var(--tab-slide-duration) var(--ease),
@@ -79,7 +79,7 @@
 
   @keyframes tab-panel-in {
     from {
-      opacity: 0%;
+      opacity: 0;
       translate: calc(var(--tab-slide-direction) * var(--tab-slide-distance)) 0;
     }
   }

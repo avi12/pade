@@ -1,12 +1,7 @@
-import {
-  CARGO_LOCK,
-  CARGO_MANIFEST,
-  OUTPUT_DIRECTORY,
-  REPOSITORY,
-  run
-} from "./environment.mjs";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+
+import { CARGO_LOCK, CARGO_MANIFEST, OUTPUT_DIRECTORY, REPOSITORY, run } from "./environment.mjs";
 
 /** The release's page, where its MSIX is downloaded from. */
 export function releasePageUrl(tag) {

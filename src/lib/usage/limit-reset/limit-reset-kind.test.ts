@@ -1,3 +1,6 @@
+import { describe, expect, it } from "vitest";
+
+import type { Limit } from "@/lib/usage/groups/usage-model";
 import {
   limitResetExpiry,
   limitResetKind,
@@ -5,8 +8,6 @@ import {
   limitResetTotal,
   spentResetPhrase
 } from "@/lib/usage/limit-reset/limit-reset-kind";
-import type { Limit } from "@/lib/usage/groups/usage-model";
-import { describe, expect, it } from "vitest";
 
 describe("limitResetKind", () => {
   it("names a Fable reset and says it gives back the week's Fable use", () => {
@@ -75,28 +76,65 @@ describe("limitResetTotal", () => {
 });
 
 function limit(kind: Limit["kind"], kindShort: string) {
-  return { kind, kindShort } as Limit;
+  return {
+    kind,
+    kindShort
+  } as Limit;
 }
 
 describe("limitResetsFor", () => {
   it("counts only the resets that clear the given limit", () => {
     const offers = [weekly, fable];
-    expect(limitResetsFor({ offers, limit: limit("weekly", "W") })).toEqual({
+    expect(
+      limitResetsFor({
+        offers,
+        limit: limit("weekly", "W")
+      })
+    ).toEqual({
       count: 1,
       description: "1 weekly reset"
     });
-    expect(limitResetsFor({ offers, limit: limit("model", "F") })).toEqual({
+    expect(
+      limitResetsFor({
+        offers,
+        limit: limit("model", "F")
+      })
+    ).toEqual({
       count: 3,
       description: "3 Fable resets"
     });
-    expect(limitResetsFor({ offers, limit: limit("session", "S") }).count).toBe(0);
-    expect(limitResetsFor({ offers, limit: limit("credits", "E") }).count).toBe(0);
+    expect(
+      limitResetsFor({
+        offers,
+        limit: limit("session", "S")
+      }).count
+    ).toBe(0);
+    expect(
+      limitResetsFor({
+        offers,
+        limit: limit("credits", "E")
+      }).count
+    ).toBe(0);
   });
 
   it("lets a full reset clear both the session and the weekly limit", () => {
-    const full = { ...weekly, kind: "full", resetsLeft: 2 } as const;
-    expect(limitResetsFor({ offers: [full], limit: limit("session", "S") }).count).toBe(2);
-    expect(limitResetsFor({ offers: [full], limit: limit("weekly", "W") }).count).toBe(2);
+    const full = {
+      ...weekly,
+      kind: "full",
+      resetsLeft: 2
+    } as const;
+    expect(
+      limitResetsFor({
+        offers: [full],
+        limit: limit("session", "S")
+      }).count
+    ).toBe(2);
+    expect(
+      limitResetsFor({
+        offers: [full],
+        limit: limit("weekly", "W")
+      }).count
+    ).toBe(2);
   });
 });
 

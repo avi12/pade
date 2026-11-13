@@ -1,13 +1,11 @@
+import { describe, expect, it } from "vitest";
+
 import { EMPTY_PATH_PROBE } from "@/lib/types/workspace";
 import { nextSegmentCompletion } from "@/panels/picker/path-field/path-completion";
-import { describe, expect, it } from "vitest";
 
 const TYPED = String.raw`C:\repositories\pa`;
 
-function probeOf({ path = TYPED, completion }: {
-  path?: string;
-  completion: string;
-}) {
+function probeOf({ path = TYPED, completion }: { path?: string; completion: string }) {
   return {
     path,
     result: {

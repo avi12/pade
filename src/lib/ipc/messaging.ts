@@ -6,6 +6,8 @@
 // file only composes them into the one typed layer. Callers use
 // `sendMessage(Command.x, data)` and `onMessage(EventType.x, ({ data }) => ...)`.
 
+import type { z } from "zod";
+
 import { defineTauriMessaging } from "@/lib/ipc/define-tauri-messaging";
 import { AGENT_COMMANDS, AGENT_EVENTS, AGENT_PAYLOAD_SCHEMAS, AGENT_RESPONSE_SCHEMAS } from "@/lib/ipc/domains/agent";
 import type { AgentCommandProtocol, AgentEventProtocol } from "@/lib/ipc/domains/agent";
@@ -53,7 +55,6 @@ import {
 } from "@/lib/ipc/domains/workspace";
 import type { WorkspaceCommandProtocol, WorkspaceEventProtocol } from "@/lib/ipc/domains/workspace";
 import type { Settings } from "@/lib/types/settings";
-import type { z } from "zod";
 
 /** Every Rust `#[tauri::command]`, valued by its exact registered name. The
  *  drift guard (`messaging.test.ts`) holds this set equal to `lib.rs`'s
@@ -88,31 +89,33 @@ export const EventType = {
 export type EventType = (typeof EventType)[keyof typeof EventType];
 
 export interface CommandProtocolMap
-  extends AgentCommandProtocol,
-  EditorCommandProtocol,
-  WindowCommandProtocol,
-  SystemCommandProtocol,
-  TerminalCommandProtocol,
-  FeedCommandProtocol,
-  VcsCommandProtocol,
-  UsageCommandProtocol,
-  WorkspaceCommandProtocol,
-  SettingsCommandProtocol {}
+  extends
+    AgentCommandProtocol,
+    EditorCommandProtocol,
+    WindowCommandProtocol,
+    SystemCommandProtocol,
+    TerminalCommandProtocol,
+    FeedCommandProtocol,
+    VcsCommandProtocol,
+    UsageCommandProtocol,
+    WorkspaceCommandProtocol,
+    SettingsCommandProtocol {}
 
 interface EventProtocolMap
-  extends AgentEventProtocol,
-  WindowEventProtocol,
-  SystemEventProtocol,
-  TerminalEventProtocol,
-  FeedEventProtocol,
-  VcsEventProtocol,
-  WorkspaceEventProtocol,
-  SettingsEventProtocol {}
+  extends
+    AgentEventProtocol,
+    WindowEventProtocol,
+    SystemEventProtocol,
+    TerminalEventProtocol,
+    FeedEventProtocol,
+    VcsEventProtocol,
+    WorkspaceEventProtocol,
+    SettingsEventProtocol {}
 
 /** The commands that answer the whole settings - sent through
  *  `sendSettingsMessage` so every reply is adopted into the shared store. */
 export type SettingsCommand = {
-  [Key in Command]: ReturnType<CommandProtocolMap[Key]> extends Settings ? Key : never
+  [Key in Command]: ReturnType<CommandProtocolMap[Key]> extends Settings ? Key : never;
 }[Command];
 
 const COMMAND_RESPONSE_SCHEMAS = {

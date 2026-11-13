@@ -20,11 +20,7 @@ interface FeedWatchSummary {
 
 /** The empty feed's honest self-description for `project`, given the window's
  *  live watch `status` (`null` before the first read). */
-export function watchSummary({ status, project, now }: {
-  status: WatchStatus | null;
-  project: string;
-  now: number;
-}) {
+export function watchSummary({ status, project, now }: { status: WatchStatus | null; project: string; now: number }) {
   const name = baseName(project) || project;
   if (status === null) {
     return {
@@ -51,15 +47,14 @@ export function watchSummary({ status, project, now }: {
     } satisfies FeedWatchSummary;
   }
 
-  const since = status.armedAt === null
-    ? "since it opened"
-    : `for ${formatAge({
-      stamp: status.armedAt,
-      now
-    })}`;
-  const hidden = status.ignored > 0
-    ? `. ${formatCount(status.ignored)} hidden by this project's ignore rules`
-    : "";
+  const since =
+    status.armedAt === null
+      ? "since it opened"
+      : `for ${formatAge({
+          stamp: status.armedAt,
+          now
+        })}`;
+  const hidden = status.ignored > 0 ? `. ${formatCount(status.ignored)} hidden by this project's ignore rules` : "";
   return {
     headline: "No changes yet",
     detail: `Watching ${name} ${since} - the feed starts from the moment a project opens, and shows nothing from before it${hidden}`,
