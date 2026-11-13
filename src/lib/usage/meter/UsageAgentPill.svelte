@@ -1,14 +1,16 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import type { LimitReset } from "@/lib/types/usage";
   import type { AgentGroup } from "@/lib/usage/groups/usage-model";
   import { groupSeverityClass } from "@/lib/usage/meter/usage-meter";
   import UsageLimitStack from "@/lib/usage/meter/UsageLimitStack.svelte";
 
   // One agent in the trigger: icon + short name, then a stack per limit (the
   // mono kind letter over its percent).
-  const { group, justReset }: {
+  const { group, justReset, resetOffers }: {
     group: AgentGroup;
     justReset: ReadonlySet<string>;
+    resetOffers: readonly LimitReset[];
   } = $props();
 </script>
 
@@ -17,7 +19,7 @@
     <span class="agent-icon"><Icon name={group.icon} /></span>
     <span class="agent-pill-name">{group.shortName}</span>
   </span>
-  <UsageLimitStack {group} {justReset} />
+  <UsageLimitStack {group} {justReset} {resetOffers} />
 </span>
 
 <style>

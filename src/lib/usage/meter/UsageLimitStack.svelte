@@ -1,6 +1,10 @@
 <script lang="ts">
+  import Icon from "@/lib/Icon.svelte";
+  import type { LimitReset } from "@/lib/types/usage";
   import { growInline } from "@/lib/ui/motion";
   import type { AgentGroup } from "@/lib/usage/groups/usage-model";
+  import { limitResetsFor } from "@/lib/usage/limit-reset/limit-reset-kind";
+  import { formatCount } from "@/lib/util/format";
   import {
     isJustReset,
     limitTooltip,
@@ -12,10 +16,12 @@
   // One agent's limits as compact stacks - the mono kind letter over its
   // percent, coloured by how close it is - or a dash with no reading. Shared by
   // the top bar's agent pill and the composer's LLM menu, so they read alike.
-  const { group, justReset = new Set() }: {
+  const { group, justReset = new Set(), resetOffers = [] }: {
     group: AgentGroup;
     /** Limits that just started over, whose numbers flash. */
     justReset?: ReadonlySet<string>;
+    /** The account's free resets: each limit one clears carries a mark. */
+    resetOffers?: readonly LimitReset[];
   } = $props();
 
   const face = $derived(noReadingFace(group));
@@ -24,6 +30,10 @@
 {#if group.limits.length > 0}
   <span class="limits">
     {#each group.limits as limit (limit.label)}
+      {@const resets = limitResetsFor({
+        offers: resetOffers,
+        limit
+      })}
       <!-- The letter alone doesn't say which limit it is: the hint names it. -->
       <span
         class={["limit severity", severityClass(limit.level)]}
@@ -37,6 +47,11 @@
       >
         <span class="kind">{limit.kindShort}</span>
         <span class="percent">{limit.reading}</span>
+        {#if resets.count > 0}
+          <span class="reset" data-tooltip="{resets.description} available - open to use one">
+            <Icon name="refresh" size={9} />{formatCount(resets.count)}
+          </span>
+        {/if}
       </span>
     {/each}
   </span>
@@ -79,6 +94,17 @@
       color: var(--severity-color);
       font-weight: 700;
       font-size: 0.75rem;
+    }
+
+    /* A free reset that clears this limit, right under the number it would zero. */
+    .reset {
+      display: inline-flex;
+      gap: 2px;
+      align-items: center;
+      color: var(--primary);
+      font-family: var(--font-monospace);
+      font-weight: 800;
+      font-size: 0.5625rem;
     }
   }
 

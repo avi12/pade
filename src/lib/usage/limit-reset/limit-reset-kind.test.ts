@@ -1,10 +1,11 @@
 import {
-  limitResetBadge,
   limitResetExpiry,
   limitResetKind,
+  limitResetsFor,
   limitResetTotal,
   spentResetPhrase
 } from "@/lib/usage/limit-reset/limit-reset-kind";
+import type { Limit } from "@/lib/usage/groups/usage-model";
 import { describe, expect, it } from "vitest";
 
 describe("limitResetKind", () => {
@@ -73,18 +74,29 @@ describe("limitResetTotal", () => {
   });
 });
 
-describe("limitResetBadge", () => {
-  it("shows each kind by its limit's letter and count, not one total", () => {
-    const badge = limitResetBadge([weekly, fable]);
-    expect(badge.segments.map(({ code, count }) => ({ code, count }))).toEqual([
-      { code: "W", count: 1 },
-      { code: "F", count: 3 }
-    ]);
-    expect(badge.description).toBe("1 weekly reset, 3 Fable resets");
+function limit(kind: Limit["kind"], kindShort: string) {
+  return { kind, kindShort } as Limit;
+}
+
+describe("limitResetsFor", () => {
+  it("counts only the resets that clear the given limit", () => {
+    const offers = [weekly, fable];
+    expect(limitResetsFor({ offers, limit: limit("weekly", "W") })).toEqual({
+      count: 1,
+      description: "1 weekly reset"
+    });
+    expect(limitResetsFor({ offers, limit: limit("model", "F") })).toEqual({
+      count: 3,
+      description: "3 Fable resets"
+    });
+    expect(limitResetsFor({ offers, limit: limit("session", "S") }).count).toBe(0);
+    expect(limitResetsFor({ offers, limit: limit("credits", "E") }).count).toBe(0);
   });
 
-  it("is empty when no reset is held", () => {
-    expect(limitResetBadge([]).segments).toEqual([]);
+  it("lets a full reset clear both the session and the weekly limit", () => {
+    const full = { ...weekly, kind: "full", resetsLeft: 2 } as const;
+    expect(limitResetsFor({ offers: [full], limit: limit("session", "S") }).count).toBe(2);
+    expect(limitResetsFor({ offers: [full], limit: limit("weekly", "W") }).count).toBe(2);
   });
 });
 
