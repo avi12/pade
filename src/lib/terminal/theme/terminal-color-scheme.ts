@@ -71,8 +71,8 @@ export function createColorSchemeRelay({
     /** A session attached mid-flight (or entering its fullscreen frame) whose
      *  agent is known to listen gets the report even with no handshake seen. */
     async reportToSubscribedAgent() {
-      const listensWithoutHandshake = !isEnabled && SCHEME_SUBSCRIBED_AGENTS.has(agentId());
-      if (!listensWithoutHandshake) {
+      const shouldListenWithoutHandshake = !isEnabled && SCHEME_SUBSCRIBED_AGENTS.has(agentId());
+      if (!shouldListenWithoutHandshake) {
         return;
       }
 

@@ -295,7 +295,6 @@ async function reconcileAttachedRunners() {
     }
   }
   const isNotHasAttachedRowsAndAttached = !hasAttachedRows() && attachedPoll !== undefined;
-
   if (isNotHasAttachedRowsAndAttached) {
     clearInterval(attachedPoll);
     attachedPoll = undefined;
@@ -318,14 +317,14 @@ function rerunDivider() {
  * it afresh under a new backend id. `preserve` keeps the captured output and
  * appends a timestamped divider before the new run's lines; otherwise the pane
  * starts clean. */
-export async function rerunRunner({ id, preserve }: { id: string; preserve: boolean }) {
+export async function rerunRunner({ id, shouldPreserve }: { id: string; shouldPreserve: boolean }) {
   const row = rowById(id);
   if (!row) {
     return;
   }
 
   const previousBackendId = row.backendId;
-  if (preserve) {
+  if (shouldPreserve) {
     appendLines({
       row,
       texts: ["", rerunDivider()],
@@ -356,7 +355,7 @@ export async function rerunRunner({ id, preserve }: { id: string; preserve: bool
     });
     return;
   }
-  showToast(preserve ? `Re-running “${row.label}” · kept previous output` : `Re-running “${row.label}”`);
+  showToast(shouldPreserve ? `Re-running “${row.label}” · kept previous output` : `Re-running “${row.label}”`);
 }
 
 /** Stop a runner and drop it from the dock. An attached runner isn't ours to

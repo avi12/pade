@@ -37,11 +37,11 @@
     onnewchat: () => void;
     onselectchat: (target: {
       chatId: string;
-      opensNewWindow: boolean;
+      shouldOpenNewWindow: boolean;
     }) => void;
     onresumeconversation: (target: {
       conversation: NonNullable<SidebarChat["resume"]>;
-      opensNewWindow: boolean;
+      shouldOpenNewWindow: boolean;
     }) => void;
     ondeletechat: (chatId: string) => void;
     onstopchat: (chatId: string) => void;
@@ -93,9 +93,9 @@
         ondelete={() => ondeletechat(chat.id)}
         onnew={onnewchat}
         onresume={onresumeconversation}
-        onselect={opensNewWindow => onselectchat({
+        onselect={shouldOpenNewWindow => onselectchat({
           chatId: chat.id,
-          opensNewWindow
+          shouldOpenNewWindow
         })}
         onstop={() => onstopchat(chat.id)}
       />

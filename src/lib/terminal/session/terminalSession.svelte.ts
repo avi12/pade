@@ -366,14 +366,22 @@ export function createTerminalSession({
     }
   }
 
-  async function paintHistory({ grid, data, alternate }: { grid: Terminal; data: string; alternate: boolean }) {
+  async function paintHistory({
+    grid,
+    data,
+    alternate: isAlternate
+  }: {
+    grid: Terminal;
+    data: string;
+    alternate: boolean;
+  }) {
     // A fullscreen program's history is not a document, it is a stream of edits to a
     // framebuffer - and once the buffer has been trimmed, the edits that built the
     // frame are half gone, so replaying it paints a torn one. Switch to the alternate
     // screen anyway (so the replay lands there, and the pane never flashes the wrong
     // buffer), then ask the program to repaint itself: it re-renders on a SIGWINCH,
     // and it is the only thing that can. Its own frame is the source of truth.
-    if (alternate) {
+    if (isAlternate) {
       grid.write(ENTER_ALTERNATE_SCREEN);
     }
 

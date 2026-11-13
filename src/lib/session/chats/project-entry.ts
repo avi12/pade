@@ -117,8 +117,8 @@ export function joinStep({
     return JoinStep.RELAUNCH_CHAT;
   }
 
-  const wantsFreshChat = target.newChat === true || target.initialPrompt !== undefined || !hasLiveSession;
-  if (wantsFreshChat) {
+  const shouldStartFreshChat = target.newChat === true || target.initialPrompt !== undefined || !hasLiveSession;
+  if (shouldStartFreshChat) {
     return JoinStep.FRESH_CHAT;
   }
 
@@ -205,7 +205,7 @@ export async function enterProjectChats({ host, target }: { host: ProjectEntryHo
 
   const wantsFreshChat = shouldStartFreshChat({
     initialPrompt: target.initialPrompt,
-    wantNewChat: target.newChat === true,
+    shouldStartNewChat: target.newChat === true,
     hasRestoredChats: hasRestoredChats || target.resume !== undefined
   });
   if (wantsFreshChat) {

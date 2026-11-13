@@ -177,9 +177,9 @@
    *  Ctrl/Cmd/Shift opens a new window, and anything else starts a new session
    *  in it here, beside the ones already open - even in the project in front,
    *  the same as its new-chat button. */
-  async function pickProject({ project: picked, opensNewWindow }: {
+  async function pickProject({ project: picked, shouldOpenNewWindow }: {
     project: string;
-    opensNewWindow: boolean;
+    shouldOpenNewWindow: boolean;
   }) {
     // The search found what it was for; the full rail comes back (as it does
     // after picking a chat or starting a new one below).
@@ -193,7 +193,7 @@
       return;
     }
 
-    if (opensNewWindow) {
+    if (shouldOpenNewWindow) {
       await sendMessage(Command.WINDOW_CREATE, {
         mode: WindowMode.enum.open,
         path: picked
@@ -259,7 +259,7 @@
         if (first !== undefined) {
           await pickProject({
             project: first,
-            opensNewWindow: false
+            shouldOpenNewWindow: false
           });
         }
       }}
@@ -283,7 +283,7 @@
       }}
       onpick={async ({ project: picked, event }) => await pickProject({
         project: picked,
-        opensNewWindow: isNewWindowClick(event)
+        shouldOpenNewWindow: isNewWindowClick(event)
       })}
       onrelabel={target => {
         relabelTarget = target;

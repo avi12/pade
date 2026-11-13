@@ -93,14 +93,14 @@ export async function restoreChat({
  *  there were no persisted chats to bring back. */
 export function shouldStartFreshChat({
   initialPrompt,
-  wantNewChat,
+  shouldStartNewChat,
   hasRestoredChats
 }: {
   initialPrompt?: string;
-  wantNewChat: boolean;
+  shouldStartNewChat: boolean;
   hasRestoredChats: boolean;
 }) {
-  return initialPrompt !== undefined || wantNewChat || !hasRestoredChats;
+  return initialPrompt !== undefined || shouldStartNewChat || !hasRestoredChats;
 }
 
 /** Restore every persisted chat of `project`, then bring the picked chat

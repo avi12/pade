@@ -256,16 +256,16 @@ describe("withLastGoodReadings", () => {
     plan: "Max",
     source: "test"
   };
-  const NOW = 1_000_000_000;
+  const now = 1_000_000_000;
 
   it("shows a fresh reading and keeps it", () => {
     const { accounts, kept } = withLastGoodReadings({
       fresh: new Map([["claude", reading]]),
       kept: new Map(),
-      now: NOW
+      now
     });
     expect(accounts.get("claude")).toBe(reading);
-    expect(kept.get("claude")?.at).toBe(NOW);
+    expect(kept.get("claude")?.at).toBe(now);
   });
 
   it("rides out a refused reading on the last real one", () => {
@@ -276,11 +276,11 @@ describe("withLastGoodReadings", () => {
           "claude",
           {
             account: reading,
-            at: NOW - KEEP_LAST_READING_MS + 1
+            at: now - KEEP_LAST_READING_MS + 1
           }
         ]
       ]),
-      now: NOW
+      now
     });
     expect(accounts.get("claude")).toBe(reading);
   });
@@ -296,11 +296,11 @@ describe("withLastGoodReadings", () => {
           "claude",
           {
             account: reading,
-            at: NOW - KEEP_LAST_READING_MS - 1
+            at: now - KEEP_LAST_READING_MS - 1
           }
         ]
       ]),
-      now: NOW
+      now
     });
     expect(accounts.get("claude")).toBeNull();
     expect(accounts.get("codex")).toBeNull();

@@ -8,15 +8,15 @@
   // contained: the per-user registry via the bridge, no settings involved.
   // `null` until the registry answers - the row waits for it so the checkbox
   // is born showing the real state instead of flipping a beat after paint.
-  const isWindows = navigator.userAgent.includes("Windows");
+  const IS_WINDOWS = navigator.userAgent.includes("Windows");
   let ctxMenuOn = $state<boolean | null>(null);
   // Surfaced when registering the modern (Win11) menu fails - typically because
   // Developer Mode is off. The legacy menu still gets added in that case.
   let contextMenuError = $state("");
-  const isRowShown = $derived(isWindows && ctxMenuOn !== null);
+  const isRowShown = $derived(IS_WINDOWS && ctxMenuOn !== null);
 
   onMount(async () => {
-    if (isWindows) {
+    if (IS_WINDOWS) {
       ctxMenuOn = await sendMessage(Command.CONTEXT_MENU_STATUS);
     }
   });

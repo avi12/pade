@@ -218,14 +218,14 @@ function reconcileNaming({ id, status }: { id: string; status: SessionStatus }) 
   }
 
   const isWorking = status === SessionStatus.enum.working;
-  const wasWorking = controller.lastStatus === SessionStatus.enum.working;
+  const hasBeenWorking = controller.lastStatus === SessionStatus.enum.working;
   syncRefresh({
     id,
     controller,
     isWorking
   });
 
-  if (wasWorking && !isWorking) {
+  if (hasBeenWorking && !isWorking) {
     void generate(id);
   }
 

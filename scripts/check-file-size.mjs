@@ -21,8 +21,8 @@ import {
 const BASELINE_PATH = "scripts/file-size-baseline.json";
 const JSON_INDENT = 2;
 const GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
-const isUpdate = process.argv.includes("--update");
-const isInitialize = process.argv.includes("--init");
+const IS_UPDATE = process.argv.includes("--update");
+const IS_INITIALIZE = process.argv.includes("--init");
 
 function readBaseline() {
   const parsed = BaselineSchema.safeParse(JSON.parse(readFileSync(BASELINE_PATH, "utf8")));
@@ -59,14 +59,14 @@ function writeBaseline(baseline) {
 }
 
 const sizes = measureSources();
-if (isInitialize) {
+if (IS_INITIALIZE) {
   writeBaseline(offendersOf(sizes));
   console.log(`Wrote ${BASELINE_PATH}`);
   process.exit(0);
 }
 
 const baseline = readBaseline();
-if (isUpdate) {
+if (IS_UPDATE) {
   writeBaseline(
     tightenBaseline({
       sizes,

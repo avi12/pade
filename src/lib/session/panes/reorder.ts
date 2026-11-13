@@ -34,14 +34,14 @@ export function committedOrderOnDrop({
   ids,
   fromIndex,
   toIndex,
-  cancelled
+  cancelled: isCancelled
 }: {
   ids: string[];
   fromIndex: number;
   toIndex: number;
   cancelled: boolean;
 }) {
-  if (cancelled) {
+  if (isCancelled) {
     return null;
   }
 

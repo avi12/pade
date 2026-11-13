@@ -16,7 +16,7 @@ import type { Prefs } from "@/lib/types/settings";
 import { withRecordEntry } from "@/lib/util/data/record-entry";
 
 /** Naming is opt-in - it spends agent turns, so nothing names until asked. */
-const AI_NAMING_DEFAULT = false;
+const IS_AI_NAMING_DEFAULT = false;
 
 /** This project's explicit choice, or `undefined` when it follows the global. */
 export function projectNamingChoice({ prefs, project }: { prefs: Prefs; project: string }) {
@@ -25,7 +25,7 @@ export function projectNamingChoice({ prefs, project }: { prefs: Prefs; project:
 
 /** The global default every project falls back to. */
 export function globalNaming(prefs: Prefs) {
-  return prefs.aiSessionNaming ?? AI_NAMING_DEFAULT;
+  return prefs.aiSessionNaming ?? IS_AI_NAMING_DEFAULT;
 }
 
 /** Whether AI session naming is on for this project - the one resolution of
@@ -47,7 +47,7 @@ export function aiNamingEnabled({ prefs, project }: { prefs: Prefs; project: str
 export function withProjectNamingChoice({
   prefs,
   project,
-  choice
+  choice: isChoice
 }: {
   prefs: Prefs;
   project: string;
@@ -56,6 +56,6 @@ export function withProjectNamingChoice({
   return withRecordEntry({
     record: prefs.aiSessionNamingProjects,
     key: project,
-    value: choice
+    value: isChoice
   });
 }

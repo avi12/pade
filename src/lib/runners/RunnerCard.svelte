@@ -91,7 +91,7 @@
         data-tooltip="Re-run · Shift-click keeps previous output"
         onclick={async e => await rerunRunner({
           id: row.id,
-          preserve: e.shiftKey
+          shouldPreserve: e.shiftKey
         })}
       ><Icon name="refresh" /></button>
     {/if}

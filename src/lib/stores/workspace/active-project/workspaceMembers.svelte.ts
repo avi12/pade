@@ -59,8 +59,8 @@ export function branchOfMember(path: string) {
  *  stale member - or, on the first project of a session, the empty string, which
  *  spawns the agent in the user's home directory instead of the project. */
 export function activeMemberIn(projectRoot: string) {
-  const belongsToProject = root === projectRoot && active.length > 0;
-  return belongsToProject ? active : projectRoot;
+  const isInProject = root === projectRoot && active.length > 0;
+  return isInProject ? active : projectRoot;
 }
 
 /** Point the workspace at one of its members. */

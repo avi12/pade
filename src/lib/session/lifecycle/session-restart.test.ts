@@ -16,12 +16,12 @@ const codex = {
   reordersBidi: false
 };
 
-const project = "C:\\repositories\\avi\\poll-avi";
+const PROJECT = "C:\\repositories\\avi\\poll-avi";
 
 function session(overrides: Partial<AgentSession> & { id: string }) {
   return {
     agent: claude,
-    project,
+    project: PROJECT,
     conversationId: `conv-${overrides.id}`,
     ...overrides
   };
@@ -99,7 +99,7 @@ describe("mcpRestartTargets", () => {
       ],
       change: {
         ...change,
-        path: `${project}\\.cursor\\mcp.json`,
+        path: `${PROJECT}\\.cursor\\mcp.json`,
         agents: ["cursor"]
       }
     });

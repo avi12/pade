@@ -86,8 +86,8 @@
     }
 
     try {
-      const { SearchAddon } = await import("@xterm/addon-search");
-      const loaded = new SearchAddon();
+      const searchAddonModule = await import("@xterm/addon-search");
+      const loaded = new searchAddonModule.SearchAddon();
       terminal.loadAddon(loaded);
       loaded.onDidChangeResults(results => {
         resultIndex = results.resultIndex;
@@ -106,9 +106,9 @@
     }
   }
 
-  async function runSearch({ direction, incremental = false }: {
+  async function runSearch({ direction, isIncremental = false }: {
     direction: FindDirection;
-    incremental?: boolean;
+    isIncremental?: boolean;
   }) {
     const addon = await loadedAddon();
     if (!addon) {
@@ -131,7 +131,7 @@
     const options = {
       ...matching,
       decorations: xtermSearchDecorations({ readToken: rootTokenReader() }),
-      incremental
+      incremental: isIncremental
     };
     if (direction === FindDirection.PREVIOUS) {
       addon.findPrevious(query, options);
@@ -146,7 +146,7 @@
   async function searchAsTyped() {
     await runSearch({
       direction: FindDirection.NEXT,
-      incremental: true
+      isIncremental: true
     });
   }
 

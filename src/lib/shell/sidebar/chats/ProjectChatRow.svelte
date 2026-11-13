@@ -28,11 +28,11 @@
     /** The instant an idle chat's age is measured against. */
     now: number;
     /** Bring up a PADE chat - here, or in a new window. */
-    onselect: (opensNewWindow: boolean) => void;
+    onselect: (shouldOpenNewWindow: boolean) => void;
     /** Reopen a recorded conversation on its own transcript. */
     onresume: (target: {
       conversation: RecordedConversation;
-      opensNewWindow: boolean;
+      shouldOpenNewWindow: boolean;
     }) => void;
     /** Delete a PADE chat - never offered for a recorded conversation, whose
      *  transcript is the agent's, not PADE's to delete. */
@@ -115,16 +115,16 @@
 
   // Shared by the row's click and its menu's "Open chat".
   function open(e: MouseEvent) {
-    const opensNewWindow = isNewWindowClick(e);
+    const shouldOpenNewWindow = isNewWindowClick(e);
     if (chat.resume !== undefined) {
       onresume({
         conversation: chat.resume,
-        opensNewWindow
+        shouldOpenNewWindow
       });
       return;
     }
 
-    onselect(opensNewWindow);
+    onselect(shouldOpenNewWindow);
   }
   let menu = $state<ProjectChatMenu | null>(null);
 

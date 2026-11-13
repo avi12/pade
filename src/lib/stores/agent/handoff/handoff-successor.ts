@@ -23,8 +23,8 @@ export function hasUsageHeadroom({
     return true;
   }
 
-  const quotaLeft = usedPercentage < USAGE_SPENT_PERCENTAGE;
-  return quotaLeft || credits === CreditsState.enum.available;
+  const hasQuotaLeft = usedPercentage < USAGE_SPENT_PERCENTAGE;
+  return hasQuotaLeft || credits === CreditsState.enum.available;
 }
 
 /** Pick the agent that should take over. The current agent stays on while it

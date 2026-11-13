@@ -314,19 +314,19 @@ export function compactionHeadroom(id: string) {
 const FALLBACK_WINDOW_TOKENS = 1_000_000;
 
 /** The percent the agent's own consumed-tokens counter implies, or null until a
- *  counter has been seen at all. `allowFallback` guesses the window (1M) when the
+ *  counter has been seen at all. `canFallBack` guesses the window (1M) when the
  *  agent never announced one - fine for the display gauge, but NOT for ending a
  *  session: `reportedTokens` is a sticky max of every "N tokens" ever on screen,
  *  so one tool-output count (a Gemini response's token total in an AI project)
  *  pins it high, and dividing that by a guessed window fires a false handoff on an
  *  agent, like Codex, that prints no window banner. Ending a session needs a real
- *  denominator, so the handoff path passes `allowFallback: false`. */
-function tokensDerivedPercentage({ signal, allowFallback }: { signal: ContextSignal; allowFallback: boolean }) {
+ *  denominator, so the handoff path passes `canFallBack: false`. */
+function tokensDerivedPercentage({ signal, canFallBack }: { signal: ContextSignal; canFallBack: boolean }) {
   if (signal.reportedTokens === 0) {
     return null;
   }
 
-  const windowTokens = signal.windowTokens ?? (allowFallback ? FALLBACK_WINDOW_TOKENS : null);
+  const windowTokens = signal.windowTokens ?? (canFallBack ? FALLBACK_WINDOW_TOKENS : null);
   if (windowTokens === null) {
     return null;
   }
@@ -376,7 +376,7 @@ export function contextPercentage(id: string) {
     signal.parsedPercentage ??
     tokensDerivedPercentage({
       signal,
-      allowFallback: true
+      canFallBack: true
     }) ??
     estimatedPercentage(signal)
   );
@@ -408,7 +408,7 @@ export function measuredContextPercentage(id: string) {
     signal.parsedPercentage ??
     tokensDerivedPercentage({
       signal,
-      allowFallback: false
+      canFallBack: false
     })
   );
 }

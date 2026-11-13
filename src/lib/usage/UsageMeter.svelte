@@ -69,7 +69,7 @@
   // keyed by agent id. An agent with no local usage signal resolves to null and
   // renders as an "unknown" group - never fabricated - unless it had a real
   // reading within the last hour, which stands in while the endpoint refuses.
-  async function loadAccounts({ forceRefresh = false }: { forceRefresh?: boolean } = {}) {
+  async function loadAccounts({ shouldForceRefresh = false }: { shouldForceRefresh?: boolean } = {}) {
     const agentIds = [...new Set(sessions.map(session => session.agent.id))];
     const entries = await Promise.all(
       agentIds.map(async id => [
@@ -77,7 +77,7 @@
         await settledValue({
           promise: fetchAccountReading({
             agent: id,
-            forceRefresh
+            shouldForceRefresh
           }),
           fallback: null
         })
@@ -120,7 +120,7 @@
 
   async function refreshAtResetBoundary() {
     now = Date.now();
-    shownAccounts = await loadAccounts({ forceRefresh: true });
+    shownAccounts = await loadAccounts({ shouldForceRefresh: true });
   }
 
   $effect(() => {
@@ -181,7 +181,7 @@
 
   <LimitResetConfirm
     onreset={async () => {
-      shownAccounts = await loadAccounts({ forceRefresh: true });
+      shownAccounts = await loadAccounts({ shouldForceRefresh: true });
     }}
   />
 </span>

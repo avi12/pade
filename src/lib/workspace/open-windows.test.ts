@@ -5,29 +5,29 @@ import { isNewWindowClick, isOpenInAnotherWindow, otherWindowWith } from "@/lib/
 const PROJECT = "C:\\repositories\\avi\\poll-avi";
 
 describe("isNewWindowClick", () => {
-  const PLAIN = {
+  const plain = {
     ctrlKey: false,
     metaKey: false,
     shiftKey: false
   };
 
   it("opens in a new window with Ctrl, Cmd or Shift held, never on a plain click", () => {
-    expect(isNewWindowClick(PLAIN)).toBe(false);
+    expect(isNewWindowClick(plain)).toBe(false);
     expect(
       isNewWindowClick({
-        ...PLAIN,
+        ...plain,
         ctrlKey: true
       })
     ).toBe(true);
     expect(
       isNewWindowClick({
-        ...PLAIN,
+        ...plain,
         metaKey: true
       })
     ).toBe(true);
     expect(
       isNewWindowClick({
-        ...PLAIN,
+        ...plain,
         shiftKey: true
       })
     ).toBe(true);

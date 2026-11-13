@@ -31,7 +31,7 @@ function click({
   host,
   liveSession,
   elsewhere,
-  opensNewWindow = false
+  shouldOpenNewWindow = false
 }: {
   host: ChatClickHost;
   liveSession?: AgentSession;
@@ -39,14 +39,14 @@ function click({
     id: string;
     windowLabel: string;
   };
-  opensNewWindow?: boolean;
+  shouldOpenNewWindow?: boolean;
 }) {
   return runChatClick({
     host,
     liveSession,
     elsewhere,
     isRecorded: false,
-    opensNewWindow,
+    shouldOpenNewWindow,
     reopen: {
       kind: HandoffKind.enum.chat,
       project: PROJECT,
@@ -77,7 +77,7 @@ describe("runChatClick", () => {
         id: "far",
         windowLabel: "w-2"
       },
-      opensNewWindow: true
+      shouldOpenNewWindow: true
     });
     expect(host.focusElsewhere).toHaveBeenCalledWith({
       label: "w-2",
@@ -90,13 +90,13 @@ describe("runChatClick", () => {
     await click({
       host,
       liveSession: LIVE,
-      opensNewWindow: true
+      shouldOpenNewWindow: true
     });
     expect(host.moveToNewWindow).toHaveBeenCalledWith(LIVE);
 
     await click({
       host,
-      opensNewWindow: true
+      shouldOpenNewWindow: true
     });
     expect(host.reopenInNewWindow).toHaveBeenCalledWith({
       kind: HandoffKind.enum.chat,
@@ -119,7 +119,7 @@ const PLAIN = {
   isLiveHere: false,
   elsewhereWindow: undefined,
   isRecorded: false,
-  opensNewWindow: false
+  shouldOpenNewWindow: false
 };
 
 describe("chatClickAction", () => {
@@ -143,7 +143,7 @@ describe("chatClickAction", () => {
       chatClickAction({
         ...PLAIN,
         elsewhereWindow: "w-2",
-        opensNewWindow: true
+        shouldOpenNewWindow: true
       })
     ).toBe(ChatClickAction.FOCUS_OTHER_WINDOW);
   });
@@ -153,7 +153,7 @@ describe("chatClickAction", () => {
       chatClickAction({
         ...PLAIN,
         isLiveHere: true,
-        opensNewWindow: true
+        shouldOpenNewWindow: true
       })
     ).toBe(ChatClickAction.MOVE_TO_NEW_WINDOW);
   });
@@ -162,14 +162,14 @@ describe("chatClickAction", () => {
     expect(
       chatClickAction({
         ...PLAIN,
-        opensNewWindow: true
+        shouldOpenNewWindow: true
       })
     ).toBe(ChatClickAction.REOPEN_IN_NEW_WINDOW);
     expect(
       chatClickAction({
         ...PLAIN,
         isRecorded: true,
-        opensNewWindow: true
+        shouldOpenNewWindow: true
       })
     ).toBe(ChatClickAction.REOPEN_IN_NEW_WINDOW);
   });

@@ -108,8 +108,8 @@ async function bootFromLaunchContext(dependencies: BootDependencies) {
   // Default: show the homescreen (the project picker). Starting straight
   // in a temp workspace, resuming the last project on the way, is the
   // opt-in the picker's "On launch" section offers instead.
-  const prefersPicker = effective.startMode === StartMode.enum.picker;
-  if (prefersPicker) {
+  const isPickerPreferred = effective.startMode === StartMode.enum.picker;
+  if (isPickerPreferred) {
     screen.setPhase(Phase.PROJECT);
     return;
   }

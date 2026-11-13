@@ -396,7 +396,7 @@ const HEX_RADIX = 16;
 /** xterm paints an invisible cell blank; the run still needs its width. */
 const INVISIBLE_CELL_TEXT = " ";
 /** `translateToString`'s flag for dropping the row's trailing whitespace. */
-const TRIM_TRAILING_WHITESPACE = true;
+const SHOULD_TRIM_TRAILING_WHITESPACE = true;
 
 function cellColor({
   isPalette,
@@ -499,7 +499,8 @@ export function rtlViewport({ terminal, isFocused }: { terminal: Terminal; isFoc
   for (let row = 0; row < terminal.rows; row++) {
     const absoluteRow = buffer.viewportY + row;
     const line = buffer.getLine(absoluteRow);
-    const isLineMissingOrNotContainsRtl = !line || !containsRtl(line.translateToString(TRIM_TRAILING_WHITESPACE));
+    const isLineMissingOrNotContainsRtl =
+      !line || !containsRtl(line.translateToString(SHOULD_TRIM_TRAILING_WHITESPACE));
     if (isLineMissingOrNotContainsRtl) {
       continue;
     }

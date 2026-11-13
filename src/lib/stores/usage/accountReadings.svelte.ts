@@ -14,10 +14,16 @@ const latest = new SvelteMap<string, AccountUsage>();
 /** Read an agent's account and keep the reading as its newest. A reading with
  *  no account (signed out, a refused request) leaves the newest one standing:
  *  each reader decides what a missing reading means for it. */
-export async function fetchAccountReading({ agent, forceRefresh = false }: { agent: string; forceRefresh?: boolean }) {
+export async function fetchAccountReading({
+  agent,
+  shouldForceRefresh = false
+}: {
+  agent: string;
+  shouldForceRefresh?: boolean;
+}) {
   const reading = await sendMessage(Command.USAGE_ACCOUNT_AGENT, {
     agent,
-    forceRefresh
+    forceRefresh: shouldForceRefresh
   });
   if (reading.account !== null) {
     latest.set(agent, reading.account);

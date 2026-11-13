@@ -176,20 +176,20 @@ describe("projectTrigger", () => {
 });
 
 describe("newProjectNameProblem", () => {
-  const CLEAR = {
+  const clear = {
     nameError: null,
     isTakenByFile: false,
     isExistingFolder: false
   };
 
   it("has nothing to say about a name that can be created", () => {
-    expect(newProjectNameProblem(CLEAR)).toBeNull();
+    expect(newProjectNameProblem(clear)).toBeNull();
   });
 
   it("puts the schema's own reason first", () => {
     expect(
       newProjectNameProblem({
-        ...CLEAR,
+        ...clear,
         nameError: "Too long",
         isExistingFolder: true
       })
@@ -199,13 +199,13 @@ describe("newProjectNameProblem", () => {
   it("says what already stands on disk under the name", () => {
     expect(
       newProjectNameProblem({
-        ...CLEAR,
+        ...clear,
         isTakenByFile: true
       })
     ).toBe("That name is taken by a file in this root");
     expect(
       newProjectNameProblem({
-        ...CLEAR,
+        ...clear,
         isExistingFolder: true
       })
     ).toBe("This folder already exists in this root");

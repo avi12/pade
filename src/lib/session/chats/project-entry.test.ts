@@ -193,7 +193,7 @@ describe("resumeRecordedConversation", () => {
 });
 
 describe("joinStep", () => {
-  const NOTHING = {
+  const nothing = {
     isPickedChatOpen: false,
     isPickedChatPersisted: false,
     hasLiveSession: false
@@ -202,7 +202,7 @@ describe("joinStep", () => {
   it("resumes a picked conversation before anything else", () => {
     expect(
       joinStep({
-        ...NOTHING,
+        ...nothing,
         target: {
           path: PROJECT,
           resume: conversation(),
@@ -215,7 +215,7 @@ describe("joinStep", () => {
   it("brings an open picked chat forward, and relaunches a persisted one", () => {
     expect(
       joinStep({
-        ...NOTHING,
+        ...nothing,
         isPickedChatOpen: true,
         target: {
           path: PROJECT,
@@ -225,7 +225,7 @@ describe("joinStep", () => {
     ).toBe(JoinStep.SELECT_CHAT);
     expect(
       joinStep({
-        ...NOTHING,
+        ...nothing,
         isPickedChatPersisted: true,
         target: {
           path: PROJECT,
@@ -238,7 +238,7 @@ describe("joinStep", () => {
   it("starts a fresh chat on a project click even when the project already runs one", () => {
     expect(
       joinStep({
-        ...NOTHING,
+        ...nothing,
         hasLiveSession: true,
         target: {
           path: PROJECT,
@@ -251,7 +251,7 @@ describe("joinStep", () => {
   it("brings a live session forward on a plain open, else starts one", () => {
     expect(
       joinStep({
-        ...NOTHING,
+        ...nothing,
         hasLiveSession: true,
         target: {
           path: PROJECT
@@ -260,7 +260,7 @@ describe("joinStep", () => {
     ).toBe(JoinStep.SELECT_LIVE);
     expect(
       joinStep({
-        ...NOTHING,
+        ...nothing,
         target: {
           path: PROJECT
         }
@@ -270,14 +270,14 @@ describe("joinStep", () => {
 });
 
 describe("joinProjectChats", () => {
-  const OTHER_RUNNING: RunningSession = {
+  const otherRunning: RunningSession = {
     id: "other",
     conversationId: "conversation-other",
     project: OTHER_PROJECT
   };
 
   it("starts a fresh chat beside another project's sessions, stopping nothing", async () => {
-    const fake = fakeHost({ running: [OTHER_RUNNING] });
+    const fake = fakeHost({ running: [otherRunning] });
     await joinProjectChats({
       host: fake.host,
       target: {
@@ -297,7 +297,7 @@ describe("joinProjectChats", () => {
   it("relaunches only the picked persisted chat, in its project", async () => {
     const fake = fakeHost({
       registry: PERSISTED_REGISTRY,
-      running: [OTHER_RUNNING]
+      running: [otherRunning]
     });
     await joinProjectChats({
       host: fake.host,
@@ -320,7 +320,7 @@ describe("joinProjectChats", () => {
   it("brings the project's own live session forward on a plain open", async () => {
     const fake = fakeHost({
       running: [
-        OTHER_RUNNING,
+        otherRunning,
         {
           id: "mine",
           conversationId: "conversation-mine",
@@ -339,7 +339,7 @@ describe("joinProjectChats", () => {
   });
 
   it("resumes a recorded conversation into its project", async () => {
-    const fake = fakeHost({ running: [OTHER_RUNNING] });
+    const fake = fakeHost({ running: [otherRunning] });
     await joinProjectChats({
       host: fake.host,
       target: {

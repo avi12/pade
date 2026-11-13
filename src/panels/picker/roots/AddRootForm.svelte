@@ -14,7 +14,7 @@
   const { roots, onadd }: {
     roots: string[];
     onadd: (path: string, options: {
-      create: boolean;
+      shouldCreate: boolean;
     }) => Promise<AddRootOutcome>;
   } = $props();
 
@@ -53,10 +53,10 @@
   // label already says which). Only an `added` outcome clears the field - a
   // file or a stray location is caught by the disabled gate + the live banner.
   // Shared by the form submit and the folder-picked-from-dialog paths.
-  async function add(path: string, { create }: {
-    create: boolean;
+  async function add(path: string, { shouldCreate }: {
+    shouldCreate: boolean;
   }) {
-    const outcome = await onadd(path, { create });
+    const outcome = await onadd(path, { shouldCreate });
     if (outcome.status === AddRootStatus.enum.added) {
       newRoot = "";
     }
@@ -70,7 +70,7 @@
       e.preventDefault();
 
       if (assessment.addablePath) {
-        await add(assessment.addablePath, { create: assessment.canCreate });
+        await add(assessment.addablePath, { shouldCreate: assessment.canCreate });
       }
     }}
   >
@@ -97,7 +97,7 @@
           multiple: false
         });
         if (typeof picked === "string") {
-          await add(picked, { create: false });
+          await add(picked, { shouldCreate: false });
         }
       }}
       type="button"

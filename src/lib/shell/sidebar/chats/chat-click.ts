@@ -13,14 +13,14 @@ import type { OpenTarget } from "@/lib/types/window";
 export interface ChatPick {
   project: string;
   chatId: string;
-  opensNewWindow: boolean;
+  shouldOpenNewWindow: boolean;
 }
 
 /** A recorded conversation picked in the rail. */
 export interface ConversationPick {
   project: string;
   conversation: RecordedConversation;
-  opensNewWindow: boolean;
+  shouldOpenNewWindow: boolean;
 }
 
 /** The closed set of things a chat click can do. */
@@ -48,19 +48,19 @@ export function chatClickAction({
   isLiveHere,
   elsewhereWindow,
   isRecorded,
-  opensNewWindow
+  shouldOpenNewWindow
 }: {
   isLiveHere: boolean;
   /** The other window that runs it, if one does. */
   elsewhereWindow: string | undefined;
   isRecorded: boolean;
-  opensNewWindow: boolean;
+  shouldOpenNewWindow: boolean;
 }) {
   if (elsewhereWindow !== undefined && !isLiveHere) {
     return ChatClickAction.FOCUS_OTHER_WINDOW;
   }
 
-  if (opensNewWindow) {
+  if (shouldOpenNewWindow) {
     if (isLiveHere) {
       return ChatClickAction.MOVE_TO_NEW_WINDOW;
     }
@@ -97,7 +97,7 @@ export async function runChatClick({
   liveSession,
   elsewhere,
   isRecorded,
-  opensNewWindow,
+  shouldOpenNewWindow,
   reopen,
   openHere
 }: {
@@ -107,7 +107,7 @@ export async function runChatClick({
   /** Another window's session running it, if any. */
   elsewhere: Pick<ElsewhereSession, "id" | "windowLabel"> | undefined;
   isRecorded: boolean;
-  opensNewWindow: boolean;
+  shouldOpenNewWindow: boolean;
   /** The hand-off that reopens it in a new window. */
   reopen: WindowHandoff;
   /** The entry that resumes or relaunches it here. */
@@ -141,7 +141,7 @@ export async function runChatClick({
       isLiveHere: liveSession !== undefined,
       elsewhereWindow: elsewhere?.windowLabel,
       isRecorded,
-      opensNewWindow
+      shouldOpenNewWindow
     })
   ]();
 }

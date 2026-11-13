@@ -181,10 +181,10 @@ describe("whenAgentSettled", () => {
       id: SESSION,
       chunk: titleSequence("◐ Work")
     });
-    let settled = false;
+    let isSettled = false;
     async function awaitSettled() {
       await whenAgentSettled(SESSION);
-      settled = true;
+      isSettled = true;
     }
 
     const waiting = awaitSettled();
@@ -194,14 +194,14 @@ describe("whenAgentSettled", () => {
       chunk: titleSequence("◑ Work")
     });
     await Promise.resolve();
-    expect(settled).toBe(false);
+    expect(isSettled).toBe(false);
 
     observeAgentActivity({
       id: SESSION,
       chunk: titleSequence("✳ Work")
     });
     await waiting;
-    expect(settled).toBe(true);
+    expect(isSettled).toBe(true);
   });
 
   it("resolves when the session is dropped mid-wait", async () => {

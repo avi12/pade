@@ -57,13 +57,13 @@ export function createChatActions({
     openHere: projectFlow.openProject
   };
 
-  async function selectChat({ project, chatId, opensNewWindow }: ChatPick) {
+  async function selectChat({ project, chatId, shouldOpenNewWindow }: ChatPick) {
     await runChatClick({
       host: chatClickHost,
       liveSession: windowSessions.sessions.find(session => session.id === chatId),
       elsewhere: roster.sessions.find(session => session.id === chatId),
       isRecorded: false,
-      opensNewWindow,
+      shouldOpenNewWindow,
       reopen: {
         kind: HandoffKind.enum.chat,
         project,
@@ -78,7 +78,7 @@ export function createChatActions({
 
   // A recorded conversation picked in the left rail - the same decision, keyed
   // on the conversation a session runs.
-  async function resumeConversation({ project, conversation, opensNewWindow }: ConversationPick) {
+  async function resumeConversation({ project, conversation, shouldOpenNewWindow }: ConversationPick) {
     function runsConversation(session: { conversationId?: string }) {
       return session.conversationId === conversation.conversationId;
     }
@@ -88,7 +88,7 @@ export function createChatActions({
       liveSession: windowSessions.sessions.find(runsConversation),
       elsewhere: roster.sessions.find(runsConversation),
       isRecorded: true,
-      opensNewWindow,
+      shouldOpenNewWindow,
       reopen: {
         kind: HandoffKind.enum.conversation,
         project,

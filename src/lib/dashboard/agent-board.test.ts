@@ -278,7 +278,7 @@ describe("parseBoardMessage", () => {
 });
 
 describe("the board's windows", () => {
-  const OWN_LABEL = "dashboard";
+  const ownLabel = "dashboard";
   const first = window({
     projectLabel: "w-1",
     agents: [agent({ id: "a" })]
@@ -301,7 +301,7 @@ describe("the board's windows", () => {
         kind: BoardMessageKind.enum.window,
         window: first
       },
-      ownLabel: OWN_LABEL
+      ownLabel
     });
     const updated = windowsAfterMessage({
       windows: withFirst,
@@ -312,7 +312,7 @@ describe("the board's windows", () => {
           agents: []
         }
       },
-      ownLabel: OWN_LABEL
+      ownLabel
     });
     expect(updated.get("w-1")?.agents).toEqual([]);
   });
@@ -338,7 +338,7 @@ describe("the board's windows", () => {
             ...first
           }
         },
-        ownLabel: OWN_LABEL
+        ownLabel
       })
     ).toBe(windows);
   });
@@ -354,7 +354,7 @@ describe("the board's windows", () => {
         kind: BoardMessageKind.enum.windowGone,
         label: "w-2"
       },
-      ownLabel: OWN_LABEL
+      ownLabel
     });
     expect([...after.keys()]).toEqual(["w-1"]);
     expect(
@@ -392,7 +392,7 @@ describe("the board's windows", () => {
         message: {
           kind: BoardMessageKind.enum.rollCall
         },
-        ownLabel: OWN_LABEL
+        ownLabel
       })
     ).toBe(windows);
   });

@@ -208,8 +208,8 @@ export function assessLimit({
     hit,
     account
   });
-  const areCreditsCarrying = account?.credits === CreditsState.enum.available;
-  const isAccountSilent = usageWindow === undefined && !areCreditsCarrying;
+  const isCreditsCarrying = account?.credits === CreditsState.enum.available;
+  const isAccountSilent = usageWindow === undefined && !isCreditsCarrying;
   if (isAccountSilent) {
     return verdictByResetClock({
       resetAt: hit.resetAt,
@@ -218,7 +218,7 @@ export function assessLimit({
   }
 
   const isWindowExhausted = (usageWindow?.utilization ?? 0) >= EXHAUSTED_PERCENTAGE;
-  if (isWindowExhausted && !areCreditsCarrying) {
+  if (isWindowExhausted && !isCreditsCarrying) {
     return LimitVerdict.BLOCKED;
   }
 

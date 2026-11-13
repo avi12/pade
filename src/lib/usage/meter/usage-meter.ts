@@ -282,8 +282,8 @@ export function planCaption(group: AgentGroup) {
  *  named feature cap ("Premium interactions"). */
 function limitName(limit: Limit) {
   const isNamedCap = limit.kind === UsageWindowKind.enum.opaque;
-  const saysUsage = limit.label.toLowerCase().includes(USAGE_WORD);
-  const name = isNamedCap || saysUsage ? limit.label : `${limit.label} ${USAGE_WORD}`;
+  const hasUsageMention = limit.label.toLowerCase().includes(USAGE_WORD);
+  const name = isNamedCap || hasUsageMention ? limit.label : `${limit.label} ${USAGE_WORD}`;
   return limit.sub ? `${name} (${limit.sub})` : name;
 }
 

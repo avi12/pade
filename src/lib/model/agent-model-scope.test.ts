@@ -110,16 +110,16 @@ describe("withProjectModelDefault", () => {
 });
 
 describe("startingModelChoice", () => {
-  const OPUS = { model: "claude-opus-5-5" };
-  const FABLE = { model: "claude-fable-5-2" };
-  const SONNET = { model: "claude-sonnet-5-5" };
+  const opus = { model: "claude-opus-5-5" };
+  const fable = { model: "claude-fable-5-2" };
+  const sonnet = { model: "claude-sonnet-5-5" };
   const prefs: Prefs = {
     agentModelGlobal: {
-      [AgentId.CLAUDE]: OPUS
+      [AgentId.CLAUDE]: opus
     },
     agentModelProjects: {
       [PROJECT]: {
-        [AgentId.CLAUDE]: FABLE
+        [AgentId.CLAUDE]: fable
       }
     }
   };
@@ -132,7 +132,7 @@ describe("startingModelChoice", () => {
         project: PROJECT,
         agent: AgentId.CLAUDE
       })
-    ).toEqual(FABLE);
+    ).toEqual(fable);
   });
 
   it("falls back to every workspace's pick, then the agent's own default", () => {
@@ -143,7 +143,7 @@ describe("startingModelChoice", () => {
         project: "C:/elsewhere",
         agent: AgentId.CLAUDE
       })
-    ).toEqual(OPUS);
+    ).toEqual(opus);
     expect(
       startingModelChoice({
         explicit: undefined,
@@ -157,12 +157,12 @@ describe("startingModelChoice", () => {
   it("keeps a handoff's own choice over both", () => {
     expect(
       startingModelChoice({
-        explicit: SONNET,
+        explicit: sonnet,
         prefs,
         project: PROJECT,
         agent: AgentId.CLAUDE
       })
-    ).toEqual(SONNET);
+    ).toEqual(sonnet);
   });
 });
 

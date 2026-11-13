@@ -12,14 +12,14 @@ import { SessionStatus } from "@/lib/types/agent";
 // Each promise resolution needs a microtask turn; fake timers cover the
 // timeout path without real waiting.
 async function settled(promise: Promise<void>) {
-  let resolved = false;
+  let isResolved = false;
   // Observe resolution without blocking on it - `settled` returns after two
   // microtask turns whether or not the promise resolved (the point is to tell
   // an already-settled promise from a pending one, so it can't be awaited here).
   async function markResolved() {
     try {
       await promise;
-      resolved = true;
+      isResolved = true;
     } catch {
       // A rejected promise counts as not-resolved for this helper.
     }
@@ -27,7 +27,7 @@ async function settled(promise: Promise<void>) {
   void markResolved();
   await Promise.resolve();
   await Promise.resolve();
-  return resolved;
+  return isResolved;
 }
 
 describe("session status", () => {

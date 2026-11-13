@@ -86,7 +86,7 @@ describe("countCodeLines", () => {
 });
 
 describe("judgeSizes", () => {
-  const BASELINED = FILE_SIZE_LIMIT + 100;
+  const baselined = FILE_SIZE_LIMIT + 100;
 
   it("fails a new file over the limit", () => {
     const findings = judgeSizes({
@@ -119,10 +119,10 @@ describe("judgeSizes", () => {
   it("fails a baselined file that grew", () => {
     const findings = judgeSizes({
       sizes: {
-        "a.ts": BASELINED + 1
+        "a.ts": baselined + 1
       },
       baseline: {
-        "a.ts": BASELINED
+        "a.ts": baselined
       }
     });
     expect(findings.map(finding => finding.kind)).toEqual([Verdict.FAIL]);
@@ -131,10 +131,10 @@ describe("judgeSizes", () => {
   it("reports a shrunk baselined file without failing", () => {
     const findings = judgeSizes({
       sizes: {
-        "a.ts": BASELINED - 1
+        "a.ts": baselined - 1
       },
       baseline: {
-        "a.ts": BASELINED
+        "a.ts": baselined
       }
     });
     expect(findings.map(finding => finding.kind)).toEqual([Verdict.SHRUNK]);

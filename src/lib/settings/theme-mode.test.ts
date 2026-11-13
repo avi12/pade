@@ -121,7 +121,7 @@ describe("adoptedMonospaceFace", () => {
 });
 
 describe("stored theme prefs", () => {
-  const SAVED_SETTINGS = {
+  const savedSettings = {
     roots: [],
     defaultAgent: null,
     projectAgents: {}
@@ -129,7 +129,7 @@ describe("stored theme prefs", () => {
 
   function loadedPrefs(prefs: Record<string, unknown>) {
     return Settings.parse({
-      ...SAVED_SETTINGS,
+      ...savedSettings,
       prefs
     }).prefs;
   }

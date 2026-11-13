@@ -255,13 +255,13 @@
           bind:this={rootsSection}
           ides={editors.ides}
           {lifecycle}
-          onadd={async (path, { create }) => {
+          onadd={async (path, { shouldCreate }) => {
             // Only an `added` outcome carries settings to adopt and scans the new
             // root - `missing`/`notADirectory` are handed back untouched so the
             // add-row can prompt to create the folder or show an error.
             const outcome = await requestAddRoot({
               path,
-              create
+              create: shouldCreate
             });
             if (outcome.status !== AddRootStatus.enum.added) {
               return outcome;

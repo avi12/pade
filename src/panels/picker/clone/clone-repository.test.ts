@@ -37,7 +37,7 @@ function request(overrides: Partial<Parameters<typeof cloneRepository>[0]> = {})
     rawUrl: SSH_URL,
     rawName: "poll",
     root: ROOT,
-    needsCredentials: false,
+    isCredentialsRequired: false,
     rawUsername: "avi",
     rawPassword: "token",
     onopen: vi.fn(),
@@ -64,7 +64,7 @@ describe("cloneRepository", () => {
   });
 
   it("sends the HTTPS credentials when no SSH key is on disk", async () => {
-    await cloneRepository(request({ needsCredentials: true }));
+    await cloneRepository(request({ isCredentialsRequired: true }));
     expect(mocks.clone).toHaveBeenCalledWith(
       expect.objectContaining({
         username: "avi",

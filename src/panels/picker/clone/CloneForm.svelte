@@ -56,9 +56,9 @@
   const remoteUnreachable = $derived(remoteSettled && !remoteProbe.reachable);
   // An SSH-style URL with no key on disk can't authenticate - offer HTTPS
   // credentials instead (the backend rewrites the URL for the clone).
-  const needsCredentials = $derived(cloneUrlValid && isSshCloneUrl(cloneUrl) && !hasSshKey);
+  const isCredentialsRequired = $derived(cloneUrlValid && isSshCloneUrl(cloneUrl) && !hasSshKey);
   const credentialsMissing = $derived(
-    needsCredentials
+    isCredentialsRequired
     && !(GitUsername.safeParse(cloneUsername).success && GitSecret.safeParse(clonePassword).success)
   );
   const cloneDisabled = $derived(
@@ -119,7 +119,7 @@
       rawUrl: cloneUrl,
       rawName: cloneName,
       root: createIn,
-      needsCredentials,
+      isCredentialsRequired,
       rawUsername: cloneUsername,
       rawPassword: clonePassword,
       onopen
@@ -155,7 +155,7 @@
     </div>
   </div>
 
-  {#if needsCredentials}
+  {#if isCredentialsRequired}
     <CloneCredentials bind:username={cloneUsername} bind:password={clonePassword} />
   {/if}
 

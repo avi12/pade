@@ -16,7 +16,7 @@
     lifecycle: WorkspaceLifecycle;
     onopen: (target: { path: string }) => void;
     onadd: (path: string, options: {
-      create: boolean;
+      shouldCreate: boolean;
     }) => Promise<AddRootOutcome>;
     onremove: (path: string) => Promise<void>;
   } = $props();

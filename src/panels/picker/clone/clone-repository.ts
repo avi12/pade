@@ -28,7 +28,7 @@ export async function cloneRepository({
   rawUrl,
   rawName,
   root,
-  needsCredentials,
+  isCredentialsRequired,
   rawUsername,
   rawPassword,
   onopen
@@ -38,7 +38,7 @@ export async function cloneRepository({
   root: string;
   /** An SSH-style URL with no key on disk - the backend rewrites it to HTTPS
    *  and authenticates with the username + password instead. */
-  needsCredentials: boolean;
+  isCredentialsRequired: boolean;
   rawUsername: string;
   rawPassword: string;
   onopen: (target: OpenTarget) => void;
@@ -61,12 +61,12 @@ export async function cloneRepository({
       root,
       name,
       username: credential({
-        isNeeded: needsCredentials,
+        isNeeded: isCredentialsRequired,
         schema: GitUsername,
         raw: rawUsername
       }),
       password: credential({
-        isNeeded: needsCredentials,
+        isNeeded: isCredentialsRequired,
         schema: GitSecret,
         raw: rawPassword
       })

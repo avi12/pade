@@ -13,7 +13,7 @@
      *  where the picker is already on screen. */
     onswitch?: () => void;
     /** Start a throwaway workspace - in this window, or a new one. */
-    onthrowaway: (opensNewWindow: boolean) => void;
+    onthrowaway: (shouldOpenNewWindow: boolean) => void;
     /** Spawn a fresh window in this mode. */
     onspawn: (mode: WindowMode) => void;
   } = $props();

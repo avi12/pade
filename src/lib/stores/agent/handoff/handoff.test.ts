@@ -199,13 +199,13 @@ describe("createAutoHandoff", () => {
     // own kill raced its exit event into a bare extra tab that also stole the
     // active pane from the successor. Model it: an exit is only "announced" if
     // the handoff went through endSession first.
-    let announced = false;
+    let isAnnounced = false;
     let spuriousRespawns = 0;
     mocks.kill.mockImplementation(async (id: string) => {
       // The exit event lands while the kill is still settling - before the
       // shell has had a chance to drop the session.
-      const stillListed = sessions.some(session => session.id === id);
-      if (!announced && stillListed) {
+      const isStillListed = sessions.some(session => session.id === id);
+      if (!isAnnounced && isStillListed) {
         spuriousRespawns += 1;
       }
     });
@@ -218,12 +218,12 @@ describe("createAutoHandoff", () => {
       slugSource: () => "pade",
       projectDirectory: () => "C:/repositories/pade",
       async endSession(id) {
-        announced = true;
+        isAnnounced = true;
         await mocks.kill(id);
       },
       removeSession(id) {
         sessions = sessions.filter(session => session.id !== id);
-        announced = false;
+        isAnnounced = false;
       },
       launchSuccessor: () => "new-session"
     });
@@ -236,8 +236,8 @@ describe("createAutoHandoff", () => {
   });
 
   it("holds a handoff until the agent's background work finishes", async () => {
-    const ESCAPE = "\u001b";
-    const BELL = "\u0007";
+    const escape = "\u001b";
+    const bell = "\u0007";
     const predecessor: AgentSession = {
       id: "workflow-session",
       agent: {
@@ -255,7 +255,7 @@ describe("createAutoHandoff", () => {
     // still carries its busy glyph.
     observeAgentActivity({
       id: predecessor.id,
-      chunk: `${ESCAPE}]0;◐ Finish the curriculum repair${BELL}`
+      chunk: `${escape}]0;◐ Finish the curriculum repair${bell}`
     });
 
     const handoff = createAutoHandoff({
@@ -284,7 +284,7 @@ describe("createAutoHandoff", () => {
 
     observeAgentActivity({
       id: predecessor.id,
-      chunk: `${ESCAPE}]0;✳ Finish the curriculum repair${BELL}`
+      chunk: `${escape}]0;✳ Finish the curriculum repair${bell}`
     });
     await vi.waitFor(() => expect(launched).toEqual(["successor"]));
     expect(mocks.kill).toHaveBeenCalledWith(predecessor.id);
@@ -298,8 +298,8 @@ describe("createAutoHandoff", () => {
   // printed an update banner, rejected the model its account was configured for,
   // and its boot output alone looked like a finished turn.
   describe("retiring the handoff doc", () => {
-    const ESCAPE = "\u001b";
-    const BELL = "\u0007";
+    const escape = "\u001b";
+    const bell = "\u0007";
     const predecessor: AgentSession = {
       id: "old-session",
       agent: {
@@ -347,14 +347,14 @@ describe("createAutoHandoff", () => {
 
       observeAgentActivity({
         id: "reading-successor",
-        chunk: `${ESCAPE}]0;◐ Reading the handoff${BELL}`
+        chunk: `${escape}]0;◐ Reading the handoff${bell}`
       });
       await vi.advanceTimersByTimeAsync(4_000);
       expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.HANDOFF_DOC_DELETE, expect.anything());
 
       observeAgentActivity({
         id: "reading-successor",
-        chunk: `${ESCAPE}]0;✳ Reading the handoff${BELL}`
+        chunk: `${escape}]0;✳ Reading the handoff${bell}`
       });
       await vi.advanceTimersByTimeAsync(4_000);
       expect(mocks.sendMessage).toHaveBeenCalledWith(
@@ -383,8 +383,8 @@ describe("createAutoHandoff", () => {
   });
 
   it("holds a near-limit session back in the scan while its agent reports work", async () => {
-    const ESCAPE = "\u001b";
-    const BELL = "\u0007";
+    const escape = "\u001b";
+    const bell = "\u0007";
     const session: AgentSession = {
       id: "scanned-session",
       agent: {
@@ -398,7 +398,7 @@ describe("createAutoHandoff", () => {
     };
     observeAgentActivity({
       id: session.id,
-      chunk: `${ESCAPE}]0;◑ Waiting on a workflow${BELL}`
+      chunk: `${escape}]0;◑ Waiting on a workflow${bell}`
     });
 
     const launched: string[] = [];
@@ -425,7 +425,7 @@ describe("createAutoHandoff", () => {
 
     observeAgentActivity({
       id: session.id,
-      chunk: `${ESCAPE}]0;✳ Waiting on a workflow${BELL}`
+      chunk: `${escape}]0;✳ Waiting on a workflow${bell}`
     });
     handoff.check();
     await vi.waitFor(() => expect(launched).toEqual(["successor"]));
@@ -448,11 +448,11 @@ describe("createAutoHandoff", () => {
   });
 
   it("hands off mid-turn once the agent is about to auto-compact", async () => {
-    const ESCAPE = "\u001b";
-    const BELL = "\u0007";
+    const escape = "\u001b";
+    const bell = "\u0007";
     observeAgentActivity({
       id: scannedSession.id,
-      chunk: `${ESCAPE}]0;◑ Working${BELL}`
+      chunk: `${escape}]0;◑ Working${bell}`
     });
     vi.mocked(measuredContextPercentage).mockReturnValue(40);
     vi.mocked(compactionHeadroom).mockReturnValue(2);

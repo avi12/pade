@@ -369,7 +369,7 @@ describe("assessPace", () => {
 });
 
 describe("assessPace, weekly", () => {
-  const TWELVE_HOURS_MS = 12 * HOUR_MS;
+  const twelveHoursMs = 12 * HOUR_MS;
 
   function assessWeekly({
     utilization,
@@ -389,7 +389,7 @@ describe("assessPace, weekly", () => {
       ]),
       now: NOW,
       isPaused,
-      marginOf: () => TWELVE_HOURS_MS,
+      marginOf: () => twelveHoursMs,
       rateOf: () => null
     });
   }
@@ -416,7 +416,7 @@ describe("assessPace, weekly", () => {
       account: account96,
       now: NOW,
       isPaused: false,
-      marginOf: () => TWELVE_HOURS_MS,
+      marginOf: () => twelveHoursMs,
       rateOf: () => perHour(2)
     });
     expect(pace?.kind).toBe(PacedWindowKind.enum.weekly);
@@ -426,7 +426,7 @@ describe("assessPace, weekly", () => {
       hasRoomToSpare({
         account: account96,
         now: NOW,
-        marginOf: () => TWELVE_HOURS_MS,
+        marginOf: () => twelveHoursMs,
         rateOf: () => perHour(2)
       })
     ).toBe(false);
@@ -443,7 +443,7 @@ describe("assessPace, weekly", () => {
         ]),
         now: NOW,
         isPaused: false,
-        marginOf: () => TWELVE_HOURS_MS,
+        marginOf: () => twelveHoursMs,
         rateOf: () => perHour(0.4)
       })
     ).toBeNull();
@@ -564,12 +564,12 @@ describe("isRestEnough", () => {
 });
 
 describe("workingRunway", () => {
-  const RESETS_IN = 54 * HOUR_MS;
+  const resetsIn = 54 * HOUR_MS;
   const window = weeklyWindow({
     utilization: 76,
-    resetsIn: RESETS_IN
+    resetsIn
   });
-  const continueAt = NOW + RESETS_IN - RESET_GRACE_MS;
+  const continueAt = NOW + resetsIn - RESET_GRACE_MS;
   // An even spend reaches 76% about 14 hours from now.
   const readyAt = NOW + 14 * HOUR_MS;
 

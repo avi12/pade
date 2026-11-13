@@ -239,7 +239,7 @@ function member({
   path,
   name = null,
   ecosystem = "javascript",
-  repository = false
+  repository: isRepository = false
 }: {
   path: string;
   name?: string | null;
@@ -250,7 +250,7 @@ function member({
     path,
     name,
     ecosystem,
-    repository
+    repository: isRepository
   };
 }
 

@@ -29,10 +29,10 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
 });
 
 vi.mock("@/lib/settings/settings-requests", async () => {
-  const { Command } = await import("@/lib/ipc/messaging");
+  const { Command: commandNames } = await import("@/lib/ipc/messaging");
   return {
     sendSettingsMessage: vi.fn(async (command: string, data: { path: string }) => {
-      if (command === Command.WORKSPACE_DELETE) {
+      if (command === commandNames.WORKSPACE_DELETE) {
         calls.push(`delete ${data.path}`);
         throw new Error("folder busy");
       }

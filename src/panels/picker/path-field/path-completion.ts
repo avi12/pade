@@ -7,8 +7,8 @@ import type { TaggedPathProbe } from "@/lib/types/workspace";
 export function nextSegmentCompletion({ typed, probe }: { typed: string; probe: TaggedPathProbe }) {
   const isProbeCurrent = probe.path === typed;
   const { completion } = probe.result;
-  const reachesFurther = completion.length > typed.length;
-  if (!isProbeCurrent || !reachesFurther) {
+  const canReachFurther = completion.length > typed.length;
+  if (!isProbeCurrent || !canReachFurther) {
     return null;
   }
 

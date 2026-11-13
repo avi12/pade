@@ -179,7 +179,7 @@ export async function sessionExited({ context, id }: { context: LifecycleContext
     return;
   }
 
-  const wasLastSession = layout.sessions.length === 1;
+  const isLastSession = layout.sessions.length === 1;
   const isExitFailedStart = isFailedStart({
     layout,
     id
@@ -189,7 +189,7 @@ export async function sessionExited({ context, id }: { context: LifecycleContext
   await Promise.allSettled([sendMessage(Command.PTY_KILL, { id })]);
   host.onRetired(session);
 
-  if (wasLastSession) {
+  if (isLastSession) {
     host.onEmptied({
       agent: session.agent,
       project: session.project,

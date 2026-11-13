@@ -45,40 +45,40 @@ export function nextSidebarPosition({
       item: 0
     };
   }
-  const isKeyEqualsSidebarKeyUPAnd = key === SidebarKey.UP && position.line > 0;
 
+  const isKeyEqualsSidebarKeyUPAnd = key === SidebarKey.UP && position.line > 0;
   if (isKeyEqualsSidebarKeyUPAnd) {
     return {
       line: position.line - 1,
       item: 0
     };
   }
-  const isKeyEqualsSidebarKeyRIGHTAnd = key === SidebarKey.RIGHT && position.item < lastItem;
 
+  const isKeyEqualsSidebarKeyRIGHTAnd = key === SidebarKey.RIGHT && position.item < lastItem;
   if (isKeyEqualsSidebarKeyRIGHTAnd) {
     return {
       line: position.line,
       item: position.item + 1
     };
   }
-  const isKeyEqualsSidebarKeyLEFTAnd = key === SidebarKey.LEFT && position.item > 0;
 
+  const isKeyEqualsSidebarKeyLEFTAnd = key === SidebarKey.LEFT && position.item > 0;
   if (isKeyEqualsSidebarKeyLEFTAnd) {
     return {
       line: position.line,
       item: position.item - 1
     };
   }
-  const isKeyEqualsSidebarKeyHOMEAnd = key === SidebarKey.HOME && lastLine >= 0;
 
+  const isKeyEqualsSidebarKeyHOMEAnd = key === SidebarKey.HOME && lastLine >= 0;
   if (isKeyEqualsSidebarKeyHOMEAnd) {
     return {
       line: 0,
       item: 0
     };
   }
-  const isKeyEqualsSidebarKeyENDAnd = key === SidebarKey.END && lastLine >= 0;
 
+  const isKeyEqualsSidebarKeyENDAnd = key === SidebarKey.END && lastLine >= 0;
   if (isKeyEqualsSidebarKeyENDAnd) {
     return {
       line: lastLine,

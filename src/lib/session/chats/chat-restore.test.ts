@@ -70,26 +70,26 @@ describe("shouldStartFreshChat", () => {
   it("starts fresh only for a prompt, an explicit ask, or nothing restored", () => {
     expect(
       shouldStartFreshChat({
-        wantNewChat: false,
+        shouldStartNewChat: false,
         hasRestoredChats: true
       })
     ).toBe(false);
     expect(
       shouldStartFreshChat({
         initialPrompt: "build it",
-        wantNewChat: false,
+        shouldStartNewChat: false,
         hasRestoredChats: true
       })
     ).toBe(true);
     expect(
       shouldStartFreshChat({
-        wantNewChat: true,
+        shouldStartNewChat: true,
         hasRestoredChats: true
       })
     ).toBe(true);
     expect(
       shouldStartFreshChat({
-        wantNewChat: false,
+        shouldStartNewChat: false,
         hasRestoredChats: false
       })
     ).toBe(true);

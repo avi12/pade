@@ -139,7 +139,7 @@ describe("parseLimitHit", () => {
 });
 
 describe("assessLimit", () => {
-  const RESET_AT = new Date(2026, 6, 17, 17, 30, 0, 0).getTime();
+  const resetAt = new Date(2026, 6, 17, 17, 30, 0, 0).getTime();
 
   function account({ sessionUtilization, credits }: { sessionUtilization: number; credits?: CreditsState }) {
     return {
@@ -149,7 +149,7 @@ describe("assessLimit", () => {
           kind: UsageWindowKind.enum.session,
           label: "Five hour",
           utilization: sessionUtilization,
-          resetsAt: new Date(RESET_AT).toISOString()
+          resetsAt: new Date(resetAt).toISOString()
         }
       ],
       plan: "Claude max",
@@ -160,7 +160,7 @@ describe("assessLimit", () => {
 
   const waiting = {
     window: LimitWindow.SESSION,
-    resetAt: RESET_AT,
+    resetAt,
     isConfirmed: true
   };
   const freshlySniffed = {
@@ -225,7 +225,7 @@ describe("assessLimit", () => {
   });
 
   it("leaves an unreadable account to the reset clock", () => {
-    const afterResetAndBuffer = RESET_AT + 5 * 60_000;
+    const afterResetAndBuffer = resetAt + 5 * 60_000;
     expect(
       assessLimit({
         hit: waiting,

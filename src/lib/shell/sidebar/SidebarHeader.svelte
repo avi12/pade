@@ -85,10 +85,10 @@
             hideMenu();
             onswitch();
           }}
-        onthrowaway={async opensNewWindow => {
+        onthrowaway={async shouldOpenNewWindow => {
           hideMenu();
 
-          if (opensNewWindow) {
+          if (shouldOpenNewWindow) {
             await sendMessage(Command.WINDOW_CREATE, { mode: WindowMode.enum.temp });
             return;
           }

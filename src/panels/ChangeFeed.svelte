@@ -78,9 +78,9 @@
   // second is exactly the kind of background frame churn to avoid.
   function isAgeLabelStale() {
     const newest = feedStore.events[0]?.ts;
-    const showsSecondsAge = newest !== undefined && Date.now() - newest < 60_000;
-    const minuteRolledOver = Math.floor(Date.now() / 60_000) !== Math.floor(now / 60_000);
-    return showsSecondsAge || minuteRolledOver;
+    const shouldShowSecondsAge = newest !== undefined && Date.now() - newest < 60_000;
+    const hasMinuteRolledOver = Math.floor(Date.now() / 60_000) !== Math.floor(now / 60_000);
+    return shouldShowSecondsAge || hasMinuteRolledOver;
   }
 
   onMount(async () => {

@@ -1,6 +1,24 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "extends": ["./node_modules/oxlint-config-avi12/browser.json", "./node_modules/oxlint-plugin-naming/preset.json"],
+  "rules": {
+    "naming/convention": [
+      "error",
+      {
+        "allowedNames": [
+          {
+            "reason": "xterm private internals, reached to read the wrapped-line provider",
+            "names": ["_core", "_linkProviderService"]
+          },
+          { "reason": "Tauri injects this global on window; tests stub it", "names": ["__TAURI_INTERNALS__"] },
+          {
+            "reason": "snake_case keys of the pacing report JSON written by the Rust side",
+            "names": ["five_hour", "usage_pace", "load_shedding", "subagent_steps", "account_round"]
+          }
+        ]
+      }
+    ]
+  },
   "overrides": [
     {
       "files": ["scripts/**", "*.config.ts", "*.config.js"],
