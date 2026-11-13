@@ -45,13 +45,15 @@
         data-tooltip={limitTooltip(limit)}
         transition:growInline
       >
-        <span class="kind">{limit.kindShort}</span>
+        <span class="heading">
+          <span class="kind">{limit.kindShort}</span>
+          {#if resets.count > 0}
+            <span class="reset" data-tooltip="{resets.description} available - open to use one">
+              <Icon name="refresh" size={10} />{formatCount(resets.count)}
+            </span>
+          {/if}
+        </span>
         <span class="percent">{limit.reading}</span>
-        {#if resets.count > 0}
-          <span class="reset" data-tooltip="{resets.description} available - open to use one">
-            <Icon name="refresh" size={9} />{formatCount(resets.count)}
-          </span>
-        {/if}
       </span>
     {/each}
   </span>
@@ -82,11 +84,19 @@
     line-height: 1;
     white-space: nowrap;
 
+    /* The label row carries the limit's letter and, beside it, the free resets
+       that clear it - so a reset adds width, never a third row of height. */
+    .heading {
+      display: inline-flex;
+      gap: 3px;
+      align-items: center;
+    }
+
     .kind {
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-weight: 800;
-      font-size: 0.5rem;
+      font-size: 0.625rem;
       letter-spacing: 0.02em;
     }
 
@@ -96,7 +106,6 @@
       font-size: 0.75rem;
     }
 
-    /* A free reset that clears this limit, right under the number it would zero. */
     .reset {
       display: inline-flex;
       gap: 2px;
@@ -104,7 +113,7 @@
       color: var(--primary);
       font-family: var(--font-monospace);
       font-weight: 800;
-      font-size: 0.5625rem;
+      font-size: 0.625rem;
     }
   }
 
