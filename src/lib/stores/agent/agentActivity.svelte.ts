@@ -181,17 +181,20 @@ export function whenAgentSettled(id: string) {
   }
 
   return new Promise<void>(resolve => {
-    settleWaiters.add(id, resolve);
+    settleWaiters.add({ id, settle: resolve });
   });
 }
 
 // A session that ends forgets its reported activity; anything waiting on it settles.
-registerSessionState(SessionStateKey.enum.activity, {
-  forget(id) {
-    activities.delete(id);
-    carriedSequences.delete(id);
-    turnRunningOnScreen.delete(id);
-    backgroundAgentsOnScreen.delete(id);
-    settleWaiters.settleAll(id);
+registerSessionState({
+  key: SessionStateKey.enum.activity,
+  state: {
+    forget(id) {
+      activities.delete(id);
+      carriedSequences.delete(id);
+      turnRunningOnScreen.delete(id);
+      backgroundAgentsOnScreen.delete(id);
+      settleWaiters.settleAll(id);
+    }
   }
 });

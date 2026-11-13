@@ -178,13 +178,13 @@ function classOfMatch(raw: string) {
   return MATCH_RULES.find(rule => rule.test(raw))?.tokenClass ?? TokenClass.PLAIN;
 }
 
-function classify(raw: string, variables?: Map<string, string>) {
+function classify({ raw, variables }: { raw: string; variables?: Map<string, string> | undefined }) {
   const tokenClass = classOfMatch(raw);
   if (tokenClass === TokenClass.COLOR) {
     return {
       text: raw,
       tokenClass,
-      color: resolveColor(raw, variables) ?? undefined
+      color: resolveColor({ token: raw, variables }) ?? undefined
     };
   }
 
@@ -210,7 +210,7 @@ function identifierRole({ text, end }: { text: string; end: number }) {
 
 /** Split a snippet (a line, or a whole file) into highlighted tokens; color
  *  tokens carry a resolved swatch. Gaps between matches are plain runs. */
-export function tokenize(text: string, variables?: Map<string, string>) {
+export function tokenize({ text, variables }: { text: string; variables?: Map<string, string> | undefined }) {
   const tokens: Token[] = [];
   let previousEnd = 0;
 
@@ -220,7 +220,7 @@ export function tokenize(text: string, variables?: Map<string, string>) {
       tokens.push(plain(text.slice(previousEnd, start)));
     }
 
-    const token: Token = classify(match[0], variables);
+    const token: Token = classify({ raw: match[0], variables });
     const end = start + match[0].length;
     if (token.tokenClass === TokenClass.PLAIN) {
       token.tokenClass = identifierRole({
@@ -328,7 +328,7 @@ function markdownLineTokens(line: string) {
 
 /** Split a markdown document into highlighted tokens (structure-only coloring;
  *  fenced code blocks are handed to the generic scanner). */
-export function tokenizeMarkdown(text: string, variables?: Map<string, string>) {
+export function tokenizeMarkdown({ text, variables }: { text: string; variables?: Map<string, string> | undefined }) {
   const tokens: Token[] = [];
   let isInFence = false;
 
@@ -346,7 +346,7 @@ export function tokenizeMarkdown(text: string, variables?: Map<string, string>) 
       continue;
     }
 
-    tokens.push(...(isInFence ? tokenize(line, variables) : markdownLineTokens(line)));
+    tokens.push(...(isInFence ? tokenize({ text: line, variables }) : markdownLineTokens(line)));
   }
 
   if (tokens.length === 0) {

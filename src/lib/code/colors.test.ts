@@ -33,39 +33,39 @@ describe("collectVars", () => {
 
 describe("resolveColor", () => {
   it("returns a literal color as-is", () => {
-    expect(resolveColor("#3366ff")).toBe("#3366ff");
+    expect(resolveColor({ token: "#3366ff" })).toBe("#3366ff");
   });
 
   it("rejects text that is not a color", () => {
-    expect(resolveColor("banana")).toBeNull();
+    expect(resolveColor({ token: "banana" })).toBeNull();
   });
 
   it("traces a var() through the provided token map", () => {
     const variables = collectVars("--brand: #123456;");
 
-    expect(resolveColor("var(--brand)", variables)).toBe("#123456");
+    expect(resolveColor({ token: "var(--brand)", variables })).toBe("#123456");
   });
 
   it("follows nested var() references", () => {
     const variables = collectVars("--alias: var(--base); --base: rgb(1, 2, 3);");
 
-    expect(resolveColor("var(--alias)", variables)).toBe("rgb(1, 2, 3)");
+    expect(resolveColor({ token: "var(--alias)", variables })).toBe("rgb(1, 2, 3)");
   });
 
   it("tolerates whitespace inside the var() reference", () => {
     const variables = collectVars("--brand: #fff;");
 
-    expect(resolveColor("var( --brand )", variables)).toBe("#fff");
+    expect(resolveColor({ token: "var( --brand )", variables })).toBe("#fff");
   });
 
   it("gives up on a circular var() chain instead of recursing forever", () => {
     const variables = collectVars("--one: var(--two); --two: var(--one);");
 
-    expect(resolveColor("var(--one)", variables)).toBeNull();
+    expect(resolveColor({ token: "var(--one)", variables })).toBeNull();
   });
 
   it("returns null for an unknown var() with no document to fall back to", () => {
-    expect(resolveColor("var(--missing)", new Map())).toBeNull();
+    expect(resolveColor({ token: "var(--missing)", variables: new Map() })).toBeNull();
   });
 });
 

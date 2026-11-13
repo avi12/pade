@@ -59,9 +59,12 @@ export function createAgentRetheme(host: AgentRethemeHost) {
   // until the user happened to restart it by hand.
   const awaitingRetheme = new SvelteSet<string>();
 
-  registerSessionState(SessionStateKey.enum.retheme, {
-    forget(id) {
-      spawnSchemeBySession.delete(id);
+  registerSessionState({
+    key: SessionStateKey.enum.retheme,
+    state: {
+      forget(id) {
+        spawnSchemeBySession.delete(id);
+      }
     }
   });
 

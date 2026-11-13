@@ -234,26 +234,29 @@ function reconcileNaming({ id, status }: { id: string; status: SessionStatus }) 
 
 // The ✦ toggle outlives a restart, a reload and a hand-off: what is kept is the
 // agent command that names the session, saved only while naming is on.
-registerSessionState(SessionStateKey.enum.naming, {
-  forget: dropNaming,
-  carry({ fromId, toId }) {
-    const agent = naming.get(fromId);
-    if (agent !== undefined) {
-      startNaming({
-        id: toId,
-        agent
-      });
-    }
-  },
-  save: id => naming.get(id),
-  restore({ id, saved }) {
-    const parsed = z.string().safeParse(saved);
-    if (parsed.success) {
-      setNaming({
-        id,
-        agent: parsed.data,
-        isOn: true
-      });
+registerSessionState({
+  key: SessionStateKey.enum.naming,
+  state: {
+    forget: dropNaming,
+    carry({ fromId, toId }) {
+      const agent = naming.get(fromId);
+      if (agent !== undefined) {
+        startNaming({
+          id: toId,
+          agent
+        });
+      }
+    },
+    save: id => naming.get(id),
+    restore({ id, saved }) {
+      const parsed = z.string().safeParse(saved);
+      if (parsed.success) {
+        setNaming({
+          id,
+          agent: parsed.data,
+          isOn: true
+        });
+      }
     }
   }
 });

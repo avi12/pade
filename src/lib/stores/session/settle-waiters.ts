@@ -9,12 +9,12 @@ export function createSettleWaiters() {
   const waitersById = new Map<string, Settle[]>();
 
   /** Wait on `id`'s next settle. */
-  function add(id: string, settle: Settle) {
+  function add({ id, settle }: { id: string; settle: Settle }) {
     waitersById.set(id, [...(waitersById.get(id) ?? []), settle]);
   }
 
   /** Stop waiting - a waiter that gave up (a timeout) without being settled. */
-  function remove(id: string, settle: Settle) {
+  function remove({ id, settle }: { id: string; settle: Settle }) {
     const remaining = (waitersById.get(id) ?? []).filter(waiter => waiter !== settle);
     if (remaining.length > 0) {
       waitersById.set(id, remaining);

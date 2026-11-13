@@ -73,7 +73,7 @@ socket.onmessage = event => {
     pending.delete(message.id);
   }
 };
-function send(method, params = {}) {
+function send({ method, params = {} }) {
   const id = nextId++;
   socket.send(
     JSON.stringify({
@@ -85,16 +85,19 @@ function send(method, params = {}) {
   return new Promise(resolve => pending.set(id, resolve));
 }
 async function evaluate(expression) {
-  const reply = await send("Runtime.evaluate", {
-    expression,
-    returnByValue: true
+  const reply = await send({
+    method: "Runtime.evaluate",
+    params: {
+      expression,
+      returnByValue: true
+    }
   });
   return reply.result?.result?.value;
 }
 
 /** Navigate and poll until `expression` is true (the app boots asynchronously). */
 async function navigateAndExpect({ url, expression, label }) {
-  await send("Page.navigate", { url });
+  await send({ method: "Page.navigate", params: { url } });
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
     if (await evaluate(expression)) {

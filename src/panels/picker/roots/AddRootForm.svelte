@@ -53,9 +53,7 @@
   // label already says which). Only an `added` outcome clears the field - a
   // file or a stray location is caught by the disabled gate + the live banner.
   // Shared by the form submit and the folder-picked-from-dialog paths.
-  async function add(path: string, { shouldCreate }: {
-    shouldCreate: boolean;
-  }) {
+  async function add({ path, shouldCreate }: { path: string; shouldCreate: boolean }) {
     const outcome = await onadd(path, { shouldCreate });
     if (outcome.status === AddRootStatus.enum.added) {
       newRoot = "";
@@ -70,7 +68,7 @@
       e.preventDefault();
 
       if (assessment.addablePath) {
-        await add(assessment.addablePath, { shouldCreate: assessment.canCreate });
+        await add({ path: assessment.addablePath, shouldCreate: assessment.canCreate });
       }
     }}
   >
@@ -97,7 +95,7 @@
           multiple: false
         });
         if (typeof picked === "string") {
-          await add(picked, { shouldCreate: false });
+          await add({ path: picked, shouldCreate: false });
         }
       }}
       type="button"

@@ -23,6 +23,16 @@
     {
       "files": ["scripts/**", "*.config.ts", "*.config.js"],
       "env": { "node": true }
+    },
+    {
+      "files": [
+        "src/lib/ui/motion.ts",
+        "src/lib/session/SessionTabs.svelte",
+        "src/lib/ipc/define-tauri-messaging.ts",
+        "src/lib/settings/settings-requests.ts",
+        "src/lib/terminal/output/ansi.ts"
+      ],
+      "rules": { "house/positional-parameters": "off" }
     }
   ],
   "ignorePatterns": [

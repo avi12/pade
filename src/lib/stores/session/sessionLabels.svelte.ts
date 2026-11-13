@@ -21,21 +21,24 @@ export function sessionLabel(id: string) {
   return labels.get(id);
 }
 
-registerSessionState(SessionStateKey.enum.label, {
-  forget(id) {
-    labels.delete(id);
-  },
-  carry({ fromId, toId }) {
-    const label = labels.get(fromId);
-    if (label !== undefined) {
-      labels.set(toId, label);
-    }
-  },
-  save: id => labels.get(id),
-  restore({ id, saved }) {
-    const parsed = z.string().safeParse(saved);
-    if (parsed.success) {
-      labels.set(id, parsed.data);
+registerSessionState({
+  key: SessionStateKey.enum.label,
+  state: {
+    forget(id) {
+      labels.delete(id);
+    },
+    carry({ fromId, toId }) {
+      const label = labels.get(fromId);
+      if (label !== undefined) {
+        labels.set(toId, label);
+      }
+    },
+    save: id => labels.get(id),
+    restore({ id, saved }) {
+      const parsed = z.string().safeParse(saved);
+      if (parsed.success) {
+        labels.set(id, parsed.data);
+      }
     }
   }
 });

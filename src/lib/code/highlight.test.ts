@@ -13,7 +13,7 @@ vi.stubGlobal("CSS", {
 });
 
 function classOf(text: string) {
-  return tokenize(text)[0].tokenClass;
+  return tokenize({ text })[0].tokenClass;
 }
 
 describe("tokenize", () => {
@@ -41,14 +41,14 @@ describe("tokenize", () => {
   });
 
   it("resolves a hex color to its own swatch", () => {
-    const [token] = tokenize("#3366ff");
+    const [token] = tokenize({ text: "#3366ff" });
 
     expect(token.tokenClass).toBe(TokenClass.COLOR);
     expect(token.color).toBe("#3366ff");
   });
 
   it("resolves an rgb() color", () => {
-    const [token] = tokenize("rgb(1, 2, 3)");
+    const [token] = tokenize({ text: "rgb(1, 2, 3)" });
 
     expect(token.tokenClass).toBe(TokenClass.COLOR);
     expect(token.color).toBe("rgb(1, 2, 3)");
@@ -56,14 +56,14 @@ describe("tokenize", () => {
 
   it("traces a var() color through the provided token map", () => {
     const variables = new Map([["--brand", "#123456"]]);
-    const [token] = tokenize("var(--brand)", variables);
+    const [token] = tokenize({ text: "var(--brand)", variables });
 
     expect(token.tokenClass).toBe(TokenClass.COLOR);
     expect(token.color).toBe("#123456");
   });
 
   it("leaves an unresolvable var() color without a swatch", () => {
-    const [token] = tokenize("var(--missing)", new Map());
+    const [token] = tokenize({ text: "var(--missing)", variables: new Map() });
 
     expect(token.tokenClass).toBe(TokenClass.COLOR);
     expect(token.color).toBeUndefined();
@@ -101,11 +101,11 @@ describe("tokenize", () => {
 
   it("does not treat a `::` pseudo-element or a `://` scheme as a property", () => {
     expect(classOf("div::before")).toBe(TokenClass.PLAIN);
-    expect(tokenize("https://x")[0].tokenClass).toBe(TokenClass.PLAIN);
+    expect(tokenize({ text: "https://x" })[0].tokenClass).toBe(TokenClass.PLAIN);
   });
 
   it("keeps a hyphenated identifier whole", () => {
-    expect(tokenize("mask-image")).toEqual([
+    expect(tokenize({ text: "mask-image" })).toEqual([
       {
         text: "mask-image",
         tokenClass: TokenClass.PLAIN
@@ -118,7 +118,7 @@ describe("tokenize", () => {
   });
 
   it("emits the gaps between matches as plain runs", () => {
-    const tokens = tokenize("const width = 42;");
+    const tokens = tokenize({ text: "const width = 42;" });
 
     expect(tokens.map(token => token.tokenClass)).toEqual([
       TokenClass.KEYWORD,
@@ -132,13 +132,13 @@ describe("tokenize", () => {
 
   it("drops no characters: concatenating token texts reproduces the input", () => {
     const input = `const swatch = "#fff" + rgb(1, 2, 3); // done`;
-    const tokens = tokenize(input);
+    const tokens = tokenize({ text: input });
 
     expect(tokens.map(token => token.text).join("")).toBe(input);
   });
 
   it("returns a single plain token for text with no matches", () => {
-    expect(tokenize("=+;")).toEqual([
+    expect(tokenize({ text: "=+;" })).toEqual([
       {
         text: "=+;",
         tokenClass: TokenClass.PLAIN
@@ -164,41 +164,41 @@ describe("isSyntax", () => {
 });
 
 describe("tokenizeMarkdown", () => {
-  function markdownClassOf(tokens: Token[], text: string) {
+  function markdownClassOf({ tokens, text }: { tokens: Token[]; text: string }) {
     return tokens.find(token => token.text.includes(text))?.tokenClass;
   }
 
   it("leaves prose plain - 'use' and 'for' are words here, not keywords", () => {
-    const tokens = tokenizeMarkdown("use pnpm for the extension framework.");
+    const tokens = tokenizeMarkdown({ text: "use pnpm for the extension framework." });
     expect(tokens).toHaveLength(1);
     expect(tokens[0]?.tokenClass).toBe(TokenClass.PLAIN);
   });
 
   it("colors structure: headings, quotes, list markers, inline spans", () => {
-    const tokens = tokenizeMarkdown(
-      ["# Title", "> a quote", "- item with `code` and **bold** and [a link](https://x)"].join("\n")
-    );
+    const tokens = tokenizeMarkdown({
+      text: ["# Title", "> a quote", "- item with `code` and **bold** and [a link](https://x)"].join("\n")
+    });
 
-    expect(markdownClassOf(tokens, "# Title")).toBe(TokenClass.KEYWORD);
-    expect(markdownClassOf(tokens, "> a quote")).toBe(TokenClass.COMMENT);
-    expect(markdownClassOf(tokens, "- ")).toBe(TokenClass.NUMBER);
-    expect(markdownClassOf(tokens, "`code`")).toBe(TokenClass.STRING);
-    expect(markdownClassOf(tokens, "**bold**")).toBe(TokenClass.KEYWORD);
-    expect(markdownClassOf(tokens, "[a link](https://x)")).toBe(TokenClass.FUNCTION);
-    expect(markdownClassOf(tokens, "item with ")).toBe(TokenClass.PLAIN);
+    expect(markdownClassOf({ tokens, text: "# Title" })).toBe(TokenClass.KEYWORD);
+    expect(markdownClassOf({ tokens, text: "> a quote" })).toBe(TokenClass.COMMENT);
+    expect(markdownClassOf({ tokens, text: "- " })).toBe(TokenClass.NUMBER);
+    expect(markdownClassOf({ tokens, text: "`code`" })).toBe(TokenClass.STRING);
+    expect(markdownClassOf({ tokens, text: "**bold**" })).toBe(TokenClass.KEYWORD);
+    expect(markdownClassOf({ tokens, text: "[a link](https://x)" })).toBe(TokenClass.FUNCTION);
+    expect(markdownClassOf({ tokens, text: "item with " })).toBe(TokenClass.PLAIN);
   });
 
   it("hands fenced code blocks to the generic scanner", () => {
-    const tokens = tokenizeMarkdown(["```ts", "const answer = 42;", "```"].join("\n"));
+    const tokens = tokenizeMarkdown({ text: ["```ts", "const answer = 42;", "```"].join("\n") });
 
-    expect(markdownClassOf(tokens, "```ts")).toBe(TokenClass.COMMENT);
-    expect(markdownClassOf(tokens, "const")).toBe(TokenClass.KEYWORD);
-    expect(markdownClassOf(tokens, "42")).toBe(TokenClass.NUMBER);
+    expect(markdownClassOf({ tokens, text: "```ts" })).toBe(TokenClass.COMMENT);
+    expect(markdownClassOf({ tokens, text: "const" })).toBe(TokenClass.KEYWORD);
+    expect(markdownClassOf({ tokens, text: "42" })).toBe(TokenClass.NUMBER);
   });
 
   it("round-trips the exact text, newlines included", () => {
     const source = "# H\n\ntext `x`\n";
-    const rebuilt = tokenizeMarkdown(source)
+    const rebuilt = tokenizeMarkdown({ text: source })
       .map(token => token.text)
       .join("");
     expect(rebuilt).toBe(source);

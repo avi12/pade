@@ -309,18 +309,21 @@ function record({ id, text }: { id: string; text: string }) {
   histories.set(id, history.slice(-HISTORY_LENGTH));
 }
 
-registerSessionState(SessionStateKey.enum.usagePacing, {
-  forget(id) {
-    forgetPace(id);
-    forgetTerminalStop(id);
-    verdicts.delete(id);
-    histories.delete(id);
-    skippedUntil.delete(id);
-    continuedAnyway.delete(id);
-    shieldedUntil.delete(id);
-    workingSince.delete(id);
-    workingShares.delete(id);
-    accountKeys.delete(id);
+registerSessionState({
+  key: SessionStateKey.enum.usagePacing,
+  state: {
+    forget(id) {
+      forgetPace(id);
+      forgetTerminalStop(id);
+      verdicts.delete(id);
+      histories.delete(id);
+      skippedUntil.delete(id);
+      continuedAnyway.delete(id);
+      shieldedUntil.delete(id);
+      workingSince.delete(id);
+      workingShares.delete(id);
+      accountKeys.delete(id);
+    }
   }
 });
 

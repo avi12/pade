@@ -478,8 +478,11 @@ export function sessionModel(id: string) {
   };
 }
 
-registerSessionState(SessionStateKey.enum.context, {
-  forget(id) {
-    signals.delete(id);
+registerSessionState({
+  key: SessionStateKey.enum.context,
+  state: {
+    forget(id) {
+      signals.delete(id);
+    }
   }
 });

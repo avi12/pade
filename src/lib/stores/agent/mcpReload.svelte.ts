@@ -64,4 +64,4 @@ export function dropMcpReload(id: string) {
   failed.delete(id);
 }
 
-registerSessionState(SessionStateKey.enum.mcpReload, { forget: dropMcpReload });
+registerSessionState({ key: SessionStateKey.enum.mcpReload, state: { forget: dropMcpReload } });

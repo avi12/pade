@@ -7,7 +7,7 @@ import type { AgentSession } from "@/lib/types/agent";
 import { normalizePath } from "@/lib/util/paths";
 
 /** Whether two project paths name the same folder. */
-export function isSameProject(left: string, right: string) {
+export function isSameProject({ left, right }: { left: string; right: string }) {
   return normalizePath(left) === normalizePath(right);
 }
 
@@ -31,7 +31,7 @@ export function sessionsOfProject<Session extends Pick<AgentSession, "project">>
   sessions: readonly Session[];
   project: string;
 }) {
-  return sessions.filter(session => isSameProject(session.project, project));
+  return sessions.filter(session => isSameProject({ left: session.project, right: project }));
 }
 
 /** The session to bring forward when a project with live sessions is picked:

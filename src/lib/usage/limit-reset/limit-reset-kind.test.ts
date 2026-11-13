@@ -75,7 +75,7 @@ describe("limitResetTotal", () => {
   });
 });
 
-function limit(kind: Limit["kind"], kindShort: string) {
+function limit({ kind, kindShort }: { kind: Limit["kind"]; kindShort: string }) {
   return {
     kind,
     kindShort
@@ -88,7 +88,7 @@ describe("limitResetsFor", () => {
     expect(
       limitResetsFor({
         offers,
-        limit: limit("weekly", "W")
+        limit: limit({ kind: "weekly", kindShort: "W" })
       })
     ).toEqual({
       count: 1,
@@ -97,7 +97,7 @@ describe("limitResetsFor", () => {
     expect(
       limitResetsFor({
         offers,
-        limit: limit("model", "F")
+        limit: limit({ kind: "model", kindShort: "F" })
       })
     ).toEqual({
       count: 3,
@@ -106,13 +106,13 @@ describe("limitResetsFor", () => {
     expect(
       limitResetsFor({
         offers,
-        limit: limit("session", "S")
+        limit: limit({ kind: "session", kindShort: "S" })
       }).count
     ).toBe(0);
     expect(
       limitResetsFor({
         offers,
-        limit: limit("credits", "E")
+        limit: limit({ kind: "credits", kindShort: "E" })
       }).count
     ).toBe(0);
   });
@@ -126,13 +126,13 @@ describe("limitResetsFor", () => {
     expect(
       limitResetsFor({
         offers: [full],
-        limit: limit("session", "S")
+        limit: limit({ kind: "session", kindShort: "S" })
       }).count
     ).toBe(2);
     expect(
       limitResetsFor({
         offers: [full],
-        limit: limit("weekly", "W")
+        limit: limit({ kind: "weekly", kindShort: "W" })
       }).count
     ).toBe(2);
   });

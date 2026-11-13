@@ -284,10 +284,13 @@ export function hasUsageLimit(id: string) {
   return hits.has(id);
 }
 
-registerSessionState(SessionStateKey.enum.usageLimit, {
-  forget(id) {
-    hits.delete(id);
-    quietUntil.delete(id);
+registerSessionState({
+  key: SessionStateKey.enum.usageLimit,
+  state: {
+    forget(id) {
+      hits.delete(id);
+      quietUntil.delete(id);
+    }
   }
 });
 

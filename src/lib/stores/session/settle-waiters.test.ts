@@ -6,8 +6,8 @@ describe("createSettleWaiters", () => {
   it("settles every waiter on a session once, in the order they were added", () => {
     const waiters = createSettleWaiters();
     const calls: string[] = [];
-    waiters.add("a", () => calls.push("first"));
-    waiters.add("a", () => calls.push("second"));
+    waiters.add({ id: "a", settle: () => calls.push("first") });
+    waiters.add({ id: "a", settle: () => calls.push("second") });
 
     waiters.settleAll("a");
     waiters.settleAll("a");
@@ -18,7 +18,7 @@ describe("createSettleWaiters", () => {
   it("leaves other sessions' waiters alone", () => {
     const waiters = createSettleWaiters();
     const other = vi.fn();
-    waiters.add("b", other);
+    waiters.add({ id: "b", settle: other });
 
     waiters.settleAll("a");
 
@@ -29,10 +29,10 @@ describe("createSettleWaiters", () => {
     const waiters = createSettleWaiters();
     const removed = vi.fn();
     const kept = vi.fn();
-    waiters.add("a", removed);
-    waiters.add("a", kept);
+    waiters.add({ id: "a", settle: removed });
+    waiters.add({ id: "a", settle: kept });
 
-    waiters.remove("a", removed);
+    waiters.remove({ id: "a", settle: removed });
     waiters.settleAll("a");
 
     expect(removed).not.toHaveBeenCalled();
@@ -42,9 +42,9 @@ describe("createSettleWaiters", () => {
   it("removing the last waiter leaves nothing to settle", () => {
     const waiters = createSettleWaiters();
     const removed = vi.fn();
-    waiters.add("a", removed);
+    waiters.add({ id: "a", settle: removed });
 
-    waiters.remove("a", removed);
+    waiters.remove({ id: "a", settle: removed });
     waiters.settleAll("a");
 
     expect(removed).not.toHaveBeenCalled();

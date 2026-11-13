@@ -40,7 +40,7 @@ const SESSIONS_HANDOFF: WindowHandoff = {
   activeId: "b"
 };
 
-function windowRow(label: string, path: string, isCurrent = false) {
+function windowRow({ label, path, isCurrent = false }: { label: string; path: string; isCurrent?: boolean }) {
   return {
     label,
     path,
@@ -124,28 +124,38 @@ describe("joinTargetOf", () => {
 
 describe("merging this window into another", () => {
   it("offers every other window, and nothing while this one is alone", () => {
-    expect(mergeTargets([windowRow("main", PADE, true)])).toEqual([]);
-    expect(mergeTargets([windowRow("main", PADE, true), windowRow("w-1", POLL)]).map(target => target.label)).toEqual([
-      "w-1"
-    ]);
+    expect(mergeTargets([windowRow({ label: "main", path: PADE, isCurrent: true })])).toEqual([]);
+    expect(
+      mergeTargets([
+        windowRow({ label: "main", path: PADE, isCurrent: true }),
+        windowRow({ label: "w-1", path: POLL })
+      ]).map(target => target.label)
+    ).toEqual(["w-1"]);
   });
 
   it("names the one other window in the menu item, and skips the item for several", () => {
     expect(
       mergeMenuItemLabel({
-        windowRows: [windowRow("main", PADE, true), windowRow("w-1", POLL)],
+        windowRows: [
+          windowRow({ label: "main", path: PADE, isCurrent: true }),
+          windowRow({ label: "w-1", path: POLL })
+        ],
         labels: {}
       })
     ).toBe("Merge into repositories\\poll");
     expect(
       mergeMenuItemLabel({
-        windowRows: [windowRow("main", PADE, true), windowRow("w-1", POLL), windowRow("w-2", PADE)],
+        windowRows: [
+          windowRow({ label: "main", path: PADE, isCurrent: true }),
+          windowRow({ label: "w-1", path: POLL }),
+          windowRow({ label: "w-2", path: PADE })
+        ],
         labels: {}
       })
     ).toBeNull();
     expect(
       mergeMenuItemLabel({
-        windowRows: [windowRow("main", PADE, true)],
+        windowRows: [windowRow({ label: "main", path: PADE, isCurrent: true })],
         labels: {}
       })
     ).toBeNull();

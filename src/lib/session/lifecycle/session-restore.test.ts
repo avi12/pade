@@ -42,7 +42,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function session(id: string, extra: Partial<AgentSession> = {}) {
+function session({ id, extra = {} }: { id: string; extra?: Partial<AgentSession> }) {
   return {
     id,
     agent: {
@@ -60,7 +60,7 @@ describe("save / read round trip", () => {
   it("persists the pane mapping and reads it back validated", () => {
     saveSessionSnapshot({
       project: "C:\\repos\\pade",
-      sessions: [session("a"), session("b", { branch: "main" })],
+      sessions: [session({ id: "a" }), session({ id: "b", extra: { branch: "main" } })],
       paneIds: ["a", "b"],
       activeId: "b"
     });
@@ -80,7 +80,7 @@ describe("save / read round trip", () => {
     });
     saveSessionSnapshot({
       project: "C:\\repos\\pade",
-      sessions: [session("a")],
+      sessions: [session({ id: "a" })],
       paneIds: ["a"],
       activeId: "a"
     });
@@ -105,7 +105,7 @@ describe("save / read round trip", () => {
     clearPendingPrompt("a");
     saveSessionSnapshot({
       project: "C:\\repos\\pade",
-      sessions: [session("a")],
+      sessions: [session({ id: "a" })],
       paneIds: ["a"],
       activeId: "a"
     });
@@ -120,7 +120,7 @@ describe("save / read round trip", () => {
     });
     saveSessionSnapshot({
       project: "C:\\repos\\pade",
-      sessions: [session("a")],
+      sessions: [session({ id: "a" })],
       paneIds: ["a"],
       activeId: "a"
     });
@@ -140,7 +140,7 @@ describe("save / read round trip", () => {
   it("keys the snapshot by window label, so a crash-rebuilt window finds its own", () => {
     saveSessionSnapshot({
       project: "C:\\repos\\pade",
-      sessions: [session("a")],
+      sessions: [session({ id: "a" })],
       paneIds: ["a"],
       activeId: "a"
     });
@@ -158,7 +158,7 @@ describe("save / read round trip", () => {
   it("clears instead of saving when there is nothing to re-attach", () => {
     saveSessionSnapshot({
       project: "C:\\repos\\pade",
-      sessions: [session("a")],
+      sessions: [session({ id: "a" })],
       paneIds: ["a"],
       activeId: "a"
     });
@@ -173,7 +173,7 @@ describe("save / read round trip", () => {
 
     saveSessionSnapshot({
       project: "",
-      sessions: [session("a")],
+      sessions: [session({ id: "a" })],
       paneIds: ["a"],
       activeId: "a"
     });
@@ -193,7 +193,7 @@ describe("save / read round trip", () => {
   it("clearSessionSnapshot forgets a saved snapshot", () => {
     saveSessionSnapshot({
       project: "C:\\repos\\pade",
-      sessions: [session("a")],
+      sessions: [session({ id: "a" })],
       paneIds: ["a"],
       activeId: "a"
     });
@@ -205,7 +205,7 @@ describe("save / read round trip", () => {
 describe("pruneToLive", () => {
   const snapshot: SessionSnapshot = {
     project: "C:\\repos\\pade",
-    sessions: [session("a"), session("b"), session("c")],
+    sessions: [session({ id: "a" }), session({ id: "b" }), session({ id: "c" })],
     paneIds: ["a", "b"],
     activeId: "b"
   };

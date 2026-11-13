@@ -15,7 +15,7 @@ import type { AgentSession } from "@/lib/types/agent";
 const PROJECT = "C:\\repositories\\pade";
 const OTHER_PROJECT = "C:\\repositories\\poll";
 
-function session(id: string, extra: Partial<AgentSession> = {}) {
+function session({ id, extra = {} }: { id: string; extra?: Partial<AgentSession> }) {
   return {
     id,
     agent: {
@@ -36,14 +36,14 @@ function registry() {
       {
         id: "a",
         project: PROJECT,
-        agent: session("a").agent,
+        agent: session({ id: "a" }).agent,
         conversationId: "conversation-a",
         updatedAt: 1
       },
       {
         id: "b",
         project: OTHER_PROJECT,
-        agent: session("b").agent,
+        agent: session({ id: "b" }).agent,
         label: "Poll chat",
         conversationId: "conversation-b",
         updatedAt: 1
@@ -56,7 +56,7 @@ function registry() {
   };
 }
 
-function recorded(conversationId: string, title: string | null) {
+function recorded({ conversationId, title }: { conversationId: string; title: string | null }) {
   return {
     agentId: "claude",
     conversationId,
@@ -66,13 +66,16 @@ function recorded(conversationId: string, title: string | null) {
   };
 }
 
-function elsewhere(
-  id: string,
-  extra: Partial<{
+function elsewhere({
+  id,
+  extra = {}
+}: {
+  id: string;
+  extra?: Partial<{
     project: string;
     conversationId: string;
-  }> = {}
-) {
+  }>;
+}) {
   return {
     id,
     project: PROJECT,
@@ -115,13 +118,16 @@ describe("persistedChatsFromSessions", () => {
   it("maps sessions to chats and skips terminal editors", () => {
     const chats = persistedChatsFromSessions({
       sessions: [
-        session("a"),
-        session("editor-1", {
-          agent: {
-            id: "editor-vscode",
-            label: "VS Code",
-            command: "code",
-            reordersBidi: false
+        session({ id: "a" }),
+        session({
+          id: "editor-1",
+          extra: {
+            agent: {
+              id: "editor-vscode",
+              label: "VS Code",
+              command: "code",
+              reordersBidi: false
+            }
           }
         })
       ],
@@ -138,7 +144,7 @@ describe("persistedChatsFromSessions", () => {
 
   it("files each session under its own project", () => {
     const chats = persistedChatsFromSessions({
-      sessions: [session("a"), session("p", { project: OTHER_PROJECT })],
+      sessions: [session({ id: "a" }), session({ id: "p", extra: { project: OTHER_PROJECT } })],
       labels: {},
       now: 1
     });
@@ -154,7 +160,7 @@ describe("registryWithLiveChats", () => {
     const next = registryWithLiveChats({
       registry: registry(),
       chats: persistedChatsFromSessions({
-        sessions: [session("c"), session("p", { project: OTHER_PROJECT })],
+        sessions: [session({ id: "c" }), session({ id: "p", extra: { project: OTHER_PROJECT } })],
         labels: {},
         now: 2
       }),
@@ -171,7 +177,7 @@ describe("registryWithLiveChats", () => {
     const next = registryWithLiveChats({
       registry: registry(),
       chats: persistedChatsFromSessions({
-        sessions: [session("a")],
+        sessions: [session({ id: "a" })],
         labels: {
           a: "Renamed"
         },
@@ -220,7 +226,7 @@ describe("sidebarProjects", () => {
       registry: registry(),
       projectOrder: [PROJECT, OTHER_PROJECT],
       activeProject: PROJECT,
-      liveSessions: [session("live-1"), session("live-2", { project: OTHER_PROJECT })],
+      liveSessions: [session({ id: "live-1" }), session({ id: "live-2", extra: { project: OTHER_PROJECT } })],
       liveLabels: {
         "live-1": "Live chat"
       },
@@ -258,13 +264,13 @@ describe("sidebarProjects", () => {
       registry: registry(),
       projectOrder: [PROJECT],
       activeProject: PROJECT,
-      liveSessions: [session("live-1")],
+      liveSessions: [session({ id: "live-1" })],
       liveLabels: {},
       elsewhereSessions: [],
       recordedConversations: () => [
-        recorded("conversation-live-1", "Live"),
-        recorded("conversation-a", "Stored"),
-        recorded("old", null)
+        recorded({ conversationId: "conversation-live-1", title: "Live" }),
+        recorded({ conversationId: "conversation-a", title: "Stored" }),
+        recorded({ conversationId: "old", title: null })
       ]
     });
     expect(groups[0]?.chats.map(chat => chat.label)).toEqual(["Claude Code", "Claude Code", "Untitled conversation"]);
@@ -279,13 +285,17 @@ describe("sidebarProjects", () => {
       liveSessions: [],
       liveLabels: {},
       elsewhereSessions: [
-        elsewhere("a"),
-        elsewhere("far", {
-          project: OTHER_PROJECT,
-          conversationId: "conversation-b"
+        elsewhere({ id: "a" }),
+        elsewhere({
+          id: "far",
+          extra: {
+            project: OTHER_PROJECT,
+            conversationId: "conversation-b"
+          }
         })
       ],
-      recordedConversations: project => (project === PROJECT ? [recorded("conversation-a", "Running elsewhere")] : [])
+      recordedConversations: project =>
+        project === PROJECT ? [recorded({ conversationId: "conversation-a", title: "Running elsewhere" })] : []
     });
     expect(groups[0]?.chats).toEqual([
       {
@@ -306,9 +316,9 @@ describe("sidebarProjects", () => {
       registry: registry(),
       projectOrder: [PROJECT],
       activeProject: PROJECT,
-      liveSessions: [session("moved")],
+      liveSessions: [session({ id: "moved" })],
       liveLabels: {},
-      elsewhereSessions: [elsewhere("moved")],
+      elsewhereSessions: [elsewhere({ id: "moved" })],
       recordedConversations: () => []
     });
     expect(groups[0]?.chats.filter(chat => chat.id === "moved").map(chat => chat.windowLabel)).toEqual([undefined]);

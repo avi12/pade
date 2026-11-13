@@ -35,7 +35,7 @@ function session(overrides: Partial<SessionReport> & Pick<SessionReport, "id">) 
   };
 }
 
-function windowReport(label: string, sessions: SessionReport[]) {
+function windowReport({ label, sessions }: { label: string; sessions: SessionReport[] }) {
   return {
     label,
     at: NOW,
@@ -43,7 +43,15 @@ function windowReport(label: string, sessions: SessionReport[]) {
   };
 }
 
-function round(reports: WindowReport[], steps = NO_STEPS, steppedAt = NEVER_STEPPED) {
+function round({
+  reports,
+  steps = NO_STEPS,
+  steppedAt = NEVER_STEPPED
+}: {
+  reports: WindowReport[];
+  steps?: SubagentSteps;
+  steppedAt?: ReadonlyMap<string, number>;
+}) {
   return planRound({
     reports,
     steps,
@@ -55,7 +63,11 @@ function round(reports: WindowReport[], steps = NO_STEPS, steppedAt = NEVER_STEP
 
 describe("the round's leader", () => {
   it("is one window, the same whichever window asks", () => {
-    const reports = [windowReport("window-2", []), windowReport("main", []), windowReport("window-1", [])];
+    const reports = [
+      windowReport({ label: "window-2", sessions: [] }),
+      windowReport({ label: "main", sessions: [] }),
+      windowReport({ label: "window-1", sessions: [] })
+    ];
     expect(roundLeader(reports)).toBe("main");
     expect(roundLeader(reports.toReversed())).toBe("main");
     expect(roundLeader([])).toBeNull();
@@ -64,10 +76,10 @@ describe("the round's leader", () => {
   it("drops a window that stopped reporting, so the next one leads", () => {
     const reports = [
       {
-        ...windowReport("main", []),
+        ...windowReport({ label: "main", sessions: [] }),
         at: NOW - 10 * 60_000
       },
-      windowReport("window-1", [])
+      windowReport({ label: "window-1", sessions: [] })
     ];
     const fresh = freshReports({
       reports,
@@ -96,7 +108,12 @@ describe("planRound across windows sharing one account", () => {
         saving: 0.2
       }
     });
-    const { plan } = round([windowReport("main", [front]), windowReport("window-1", [background])]);
+    const { plan } = round({
+      reports: [
+        windowReport({ label: "main", sessions: [front] }),
+        windowReport({ label: "window-1", sessions: [background] })
+      ]
+    });
     expect(plan.climb).toEqual(["background"]);
     expect(plan.steppedAccounts).toEqual([ACCOUNT]);
   });
@@ -112,7 +129,12 @@ describe("planRound across windows sharing one account", () => {
         }
       })
     );
-    const { plan } = round([windowReport("main", sessions.slice(0, 2)), windowReport("window-1", sessions.slice(2))]);
+    const { plan } = round({
+      reports: [
+        windowReport({ label: "main", sessions: sessions.slice(0, 2) }),
+        windowReport({ label: "window-1", sessions: sessions.slice(2) })
+      ]
+    });
     // 20% of 100 needs 20 saved; each step saves 12.5, so two - not four.
     expect(plan.climb).toHaveLength(2);
   });
@@ -137,7 +159,12 @@ describe("planRound across windows sharing one account", () => {
         }
       ]
     });
-    const { plan, steps } = round([windowReport("main", [front]), windowReport("window-1", [background])]);
+    const { plan, steps } = round({
+      reports: [
+        windowReport({ label: "main", sessions: [front] }),
+        windowReport({ label: "window-1", sessions: [background] })
+      ]
+    });
     const key = subagentKey({
       sessionId: "background",
       subagentId: "a1"
@@ -193,7 +220,7 @@ describe("planRound across windows sharing one account", () => {
         ]
       })
     ];
-    const { steps: next } = round([windowReport("window-1", sessions)], steps);
+    const { steps: next } = round({ reports: [windowReport({ label: "window-1", sessions })], steps });
     expect(next[key]).toEqual({
       step: SubagentStepKind.enum.wrapUp
     });
@@ -202,18 +229,23 @@ describe("planRound across windows sharing one account", () => {
 
   it("blocks new subagents on every session of the account only past the threshold", () => {
     function shedding(shed: number) {
-      return round([
-        windowReport("main", [
-          session({
-            id: "a",
-            overPace: {
-              shed,
-              saving: 0.2
-            }
-          })
-        ]),
-        windowReport("window-1", [session({ id: "b" })])
-      ]).plan.throttles.map(throttle => throttle.isBlockingSpawns);
+      return round({
+        reports: [
+          windowReport({
+            label: "main",
+            sessions: [
+              session({
+                id: "a",
+                overPace: {
+                  shed,
+                  saving: 0.2
+                }
+              })
+            ]
+          }),
+          windowReport({ label: "window-1", sessions: [session({ id: "b" })] })
+        ]
+      }).plan.throttles.map(throttle => throttle.isBlockingSpawns);
     }
 
     expect(shedding(NO_SPAWN_SHED)).toEqual([true, true]);
@@ -239,7 +271,12 @@ describe("planRound across windows sharing one account", () => {
         saving: 0.5
       }
     });
-    const { plan, steps } = round([windowReport("main", [over]), windowReport("window-1", [other])]);
+    const { plan, steps } = round({
+      reports: [
+        windowReport({ label: "main", sessions: [over] }),
+        windowReport({ label: "window-1", sessions: [other] })
+      ]
+    });
     expect(steps).toEqual({});
     expect(plan.throttles.find(entry => entry.sessionId === "other")?.isBlockingSpawns).toBe(false);
   });
@@ -253,7 +290,11 @@ describe("planRound across windows sharing one account", () => {
         saving: 0.5
       }
     });
-    const { plan } = round([windowReport("window-1", [stale])], NO_STEPS, new Map([["s", NOW - 10_000]]));
+    const { plan } = round({
+      reports: [windowReport({ label: "window-1", sessions: [stale] })],
+      steps: NO_STEPS,
+      steppedAt: new Map([["s", NOW - 10_000]])
+    });
     expect(plan.climb).toEqual([]);
   });
 
@@ -275,35 +316,41 @@ describe("planRound across windows sharing one account", () => {
       }
     };
     const reports = [
-      windowReport("main", [
-        session({
-          id: "a",
-          hasRoom: true,
-          subagents: [
-            {
-              id: "a1",
-              description: null,
-              load: 5
-            }
-          ]
-        })
-      ]),
-      windowReport("window-1", [
-        session({
-          id: "light",
-          load: 2,
-          hasRoom: true,
-          canStepUp: true
-        }),
-        session({
-          id: "heavy",
-          load: 20,
-          hasRoom: true,
-          canStepUp: true
-        })
-      ])
+      windowReport({
+        label: "main",
+        sessions: [
+          session({
+            id: "a",
+            hasRoom: true,
+            subagents: [
+              {
+                id: "a1",
+                description: null,
+                load: 5
+              }
+            ]
+          })
+        ]
+      }),
+      windowReport({
+        label: "window-1",
+        sessions: [
+          session({
+            id: "light",
+            load: 2,
+            hasRoom: true,
+            canStepUp: true
+          }),
+          session({
+            id: "heavy",
+            load: 20,
+            hasRoom: true,
+            canStepUp: true
+          })
+        ]
+      })
     ];
-    const { plan, steps: next } = round(reports, steps);
+    const { plan, steps: next } = round({ reports, steps });
     expect(next).toEqual({
       [key]: {
         step: SubagentStepKind.enum.gate,
@@ -324,32 +371,35 @@ describe("planRound across windows sharing one account", () => {
         holdSeconds: 20
       }
     };
-    const { steps: next } = round(
-      [
-        windowReport("main", [
-          session({
-            id: "a",
-            hasRoom: true,
-            subagents: [
-              {
-                id: "a1",
-                description: null,
-                load: 5
-              }
-            ]
-          })
-        ]),
-        windowReport("window-1", [session({ id: "b" })])
+    const { steps: next } = round({
+      reports: [
+        windowReport({
+          label: "main",
+          sessions: [
+            session({
+              id: "a",
+              hasRoom: true,
+              subagents: [
+                {
+                  id: "a1",
+                  description: null,
+                  load: 5
+                }
+              ]
+            })
+          ]
+        }),
+        windowReport({ label: "window-1", sessions: [session({ id: "b" })] })
       ],
       steps
-    );
+    });
     expect(next).toEqual(steps);
   });
 });
 
 describe("the wire between windows", () => {
   it("accepts a well-formed plan and refuses a malformed one", () => {
-    const { plan } = round([windowReport("main", [session({ id: "s" })])]);
+    const { plan } = round({ reports: [windowReport({ label: "main", sessions: [session({ id: "s" })] })] });
     expect(
       parsePacingMessage({
         kind: PacingMessageKind.enum.plan,

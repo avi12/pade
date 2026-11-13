@@ -162,14 +162,16 @@ export function registryWithoutChat({
 
   return {
     ...registry,
-    chats: registry.chats.filter(chat => !(chat.id === chatId && isSameProject(chat.project, project))),
+    chats: registry.chats.filter(
+      chat => !(chat.id === chatId && isSameProject({ left: chat.project, right: project }))
+    ),
     activeChatByProject
   };
 }
 
 /** One project's persisted chats, in the order they were last saved. */
 export function chatsForProject({ registry, project }: { registry: StoredChatRegistry; project: string }) {
-  return registry.chats.filter(chat => isSameProject(chat.project, project));
+  return registry.chats.filter(chat => isSameProject({ left: chat.project, right: project }));
 }
 
 /** One persisted chat by id, when its project still has it. */
@@ -368,7 +370,7 @@ export function sidebarProjects({
 
   return ordered.map(project => ({
     project,
-    isCurrent: activeProject !== "" && isSameProject(project, activeProject),
+    isCurrent: activeProject !== "" && isSameProject({ left: project, right: activeProject }),
     chats: projectChats({
       project,
       registry,

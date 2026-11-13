@@ -49,7 +49,15 @@ export function collectVars(text: string) {
 /** Resolve a color token to a concrete CSS color for a swatch, or `null` when it
  *  isn't a real color. Traces `var(--x)` through `variables` then the app's
  *  computed styles, following nested vars up to a small depth. */
-export function resolveColor(token: string, variables?: Map<string, string>, depth = 0) {
+export function resolveColor({
+  token,
+  variables,
+  depth = 0
+}: {
+  token: string;
+  variables?: Map<string, string> | undefined;
+  depth?: number;
+}) {
   if (depth > MAX_TRACE_DEPTH) {
     return null;
   }
@@ -73,7 +81,7 @@ export function resolveColor(token: string, variables?: Map<string, string>, dep
 
   // The resolved value may itself be another var reference - follow it.
   if (value.startsWith(VAR_PREFIX)) {
-    return resolveColor(value, variables, depth + 1);
+    return resolveColor({ token: value, variables, depth: depth + 1 });
   }
 
   return isColor(value) ? value : null;

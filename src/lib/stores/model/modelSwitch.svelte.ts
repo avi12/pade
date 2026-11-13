@@ -37,10 +37,13 @@ interface PendingModelSwitch {
 const pendingBySession = new SvelteMap<string, PendingModelSwitch>();
 const applyingSessions = new SvelteSet<string>();
 
-registerSessionState(SessionStateKey.enum.modelSwitch, {
-  forget(id) {
-    pendingBySession.delete(id);
-    applyingSessions.delete(id);
+registerSessionState({
+  key: SessionStateKey.enum.modelSwitch,
+  state: {
+    forget(id) {
+      pendingBySession.delete(id);
+      applyingSessions.delete(id);
+    }
   }
 });
 

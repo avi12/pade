@@ -70,10 +70,13 @@ function setAdapted({ id, choice }: { id: string; choice: AdaptedChoice | null }
   remember();
 }
 
-registerSessionState(SessionStateKey.enum.usageAdapt, {
-  forget(id) {
-    if (adapted.delete(id)) {
-      remember();
+registerSessionState({
+  key: SessionStateKey.enum.usageAdapt,
+  state: {
+    forget(id) {
+      if (adapted.delete(id)) {
+        remember();
+      }
     }
   }
 });

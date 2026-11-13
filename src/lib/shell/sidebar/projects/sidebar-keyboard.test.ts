@@ -6,7 +6,7 @@ import { nextSidebarPosition, SidebarKey } from "@/lib/shell/sidebar/projects/si
 // recorded conversation, then the next project's header.
 const LINE_LENGTHS = [3, 2, 1, 3];
 
-function move(key: string, line: number, item: number) {
+function move({ key, line, item }: { key: string; line: number; item: number }) {
   return nextSidebarPosition({
     key,
     position: {
@@ -19,51 +19,51 @@ function move(key: string, line: number, item: number) {
 
 describe("nextSidebarPosition", () => {
   it("walks along a header to its buttons and back", () => {
-    expect(move(SidebarKey.RIGHT, 0, 0)).toEqual({
+    expect(move({ key: SidebarKey.RIGHT, line: 0, item: 0 })).toEqual({
       line: 0,
       item: 1
     });
-    expect(move(SidebarKey.RIGHT, 0, 1)).toEqual({
+    expect(move({ key: SidebarKey.RIGHT, line: 0, item: 1 })).toEqual({
       line: 0,
       item: 2
     });
-    expect(move(SidebarKey.RIGHT, 0, 2)).toBeNull();
-    expect(move(SidebarKey.LEFT, 0, 2)).toEqual({
+    expect(move({ key: SidebarKey.RIGHT, line: 0, item: 2 })).toBeNull();
+    expect(move({ key: SidebarKey.LEFT, line: 0, item: 2 })).toEqual({
       line: 0,
       item: 1
     });
-    expect(move(SidebarKey.LEFT, 0, 0)).toBeNull();
+    expect(move({ key: SidebarKey.LEFT, line: 0, item: 0 })).toBeNull();
   });
 
   it("goes down through the conversations onto the next header, landing on each main control", () => {
-    expect(move(SidebarKey.DOWN, 0, 2)).toEqual({
+    expect(move({ key: SidebarKey.DOWN, line: 0, item: 2 })).toEqual({
       line: 1,
       item: 0
     });
-    expect(move(SidebarKey.DOWN, 2, 0)).toEqual({
+    expect(move({ key: SidebarKey.DOWN, line: 2, item: 0 })).toEqual({
       line: 3,
       item: 0
     });
-    expect(move(SidebarKey.DOWN, 3, 0)).toBeNull();
-    expect(move(SidebarKey.UP, 1, 1)).toEqual({
+    expect(move({ key: SidebarKey.DOWN, line: 3, item: 0 })).toBeNull();
+    expect(move({ key: SidebarKey.UP, line: 1, item: 1 })).toEqual({
       line: 0,
       item: 0
     });
-    expect(move(SidebarKey.UP, 0, 0)).toBeNull();
+    expect(move({ key: SidebarKey.UP, line: 0, item: 0 })).toBeNull();
   });
 
   it("jumps to the first and last line", () => {
-    expect(move(SidebarKey.HOME, 2, 0)).toEqual({
+    expect(move({ key: SidebarKey.HOME, line: 2, item: 0 })).toEqual({
       line: 0,
       item: 0
     });
-    expect(move(SidebarKey.END, 0, 1)).toEqual({
+    expect(move({ key: SidebarKey.END, line: 0, item: 1 })).toEqual({
       line: 3,
       item: 0
     });
   });
 
   it("ignores other keys", () => {
-    expect(move("Enter", 0, 0)).toBeNull();
+    expect(move({ key: "Enter", line: 0, item: 0 })).toBeNull();
   });
 });

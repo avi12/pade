@@ -54,7 +54,7 @@ interface SessionState {
 const registered = new Map<SessionStateKey, SessionState>();
 
 /** Register one store's per-session state. */
-export function registerSessionState(key: SessionStateKey, state: SessionState) {
+export function registerSessionState({ key, state }: { key: SessionStateKey; state: SessionState }) {
   registered.set(key, state);
 }
 

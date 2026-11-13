@@ -268,7 +268,7 @@ describe("layoutWithoutSessions", () => {
   });
 
   it("brings another project's newest session to the front once a whole project leaves", () => {
-    function inProject(id: string, project: string) {
+    function inProject({ id, project }: { id: string; project: string }) {
       return {
         ...session(id),
         project
@@ -278,10 +278,10 @@ describe("layoutWithoutSessions", () => {
     const layout = layoutWithoutSessions({
       layout: {
         sessions: [
-          inProject("older", "C:\\repositories\\other"),
-          inProject("newer", "C:\\repositories\\other"),
-          inProject("temp-1", "C:\\workspaces\\temp"),
-          inProject("temp-2", "C:\\workspaces\\temp")
+          inProject({ id: "older", project: "C:\\repositories\\other" }),
+          inProject({ id: "newer", project: "C:\\repositories\\other" }),
+          inProject({ id: "temp-1", project: "C:\\workspaces\\temp" }),
+          inProject({ id: "temp-2", project: "C:\\workspaces\\temp" })
         ],
         paneIds: ["temp-2"],
         activeId: "temp-2"

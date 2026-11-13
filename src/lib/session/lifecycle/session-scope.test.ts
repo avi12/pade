@@ -11,24 +11,30 @@ import {
 
 // A stand-in store: a name per session, kept across restarts and reloads.
 const names = new Map<string, string>();
-registerSessionState(SessionStateKey.enum.label, {
-  forget: id => names.delete(id),
-  carry({ fromId, toId }) {
-    const name = names.get(fromId);
-    if (name !== undefined) {
-      names.set(toId, name);
+registerSessionState({
+  key: SessionStateKey.enum.label,
+  state: {
+    forget: id => names.delete(id),
+    carry({ fromId, toId }) {
+      const name = names.get(fromId);
+      if (name !== undefined) {
+        names.set(toId, name);
+      }
+    },
+    save: id => names.get(id),
+    restore({ id, saved }) {
+      names.set(id, String(saved));
     }
-  },
-  save: id => names.get(id),
-  restore({ id, saved }) {
-    names.set(id, String(saved));
   }
 });
 
 // One that forgets only.
 const statuses = new Map<string, string>();
-registerSessionState(SessionStateKey.enum.status, {
-  forget: id => statuses.delete(id)
+registerSessionState({
+  key: SessionStateKey.enum.status,
+  state: {
+    forget: id => statuses.delete(id)
+  }
 });
 
 describe("session scope", () => {

@@ -32,13 +32,16 @@ export function clearPendingPrompt(id: string) {
   pending.delete(id);
 }
 
-registerSessionState(SessionStateKey.enum.pendingPrompt, {
-  forget: clearPendingPrompt,
-  save: pendingPrompt,
-  restore({ id, saved }) {
-    const parsed = z.string().min(1).safeParse(saved);
-    if (parsed.success) {
-      pending.set(id, parsed.data);
+registerSessionState({
+  key: SessionStateKey.enum.pendingPrompt,
+  state: {
+    forget: clearPendingPrompt,
+    save: pendingPrompt,
+    restore({ id, saved }) {
+      const parsed = z.string().min(1).safeParse(saved);
+      if (parsed.success) {
+        pending.set(id, parsed.data);
+      }
     }
   }
 });

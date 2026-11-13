@@ -105,6 +105,9 @@ function isPromptOver({ id, status }: { id: string; status: SessionStatus }) {
   return isAnswered || status === SessionStatus.enum.exited;
 }
 
-registerSessionState(SessionStateKey.enum.attention, {
-  forget: clear
+registerSessionState({
+  key: SessionStateKey.enum.attention,
+  state: {
+    forget: clear
+  }
 });
