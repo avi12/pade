@@ -22,7 +22,6 @@ const WATCH_SETTLE_MS = 300;
 const RECOUNT_SETTLE_MS = 1_500;
 
 let watchTimer: ReturnType<typeof setTimeout> | undefined;
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- debounce bookkeeping, never rendered
 const recountTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let isListening = false;
 let visiblePaths: string[] = [];

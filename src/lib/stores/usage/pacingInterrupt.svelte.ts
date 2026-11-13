@@ -58,7 +58,6 @@ const unstopped = new SvelteMap<string, {
   subagents: readonly UnstoppedSubagent[];
 }>();
 /** Each session's current run, so a newer stop or a resume ends an older one. */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- run bookkeeping, never rendered
 const runs = new Map<string, symbol>();
 
 /** The subagents pacing couldn't stop, per session, across this window. */

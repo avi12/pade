@@ -26,7 +26,6 @@ export type ControlTarget = Pick<AgentSession, "conversationId"> & {
 };
 
 /** What each part was last set to, by conversation and part. */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- a write cache, never rendered
 const written = new Map<string, string>();
 
 function writtenKey({ conversationId, part }: {

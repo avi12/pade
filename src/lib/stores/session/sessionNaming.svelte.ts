@@ -36,7 +36,6 @@ interface Controller {
   lastGeneratedAt: number;
 }
 // Plain Map: timers/last-status are runtime bookkeeping, not reactive UI state.
-// eslint-disable-next-line svelte/prefer-svelte-reactivity
 const controllers = new Map<string, Controller>();
 
 /** The session's controller when a name is due, or undefined while throttled:

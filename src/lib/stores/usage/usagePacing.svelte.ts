@@ -232,11 +232,9 @@ const skippedUntil = new SvelteMap<string, number>();
 /** Sessions the user continued anyway, left alone until that run ends - true
  *  once the run is underway, so a scan before the agent picks the prompt up
  *  doesn't end it early. */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
 const continuedAnyway = new Map<string, boolean>();
 /** Handoff successors pacing leaves alone while they read the handoff doc:
  *  null until the session is first seen working, then when the shield ends. */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
 const shieldedUntil = new Map<string, number | null>();
 /** Each agent's account forecast per window, for the Config panel's live lines. */
 const forecasts = new SvelteMap<string, Partial<Record<PacedWindowKind, PaceForecast>>>();
@@ -244,19 +242,15 @@ const forecasts = new SvelteMap<string, Partial<Record<PacedWindowKind, PaceFore
 let sessionIdsSource: (() => string[]) | null = null;
 /** When each working session's current stretch of work began - how long a
  *  resting session has just worked, which sizes its rest. */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
 const workingSince = new Map<string, number>();
 /** How much of the recent time each session spent working, 0 to 1 - one input
  *  to its share of its account's spend (`loadOf`). */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
 const workingShares = new Map<string, number>();
 /** The account each session bills, as last read - so an override can start its
  *  burn rate over. */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
 const accountKeys = new Map<string, string>();
 /** Recent working readings per account window, for its burn rate. An account is
  *  shared by every agent billing it, so their work adds up in one history. */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
 const samples = new Map<string, UsageSample[]>();
 
 /** The readings, kept across a reload of the window like its pauses - a burn
@@ -650,32 +644,24 @@ export function createUsagePacing(host: PacingHost) {
   });
   /** This window's latest judgement of each working session, for the steps a
    *  round hands back after the scan that judged it. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read per round, never rendered
   const assessed = new Map<string, WorkingAssessment>();
   /** Each measured session's running subagents this scan, each with its load. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's reads, never rendered
   const runningSubagents = new Map<string, MeasuredBurn["subagents"]>();
   /** Each measured session's own share this scan, its running subagents'
    *  excluded - they are candidates of their own. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's reads, never rendered
   const ownLoads = new Map<string, number>();
   /** The sessions whose control says they are being stopped. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per change, never rendered
   const stopping = new Map<string, ControlTarget>();
   /** The sessions whose control says they are resting, their tool calls held. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per change, never rendered
   const resting = new Map<string, ControlTarget>();
   /** Paused sessions a scan found back on pace, by account - only one of each
    *  account's is let go (`releaseOnePerAccount`). */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's bookkeeping, never rendered
   const releasable = new Map<string, AgentSession[]>();
   /** When each account last let a paused session go. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read per scan, never rendered
   const lastReleaseAt = new Map<string, number>();
   /** Each working session's measured burn this scan, in priced tokens per
    *  minute (`measuredBurn`) - read once per scan, before the accounts are
    *  shared out. A session missing here has its load estimated. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's reads, never rendered
   const measuredLoads = new Map<string, number>();
   /** What one unit of estimated load measures as this scan
    *  (`measuredPerEstimated`). */
@@ -1319,7 +1305,6 @@ export function createUsagePacing(host: PacingHost) {
   // The rest is reconciled the same way: a held pause hands its end to the
   // hook, every other open session - and any that closed - is told none.
   async function syncStops() {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one sync's lookup, never rendered
     const isStopping = new Map<string, ControlTarget>();
     for (const session of host.sessions()) {
       const target = {
@@ -1620,7 +1605,6 @@ export function createUsagePacing(host: PacingHost) {
     sessions: readonly AgentSession[];
     now: number;
   }) {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's lookup, never rendered
     const open = new Set(sessions.map(session => session.id));
     for (const id of paced.keys()) {
       if (!open.has(id)) {
@@ -1739,9 +1723,7 @@ export function createUsagePacing(host: PacingHost) {
       now
     });
 
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's reads, never rendered
     const accounts = new Map<string, Promise<AccountUsage | null>>();
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's bookkeeping, never rendered
     const sampled = new Set<string>();
     assessed.clear();
     for (const session of sessions) {

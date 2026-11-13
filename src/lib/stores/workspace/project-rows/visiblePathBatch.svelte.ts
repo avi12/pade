@@ -30,18 +30,12 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
   onVisiblePathsChange?: (paths: string[]) => void;
 }) {
   const values = new SvelteMap<string, Value | null>();
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request bookkeeping, never rendered
   const originalPaths = new Map<string, string>();
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request ordering, never rendered
   const latestRequests = new Map<string, symbol>();
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request ordering, never rendered
   const refreshRequests = new Map<string, symbol>();
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request bookkeeping, never rendered
   const pending = new Set<string>();
   // Cached values still shown, but re-asked the next time their row is on screen.
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request bookkeeping, never rendered
   const staleKeys = new Set<string>();
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- observer bookkeeping, never rendered
   const visibleCounts = new Map<string, number>();
   const observed = new WeakMap<Element, {
     key: string;

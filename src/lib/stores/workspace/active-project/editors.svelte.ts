@@ -28,14 +28,12 @@ const rankedByProject = new SvelteMap<string, Ide[]>();
  *  the trigger functions - every completed fetch re-invalidated the effect and
  *  kicked off the next fetch, an ~2 Hz `ide_suggest` loop that pegged the backend.
  *  A non-reactive map makes the trigger functions reactivity-transparent. */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- see above: reactive here causes an effect loop
 const inFlight = new Map<string, Promise<void>>();
 
 /** Identity of the newest fetch per project. A superseded fetch (an explicit
  *  pick landed while its census ran) finds a different token here when it
  *  resolves and discards its pre-pick ranking instead of publishing it. Plain
  *  `Map` for the same reason as `inFlight` - bookkeeping, never rendered. */
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- bookkeeping, must not be reactive
 const currentFetchToken = new Map<string, symbol>();
 
 /** The ranked editors for `project` - reactive; empty until resolved. */

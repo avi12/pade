@@ -9,7 +9,6 @@
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { z } from "zod";
 
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- read by delivery on output events, never rendered
 const pending = new Map<string, string>();
 
 /** File a session's first prompt for delivery - a session launched without one

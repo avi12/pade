@@ -53,7 +53,6 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
     text: string;
     at: number;
   }>();
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- in-flight bookkeeping, never rendered
   const summarizing = new Set<string>();
   let dashboardSeenAt = $state<number | null>(null);
   let now = $state(Date.now());

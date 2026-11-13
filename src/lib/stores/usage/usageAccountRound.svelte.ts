@@ -42,14 +42,11 @@ export function createAccountRound({ pollMs, onPlan }: {
   const channel = new BroadcastChannel(PACING_CHANNEL);
   const ownLabel = windowLabel();
   const lifetimeMs = reportLifetime(pollMs);
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- the round's inputs, never rendered
   const reports = new Map<string, WindowReport>();
   /** When this window's rounds last stepped each session. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- the round's memory, never rendered
   const steppedAt = new Map<string, number>();
   /** The sessions this window last throttled as leader, to lift the throttle
    *  of one that leaves the round. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- the round's memory, never rendered
   let throttled = new Map<string, ControlTarget>();
 
   function post(message: PacingMessage) {
@@ -78,7 +75,6 @@ export function createAccountRound({ pollMs, onPlan }: {
     }
 
     // Another window leads now: what this one throttled is theirs to lift.
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- the round's memory, never rendered
     throttled = new Map();
     showThrottles(message.plan.throttles);
     await onPlan(message.plan);
@@ -90,7 +86,6 @@ export function createAccountRound({ pollMs, onPlan }: {
     fresh: readonly WindowReport[];
     plan: RoundPlan;
   }) {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one round's targets, never rendered
     const targets = new Map<string, ControlTarget>();
     for (const report of fresh) {
       for (const session of report.sessions) {
