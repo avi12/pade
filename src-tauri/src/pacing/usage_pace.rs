@@ -271,6 +271,22 @@ fn on_pace_time(params: OnPaceParams<'_>) -> Option<EpochMilliseconds> {
     }
 }
 
+/// When a weekly window, spent at its measured working burn, would still reach
+/// its reset with nothing left over - the latest it can go on working. After
+/// it, the window runs dry before it resets, however close its even spend says
+/// it is. `None` for a session window (its own measure already is this) or
+/// while the burn isn't measured.
+fn dry_time(params: OnPaceParams<'_>) -> Option<EpochMilliseconds> {
+    let OnPaceParams {
+        kind,
+        window,
+        free_at,
+        rate,
+    } = params;
+    let rate = rate.filter(|rate| rate.is_positive())?;
+    (kind == PacedWindowKind::Weekly).then(|| free_at - runway_of(window, rate))
+}
+
 #[derive(Clone, Copy)]
 struct TooFarAheadParams {
     on_pace_at: EpochMilliseconds,
@@ -372,13 +388,21 @@ pub fn assess_pace(params: AssessPaceParams<'_>) -> Option<BindingWindow> {
         } else {
             watched.margin
         };
-        let is_over_pace = is_too_far_ahead(TooFarAheadParams {
-            on_pace_at,
+        let dry_at = dry_time(OnPaceParams {
+            kind: watched.kind,
+            window,
             free_at: watched.free_at,
-            margin,
-            now,
+            rate,
         });
-        let ready_at = now.later(on_pace_at);
+        let is_running_dry = dry_at.is_some_and(|dry_at| dry_at > now);
+        let is_over_pace = is_running_dry
+            || is_too_far_ahead(TooFarAheadParams {
+                on_pace_at,
+                free_at: watched.free_at,
+                margin,
+                now,
+            });
+        let ready_at = now.later(on_pace_at).later(dry_at.unwrap_or(now));
         let outlasts_binding = binding
             .as_ref()
             .is_none_or(|holding| ready_at > holding.ready_at);

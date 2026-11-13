@@ -382,6 +382,47 @@ describe("assessPace, weekly", () => {
     expect(pace?.readyAt).toBe(NOW - 4 * DAY_MS + 0.9 * WEEKLY_WINDOW_MS);
   });
 
+  it("holds a week at 96% that would run dry before its reset at the measured burn, inside the margin", () => {
+    // Eight hours left: an even spend is only ~1.3h behind, within the 12h margin.
+    const account96 = account([weeklyWindow({
+      utilization: 96,
+      resetsIn: 8 * HOUR_MS
+    })]);
+    const pace = assessPace({
+      account: account96,
+      now: NOW,
+      isPaused: false,
+      marginOf: () => TWELVE_HOURS_MS,
+      rateOf: () => perHour(2)
+    });
+    expect(pace?.kind).toBe(PacedWindowKind.enum.weekly);
+    // 4% left at 2%/h lasts 2h, so it may go on 8h - 10m - 2h from now.
+    expect(pace?.readyAt).toBe(NOW + 8 * HOUR_MS - RESET_GRACE_MS - 2 * HOUR_MS);
+    expect(
+      hasRoomToSpare({
+        account: account96,
+        now: NOW,
+        marginOf: () => TWELVE_HOURS_MS,
+        rateOf: () => perHour(2)
+      })
+    ).toBe(false);
+  });
+
+  it("leaves a week at 96% alone when its measured burn lasts until the reset", () => {
+    expect(
+      assessPace({
+        account: account([weeklyWindow({
+          utilization: 96,
+          resetsIn: 8 * HOUR_MS
+        })]),
+        now: NOW,
+        isPaused: false,
+        marginOf: () => TWELVE_HOURS_MS,
+        rateOf: () => perHour(0.4)
+      })
+    ).toBeNull();
+  });
+
   it("lets a week run on within the margin of an even spend, however fast it burned today", () => {
     // Five days in, an even spend is at 71%; 75% is about seven hours ahead.
     expect(

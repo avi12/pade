@@ -218,6 +218,27 @@ function onPaceTime({ kind, window, freeAt, rate, now }: {
   });
 }
 
+/** When a weekly window, spent at its measured working burn, would still reach
+ *  its reset with nothing left over - the latest it can go on working. After
+ *  it, the window runs dry before it resets, however close its even spend says
+ *  it is. Null for a session window (its own measure already is this) or while
+ *  the burn isn't measured. */
+function dryTime({ kind, window, freeAt, rate }: {
+  kind: PacedWindowKind;
+  window: UsageWindow;
+  freeAt: number;
+  rate: number | null;
+}) {
+  if (kind !== PacedWindowKind.enum.weekly || rate === null || rate <= 0) {
+    return null;
+  }
+
+  return freeAt - runwayOf({
+    window,
+    rate
+  });
+}
+
 /** The trigger: a window more than `margin` ahead of pace. */
 function isTooFarAhead({ onPaceAt, freeAt, margin, now }: {
   onPaceAt: number;
@@ -322,13 +343,19 @@ export function assessPace({ account, now, isPaused, marginOf, rateOf }: {
       continue;
     }
 
-    const isOverPace = isTooFarAhead({
+    const dryAt = dryTime({
+      ...watched,
+      window,
+      rate
+    });
+    const isRunningDry = dryAt !== null && dryAt > now;
+    const isOverPace = isRunningDry || isTooFarAhead({
       onPaceAt,
       freeAt: watched.freeAt,
       margin: isPaused ? 0 : watched.margin,
       now
     });
-    const readyAt = Math.max(now, onPaceAt);
+    const readyAt = Math.max(now, onPaceAt, dryAt ?? now);
     const isHolding = isOverPace && (binding === null || readyAt > binding.readyAt);
     if (isHolding) {
       binding = {
@@ -453,7 +480,14 @@ export function hasRoomToSpare({ account, now, marginOf, rateOf }: {
       rate: rateOf(window),
       now
     });
-    const isShort = onPaceAt === null || now - onPaceAt < spareMs({
+    const rate = rateOf(window);
+    const dryAt = dryTime({
+      ...watched,
+      window,
+      rate
+    });
+    const isRunningDry = dryAt !== null && dryAt > now;
+    const isShort = isRunningDry || onPaceAt === null || now - onPaceAt < spareMs({
       ...watched,
       now
     });

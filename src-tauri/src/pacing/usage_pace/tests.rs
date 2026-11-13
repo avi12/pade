@@ -267,6 +267,33 @@ fn assess_weekly(
     })
 }
 
+fn assess_weekly_at(
+    utilization: f64,
+    resets_in: SpanMilliseconds,
+    rate: BurnRate,
+) -> Option<BindingWindow> {
+    let account = account(vec![weekly_window(utilization, resets_in)]);
+    assess_pace(AssessPaceParams {
+        account: Some(&account),
+        now: NOW,
+        is_paused: false,
+        margin_of: &|_| Some(HOUR * 12.0),
+        rate_of: &|_| Some(rate),
+    })
+}
+
+#[test]
+fn holds_a_week_at_96_percent_that_would_run_dry_before_its_reset_inside_the_margin() {
+    let pace = assess_weekly_at(96.0, HOUR * 8.0, per_hour(2.0)).expect("held");
+    // 4% left at 2% an hour lasts 2h, so it may go on 8h - 10m - 2h from now.
+    assert_eq!(pace.kind, PacedWindowKind::Weekly);
+    assert_eq!(
+        pace.ready_at,
+        NOW + HOUR * 8.0 - RESET_GRACE_MS - HOUR * 2.0
+    );
+    assert!(assess_weekly_at(96.0, HOUR * 8.0, per_hour(0.4)).is_none());
+}
+
 #[test]
 fn a_weekly_window_needs_no_burn_rate_it_is_judged_against_an_even_spend() {
     // Four days in: an even spend reaches 90% in 2.3 more days.
