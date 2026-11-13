@@ -238,7 +238,7 @@
 
   /* Wide enough for its placeholder, so the hint never clips. */
   .name-input {
-    --name-input-min-inline-size: 6em;
+    --name-input-min-inline-size: 7.2em;
 
     flex: 1 1 var(--name-input-min-inline-size);
     min-inline-size: var(--name-input-min-inline-size);

@@ -88,10 +88,10 @@
     .handoff-number {
       appearance: textfield;
 
-      /* Two digits plus the inset % suffix; ch tracks the real digit width so
+      /* Two digits plus the inset % suffix; 0.6em is a digit's width, so
          a zoomed UI can never clip "30" down to a lone digit. The shared
          field look, with its end padding making room for the suffix. */
-      inline-size: calc(1.5em + 2.5rem);
+      inline-size: calc(1.8em + 2.5rem);
       padding-inline-end: 1.375rem;
       font-weight: 700;
       text-align: end;
