@@ -56,8 +56,8 @@ export function createAccountRound({
     channel.postMessage(message);
   }
 
-  channel.onmessage = async e => {
-    const parsed = parsePacingMessage(e.data);
+  channel.onmessage = async event => {
+    const parsed = parsePacingMessage(event.data);
     if (!parsed.success) {
       return;
     }

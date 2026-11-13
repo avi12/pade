@@ -10,15 +10,15 @@ const TAB_SELECTOR = "[role=tab]";
 
 /** Svelte action for a `role="tablist"` element whose tabs select on click. */
 export function rovingTablist(elTablist: HTMLElement) {
-  function onKeydown(e: KeyboardEvent) {
-    const elOrigin = e.target instanceof HTMLElement ? e.target.closest<HTMLElement>(TAB_SELECTOR) : null;
+  function onKeydown(event: KeyboardEvent) {
+    const elOrigin = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>(TAB_SELECTOR) : null;
     if (!elOrigin) {
       return;
     }
 
     const elTabs = [...elTablist.querySelectorAll<HTMLElement>(TAB_SELECTOR)];
     const iTarget = nextIndex({
-      key: e.key,
+      key: event.key,
       from: elTabs.indexOf(elOrigin),
       count: elTabs.length
     });
@@ -26,7 +26,7 @@ export function rovingTablist(elTablist: HTMLElement) {
       return;
     }
 
-    e.preventDefault();
+    event.preventDefault();
     elTabs[iTarget].focus();
     elTabs[iTarget].click();
   }

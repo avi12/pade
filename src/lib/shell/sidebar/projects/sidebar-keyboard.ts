@@ -93,9 +93,9 @@ export function nextSidebarPosition({
  *  each control along one marked `data-sidebar-item`). An attachment rather
  *  than a template listener: the list itself is not a control. */
 export function sidebarArrowKeys(element: HTMLElement) {
-  function moveFocus(e: KeyboardEvent) {
-    const { target } = e;
-    const isNotSIDEBARKEYSHasEKey = !SIDEBAR_KEYS.has(e.key) || !(target instanceof HTMLElement);
+  function moveFocus(event: KeyboardEvent) {
+    const { target } = event;
+    const isNotSIDEBARKEYSHasEKey = !SIDEBAR_KEYS.has(event.key) || !(target instanceof HTMLElement);
     if (isNotSIDEBARKEYSHasEKey) {
       return;
     }
@@ -114,7 +114,7 @@ export function sidebarArrowKeys(element: HTMLElement) {
     }
 
     const next = nextSidebarPosition({
-      key: e.key,
+      key: event.key,
       position: {
         line,
         item: lines[line].indexOf(target)
@@ -125,7 +125,7 @@ export function sidebarArrowKeys(element: HTMLElement) {
       return;
     }
 
-    e.preventDefault();
+    event.preventDefault();
     lines[next.line][next.item]?.focus();
   }
 

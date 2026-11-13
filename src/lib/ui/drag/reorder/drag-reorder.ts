@@ -89,19 +89,19 @@ export function beginReorder(options: BeginReorderOptions) {
   addEventListener("pointercancel", onPointerCancel);
   addEventListener("keydown", onKeyDown, true);
 
-  function onPointerMove(e: PointerEvent) {
+  function onPointerMove(event: PointerEvent) {
     const isTracking = movePointer({
       gesture,
-      e
+      e: event
     });
     if (!isTracking) {
       finish(true);
     }
   }
 
-  function onPointerUp(e: PointerEvent) {
-    gesture.lastPointerX = e.clientX;
-    gesture.lastPointerY = e.clientY;
+  function onPointerUp(event: PointerEvent) {
+    gesture.lastPointerX = event.clientX;
+    gesture.lastPointerY = event.clientY;
 
     if (gesture.isDragging) {
       // A real drag must not also fire the click the browser synthesizes under the
@@ -116,12 +116,12 @@ export function beginReorder(options: BeginReorderOptions) {
     finish(true);
   }
 
-  function onKeyDown(e: KeyboardEvent) {
-    if (e.key !== Key.ESCAPE) {
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key !== Key.ESCAPE) {
       return;
     }
 
-    e.preventDefault();
+    event.preventDefault();
 
     if (gesture.isDragging) {
       suppressNextClick();
@@ -146,11 +146,11 @@ export function beginReorder(options: BeginReorderOptions) {
 // double as a click. A macrotask retires the guard if the browser fires no click
 // at all (it usually doesn't after a long drag), so it never eats a later click.
 function suppressNextClick() {
-  function swallow(e: Event) {
-    e.stopPropagation();
+  function swallow(event: Event) {
+    event.stopPropagation();
 
-    if (e.cancelable) {
-      e.preventDefault();
+    if (event.cancelable) {
+      event.preventDefault();
     }
 
     removeEventListener("click", swallow, true);

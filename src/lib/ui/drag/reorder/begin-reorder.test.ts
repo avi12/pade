@@ -77,7 +77,7 @@ class FakeElement {
   }
 }
 
-type Listener = (e: unknown) => void;
+type Listener = (event: unknown) => void;
 const listeners = new Map<string, Set<Listener>>();
 
 function fire({ type, detail }: { type: string; detail: Record<string, unknown> }) {

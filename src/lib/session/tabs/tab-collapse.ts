@@ -15,8 +15,8 @@ export function collapseTab({ width, height }: { width: number; height: number }
   return {
     duration: motionDuration(COLLAPSE_DURATION),
     easing: cubicOut,
-    css: t =>
-      `overflow: hidden; block-size: ${height}px; inline-size: ${width * t}px;` +
-      `opacity: ${t}; margin-inline-start: ${(t - 1) * COLLAPSE_TUCK}px;`
+    css: progress =>
+      `overflow: hidden; block-size: ${height}px; inline-size: ${width * progress}px;` +
+      `opacity: ${progress}; margin-inline-start: ${(progress - 1) * COLLAPSE_TUCK}px;`
   } satisfies TransitionConfig;
 }

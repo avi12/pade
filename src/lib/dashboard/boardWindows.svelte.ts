@@ -53,8 +53,8 @@ export function createBoardWindows({
   }
 
   onMount(() => {
-    channel.onmessage = e => {
-      const parsed = parseBoardMessage(e.data);
+    channel.onmessage = event => {
+      const parsed = parseBoardMessage(event.data);
       if (parsed.success) {
         windows = windowsAfterMessage({
           windows,

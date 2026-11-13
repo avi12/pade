@@ -67,7 +67,7 @@
   const orderedSessions = $derived.by(() => {
     const shown = paneIds
       .map(id => bySessionId.get(id))
-      .filter((s): s is AgentSession => s !== undefined);
+      .filter((candidate): candidate is AgentSession => candidate !== undefined);
     const hidden = sessions.filter(session => !paneIds.includes(session.id));
     return [...shown, ...hidden];
   });

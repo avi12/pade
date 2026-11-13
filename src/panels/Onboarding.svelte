@@ -11,7 +11,7 @@
   const { agents, path, onpick, onswitchproject }: {
     agents: Agent[];
     path: string;
-    onpick: (a: Agent) => void;
+    onpick: (agent: Agent) => void;
     onswitchproject: () => void;
   } = $props();
 </script>

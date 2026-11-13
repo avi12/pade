@@ -227,8 +227,8 @@ export function publishToBoard({
 
   onMount(() => {
     const clock = setInterval(() => (now = Date.now()), SUMMARY_CHECK_MS);
-    channel.onmessage = e => {
-      const parsed = parseBoardMessage(e.data);
+    channel.onmessage = event => {
+      const parsed = parseBoardMessage(event.data);
       if (parsed.success) {
         receive(parsed.data);
       }

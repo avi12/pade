@@ -187,10 +187,10 @@ export function attachWheelForwarding({
   let wheelCarry = 0;
 
   // Send the whole notches this tick adds up to as PageUp/PageDown.
-  function forwardWheel(e: WheelEvent) {
+  function forwardWheel(event: WheelEvent) {
     const { notches, carry } = accumulateWheelNotches({
-      deltaY: e.deltaY,
-      deltaMode: e.deltaMode,
+      deltaY: event.deltaY,
+      deltaMode: event.deltaMode,
       carry: wheelCarry
     });
     wheelCarry = carry;
@@ -201,7 +201,7 @@ export function attachWheelForwarding({
     }
   }
 
-  terminal.attachCustomWheelEventHandler(e => {
+  terminal.attachCustomWheelEventHandler(event => {
     const isAgentOwningMouse = terminal.modes.mouseTrackingMode !== NO_MOUSE_TRACKING;
     const hasNativeScrollback = terminal.buffer.active.baseY > 0;
     // Only a tick that moves xterm's own document may hold output back; a tick
@@ -220,8 +220,8 @@ export function attachWheelForwarding({
       return true;
     }
 
-    forwardWheel(e);
-    e.preventDefault();
+    forwardWheel(event);
+    event.preventDefault();
     return false;
   });
 }

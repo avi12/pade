@@ -205,12 +205,12 @@ export async function openRepositoryTarget({
  * project's remote repository instead. */
 export function openRepositoryOnModifiedClick({ project }: { project: string }) {
   return (element: HTMLElement) => {
-    async function openWhenModified(e: MouseEvent) {
-      if (!e.ctrlKey && !e.metaKey) {
+    async function openWhenModified(event: MouseEvent) {
+      if (!event.ctrlKey && !event.metaKey) {
         return;
       }
 
-      e.preventDefault();
+      event.preventDefault();
       await openRepositoryTarget({ project });
     }
 

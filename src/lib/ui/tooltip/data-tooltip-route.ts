@@ -133,16 +133,16 @@ function follow(target: EventTarget | null) {
 export function routeDataTooltips() {
   const controller = new AbortController();
   const { signal } = controller;
-  addEventListener("pointerover", e => follow(e.target), { signal });
+  addEventListener("pointerover", event => follow(event.target), { signal });
   // Leaving the window, or the page under the pointer changing beneath it.
   document.documentElement.addEventListener("pointerleave", hide, { signal });
   // Focus speaks only with a visible ring - a click's focus is the pointer's.
   addEventListener(
     "focusin",
-    e => {
-      const isKeyboardFocus = e.target instanceof Element && e.target.matches(":focus-visible");
+    event => {
+      const isKeyboardFocus = event.target instanceof Element && event.target.matches(":focus-visible");
       if (isKeyboardFocus) {
-        follow(e.target);
+        follow(event.target);
       }
     },
     { signal }

@@ -114,8 +114,8 @@
   });
 
   // Shared by the row's click and its menu's "Open chat".
-  function open(e: MouseEvent) {
-    const shouldOpenNewWindow = isNewWindowClick(e);
+  function open(event: MouseEvent) {
+    const shouldOpenNewWindow = isNewWindowClick(event);
     if (chat.resume !== undefined) {
       onresume({
         conversation: chat.resume,
@@ -139,8 +139,8 @@
 
   // Shared by the row's button and its stop button, so a right-click anywhere
   // on the row opens the same menu.
-  function openMenu(e: MouseEvent) {
-    menu?.openAt(e);
+  function openMenu(event: MouseEvent) {
+    menu?.openAt(event);
   }
 </script>
 

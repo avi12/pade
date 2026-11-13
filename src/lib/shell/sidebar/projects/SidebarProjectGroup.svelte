@@ -67,7 +67,7 @@
     activeId: string | null;
     /** What the row's options menu offers. */
     menu: RowMenuActions;
-    onpick: (e: MouseEvent) => void;
+    onpick: (event: MouseEvent) => void;
     onreorderpins: (paths: string[]) => void;
   } = $props();
 

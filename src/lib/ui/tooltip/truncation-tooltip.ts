@@ -53,10 +53,10 @@ function overflowTooltip(bubbleToShow: (elTrigger: HTMLElement) => Bubble) {
     elTrigger.style.setProperty(ANCHOR_NAME_PROPERTY, anchorName);
     elTrigger.toggleAttribute(TRIGGER_ATTRIBUTE, true);
 
-    function activate(e?: Event) {
+    function activate(event?: Event) {
       const { text, fontFamily } = isOverNestedTooltip({
         elTrigger,
-        target: e?.target
+        target: event?.target
       })
         ? NO_BUBBLE
         : bubbleToShow(elTrigger);

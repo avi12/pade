@@ -43,8 +43,8 @@ function bindArrowKeys({
   itemSelector: string;
   focusItem: (move: Move) => void;
 }) {
-  function onKeydown(e: KeyboardEvent) {
-    if (!(e.target instanceof HTMLElement)) {
+  function onKeydown(event: KeyboardEvent) {
+    if (!(event.target instanceof HTMLElement)) {
       return;
     }
 
@@ -57,16 +57,16 @@ function bindArrowKeys({
 
     // Home/End belong to a focused text field's caret; only the arrows pull
     // focus out of one.
-    const isTextEntry = e.target instanceof HTMLInputElement;
-    const isArrowKey = e.key === Key.ARROW_DOWN || e.key === Key.ARROW_UP;
+    const isTextEntry = event.target instanceof HTMLInputElement;
+    const isArrowKey = event.key === Key.ARROW_DOWN || event.key === Key.ARROW_UP;
     if (isTextEntry && !isArrowKey) {
       return;
     }
 
     const elItems = [...elMenu.querySelectorAll<HTMLElement>(itemSelector)];
-    const elOrigin = e.target.closest<HTMLElement>(itemSelector);
+    const elOrigin = event.target.closest<HTMLElement>(itemSelector);
     const iItem = nextIndex({
-      key: e.key,
+      key: event.key,
       from: elOrigin ? elItems.indexOf(elOrigin) : -1,
       count: elItems.length
     });
@@ -74,7 +74,7 @@ function bindArrowKeys({
       return;
     }
 
-    e.preventDefault();
+    event.preventDefault();
     focusItem({
       elItems,
       iItem
@@ -102,8 +102,8 @@ function roveTo(move: Move) {
 /** Attachment (`{@attach rovingMenu}`) for a popover menu; its items are its
  *  descendant `<button>`s. Returns the teardown Svelte runs when it detaches. */
 export function rovingMenu(elMenu: HTMLElement) {
-  function onToggle(e: ToggleEvent) {
-    if (e.newState !== ToggleState.OPEN) {
+  function onToggle(event: ToggleEvent) {
+    if (event.newState !== ToggleState.OPEN) {
       return;
     }
 
@@ -197,8 +197,8 @@ export function arrowLists(elRoot: HTMLElement) {
     return listItems(listName).filter(elItem => elItem.checkVisibility());
   }
 
-  function onKeydown(e: KeyboardEvent) {
-    if (!(e.target instanceof HTMLElement)) {
+  function onKeydown(event: KeyboardEvent) {
+    if (!(event.target instanceof HTMLElement)) {
       return;
     }
 
@@ -207,8 +207,8 @@ export function arrowLists(elRoot: HTMLElement) {
       return;
     }
 
-    const elItem = e.target.closest<HTMLElement>(ARROW_LIST_ITEM_SELECTOR);
-    const elEntry = elItem ? null : e.target.closest<HTMLElement>(ARROW_LIST_ENTRY_SELECTOR);
+    const elItem = event.target.closest<HTMLElement>(ARROW_LIST_ITEM_SELECTOR);
+    const elEntry = elItem ? null : event.target.closest<HTMLElement>(ARROW_LIST_ENTRY_SELECTOR);
     const listName = elItem?.dataset.arrowList ?? elEntry?.dataset.arrowEnters;
     if (listName === undefined) {
       return;
@@ -216,7 +216,7 @@ export function arrowLists(elRoot: HTMLElement) {
 
     const elItems = displayedItems(listName);
     const iItem = arrowListTarget({
-      key: e.key,
+      key: event.key,
       isEntry: elEntry !== null,
       from: elItem ? elItems.indexOf(elItem) : -1,
       count: elItems.length
@@ -225,15 +225,15 @@ export function arrowLists(elRoot: HTMLElement) {
       return;
     }
 
-    e.preventDefault();
+    event.preventDefault();
     roveTo({
       elItems,
       iItem
     });
   }
 
-  function onToggle(e: ToggleEvent) {
-    if (e.newState !== ToggleState.OPEN) {
+  function onToggle(event: ToggleEvent) {
+    if (event.newState !== ToggleState.OPEN) {
       return;
     }
 

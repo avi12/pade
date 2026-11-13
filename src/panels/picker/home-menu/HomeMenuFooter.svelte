@@ -66,8 +66,8 @@
     }
 
     const listening = new AbortController();
-    elMenu.addEventListener("toggle", e => {
-      if (e.newState === ToggleState.CLOSED) {
+    elMenu.addEventListener("toggle", event => {
+      if (event.newState === ToggleState.CLOSED) {
         slideDirection = 0;
       }
     }, { signal: listening.signal });

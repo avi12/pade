@@ -14,7 +14,7 @@
   const { chat, onopen, onnew, onstop, ondelete }: {
     chat: SidebarChat;
     /** Takes the click, so Ctrl/Shift on the item opens a new window too. */
-    onopen: (e: MouseEvent) => void;
+    onopen: (event: MouseEvent) => void;
     onnew: () => void;
     onstop: () => void;
     /** Never offered for a recorded conversation, whose transcript is the
@@ -36,11 +36,11 @@
   });
 
   /** Open the menu at the pointer of a right-click. */
-  export function openAt(e: MouseEvent) {
-    e.preventDefault();
+  export function openAt(event: MouseEvent) {
+    event.preventDefault();
     menuPosition = {
-      x: e.clientX,
-      y: e.clientY
+      x: event.clientX,
+      y: event.clientY
     };
     elMenu?.showPopover();
   }

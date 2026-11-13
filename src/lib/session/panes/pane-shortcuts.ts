@@ -102,10 +102,10 @@ export interface PaneShortcutHandlers {
 
 /** Register the capture-phase listener; returns the matching unregister. */
 export function registerPaneShortcuts(handlers: PaneShortcutHandlers) {
-  function onKeyDown(e: KeyboardEvent) {
+  function onKeyDown(event: KeyboardEvent) {
     const paneIds = handlers.paneIds();
     const shortcut = matchPaneShortcut({
-      chord: e,
+      chord: event,
       paneCount: paneIds.length
     });
     if (shortcut === null) {
@@ -121,8 +121,8 @@ export function registerPaneShortcuts(handlers: PaneShortcutHandlers) {
 
     // Win over the terminal and any browser default by consuming the event here
     // in the capture phase, so xterm never sees the raw chord.
-    e.preventDefault();
-    e.stopImmediatePropagation();
+    event.preventDefault();
+    event.stopImmediatePropagation();
 
     runShortcut({
       shortcut,

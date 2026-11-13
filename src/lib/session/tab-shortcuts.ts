@@ -142,13 +142,13 @@ export function registerTabShortcuts(handlers: TabShortcutHandlers) {
     [TabAction.PREVIOUS]: handlers.previous
   };
 
-  function onKeyDown(e: KeyboardEvent) {
-    const action = matchTabShortcut(e);
+  function onKeyDown(event: KeyboardEvent) {
+    const action = matchTabShortcut(event);
     // Only reach for the number matcher when it isn't an action chord already.
     const iSelectedTab =
       action === null
         ? matchTabSelection({
-            chord: e,
+            chord: event,
             count: handlers.tabCount()
           })
         : null;
@@ -165,8 +165,8 @@ export function registerTabShortcuts(handlers: TabShortcutHandlers) {
 
     // Win over the terminal and any browser default (Ctrl+W closing the webview,
     // Alt+Arrow history nav) by consuming the event here in the capture phase.
-    e.preventDefault();
-    e.stopImmediatePropagation();
+    event.preventDefault();
+    event.stopImmediatePropagation();
 
     if (action !== null) {
       actionHandlers[action]();

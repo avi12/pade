@@ -42,9 +42,9 @@
     /** The instant the "last accessed" age is measured against. */
     now: number;
     /** The row was clicked - the click carries the modifier keys. */
-    onpick: (e: MouseEvent) => void;
+    onpick: (event: MouseEvent) => void;
     /** The row was right-clicked. */
-    oncontextmenu: (e: MouseEvent) => void;
+    oncontextmenu: (event: MouseEvent) => void;
   } = $props();
 
   const branch = $derived(projectBranch(project));
