@@ -50,7 +50,11 @@ export function beginReorder(options: BeginReorderOptions) {
   const { e, itemSelector, idAttribute, axis, threshold = DEFAULT_THRESHOLD, ignoreSelector } = options;
   // Primary button only - middle-click (close a tab) and right-click stay theirs.
   const isPressIgnored = isDragInProgress || e.button !== PRIMARY_BUTTON;
-  if (isPressIgnored || !(e.target instanceof Element)) {
+  if (isPressIgnored) {
+    return;
+  }
+
+  if (!(e.target instanceof Element)) {
     return;
   }
 
