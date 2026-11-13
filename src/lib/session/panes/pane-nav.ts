@@ -28,7 +28,8 @@ export function paneIdAt({ paneIds, iPane }: { paneIds: readonly string[]; iPane
 function steppedPaneId({ paneIds, activeId, step }: PaneSelection & { step: number }) {
   const count = paneIds.length;
   const iActive = paneIds.indexOf(activeId);
-  if (count === 0 || iActive === -1) {
+  const hasNoActivePane = count === 0 || iActive === -1;
+  if (hasNoActivePane) {
     return null;
   }
 

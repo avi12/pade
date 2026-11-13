@@ -153,7 +153,8 @@ export function rtlRuns({ cells }: { cells: readonly string[] }) {
 
     // A digit before any right-to-left text reads left to right like the rest of
     // the row, so it neither opens a run nor widens the gap inside one.
-    if (direction === CellDirection.WEAK || direction === CellDirection.NEUTRAL) {
+    const isUndirected = direction === CellDirection.WEAK || direction === CellDirection.NEUTRAL;
+    if (isUndirected) {
       neutralsSinceCarried += 1;
 
       if (neutralsSinceCarried > RUN_NEUTRAL_GAP_LIMIT) {
@@ -504,12 +505,13 @@ export function rtlViewport({ terminal, isFocused }: { terminal: Terminal; isFoc
       continue;
     }
 
+    const isCursorRow = isFocused && row === buffer.cursorY;
     const rowRuns = rtlRow({
       cells: rowCells({
         line,
         scratch
       }),
-      cursorColumn: isFocused && row === buffer.cursorY ? buffer.cursorX : undefined,
+      cursorColumn: isCursorRow ? buffer.cursorX : undefined,
       selection: rowSelection({
         selection,
         absoluteRow,

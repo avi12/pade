@@ -148,11 +148,12 @@ export async function joinProjectChats({ host, target }: { host: ProjectEntryHos
     isPickedChatPersisted: pickedChat !== undefined,
     hasLiveSession: focusId !== undefined
   });
-  if (step === JoinStep.RESUME && target.resume !== undefined) {
+  const resumeConversation = step === JoinStep.RESUME ? target.resume : undefined;
+  if (resumeConversation !== undefined) {
     resumeRecordedConversation({
       host,
       project: target.path,
-      conversation: target.resume
+      conversation: resumeConversation
     });
   } else if (step === JoinStep.SELECT_CHAT && target.chatId !== undefined) {
     host.select(target.chatId);

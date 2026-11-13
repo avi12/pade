@@ -29,7 +29,8 @@ export function chatStatus(chat: Pick<SidebarChat, "id" | "status">) {
 /** What a chat is doing: a live agent at its prompt waits on the user, one
  *  starting up or mid-turn is working, and anything not running is idle. */
 export function chatActivity({ isLive, status }: { isLive: boolean; status: SessionStatus }) {
-  if (!isLive || status === SessionStatus.enum.exited) {
+  const isInactive = !isLive || status === SessionStatus.enum.exited;
+  if (isInactive) {
     return ChatActivity.IDLE;
   }
 

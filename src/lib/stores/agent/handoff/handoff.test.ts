@@ -30,7 +30,8 @@ async function answerMessage(command: Command) {
     return { isFile: true };
   }
 
-  if (command === Command.USAGE_GET || command === Command.USAGE_ACCOUNT_AGENT) {
+  const isUsageCommand = command === Command.USAGE_GET || command === Command.USAGE_ACCOUNT_AGENT;
+  if (isUsageCommand) {
     return null;
   }
 

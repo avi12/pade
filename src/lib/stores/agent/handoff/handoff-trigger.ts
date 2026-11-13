@@ -32,7 +32,8 @@ export function scanForHandoffs(context: HandoffContext) {
       continue;
     }
 
-    if (verdict === ScanVerdict.HAND_OFF || verdict === ScanVerdict.HAND_OFF_MID_TURN) {
+    const isHandOff = verdict === ScanVerdict.HAND_OFF || verdict === ScanVerdict.HAND_OFF_MID_TURN;
+    if (isHandOff) {
       state.markHandingOff(session.id);
       void context.runHandoff({
         session,
