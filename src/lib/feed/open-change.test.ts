@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { openAction, openChangedFile } from "@/lib/feed/open-change";
 import { Command } from "@/lib/ipc/messaging";
+import type * as messagingModule from "@/lib/ipc/messaging";
 import type { Ide } from "@/lib/types/editor";
 
 const mocks = vi.hoisted(() => ({
@@ -9,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: mocks.sendMessage
 }));
 

@@ -80,7 +80,7 @@ export function startWindowServices({
   // or the window reloaded onto it - bring back the cards of its tasks still
   // running in the backend.
   $effect(() => {
-    adoptRunningTasks(taskCatalog.snapshot);
+    void adoptRunningTasks(taskCatalog.snapshot);
   });
 
   // Adopt settings another window - or another PADE instance - changed: it
@@ -97,7 +97,7 @@ export function startWindowServices({
     unlistenSettings = await onMessage(EventType.SETTINGS_CHANGED, rereadSettings);
   }
   onMount(() => {
-    subscribeToSettingsChanges();
+    void subscribeToSettingsChanges();
     return () => unlistenSettings?.();
   });
 
@@ -115,7 +115,7 @@ export function startWindowServices({
       return;
     }
 
-    recordFrontProject(path);
+    void recordFrontProject(path);
   });
 
   // The front project's editors, for the top-bar launcher and the Change Feed's
@@ -124,7 +124,7 @@ export function startWindowServices({
   $effect(() => {
     const root = frontProject();
     if (root) {
-      untrack(() => refreshEditors(root));
+      void untrack(() => refreshEditors(root));
     }
   });
 
@@ -146,7 +146,7 @@ export function startWindowServices({
       sessionProjects: windowSessions.sessions.map(session => session.project),
       frontProject: frontProject()
     });
-    untrack(() => watchWindowProjects(roots));
+    void untrack(() => watchWindowProjects(roots));
   });
 
   // The branch pill reports the member the switcher points at, so picking a
@@ -157,7 +157,7 @@ export function startWindowServices({
       return;
     }
 
-    untrack(repository.load);
+    void untrack(repository.load);
   });
 
   // Keep the branch pill honest: a branch switch, git init, or remote change in
@@ -174,7 +174,7 @@ export function startWindowServices({
     });
   }
   onMount(() => {
-    subscribeToGitState();
+    void subscribeToGitState();
     return () => unlistenGitState?.();
   });
 
@@ -208,7 +208,7 @@ export function startWindowServices({
       return;
     }
 
-    updateDiscordPresence({
+    void updateDiscordPresence({
       isEnabled: discordEnabled,
       isProjectShown: discordShowProject,
       project: frontProject(),
@@ -228,14 +228,14 @@ export function startWindowServices({
     activeAgentCommand: () => windowSessions.activeSession?.agent.command ?? ""
   });
   onMount(() => {
-    autoNamer.start();
+    void autoNamer.start();
     return () => autoNamer.dispose();
   });
 
   // Send-from-IDE bridge (lib/terminal/input/send-shortcut): copy in any external editor, press
   // the global shortcut, and the clipboard lands in the active agent's input.
   onMount(() => {
-    registerSendShortcut({
+    void registerSendShortcut({
       activeId: () => windowSessions.activeId,
       activeLabel: () => windowSessions.activeSession?.agent.label ?? "agent"
     });

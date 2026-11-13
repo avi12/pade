@@ -245,7 +245,7 @@ export function createRelocator(host: RelocateHost) {
     await releaseLock(path);
     const settings = await removeFromDisk(path);
     if (isOpenWorkspaceUnder(path)) {
-      host.setCurrentProject("");
+      void host.setCurrentProject("");
     }
 
     return settings;

@@ -121,7 +121,7 @@ export function createTerminalSession({
       }
 
       const rows = viewportRows(terminal);
-      delivery.answerTrustGate(rows);
+      void delivery.answerTrustGate(rows);
       const screen = rows.join("\n");
       observeContextScreen({
         id: session().id,
@@ -263,11 +263,11 @@ export function createTerminalSession({
 
       if (data === ENTER) {
         dismissApiError(session().id);
-        takeOverPacing(session().id);
+        void takeOverPacing(session().id);
       }
 
       activity.noteInput(data);
-      writeToPty(data);
+      void writeToPty(data);
     });
     attachKeyOverrides({
       terminal: grid,
@@ -289,7 +289,7 @@ export function createTerminalSession({
     });
     grid.buffer.onBufferChange(() => {
       if (fit.syncScreen(grid)) {
-        colorScheme.reportToSubscribedAgent();
+        void colorScheme.reportToSubscribedAgent();
       }
     });
     grid.onResize(({ cols: columns, rows }) =>

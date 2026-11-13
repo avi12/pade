@@ -35,7 +35,7 @@ const INLINE_PATTERN = new RegExp(
   "g"
 );
 
-function pieceOf(groups: Record<string, string | undefined>): InlinePiece {
+function pieceOf(groups: Record<string, string | undefined>) {
   const { code, label, target, bare, strong, starred, underscored } = groups;
   if (code !== undefined) {
     return {

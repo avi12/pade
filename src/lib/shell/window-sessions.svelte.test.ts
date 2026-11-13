@@ -6,16 +6,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { forgetSession, rekeySession } from "@/lib/session/lifecycle/session-scope";
 import { createWindowSessions } from "@/lib/shell/windowSessions.svelte";
-import type { Agent, AgentSession } from "@/lib/types/agent";
+import type { Agent } from "@/lib/types/agent";
 
 const PROJECT = "C:\\work\\one";
 const OTHER_PROJECT = "C:\\work\\two";
 const FAILED_START_WINDOW_MS = 1;
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
-  const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
+  const messaging = await importOriginal<typeof messagingModule>();
   return {
     ...messaging,
     sendMessage: vi.fn(async () => undefined)
@@ -348,7 +349,7 @@ describe("restart", () => {
 });
 
 describe("hand-off and re-attach", () => {
-  function restored(id: string): AgentSession {
+  function restored(id: string) {
     return {
       id,
       agent: AGENT,

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Command, EventType } from "@/lib/ipc/messaging";
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { setFrontProjectSource } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import { feedStore, keepFeedsOf } from "@/lib/stores/workspace/change-feed/feed.svelte";
 import { ChangeKind } from "@/lib/types/feed";
@@ -19,7 +20,7 @@ vi.stubGlobal("addEventListener", vi.fn());
 vi.stubGlobal("removeEventListener", vi.fn());
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
-  const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
+  const messaging = await importOriginal<typeof messagingModule>();
   return {
     ...messaging,
     sendMessage: vi.fn(async (command: string) => {

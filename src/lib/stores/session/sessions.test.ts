@@ -24,7 +24,7 @@ async function settled(promise: Promise<void>) {
       // A rejected promise counts as not-resolved for this helper.
     }
   }
-  markResolved();
+  void markResolved();
   await Promise.resolve();
   await Promise.resolve();
   return resolved;

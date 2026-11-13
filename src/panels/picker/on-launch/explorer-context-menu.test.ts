@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { setExplorerContextMenu } from "@/panels/picker/on-launch/explorer-context-menu";
 
 const mocks = vi.hoisted(() => ({
@@ -7,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: mocks.sendMessage
 }));
 

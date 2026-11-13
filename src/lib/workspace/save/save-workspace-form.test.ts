@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save/save-workspace-form";
 
 const mocks = vi.hoisted(() => ({ sendMessage: vi.fn() }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: mocks.sendMessage
 }));
 

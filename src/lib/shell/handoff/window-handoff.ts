@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { SnapshotSession } from "@/lib/session/lifecycle/session-restore";
 import { RecordedConversation } from "@/lib/types/chat-storage";
-import type { OpenTarget, WindowInfo } from "@/lib/types/window";
+import type { WindowInfo } from "@/lib/types/window";
 import { shortDisplayName } from "@/lib/util/paths";
 
 /** The closed set of things a window can hand another. */
@@ -88,7 +88,7 @@ export function handoffProject(handoff: WindowHandoff) {
 
 /** How the receiving window enters a handed conversation or chat: beside
  *  whatever it already runs, the same way a rail click enters it. */
-export function joinTargetOf(handoff: Exclude<WindowHandoff, SessionsHandoff>): OpenTarget {
+export function joinTargetOf(handoff: Exclude<WindowHandoff, SessionsHandoff>) {
   if (handoff.kind === HandoffKind.enum.conversation) {
     return {
       path: handoff.project,

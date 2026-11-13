@@ -57,7 +57,7 @@ export function createPtyWriter({
       });
 
       if (!isWriteInFlight) {
-        flush();
+        void flush();
       }
     });
   };

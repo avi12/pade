@@ -62,7 +62,7 @@ export function createWindowLeave({
     });
   }
   onMount(() => {
-    interceptWindowClose();
+    void interceptWindowClose();
     return () => unlistenCloseRequested?.();
   });
 

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createAutoNamer } from "@/lib/agent/auto-name";
 import { EventType } from "@/lib/ipc/messaging";
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { createTaskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { frontProject, setFrontProjectSource } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import { ChangeKind } from "@/lib/types/feed";
@@ -9,12 +10,12 @@ import { ChangeKind } from "@/lib/types/feed";
 const TEMP = "C:/Users/me/.pade/workspaces/temp-1";
 
 const mocks = vi.hoisted(() => ({
-  sendMessage: vi.fn(async (_command: string, _data?: unknown): Promise<unknown> => null),
+  sendMessage: vi.fn(async (_command: string, _data?: unknown) => null),
   handlers: new Map<string, (message: { data: unknown }) => void>()
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: mocks.sendMessage,
   onMessage: vi.fn(async (event: string, handler: (message: { data: unknown }) => void) => {
     mocks.handlers.set(event, handler);

@@ -19,7 +19,7 @@ const ACCOUNT = "avi@example.com";
 const NO_STEPS: SubagentSteps = {};
 const NEVER_STEPPED: ReadonlyMap<string, number> = new Map();
 
-function session(overrides: Partial<SessionReport> & Pick<SessionReport, "id">): SessionReport {
+function session(overrides: Partial<SessionReport> & Pick<SessionReport, "id">) {
   return {
     name: overrides.id,
     accountKey: ACCOUNT,
@@ -35,7 +35,7 @@ function session(overrides: Partial<SessionReport> & Pick<SessionReport, "id">):
   };
 }
 
-function windowReport(label: string, sessions: SessionReport[]): WindowReport {
+function windowReport(label: string, sessions: SessionReport[]) {
   return {
     label,
     at: NOW,

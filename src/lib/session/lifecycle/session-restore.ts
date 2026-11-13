@@ -83,13 +83,7 @@ export function snapshotSessionOf({
 
 /** A persisted session back as a live one, in `fallbackProject` when it was
  *  saved without its own. Its saved state goes back to the stores that own it. */
-export function liveSessionOf({
-  saved,
-  fallbackProject
-}: {
-  saved: SnapshotSession;
-  fallbackProject: string;
-}): AgentSession {
+export function liveSessionOf({ saved, fallbackProject }: { saved: SnapshotSession; fallbackProject: string }) {
   const { state, ...session } = saved;
   restoreSessionState({
     id: session.id,

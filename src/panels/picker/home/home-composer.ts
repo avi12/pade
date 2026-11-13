@@ -52,9 +52,9 @@ export function resolveHomeStart({
   rawName: string;
   rawPrompt: string;
   agent: string | null;
-}): HomeStart {
+}) {
   if (choice === ProjectChoice.TEMP) {
-    return { kind: "temp" };
+    return { kind: "temp" as const };
   }
 
   const prompt =
@@ -68,11 +68,11 @@ export function resolveHomeStart({
       raw: rawName
     });
     if (!root || !name) {
-      return { kind: "none" };
+      return { kind: "none" as const };
     }
 
     return {
-      kind: "create",
+      kind: "create" as const,
       root,
       name,
       prompt,
@@ -81,11 +81,11 @@ export function resolveHomeStart({
   }
 
   if (!selectedPath) {
-    return { kind: "none" };
+    return { kind: "none" as const };
   }
 
   return {
-    kind: "open",
+    kind: "open" as const,
     target: {
       path: selectedPath,
       initialPrompt: prompt || undefined,

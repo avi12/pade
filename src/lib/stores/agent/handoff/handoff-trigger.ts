@@ -34,7 +34,7 @@ export function scanForHandoffs(context: HandoffContext) {
 
     if (verdict === ScanVerdict.HAND_OFF || verdict === ScanVerdict.HAND_OFF_MID_TURN) {
       state.markHandingOff(session.id);
-      context.runHandoff({
+      void context.runHandoff({
         session,
         reason: HandoffReason.CONTEXT_LIMIT,
         isMidTurn: verdict === ScanVerdict.HAND_OFF_MID_TURN
@@ -56,7 +56,7 @@ export function forceHandoff({ context, session }: { context: HandoffContext; se
   }
 
   context.state.markHandingOff(session.id);
-  context.runHandoff({
+  void context.runHandoff({
     session,
     reason: HandoffReason.CONTEXT_LIMIT
   });

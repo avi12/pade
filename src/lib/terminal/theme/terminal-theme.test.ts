@@ -58,9 +58,9 @@ describe("xtermTheme", () => {
   const theme = xtermTheme({ readToken: name => tokens[name] ?? "hsl(0 0% 50%)" });
 
   it("maps the code surface and cursor tokens onto xterm's slots", () => {
-    expect(theme.background).toBe(xtermSafeColor(tokens["--code-background"]!));
-    expect(theme.foreground).toBe(xtermSafeColor(tokens["--code-foreground"]!));
-    expect(theme.cursor).toBe(xtermSafeColor(tokens["--terminal-cursor"]!));
+    expect(theme.background).toBe(xtermSafeColor(tokens["--code-background"]));
+    expect(theme.foreground).toBe(xtermSafeColor(tokens["--code-foreground"]));
+    expect(theme.cursor).toBe(xtermSafeColor(tokens["--terminal-cursor"]));
   });
 
   it("hands xterm an alpha selection it can actually parse (8-digit hex)", () => {

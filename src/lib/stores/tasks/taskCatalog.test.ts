@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { createTaskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { knownTaskCommands, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
 import { ManifestMatch, TaskManifestDescriptor } from "@/lib/types/terminal";
@@ -11,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: mocks.sendMessage,
   onMessage: mocks.onMessage
 }));

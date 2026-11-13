@@ -99,7 +99,7 @@ export function attachKeyOverrides({
       // Claude Code's always-works binding, and OpenCode's, without tripping
       // its clipboard-on-paste. A bracketed paste of a lone LF is silently
       // dropped by Claude's composer, which is why Shift+Enter did nothing.
-      write(PROMPT_NEWLINE);
+      void write(PROMPT_NEWLINE);
       return;
     }
 
@@ -197,7 +197,7 @@ export function attachWheelForwarding({
 
     if (notches !== 0) {
       const scrollKey = notches < 0 ? PAGE_UP : PAGE_DOWN;
-      write(scrollKey.repeat(Math.abs(notches)));
+      void write(scrollKey.repeat(Math.abs(notches)));
     }
   }
 

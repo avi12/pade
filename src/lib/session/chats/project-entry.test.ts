@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type * as messagingModule from "@/lib/ipc/messaging";
 import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
 import {
   enterProjectChats,
@@ -12,7 +13,7 @@ import type { ProjectEntryHost } from "@/lib/session/chats/project-entry";
 import type { RecordedConversation } from "@/lib/types/chat-storage";
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
-  const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
+  const messaging = await importOriginal<typeof messagingModule>();
   return {
     ...messaging,
     sendMessage: vi.fn(async () => [])
@@ -49,7 +50,7 @@ const PERSISTED_REGISTRY: StoredChatRegistry = {
   lastProject: PROJECT
 };
 
-function conversation(overrides: Partial<RecordedConversation> = {}): RecordedConversation {
+function conversation(overrides: Partial<RecordedConversation> = {}) {
   return {
     agentId: AGENT.id,
     conversationId: "conversation-recorded",

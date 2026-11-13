@@ -114,7 +114,7 @@ export function createTaskCatalog(dependencies: TaskCatalogDependencies = defaul
             path
           });
         if (isListedManifest) {
-          refreshAfterManifestChange();
+          void refreshAfterManifestChange();
         }
       });
       snapshot = {
@@ -159,6 +159,6 @@ export const taskCatalog = createTaskCatalog();
 $effect.root(() => {
   $effect(() => {
     const project = frontProject();
-    untrack(() => taskCatalog.refresh(project));
+    void untrack(() => taskCatalog.refresh(project));
   });
 });

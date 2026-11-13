@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Command } from "@/lib/ipc/messaging";
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { forgetSession } from "@/lib/session/lifecycle/session-scope";
 import { observeAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
 import { compactionHeadroom, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
@@ -17,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: mocks.sendMessage,
   onMessage: mocks.onMessage
 }));

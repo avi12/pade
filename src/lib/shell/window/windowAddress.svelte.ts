@@ -60,7 +60,7 @@ export function syncWindowAddress({
     const query = windowQueryFor(project());
     if (location.search !== query) {
       history.replaceState(null, "", query);
-      armRecoveryAtAddress();
+      void armRecoveryAtAddress();
     }
   });
 
@@ -76,7 +76,7 @@ export function syncWindowAddress({
       return;
     }
 
-    registerProject(project());
+    void registerProject(project());
   });
 
   async function registerProject(path: string) {
@@ -95,6 +95,6 @@ export function syncWindowAddress({
       path: project(),
       labels: settings.labels
     });
-    setWindowTitle(hasNamedProject ? `PADE - ${workspace}` : "PADE");
+    void setWindowTitle(hasNamedProject ? `PADE - ${workspace}` : "PADE");
   });
 }

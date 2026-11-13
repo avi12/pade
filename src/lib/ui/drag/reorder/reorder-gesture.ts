@@ -74,7 +74,7 @@ export function createGesture({
   isReducedMotion: boolean;
   threshold: number;
   release: () => void;
-}): ReorderGesture {
+}) {
   return {
     options,
     elParent,

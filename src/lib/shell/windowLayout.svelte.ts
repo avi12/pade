@@ -56,7 +56,7 @@ export class WindowLayout {
   // the rest get a zero-duration outro.
   collapsingSplitPanes = new SvelteSet<string>();
 
-  get layout(): PaneLayout {
+  get layout() {
     return {
       sessions: this.sessions,
       paneIds: this.paneIds,

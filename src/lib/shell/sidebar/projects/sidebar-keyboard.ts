@@ -35,7 +35,7 @@ export function nextSidebarPosition({
   key: string;
   position: SidebarPosition;
   lineLengths: readonly number[];
-}): SidebarPosition | null {
+}) {
   const lastLine = lineLengths.length - 1;
   const lastItem = (lineLengths[position.line] ?? 1) - 1;
   if (key === SidebarKey.DOWN && position.line < lastLine) {

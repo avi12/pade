@@ -91,7 +91,7 @@ export function createAgentRetheme(host: AgentRethemeHost) {
   async function restartMismatchedAgents() {
     const mismatched = host.sessions().filter(isPaintedInStaleScheme);
     for (const session of mismatched.filter(each => !isSessionIdle(each.id))) {
-      rethemeWhenIdle(session.id);
+      void rethemeWhenIdle(session.id);
     }
 
     const targets = mismatched.filter(session => isSessionIdle(session.id));
@@ -149,7 +149,7 @@ export function createAgentRetheme(host: AgentRethemeHost) {
       }
 
       lastFollowedScheme = scheme;
-      followScheme(scheme);
+      void followScheme(scheme);
     }
   };
 }

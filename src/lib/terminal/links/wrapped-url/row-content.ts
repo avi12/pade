@@ -132,9 +132,7 @@ export function rowGlyphs({ line, content }: { line: LinkLine; content: RowConte
   for (let column = content.firstColumn; column <= content.lastColumn; column += 1) {
     const characters = cellText(line.getCell(column));
     text += characters;
-    for (let offset = 0; offset < characters.length; offset += 1) {
-      columns.push(column);
-    }
+    columns.push(...Array.from({ length: characters.length }, () => column));
   }
 
   return {

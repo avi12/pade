@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
 
 const ROOT = "C:\\repositories\\avi\\pade";
@@ -10,7 +11,7 @@ const REMOTE_URL = "https://github.com/avi/pade.git";
 const BRANCH_OF_ARGUMENTS = z.tuple([z.object({ paths: z.array(z.string()) })]);
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
-  const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
+  const messaging = await importOriginal<typeof messagingModule>();
   return {
     ...messaging,
     sendMessage: vi.fn()

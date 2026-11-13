@@ -49,7 +49,7 @@ export function createTerminal(host: HTMLElement) {
     // link an agent emits goes nowhere.
     linkHandler: {
       activate(_event, uri) {
-        openTerminalLink(uri);
+        void openTerminalLink(uri);
       }
     }
   });

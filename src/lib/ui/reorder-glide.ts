@@ -6,8 +6,6 @@
 // the first reorder of a frame records where the rows were painted, and the
 // glide runs from there right before the next paint.
 
-import type { Attachment } from "svelte/attachments";
-
 interface Offset {
   x: number;
   y: number;
@@ -15,13 +13,7 @@ interface Offset {
 
 /** How far a row's new box sits from where it was painted - the distance its
  *  glide starts at. */
-export function glideOffset({
-  from,
-  to
-}: {
-  from: Pick<DOMRect, "left" | "top">;
-  to: Pick<DOMRect, "left" | "top">;
-}): Offset {
+export function glideOffset({ from, to }: { from: Pick<DOMRect, "left" | "top">; to: Pick<DOMRect, "left" | "top"> }) {
   return {
     x: from.left - to.left,
     y: from.top - to.top
@@ -112,16 +104,14 @@ export function createReorderGlide({ duration }: { duration: () => number }) {
   }
 
   return {
-    row:
-      (key: string): Attachment<HTMLElement> =>
-      element => {
-        rows.set(key, element);
-        return () => {
-          if (rows.get(key) === element) {
-            rows.delete(key);
-          }
-        };
-      },
+    row: (key: string) => (element: HTMLElement) => {
+      rows.set(key, element);
+      return () => {
+        if (rows.get(key) === element) {
+          rows.delete(key);
+        }
+      };
+    },
     /** Record where every row is painted, once per frame, and glide them from
      *  there once the DOM has its new order. A `follow` row is kept in view. */
     beforeReorder({ follow }: { follow?: string } = {}) {

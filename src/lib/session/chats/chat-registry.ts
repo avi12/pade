@@ -45,7 +45,7 @@ const StoredChatRegistry = z.object({
 });
 export type StoredChatRegistry = z.infer<typeof StoredChatRegistry>;
 
-function emptyChatRegistry(): StoredChatRegistry {
+function emptyChatRegistry() {
   return {
     chats: [],
     activeChatByProject: {},
@@ -53,7 +53,7 @@ function emptyChatRegistry(): StoredChatRegistry {
   };
 }
 
-export function loadChatRegistry(): StoredChatRegistry {
+export function loadChatRegistry() {
   return (
     readStoredJson({
       key: CHAT_REGISTRY_STORAGE_KEY,
@@ -85,7 +85,7 @@ export function persistedChatsFromSessions({
   sessions: readonly AgentSession[];
   labels: Readonly<Record<string, string | undefined>>;
   now: number;
-}): PersistedChat[] {
+}) {
   const chats: PersistedChat[] = [];
   for (const session of sessions) {
     if (session.agent.id.startsWith(EDITOR_AGENT_PREFIX)) {
@@ -125,7 +125,7 @@ export function registryWithLiveChats({
   chats: readonly PersistedChat[];
   activeChatId: string | null;
   activeProject: string;
-}): StoredChatRegistry {
+}) {
   if (chats.length === 0) {
     return registry;
   }
@@ -154,7 +154,7 @@ export function registryWithoutChat({
   registry: StoredChatRegistry;
   project: string;
   chatId: string;
-}): StoredChatRegistry {
+}) {
   const activeChatByProject = { ...registry.activeChatByProject };
   if (activeChatByProject[project] === chatId) {
     delete activeChatByProject[project];
@@ -168,13 +168,7 @@ export function registryWithoutChat({
 }
 
 /** One project's persisted chats, in the order they were last saved. */
-export function chatsForProject({
-  registry,
-  project
-}: {
-  registry: StoredChatRegistry;
-  project: string;
-}): PersistedChat[] {
+export function chatsForProject({ registry, project }: { registry: StoredChatRegistry; project: string }) {
   return registry.chats.filter(chat => isSameProject(chat.project, project));
 }
 
@@ -235,8 +229,8 @@ function recordedChats({
   project: string;
   heldConversations: ReadonlySet<string | undefined>;
   recorded: readonly RecordedConversation[];
-}): SidebarChat[] {
-  return recorded
+}) {
+  const chats: SidebarChat[] = recorded
     .filter(conversation => !heldConversations.has(conversation.conversationId))
     .map(conversation => ({
       id: `${conversation.agentId}:${conversation.conversationId}`,
@@ -246,20 +240,22 @@ function recordedChats({
       isLive: false,
       resume: conversation
     }));
+  return chats;
 }
 
-function chatRow({ chat, isLive }: { chat: PersistedChat; isLive: boolean }): SidebarChat {
-  return {
+function chatRow({ chat, isLive }: { chat: PersistedChat; isLive: boolean }) {
+  const row: SidebarChat = {
     id: chat.id,
     project: chat.project,
     label: chat.label ?? chat.agent.label,
     agentId: chat.agent.id,
     isLive
   };
+  return row;
 }
 
-function elsewhereRow(session: ElsewhereRow): SidebarChat {
-  return {
+function elsewhereRow(session: ElsewhereRow) {
+  const row: SidebarChat = {
     id: session.id,
     project: session.project,
     label: session.name,
@@ -268,6 +264,7 @@ function elsewhereRow(session: ElsewhereRow): SidebarChat {
     windowLabel: session.windowLabel,
     status: session.status
   };
+  return row;
 }
 
 /** One project's rows: its live sessions here, then the ones other windows
@@ -356,7 +353,7 @@ export function sidebarProjects({
   liveLabels: Readonly<Record<string, string | undefined>>;
   elsewhereSessions: readonly ElsewhereRow[];
   recordedConversations: (project: string) => readonly RecordedConversation[];
-}): SidebarProject[] {
+}) {
   const seen = new Set<string>();
   const ordered: string[] = [];
   for (const project of projectOrder) {

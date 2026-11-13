@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Command, EventType } from "@/lib/ipc/messaging";
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { projectRunnerRows, runnerRows, stopRunner } from "@/lib/stores/tasks/runners.svelte";
 import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
 import { adoptRunningTasks, initTaskRunDetection, isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
@@ -28,7 +29,7 @@ const mocks = vi.hoisted<{
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: mocks.sendMessage,
   onMessage: mocks.onMessage
 }));

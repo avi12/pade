@@ -123,7 +123,7 @@ function fileChange(event: ChangeEvent) {
   // An event proves the watch is armed, so an identity missed when the project
   // was first held can be learned now.
   if (!armedAtByProject.has(event.root)) {
-    adoptLiveWatch(event.root);
+    void adoptLiveWatch(event.root);
   }
 }
 
@@ -179,7 +179,7 @@ export function keepFeedsOf(projects: string[]) {
   // Arming the singleton subscription is a self-contained side effect with no
   // follow-up here - the store reacts as events land, and startFeedSubscription
   // owns its own error handling - so a lazy call with no await is safe.
-  startFeedSubscription();
+  void startFeedSubscription();
 
   for (const project of feedsByProject.keys()) {
     if (!projects.includes(project)) {
@@ -191,7 +191,7 @@ export function keepFeedsOf(projects: string[]) {
   for (const project of projects) {
     if (!feedsByProject.has(project)) {
       feedsByProject.set(project, []);
-      adoptLiveWatch(project);
+      void adoptLiveWatch(project);
     }
   }
 }

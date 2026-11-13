@@ -49,7 +49,7 @@ export function createChatActions({
   const chatClickHost: ChatClickHost = {
     select(id) {
       windowSessions.select(id);
-      screen.showWorkspace();
+      void screen.showWorkspace();
     },
     focusElsewhere: roster.focus,
     moveToNewWindow: handoffs.moveToNewWindow,

@@ -10,14 +10,7 @@ import {
 
 const ROOT = "C:\\repositories";
 
-function base(): {
-  selectedPath: string;
-  choice: ProjectChoice;
-  root: string;
-  rawName: string;
-  rawPrompt: string;
-  agent: string | null;
-} {
+function base() {
   return {
     selectedPath: "",
     choice: ProjectChoice.EXISTING,

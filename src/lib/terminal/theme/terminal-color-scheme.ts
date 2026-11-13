@@ -66,7 +66,7 @@ export function createColorSchemeRelay({
       }
 
       isEnabled = true;
-      report();
+      void report();
     },
     /** A session attached mid-flight (or entering its fullscreen frame) whose
      *  agent is known to listen gets the report even with no handshake seen. */
@@ -82,7 +82,7 @@ export function createColorSchemeRelay({
     /** The palette changed - tell an agent that subscribed. */
     relayChange() {
       if (isEnabled) {
-        report();
+        void report();
       }
     }
   };

@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { beginReorder } from "@/lib/ui/drag/reorder/drag-reorder";
+import type * as reorderGeometryModule from "@/lib/ui/drag/reorder/reorder-geometry";
 import { Axis } from "@/lib/ui/drag/reorder/reorder-types";
 import type { BeginReorderOptions } from "@/lib/ui/drag/reorder/reorder-types";
 
@@ -48,7 +49,7 @@ vi.mock("@/lib/ui/drag/reorder/reorder-lift", () => ({
   springToTarget: vi.fn()
 }));
 vi.mock("@/lib/ui/drag/reorder/reorder-geometry", async importOriginal => {
-  const original = await importOriginal<typeof import("@/lib/ui/drag/reorder/reorder-geometry")>();
+  const original = await importOriginal<typeof reorderGeometryModule>();
   return {
     ...original,
     measureSiblings: ({ elParent, idAttribute }: { elParent: FakeElement; idAttribute: string }) =>

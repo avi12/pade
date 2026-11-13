@@ -34,6 +34,9 @@ async function rootComponent() {
   return App;
 }
 
-const app = mount(await rootComponent(), { target: document.getElementById("app")! });
+const target = document.getElementById("app");
+if (!target) {
+  throw new Error("index.html has no #app mount point");
+}
 
-export default app;
+mount(await rootComponent(), { target });

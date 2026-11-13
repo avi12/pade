@@ -199,7 +199,7 @@ export function createUsageAdapter(host: AdaptHost) {
         id: session.id,
         choice: null
       });
-      capSubagents({
+      void capSubagents({
         session,
         model: null
       });

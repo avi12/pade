@@ -123,7 +123,7 @@ export function setNaming({ id, agent, isOn }: { id: string; agent: string; isOn
   });
 
   if (sessionStatus(id) === SessionStatus.enum.working) {
-    generate(id);
+    void generate(id);
   }
 }
 
@@ -225,7 +225,7 @@ function reconcileNaming({ id, status }: { id: string; status: SessionStatus }) 
   });
 
   if (wasWorking && !isWorking) {
-    generate(id);
+    void generate(id);
   }
 
   controller.lastStatus = status;

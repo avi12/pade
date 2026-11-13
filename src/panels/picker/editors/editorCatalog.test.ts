@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { settings } from "@/lib/settings/settings.svelte";
 import type { Ide } from "@/lib/types/editor";
 import { createEditorCatalog } from "@/panels/picker/editors/editorCatalog.svelte";
@@ -23,7 +24,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
-  const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
+  const messaging = await importOriginal<typeof messagingModule>();
   return {
     ...messaging,
     sendMessage: vi.fn(async (command: string) => {

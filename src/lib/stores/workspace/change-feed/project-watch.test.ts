@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import type * as messagingModule from "@/lib/ipc/messaging";
 import {
   heldProjects,
   onWatchesArmed,
@@ -12,7 +13,7 @@ const APP = "C:/work/app";
 const API = "C:/work/api";
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: vi.fn(async () => null)
 }));
 

@@ -7,8 +7,7 @@ import {
   registryWithLiveChats,
   registryWithoutChat,
   saveChatRegistry,
-  sidebarProjects,
-  type StoredChatRegistry
+  sidebarProjects
 } from "@/lib/session/chats/chat-registry";
 import { SessionStatus } from "@/lib/types/agent";
 import type { AgentSession } from "@/lib/types/agent";
@@ -16,7 +15,7 @@ import type { AgentSession } from "@/lib/types/agent";
 const PROJECT = "C:\\repositories\\pade";
 const OTHER_PROJECT = "C:\\repositories\\poll";
 
-function session(id: string, extra: Partial<AgentSession> = {}): AgentSession {
+function session(id: string, extra: Partial<AgentSession> = {}) {
   return {
     id,
     agent: {
@@ -31,7 +30,7 @@ function session(id: string, extra: Partial<AgentSession> = {}): AgentSession {
   };
 }
 
-function registry(): StoredChatRegistry {
+function registry() {
   return {
     chats: [
       {

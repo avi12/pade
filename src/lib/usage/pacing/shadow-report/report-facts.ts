@@ -49,7 +49,7 @@ export function choiceFactsOf({
   restoreAt: ChoiceFacts["restoreAt"];
   isSteppedDown: boolean;
   options: readonly ModelOption[];
-}): ChoiceFacts | null {
+}) {
   if (running === null) {
     return null;
   }
@@ -90,7 +90,7 @@ export function choiceFactsOf({
 
 /** One paused session's state as the wire carries it - the loop's own record
  *  holds more (burn rates, utilization) than the engine needs. */
-export function paceFactsOf(state: PaceFacts | undefined): PaceFacts | null {
+export function paceFactsOf(state: PaceFacts | undefined) {
   if (state === undefined) {
     return null;
   }
@@ -116,7 +116,7 @@ export function sessionFactsOf({
 }: {
   reported: Omit<SessionFacts, keyof OwnedFacts>;
   owned: OwnedFacts;
-}): SessionFacts {
+}) {
   return {
     ...reported,
     ...owned

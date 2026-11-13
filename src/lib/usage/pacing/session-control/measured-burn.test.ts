@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Command } from "@/lib/ipc/messaging";
-import type { AgentSession, ModelTokenUsage, SessionTokenUsage } from "@/lib/types/agent";
+import type * as messagingModule from "@/lib/ipc/messaging";
+import type { AgentSession, SessionTokenUsage } from "@/lib/types/agent";
 import { measuredBurn, splitBurn } from "@/lib/usage/pacing/session-control/measured-burn";
 
 const NOTHING: SessionTokenUsage = {
@@ -14,7 +15,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: mocks.sendMessage
 }));
 
@@ -34,7 +35,7 @@ const SESSION = {
   conversationId: "conversation-1"
 } satisfies AgentSession;
 
-function haikuInput(inputTokens: number): ModelTokenUsage[] {
+function haikuInput(inputTokens: number) {
   return [
     {
       model: "claude-haiku-5-5",

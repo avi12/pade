@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as messagingModule from "@/lib/ipc/messaging";
 import type { PathProbe } from "@/lib/types/workspace";
 import { childPath } from "@/lib/util/paths";
 import { startTempWorkspace, submitNewProject } from "@/panels/picker/home/new-project";
@@ -15,7 +16,7 @@ const disk: { probe: Pick<PathProbe, "isDir" | "isFile"> } = {
 const created: string[] = [];
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
-  const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
+  const messaging = await importOriginal<typeof messagingModule>();
   return {
     ...messaging,
     sendMessage: vi.fn(

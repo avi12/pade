@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import type { SidebarProject } from "@/lib/session/chats/chat-registry";
 import {
   firstListedProject,
   sidebarProjectOrder,
@@ -11,7 +10,7 @@ const PADE = "C:\\repositories\\pade";
 const POLL = "C:\\repositories\\poll";
 const TEMP = "C:\\temp\\pade-workspace-1";
 
-function group(project: string): SidebarProject {
+function group(project: string) {
   return {
     project,
     isCurrent: false,

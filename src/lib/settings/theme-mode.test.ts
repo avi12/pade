@@ -86,7 +86,7 @@ describe("PALETTE_MONOSPACE_FACE", () => {
 });
 
 describe("adoptedMonospaceFace", () => {
-  const cyberpunkFace = PALETTE_MONOSPACE_FACE[ThemePalette.enum.cyberpunk]!;
+  const cyberpunkFace = PALETTE_MONOSPACE_FACE[ThemePalette.enum.cyberpunk];
 
   it("takes the skin's own face when the skin ships one", () => {
     for (const current of [null, undefined, "", "JetBrains Mono"]) {

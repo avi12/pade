@@ -17,7 +17,7 @@ import {
   isSummaryDue,
   parseBoardMessage
 } from "@/lib/dashboard/agent-board";
-import type { BoardAgent, BoardMessage } from "@/lib/dashboard/agent-board";
+import type { BoardMessage } from "@/lib/dashboard/agent-board";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { windowLabel } from "@/lib/ipc/platform";
 import { modelLabel } from "@/lib/model/model-label";
@@ -76,7 +76,7 @@ export function publishToBoard({
     return statusSince.get(id)?.at ?? now;
   }
 
-  function boardAgent(session: AgentSession): BoardAgent {
+  function boardAgent(session: AgentSession) {
     const running = sessionModel(session.id);
     const summary = summaries.get(session.id) ?? NO_SUMMARY;
     return {
@@ -182,7 +182,7 @@ export function publishToBoard({
     }
 
     for (const session of windowSessions.sessions.filter(isSessionSummaryDue)) {
-      summarize(session);
+      void summarize(session);
     }
   });
 

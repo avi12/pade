@@ -83,7 +83,7 @@ import type { AgentSession } from "@/lib/types/agent";
 import { PacedWindowKind, PacingStep } from "@/lib/types/pacing";
 import type { AccountUsage, UsageWindow } from "@/lib/types/usage";
 import { isThrottling } from "@/lib/usage/pacing/engine/account-round";
-import type { RoundPlan, SessionReport } from "@/lib/usage/pacing/engine/account-round";
+import type { RoundPlan } from "@/lib/usage/pacing/engine/account-round";
 import {
   costWeight,
   lightestToRestore,
@@ -118,7 +118,6 @@ import type { MeasuredBurn } from "@/lib/usage/pacing/session-control/measured-b
 import { canHoldRest, heldRestUntil } from "@/lib/usage/pacing/session-control/rest-hold";
 import { ObservedKind, PacePhase } from "@/lib/usage/pacing/shadow-report/pacing-report";
 import { paceFactsOf } from "@/lib/usage/pacing/shadow-report/report-facts";
-import type { OwnedFacts } from "@/lib/usage/pacing/shadow-report/report-facts";
 import { afterDelay } from "@/lib/util/async/delay";
 import { readStoredJson, writeStoredJson } from "@/lib/util/data/stored-json";
 import { formatPercent } from "@/lib/util/format";
@@ -808,7 +807,7 @@ export function createUsagePacing(host: PacingHost) {
     isIdle: boolean;
   }) {
     if (isHeld) {
-      stopIfRestIgnored({
+      void stopIfRestIgnored({
         session,
         pausedAt
       });
@@ -819,7 +818,7 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    stopRunningSession({
+    void stopRunningSession({
       session,
       stopWrittenAt: pausedAt
     });
@@ -1260,7 +1259,7 @@ export function createUsagePacing(host: PacingHost) {
   // A working session as the account-wide round sees it: its own share of the
   // account (its running subagents apart, each with its own), and - over pace -
   // what the account must shed and what its next step would save.
-  function reportOf(assessment: WorkingAssessment): SessionReport {
+  function reportOf(assessment: WorkingAssessment) {
     const { session, binding } = assessment;
     return {
       id: session.id,
@@ -1567,7 +1566,7 @@ export function createUsagePacing(host: PacingHost) {
   // What the loop alone knows of a session, for the backend engine's report.
   // Reads only - the shields' own checks (`isContinuedRun`, `isShielded`)
   // move their state on, and are made once per scan by `paceSession`.
-  function ownedFactsOf(session: AgentSession): OwnedFacts {
+  function ownedFactsOf(session: AgentSession) {
     const id = session.id;
     return {
       isWorking: isWorking(id),

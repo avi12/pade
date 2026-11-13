@@ -285,7 +285,7 @@ function applySgr({ style, parameters }: { style: AnsiStyle; parameters: string 
       ? [Sgr.RESET]
       : parameters.split(PARAMETER_SEPARATOR).map(part => (part === "" ? Sgr.RESET : parseInt(part, DECIMAL_RADIX)));
   for (let i = 0; i < codes.length; i++) {
-    const code = codes[i]!;
+    const code = codes[i];
     const isExtendedColor = code === Sgr.EXTENDED_FOREGROUND || code === Sgr.EXTENDED_BACKGROUND;
     if (isExtendedColor) {
       i = applyExtendedColor({
@@ -357,7 +357,7 @@ export function parseAnsi(text: string) {
     if (sgrMatch) {
       applySgr({
         style,
-        parameters: sgrMatch[1]!
+        parameters: sgrMatch[1]
       });
     }
 

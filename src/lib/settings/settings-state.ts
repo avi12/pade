@@ -1,8 +1,14 @@
 /** Overwrite `target` in place with exactly `fresh`'s keys, so an optional key
  *  the fresh copy dropped doesn't survive on the reactive original. */
 export function replaceRecord<T extends object>({ target, fresh }: { target: T; fresh: T }) {
-  for (const key in target) {
-    delete target[key];
+  function isKeyOfTarget(key: string): key is Extract<keyof T, string> {
+    return key in target;
+  }
+
+  for (const key of Object.keys(target)) {
+    if (isKeyOfTarget(key)) {
+      delete target[key];
+    }
   }
   Object.assign(target, fresh);
 }

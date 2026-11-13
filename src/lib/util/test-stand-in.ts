@@ -3,6 +3,6 @@
 // under test must read nothing else. Tests only - one home for the one place a
 // value takes a type it doesn't fully have.
 
-export function testStandIn<T extends object>(members: Partial<T>): T {
+export function testStandIn<T extends object>(members: Partial<T>) {
   return Object.assign(Object.create(null), members);
 }

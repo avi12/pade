@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type * as messagingModule from "@/lib/ipc/messaging";
 import type { StoredChatRegistry } from "@/lib/session/chats/chat-registry";
 import { restoreProjectChats, shouldStartFreshChat } from "@/lib/session/chats/chat-restore";
 import type { ChatRestoreHost } from "@/lib/session/chats/chat-restore";
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => {
-  const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
+  const messaging = await importOriginal<typeof messagingModule>();
   return {
     ...messaging,
     sendMessage: vi.fn(async () => ["resume", "conversation-a"])
@@ -20,7 +21,7 @@ const AGENT = {
   reordersBidi: false
 };
 
-function registry(): StoredChatRegistry {
+function registry() {
   return {
     chats: [
       {

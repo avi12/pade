@@ -134,7 +134,7 @@ export function createSessionAutomation({
     for (const id of failedMcpReloads()) {
       const session = windowSessions.sessions.find(candidate => candidate.id === id);
       if (session) {
-        recoverFailedMcpReload(session);
+        void recoverFailedMcpReload(session);
       } else {
         dropMcpReload(id);
       }
@@ -225,7 +225,7 @@ export function createSessionAutomation({
     });
   }
   onMount(() => {
-    subscribeToMcpChanges();
+    void subscribeToMcpChanges();
     return () => unlistenMcp?.();
   });
 

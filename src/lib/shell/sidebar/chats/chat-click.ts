@@ -55,7 +55,7 @@ export function chatClickAction({
   elsewhereWindow: string | undefined;
   isRecorded: boolean;
   opensNewWindow: boolean;
-}): ChatClickAction {
+}) {
   if (elsewhereWindow !== undefined && !isLiveHere) {
     return ChatClickAction.FOCUS_OTHER_WINDOW;
   }

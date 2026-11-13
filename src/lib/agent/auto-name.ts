@@ -121,7 +121,7 @@ export function createAutoNamer(host: AutoNameHost) {
   // changes they produce; it never arms on the (drift-prone) cwd.
   async function start() {
     unlisten = await onMessage(EventType.FEED_CHANGE, ({ data }) => {
-      consider(data);
+      void consider(data);
     });
   }
 

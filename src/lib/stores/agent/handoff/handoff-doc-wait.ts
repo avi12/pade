@@ -121,6 +121,6 @@ export function waitForFile({
       handler: pollDisk,
       delayMs: HANDOFF_DOC_POLL_MS
     });
-    subscribeToChanges();
+    void subscribeToChanges();
   });
 }

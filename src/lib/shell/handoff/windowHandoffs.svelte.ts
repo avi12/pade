@@ -43,7 +43,7 @@ export function createWindowHandoffs(host: WindowHandoffsHost) {
   const { windowSessions } = host;
 
   /** The hand-off that carries these live sessions, labels and all. */
-  function sessionsHandoff(sessions: readonly AgentSession[]): WindowHandoff {
+  function sessionsHandoff(sessions: readonly AgentSession[]) {
     return {
       kind: HandoffKind.enum.sessions,
       sessions: sessions.map(snapshotSessionOf),

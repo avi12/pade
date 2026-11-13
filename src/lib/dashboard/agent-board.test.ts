@@ -16,7 +16,7 @@ import {
   windowsAfterMessage,
   windowsStillOpen
 } from "@/lib/dashboard/agent-board";
-import type { BoardAgent, BoardWindow } from "@/lib/dashboard/agent-board";
+import type { BoardAgent } from "@/lib/dashboard/agent-board";
 import { SessionStatus } from "@/lib/types/agent";
 
 const NOW = 1_000_000;
@@ -39,7 +39,7 @@ function agent(overrides: Partial<BoardAgent> = {}) {
   };
 }
 
-function window({ projectLabel, agents }: { projectLabel: string; agents: BoardAgent[] }): BoardWindow {
+function window({ projectLabel, agents }: { projectLabel: string; agents: BoardAgent[] }) {
   return {
     label: projectLabel,
     project: `C:\\${projectLabel}`,

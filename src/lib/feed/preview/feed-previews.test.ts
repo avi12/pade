@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createFeedPreviews, PreviewPane } from "@/lib/feed/preview/feed-previews";
 import { Command } from "@/lib/ipc/messaging";
+import type * as messagingModule from "@/lib/ipc/messaging";
 
 const mocks = vi.hoisted(() => ({
   sendMessage: vi.fn<(command: string, data?: unknown) => Promise<unknown>>()
 }));
 
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: mocks.sendMessage
 }));
 

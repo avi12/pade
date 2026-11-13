@@ -104,7 +104,7 @@ export function joinStep({
   isPickedChatOpen: boolean;
   isPickedChatPersisted: boolean;
   hasLiveSession: boolean;
-}): JoinStep {
+}) {
   if (target.resume !== undefined) {
     return JoinStep.RESUME;
   }

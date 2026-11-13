@@ -165,7 +165,7 @@ export function xtermSafeColor(raw: string) {
     [0, secondary, chroma],
     [secondary, 0, chroma],
     [chroma, 0, secondary]
-  ][sextant]!;
+  ][sextant] ?? [0, 0, 0];
 
   let hex = `#${channelHex(red + base)}${channelHex(green + base)}${channelHex(blue + base)}`;
   const hasAlpha = alphaRaw !== undefined && alphaRaw !== "";

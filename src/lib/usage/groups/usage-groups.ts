@@ -172,7 +172,7 @@ function windowLimit({
   account: AccountUsage;
   percentage: number;
   now: number;
-}): Limit {
+}) {
   const presentation = windowPresentation(window);
   const isCreditsCap = window.kind === UsageWindowKind.enum.credits;
   const isUncapped = isCreditsCap && Boolean(account.uncappedSpend);

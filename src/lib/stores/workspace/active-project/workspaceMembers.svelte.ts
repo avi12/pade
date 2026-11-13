@@ -120,6 +120,6 @@ export async function refreshMemberBranches() {
 $effect.root(() => {
   $effect(() => {
     const projectRoot = frontProject();
-    untrack(() => loadWorkspaceMembers(projectRoot));
+    void untrack(() => loadWorkspaceMembers(projectRoot));
   });
 });

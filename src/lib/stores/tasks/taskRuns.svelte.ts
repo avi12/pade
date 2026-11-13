@@ -167,7 +167,7 @@ async function startListeners() {
             continue;
           }
 
-          attachWhenRunning({
+          void attachWhenRunning({
             sessionId: data.id,
             task,
             project: snapshot.project

@@ -19,7 +19,7 @@ const CLAUDE = {
   reordersBidi: true
 };
 
-function session(id: string): AgentSession {
+function session(id: string) {
   return {
     id,
     agent: CLAUDE,

@@ -91,7 +91,7 @@ async function listenForChanges() {
 
 function ensureListening() {
   if (!isListening) {
-    listenForChanges();
+    void listenForChanges();
   }
 }
 

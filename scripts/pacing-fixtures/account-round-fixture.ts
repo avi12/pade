@@ -1,7 +1,7 @@
 // The account-round fixture: session and window reports planned into rounds.
 
 import { planRound } from "@/lib/usage/pacing/engine/account-round";
-import type { SessionReport, SubagentSteps, WindowReport } from "@/lib/usage/pacing/engine/account-round";
+import type { SubagentSteps, WindowReport } from "@/lib/usage/pacing/engine/account-round";
 
 import { between, NOW, pick, random } from "./fixture-primitives";
 import { gate, WRAP_UP } from "./subagent-steps-fixture";
@@ -10,7 +10,7 @@ const ACCOUNTS = ["avi@example.com", "someone@example.com"];
 
 const WINDOW_LABELS = ["main", "window-1", "window-2"];
 
-function sessionReportOf(id: string): SessionReport {
+function sessionReportOf(id: string) {
   const isOverPace = random() > 0.45;
   return {
     id,
@@ -46,7 +46,7 @@ function sessionReportOf(id: string): SessionReport {
 
 function windowReportsOf() {
   const windowCount = 1 + Math.floor(random() * 3);
-  return Array.from({ length: windowCount }, (_, windowIndex): WindowReport => ({
+  return Array.from({ length: windowCount }, (_, windowIndex) => ({
     label: pick(WINDOW_LABELS) + (windowIndex === 0 ? "" : `-${windowIndex}`),
     at: NOW,
     sessions: Array.from({ length: 1 + Math.floor(random() * 3) }, (_, sessionIndex) =>

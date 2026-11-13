@@ -151,7 +151,7 @@ export function createInitialPromptDelivery({
         return;
       }
 
-      deliverIfReady();
+      void deliverIfReady();
     }, SUBMIT_VERIFY_MS);
   }
 

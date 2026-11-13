@@ -26,7 +26,7 @@
 
   let listElement = $state<HTMLElement | null>(null);
 
-  function badge(kind: VcsKind): string {
+  function badge(kind: VcsKind) {
     return KIND_BADGE[kind];
   }
 </script>
