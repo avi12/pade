@@ -16,7 +16,7 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
   return {
     ...messaging,
     sendMessage: vi.fn(async (command: string, data: { paths: string[] }) => {
-      if (command !== messaging.Command.ideProjectKinds) {
+      if (command !== messaging.Command.IDE_PROJECT_KINDS) {
         throw new Error(`unexpected command ${command}`);
       }
 

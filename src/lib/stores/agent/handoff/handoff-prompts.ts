@@ -5,19 +5,19 @@ import { submittedPrompt } from "@/lib/terminal/input/terminal-input";
 const FALLBACK_NAME_PART = "session";
 
 export const HandoffReason = {
-  ContextLimit: "context-limit",
-  ConfigurationChange: "configuration-change",
-  Save: "save"
+  CONTEXT_LIMIT: "context-limit",
+  CONFIGURATION_CHANGE: "configuration-change",
+  SAVE: "save"
 } as const;
 export type HandoffReason = (typeof HandoffReason)[keyof typeof HandoffReason];
 
 /** The one sentence that opens the handoff request, per reason - the SSOT so the
  *  wording never drifts and adding a reason is one entry, not a new branch. */
 const HANDOFF_TRIGGER: Record<HandoffReason, string> = {
-  [HandoffReason.ContextLimit]: "Your context window is nearly full.",
-  [HandoffReason.ConfigurationChange]:
+  [HandoffReason.CONTEXT_LIMIT]: "Your context window is nearly full.",
+  [HandoffReason.CONFIGURATION_CHANGE]:
     "The project's MCP server configuration changed, so PADE must restart this agent to load it.",
-  [HandoffReason.Save]:
+  [HandoffReason.SAVE]:
     "This workspace is being saved as a permanent project, and its agent is restarting in the saved location."
 };
 

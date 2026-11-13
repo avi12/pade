@@ -68,7 +68,7 @@
       onclick={async () => {
         isScanning = true;
         try {
-          agentList = await sendMessage(Command.agentsDetect);
+          agentList = await sendMessage(Command.AGENTS_DETECT);
         } finally {
           isScanning = false;
         }

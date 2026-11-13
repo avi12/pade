@@ -43,7 +43,7 @@
 
     // Keeps the terminal from also receiving the chord - a reload leaves no
     // terminal to reach.
-    if (shortcut !== WindowShortcut.Reload) {
+    if (shortcut !== WindowShortcut.RELOAD) {
       e.stopPropagation();
     }
 

@@ -17,9 +17,9 @@ import { ROOT_GROUP_ID } from "@/lib/workspace/members/workspace-members";
 
 /** Coarse project role driving the group's badge. One authoritative home. */
 export const GroupRole = {
-  App: "app",
-  Lib: "lib",
-  Service: "service"
+  APP: "app",
+  LIB: "lib",
+  SERVICE: "service"
 } as const;
 export type GroupRole = (typeof GroupRole)[keyof typeof GroupRole];
 
@@ -55,18 +55,18 @@ export interface ChangeGroup {
 // of container conventions; a first path segment matching one (case-insensitively)
 // means the segment after it is a project member.
 const CONTAINER_ROLES: Record<string, GroupRole> = {
-  apps: GroupRole.App,
-  app: GroupRole.App,
-  packages: GroupRole.Lib,
-  libs: GroupRole.Lib,
-  lib: GroupRole.Lib,
-  crates: GroupRole.Lib,
-  modules: GroupRole.Lib,
-  plugins: GroupRole.Lib,
-  services: GroupRole.Service,
-  service: GroupRole.Service,
-  servers: GroupRole.Service,
-  server: GroupRole.Service
+  apps: GroupRole.APP,
+  app: GroupRole.APP,
+  packages: GroupRole.LIB,
+  libs: GroupRole.LIB,
+  lib: GroupRole.LIB,
+  crates: GroupRole.LIB,
+  modules: GroupRole.LIB,
+  plugins: GroupRole.LIB,
+  services: GroupRole.SERVICE,
+  service: GroupRole.SERVICE,
+  servers: GroupRole.SERVICE,
+  server: GroupRole.SERVICE
 };
 
 /** An npm-style `@scope/name` member spans two segments under its container. */
@@ -133,10 +133,10 @@ function projectOf({ path, workspaceRoot, repository }: { path: string; workspac
 function memberRole(memberPath: string) {
   const container = memberPath.split("/")[0]?.toLowerCase();
   if (container === undefined) {
-    return GroupRole.App;
+    return GroupRole.APP;
   }
 
-  return CONTAINER_ROLES[container] ?? GroupRole.App;
+  return CONTAINER_ROLES[container] ?? GroupRole.APP;
 }
 
 // The deepest manifest-confirmed member enclosing a changed path. Whole
@@ -227,7 +227,7 @@ export function groupChanges({
   const repository: Project = {
     id: ROOT_GROUP_ID,
     name: repositoryName,
-    role: GroupRole.App
+    role: GroupRole.APP
   };
   // The root entry only signals "this workspace has a manifest"; grouping needs
   // the real (non-root) members, and with none the convention takes over.

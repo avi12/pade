@@ -14,7 +14,7 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
   return {
     ...messaging,
     sendMessage: vi.fn(async (command: string) => {
-      if (command === messaging.Command.membersList) {
+      if (command === messaging.Command.MEMBERS_LIST) {
         return [
           {
             path: "",
@@ -25,7 +25,7 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
         ];
       }
 
-      if (command === messaging.Command.vcsBranchOf) {
+      if (command === messaging.Command.VCS_BRANCH_OF) {
         return {};
       }
 

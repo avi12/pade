@@ -114,11 +114,11 @@ describe("suggestionKeyStep", () => {
     expect(
       suggestionKeyStep({
         ...VISIBLE_THREE,
-        key: Key.ArrowDown,
+        key: Key.ARROW_DOWN,
         highlightedIndex: -1
       })
     ).toEqual({
-      kind: SuggestionStepKind.Move,
+      kind: SuggestionStepKind.MOVE,
       activeIndex: 0,
       isListOpen: true
     });
@@ -128,11 +128,11 @@ describe("suggestionKeyStep", () => {
     expect(
       suggestionKeyStep({
         ...VISIBLE_THREE,
-        key: Key.ArrowUp,
+        key: Key.ARROW_UP,
         highlightedIndex: 0
       })
     ).toEqual({
-      kind: SuggestionStepKind.Move,
+      kind: SuggestionStepKind.MOVE,
       activeIndex: 2,
       isListOpen: true
     });
@@ -143,11 +143,11 @@ describe("suggestionKeyStep", () => {
       suggestionKeyStep({
         count: 2,
         isListVisible: false,
-        key: Key.ArrowDown,
+        key: Key.ARROW_DOWN,
         highlightedIndex: -1
       })
     ).toEqual({
-      kind: SuggestionStepKind.Move,
+      kind: SuggestionStepKind.MOVE,
       activeIndex: 0,
       isListOpen: true
     });
@@ -158,7 +158,7 @@ describe("suggestionKeyStep", () => {
       suggestionKeyStep({
         count: 0,
         isListVisible: false,
-        key: Key.ArrowDown,
+        key: Key.ARROW_DOWN,
         highlightedIndex: -1
       })
     ).toBeNull();
@@ -168,11 +168,11 @@ describe("suggestionKeyStep", () => {
     expect(
       suggestionKeyStep({
         ...VISIBLE_THREE,
-        key: Key.Enter,
+        key: Key.ENTER,
         highlightedIndex: 1
       })
     ).toEqual({
-      kind: SuggestionStepKind.Pick,
+      kind: SuggestionStepKind.PICK,
       index: 1
     });
   });
@@ -181,7 +181,7 @@ describe("suggestionKeyStep", () => {
     expect(
       suggestionKeyStep({
         ...VISIBLE_THREE,
-        key: Key.Enter,
+        key: Key.ENTER,
         highlightedIndex: -1
       })
     ).toBeNull();
@@ -191,11 +191,11 @@ describe("suggestionKeyStep", () => {
     expect(
       suggestionKeyStep({
         ...VISIBLE_THREE,
-        key: Key.Escape,
+        key: Key.ESCAPE,
         highlightedIndex: 1
       })
     ).toEqual({
-      kind: SuggestionStepKind.Move,
+      kind: SuggestionStepKind.MOVE,
       activeIndex: -1,
       isListOpen: false
     });
@@ -206,7 +206,7 @@ describe("suggestionKeyStep", () => {
       suggestionKeyStep({
         count: 3,
         isListVisible: false,
-        key: Key.Escape,
+        key: Key.ESCAPE,
         highlightedIndex: -1
       })
     ).toBeNull();
@@ -216,7 +216,7 @@ describe("suggestionKeyStep", () => {
     expect(
       suggestionKeyStep({
         ...VISIBLE_THREE,
-        key: Key.Home,
+        key: Key.HOME,
         highlightedIndex: 1
       })
     ).toBeNull();

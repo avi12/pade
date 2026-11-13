@@ -127,8 +127,8 @@ export function countCodeLines({ path, text }: { path: string; text: string }) {
 }
 
 export const Verdict = {
-  Fail: "fail",
-  Shrunk: "shrunk"
+  FAIL: "fail",
+  SHRUNK: "shrunk"
 } as const;
 
 export function judgeSizes({ sizes, baseline }: { sizes: Baseline; baseline: Baseline }) {
@@ -147,7 +147,7 @@ export function judgeSizes({ sizes, baseline }: { sizes: Baseline; baseline: Bas
         path,
         size,
         recorded,
-        kind: Verdict.Fail
+        kind: Verdict.FAIL
       });
     }
   }
@@ -158,7 +158,7 @@ export function judgeSizes({ sizes, baseline }: { sizes: Baseline; baseline: Bas
         path,
         size,
         recorded,
-        kind: Verdict.Shrunk
+        kind: Verdict.SHRUNK
       });
     }
   }

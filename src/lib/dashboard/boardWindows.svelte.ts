@@ -40,7 +40,7 @@ export function createBoardWindows({
   /** Follow the open windows: their order, and which have closed. */
   async function syncOpenWindows() {
     try {
-      order = (await sendMessage(Command.windowList)).map(listed => listed.label);
+      order = (await sendMessage(Command.WINDOW_LIST)).map(listed => listed.label);
     } catch (error) {
       console.warn("pade: could not list the open windows, keeping the board as it is", error);
       return;
@@ -69,7 +69,7 @@ export function createBoardWindows({
   let unlistenWindows: UnlistenFn | undefined;
   onMount(async () => {
     await syncOpenWindows();
-    unlistenWindows = await onMessage(EventType.windowsChanged, syncOpenWindows);
+    unlistenWindows = await onMessage(EventType.WINDOWS_CHANGED, syncOpenWindows);
   });
   onDestroy(() => {
     unlistenWindows?.();
@@ -95,7 +95,7 @@ export function createBoardWindows({
         });
       }
 
-      await sendMessage(Command.windowFocusLabel, { label });
+      await sendMessage(Command.WINDOW_FOCUS_LABEL, { label });
     }
   };
 }

@@ -19,19 +19,19 @@ function gate(options: string[]) {
 
 describe("trustGateKey", () => {
   it("steps down when the cursor starts on 'No, exit' above the trust option", () => {
-    expect(trustGateKey(gate([" ❯ No, exit", "   Yes, I trust this folder"]))).toBe(TrustGateKey.Down);
+    expect(trustGateKey(gate([" ❯ No, exit", "   Yes, I trust this folder"]))).toBe(TrustGateKey.DOWN);
   });
 
   it("confirms once the cursor sits on the trust option", () => {
-    expect(trustGateKey(gate(["   No, exit", " ❯ Yes, I trust this folder"]))).toBe(TrustGateKey.Confirm);
+    expect(trustGateKey(gate(["   No, exit", " ❯ Yes, I trust this folder"]))).toBe(TrustGateKey.CONFIRM);
   });
 
   it("confirms the older numbered gate whose default is already trust", () => {
-    expect(trustGateKey(gate([" ❯ 1. Yes, I trust this folder", "   2. No, exit"]))).toBe(TrustGateKey.Confirm);
+    expect(trustGateKey(gate([" ❯ 1. Yes, I trust this folder", "   2. No, exit"]))).toBe(TrustGateKey.CONFIRM);
   });
 
   it("steps up when the trust option sits above the cursor", () => {
-    expect(trustGateKey(gate(["   1. Yes, I trust this folder", " ❯ 2. No, exit"]))).toBe(TrustGateKey.Up);
+    expect(trustGateKey(gate(["   1. Yes, I trust this folder", " ❯ 2. No, exit"]))).toBe(TrustGateKey.UP);
   });
 
   it("ignores a real multiple-choice question the agent asks later", () => {

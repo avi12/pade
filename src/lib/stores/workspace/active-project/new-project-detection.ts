@@ -50,7 +50,7 @@ export async function initNewProjectDetection() {
   }
 
   try {
-    unlistenEvidence = await onMessage(EventType.feedChange, ({ data: event }) => {
+    unlistenEvidence = await onMessage(EventType.FEED_CHANGE, ({ data: event }) => {
       if (event.kind !== ChangeKind.enum.created) {
         return;
       }

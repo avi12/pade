@@ -23,7 +23,7 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
   return {
     ...messaging,
     sendMessage: vi.fn(async (command: string) => {
-      if (command === messaging.Command.feedIgnored) {
+      if (command === messaging.Command.FEED_IGNORED) {
         return ignoredPaths.value;
       }
 
@@ -52,8 +52,8 @@ function change({ root, name }: { root: string; name: string }) {
 }
 
 async function land(event: ChangeEvent) {
-  await vi.waitFor(() => expect(handlers.has(EventType.feedChange)).toBe(true));
-  handlers.get(EventType.feedChange)?.({ data: event });
+  await vi.waitFor(() => expect(handlers.has(EventType.FEED_CHANGE)).toBe(true));
+  handlers.get(EventType.FEED_CHANGE)?.({ data: event });
 }
 
 function shownIds() {
@@ -136,7 +136,7 @@ describe("feed per project", () => {
     await land(behindChange);
     ignoredPaths.value = [frontChange.path, behindChange.path];
 
-    await handlers.get(EventType.feedIgnoreChanged)?.({
+    await handlers.get(EventType.FEED_IGNORE_CHANGED)?.({
       data: {
         root: BEHIND
       }
@@ -152,7 +152,7 @@ describe("feed per project", () => {
     const { sendMessage } = await import("@/lib/ipc/messaging");
     keepFeedsOf([FRONT, BEHIND]);
 
-    expect(sendMessage).toHaveBeenCalledWith(Command.watchStatus, { root: FRONT });
-    expect(sendMessage).toHaveBeenCalledWith(Command.watchStatus, { root: BEHIND });
+    expect(sendMessage).toHaveBeenCalledWith(Command.WATCH_STATUS, { root: FRONT });
+    expect(sendMessage).toHaveBeenCalledWith(Command.WATCH_STATUS, { root: BEHIND });
   });
 });

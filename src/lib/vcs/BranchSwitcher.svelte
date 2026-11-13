@@ -76,7 +76,7 @@
         }
 
         try {
-          const landed = await sendMessage(Command.vcsSwitchBranch, {
+          const landed = await sendMessage(Command.VCS_SWITCH_BRANCH, {
             cwd,
             branch
           });
@@ -139,7 +139,7 @@
       class="branch-menu popover-menu scroll-fade"
       {@attach rovingMenu}
       ontoggle={async e => {
-        if ((e as ToggleEvent).newState === ToggleState.Open) {
+        if ((e as ToggleEvent).newState === ToggleState.OPEN) {
           await onrefresh();
         }
       }}

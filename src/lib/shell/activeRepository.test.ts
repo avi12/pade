@@ -21,20 +21,20 @@ const sendMessageMock = vi.mocked(sendMessage);
 
 function answerAsRepository() {
   sendMessageMock.mockImplementation(async (command, ...data) => {
-    if (command === Command.vcsBranches) {
+    if (command === Command.VCS_BRANCHES) {
       return ["main", "feature"];
     }
 
-    if (command === Command.vcsRemoteBranches) {
+    if (command === Command.VCS_REMOTE_BRANCHES) {
       return ["origin-only"];
     }
 
-    if (command === Command.vcsBranchOf) {
+    if (command === Command.VCS_BRANCH_OF) {
       const [{ paths }] = BRANCH_OF_ARGUMENTS.parse(data);
       return { [paths[0]]: "main" };
     }
 
-    if (command === Command.vcsRemoteUrl) {
+    if (command === Command.VCS_REMOTE_URL) {
       return REMOTE_URL;
     }
 

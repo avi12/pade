@@ -208,7 +208,7 @@ describe("joinStep", () => {
           newChat: true
         }
       })
-    ).toBe(JoinStep.Resume);
+    ).toBe(JoinStep.RESUME);
   });
 
   it("brings an open picked chat forward, and relaunches a persisted one", () => {
@@ -221,7 +221,7 @@ describe("joinStep", () => {
           chatId: "live"
         }
       })
-    ).toBe(JoinStep.SelectChat);
+    ).toBe(JoinStep.SELECT_CHAT);
     expect(
       joinStep({
         ...NOTHING,
@@ -231,7 +231,7 @@ describe("joinStep", () => {
           chatId: "stored"
         }
       })
-    ).toBe(JoinStep.RelaunchChat);
+    ).toBe(JoinStep.RELAUNCH_CHAT);
   });
 
   it("starts a fresh chat on a project click even when the project already runs one", () => {
@@ -244,7 +244,7 @@ describe("joinStep", () => {
           newChat: true
         }
       })
-    ).toBe(JoinStep.FreshChat);
+    ).toBe(JoinStep.FRESH_CHAT);
   });
 
   it("brings a live session forward on a plain open, else starts one", () => {
@@ -256,7 +256,7 @@ describe("joinStep", () => {
           path: PROJECT
         }
       })
-    ).toBe(JoinStep.SelectLive);
+    ).toBe(JoinStep.SELECT_LIVE);
     expect(
       joinStep({
         ...NOTHING,
@@ -264,7 +264,7 @@ describe("joinStep", () => {
           path: PROJECT
         }
       })
-    ).toBe(JoinStep.FreshChat);
+    ).toBe(JoinStep.FRESH_CHAT);
   });
 });
 

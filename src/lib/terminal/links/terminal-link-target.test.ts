@@ -5,21 +5,21 @@ import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal/link
 describe("terminalLinkDestination", () => {
   it("keeps web links in the browser", () => {
     expect(terminalLinkDestination("https://example.com/docs?q=pade")).toEqual({
-      kind: TerminalLinkTarget.Browser,
+      kind: TerminalLinkTarget.BROWSER,
       value: "https://example.com/docs?q=pade"
     });
   });
 
   it("opens a Windows OSC-8 file link in Explorer", () => {
     expect(terminalLinkDestination("file:///C:/repositories/avi/pade/src/App.svelte")).toEqual({
-      kind: TerminalLinkTarget.Explorer,
+      kind: TerminalLinkTarget.EXPLORER,
       value: "C:\\repositories\\avi\\pade\\src\\App.svelte"
     });
   });
 
   it("decodes a local POSIX file link", () => {
     expect(terminalLinkDestination("file:///tmp/project%20name/readme.md")).toEqual({
-      kind: TerminalLinkTarget.Explorer,
+      kind: TerminalLinkTarget.EXPLORER,
       value: "/tmp/project name/readme.md"
     });
   });

@@ -58,7 +58,7 @@ export const feedStore = {
 // or when the backend cannot say - either way there is no watch to tie to.
 async function liveArmedAt(root: string) {
   try {
-    const status = await sendMessage(Command.watchStatus, { root });
+    const status = await sendMessage(Command.WATCH_STATUS, { root });
     return status.armedAt;
   } catch {
     return null;
@@ -139,7 +139,7 @@ async function refilterIgnored(root: string) {
     return;
   }
 
-  const nowIgnored = new Set(await sendMessage(Command.feedIgnored, { paths }));
+  const nowIgnored = new Set(await sendMessage(Command.FEED_IGNORED, { paths }));
   const current = feedsByProject.get(root);
   if (nowIgnored.size === 0 || current === undefined) {
     return;
@@ -161,8 +161,8 @@ async function startFeedSubscription() {
   isSubscribed = true;
   addEventListener("pagehide", saveFeedsOnUnload);
   try {
-    await onMessage(EventType.feedChange, ({ data: event }) => fileChange(event));
-    await onMessage(EventType.feedIgnoreChanged, async ({ data: { root } }) => await refilterIgnored(root));
+    await onMessage(EventType.FEED_CHANGE, ({ data: event }) => fileChange(event));
+    await onMessage(EventType.FEED_IGNORE_CHANGED, async ({ data: { root } }) => await refilterIgnored(root));
   } catch {
     // Re-arm on a failed subscribe so the next held-set change can try again.
     isSubscribed = false;

@@ -10,7 +10,7 @@ import {
 } from "@/lib/stores/workspace/project-rows/visiblePathBatch.svelte";
 
 const projectBranches = createVisiblePathBatch<string>({
-  load: paths => sendMessage(Command.vcsBranchOf, { paths }),
+  load: paths => sendMessage(Command.VCS_BRANCH_OF, { paths }),
   cacheLimit: PROJECT_ROW_CACHE_LIMIT
 });
 

@@ -8,7 +8,7 @@ import {
 } from "@/lib/stores/workspace/project-rows/visiblePathBatch.svelte";
 
 const projectKinds = createVisiblePathBatch<string>({
-  load: paths => sendMessage(Command.ideProjectKinds, { paths }),
+  load: paths => sendMessage(Command.IDE_PROJECT_KINDS, { paths }),
   cacheLimit: PROJECT_ROW_CACHE_LIMIT
 });
 

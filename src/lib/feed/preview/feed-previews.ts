@@ -20,8 +20,8 @@ import type { FeedImage, FeedVideo } from "@/lib/types/feed";
  *  feed's core purpose, so the default), Preview is the rendered result in a
  *  sandboxed iframe. */
 export const PreviewPane = {
-  Code: "code",
-  Preview: "preview"
+  CODE: "code",
+  PREVIEW: "preview"
 } as const;
 export type PreviewPane = (typeof PreviewPane)[keyof typeof PreviewPane];
 
@@ -39,7 +39,7 @@ function delay(milliseconds: number) {
 
 async function transcodeVideo(path: string) {
   for (let attempt = 1; attempt < VIDEO_TRANSCODE_ATTEMPTS; attempt += 1) {
-    const video = await sendMessage(Command.feedVideo, { path });
+    const video = await sendMessage(Command.FEED_VIDEO, { path });
     if (video) {
       return video;
     }
@@ -47,7 +47,7 @@ async function transcodeVideo(path: string) {
     await delay(VIDEO_RETRY_DELAY_MS);
   }
 
-  return sendMessage(Command.feedVideo, { path });
+  return sendMessage(Command.FEED_VIDEO, { path });
 }
 
 /** One card whose previews are cached under `id`. */
@@ -69,10 +69,10 @@ export interface PreviewSource {
 // content; the shared parse+render path draws the diff (or the whole file when
 // the baseline landed late - see previewLines).
 const FEED_SOURCE: PreviewSource = {
-  diff: async path => previewLines(await sendMessage(Command.feedDiff, { path })),
-  image: path => sendMessage(Command.feedImage, { path }),
+  diff: async path => previewLines(await sendMessage(Command.FEED_DIFF, { path })),
+  image: path => sendMessage(Command.FEED_IMAGE, { path }),
   video: transcodeVideo,
-  text: path => sendMessage(Command.feedText, { path })
+  text: path => sendMessage(Command.FEED_TEXT, { path })
 };
 
 // The iframe srcdoc for a file's current text: markdown is rendered to a full
@@ -205,7 +205,7 @@ export function createFeedPreviews(source = FEED_SOURCE) {
     loadCardPreview,
     isCardPreviewLoaded,
     loadPreviewDocument,
-    paneOf: (id: string) => paneById.get(id) ?? PreviewPane.Code
+    paneOf: (id: string) => paneById.get(id) ?? PreviewPane.CODE
   };
 }
 

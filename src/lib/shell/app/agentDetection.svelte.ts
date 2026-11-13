@@ -27,7 +27,7 @@ export function createAgentDetection() {
     // list rather than blocking the routing that follows.
     agents = await Promise.race([
       settledValue({
-        promise: sendMessage(Command.agentsDetect),
+        promise: sendMessage(Command.AGENTS_DETECT),
         fallback: []
       }),
       new Promise<Agent[]>(resolve => setTimeout(() => resolve([]), BOOT_DETECT_TIMEOUT_MS))
@@ -44,7 +44,7 @@ export function createAgentDetection() {
   // transient failure keeps the agents already on screen.
   async function redetectAgents() {
     agents = await settledValue({
-      promise: sendMessage(Command.agentsDetect),
+      promise: sendMessage(Command.AGENTS_DETECT),
       fallback: agents
     });
   }

@@ -131,7 +131,7 @@ describe("pickHandoffSuccessor", () => {
 
   it("pins a configuration handoff to the governed agent", async () => {
     const successor = await pickHandoffSuccessor({
-      reason: HandoffReason.ConfigurationChange,
+      reason: HandoffReason.CONFIGURATION_CHANGE,
       current: claude,
       available: [claude, codex],
       hasHeadroom: agentId => Promise.resolve(agentId === codex.id)

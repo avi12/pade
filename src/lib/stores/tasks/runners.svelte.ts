@@ -145,7 +145,7 @@ export async function ensureRunnerListeners() {
   }
 
   isListening = true;
-  await onMessage(EventType.runnerData, ({ data: { id, lines, stream } }) => {
+  await onMessage(EventType.RUNNER_DATA, ({ data: { id, lines, stream } }) => {
     const row = rowByBackendId(id);
     if (!row) {
       return;
@@ -157,7 +157,7 @@ export async function ensureRunnerListeners() {
       stream
     });
   });
-  await onMessage(EventType.runnerExit, ({ data: { id, code } }) => {
+  await onMessage(EventType.RUNNER_EXIT, ({ data: { id, code } }) => {
     const row = rowByBackendId(id);
     if (!row) {
       return;
@@ -180,7 +180,7 @@ export async function startRunner({ label, kind, command, cwd, project }: Runner
     project
   });
   try {
-    await sendMessage(Command.runnerStart, {
+    await sendMessage(Command.RUNNER_START, {
       id,
       command,
       cwd
@@ -283,7 +283,7 @@ async function reconcileAttachedRunners() {
     }
 
     const isRunning = await settledValue({
-      promise: sendMessage(Command.sessionTaskRunning, {
+      promise: sendMessage(Command.SESSION_TASK_RUNNING, {
         id: sessionId,
         command: row.command
       }),
@@ -337,8 +337,8 @@ export async function rerunRunner({ id, preserve }: { id: string; preserve: bool
   row.isFailed = false;
   row.backendId = newRunnerId(SPAWNED_ID_PREFIX);
   try {
-    await sendMessage(Command.runnerStop, { id: previousBackendId });
-    await sendMessage(Command.runnerStart, {
+    await sendMessage(Command.RUNNER_STOP, { id: previousBackendId });
+    await sendMessage(Command.RUNNER_START, {
       id: row.backendId,
       command: row.command,
       cwd: row.cwd
@@ -366,12 +366,12 @@ export async function stopRunner(id: string) {
   }
 
   if (row.attached) {
-    await sendMessage(Command.sessionTaskStop, {
+    await sendMessage(Command.SESSION_TASK_STOP, {
       id: row.attached.sessionId,
       command: row.command
     });
   } else {
-    await sendMessage(Command.runnerStop, { id: row.backendId });
+    await sendMessage(Command.RUNNER_STOP, { id: row.backendId });
   }
 
   removeRow(id);
@@ -382,7 +382,7 @@ export async function stopRunner(id: string) {
  * over the next project. Every stop is attempted even if one backend call
  * fails; rows are then cleared so late output/exit events are ignored. */
 export async function stopAllRunners() {
-  await Promise.allSettled(rows.map(row => sendMessage(Command.runnerStop, { id: row.backendId })));
+  await Promise.allSettled(rows.map(row => sendMessage(Command.RUNNER_STOP, { id: row.backendId })));
   rows = [];
 }
 
@@ -404,7 +404,7 @@ export async function pipeRunner({ id, sessionId }: { id: string; sessionId: str
     return;
   }
 
-  await sendMessage(Command.ptyWrite, {
+  await sendMessage(Command.PTY_WRITE, {
     id: sessionId,
     data: pastedText(row.lines.map(line => line.text).join("\n"))
   });

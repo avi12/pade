@@ -30,11 +30,11 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => ({
 }));
 
 function routeMessage(command: string) {
-  if (command === Command.limitResetOffers) {
+  if (command === Command.LIMIT_RESET_OFFERS) {
     return mocks.limitResetOffers();
   }
 
-  if (command === Command.limitResetClaim) {
+  if (command === Command.LIMIT_RESET_CLAIM) {
     return mocks.claimLimitReset();
   }
 
@@ -81,7 +81,7 @@ describe("the free limit reset", () => {
 
     await confirmLimitReset(onreset);
 
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.limitResetClaim, { grantId: launchReset.grantId });
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.LIMIT_RESET_CLAIM, { grantId: launchReset.grantId });
     expect(onreset).toHaveBeenCalled();
     expect(limitResetConfirmation().isOpen).toBe(false);
     expect(limitResetOffers()).toEqual([]);
@@ -157,7 +157,7 @@ describe("several kinds of reset", () => {
 
     await confirmLimitReset(vi.fn(async () => {}));
 
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.limitResetClaim, { grantId: fableReset.grantId });
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.LIMIT_RESET_CLAIM, { grantId: fableReset.grantId });
   });
 
   it("never spends a kind with nothing to clear", async () => {

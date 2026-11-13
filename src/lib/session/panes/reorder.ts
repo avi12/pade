@@ -9,8 +9,8 @@
  *  shared. Lives here (not `types.ts`, which is IPC payloads) because it's a
  *  parameter of `paneInsertIndex` and a UI-only concern. */
 export const DropSide = {
-  Left: "left",
-  Right: "right"
+  LEFT: "left",
+  RIGHT: "right"
 } as const;
 export type DropSide = (typeof DropSide)[keyof typeof DropSide];
 
@@ -83,7 +83,7 @@ export function insertionIndex({
  *  both the live drop-half highlight and the actual split insertion (DRY), kept
  *  pure so it's unit-tested without a DOM - the caller measures the pane's rect. */
 export function paneDropSide({ pointerX, left, width }: { pointerX: number; left: number; width: number }) {
-  return pointerX < left + width / 2 ? DropSide.Left : DropSide.Right;
+  return pointerX < left + width / 2 ? DropSide.LEFT : DropSide.RIGHT;
 }
 
 /** Index within the base list (`paneIds` with `draggedId` removed) at which to
@@ -108,5 +108,5 @@ export function paneInsertIndex({
     return base.length;
   }
 
-  return side === DropSide.Right ? iTarget + 1 : iTarget;
+  return side === DropSide.RIGHT ? iTarget + 1 : iTarget;
 }

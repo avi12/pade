@@ -69,7 +69,7 @@ export function beginReorder(options: BeginReorderOptions) {
     options,
     elParent,
     draggedId,
-    isHorizontal: axis === Axis.Horizontal,
+    isHorizontal: axis === Axis.HORIZONTAL,
     isReducedMotion: prefersReducedMotion(),
     threshold,
     release() {
@@ -111,7 +111,7 @@ export function beginReorder(options: BeginReorderOptions) {
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    if (e.key !== Key.Escape) {
+    if (e.key !== Key.ESCAPE) {
       return;
     }
 

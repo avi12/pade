@@ -16,10 +16,10 @@ export async function openTerminalLink(uri: string) {
   }
 
   try {
-    if (destination.kind === TerminalLinkTarget.Explorer) {
-      await sendMessage(Command.openInExplorer, { path: destination.value });
+    if (destination.kind === TerminalLinkTarget.EXPLORER) {
+      await sendMessage(Command.OPEN_IN_EXPLORER, { path: destination.value });
     } else {
-      await sendMessage(Command.openUrl, { url: destination.value });
+      await sendMessage(Command.OPEN_URL, { url: destination.value });
     }
   } catch {
     showToast("Couldn't open that link");

@@ -32,7 +32,7 @@ import { showToast } from "@/lib/stores/ui/toast.svelte";
 import type { AgentSession } from "@/lib/types/agent";
 import type { Scheme } from "@/lib/types/theme";
 
-const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);
+const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.CODEX, AgentId.OPENCODE]);
 
 /** What the shell does on the re-themer's behalf. */
 interface AgentRethemeHost {
@@ -106,7 +106,7 @@ export function createAgentRetheme(host: AgentRethemeHost) {
     const resumable = await Promise.all(
       targets.map(async target => ({
         id: target.id,
-        args: await sendMessage(Command.agentResumeArgs, {
+        args: await sendMessage(Command.AGENT_RESUME_ARGS, {
           command: target.agent.command,
           cwd: target.cwd ?? target.project
         })
@@ -125,7 +125,7 @@ export function createAgentRetheme(host: AgentRethemeHost) {
   // be respawned. Publishing first means an agent that IS restarted also
   // launches into the new scheme.
   async function followScheme(scheme: Scheme) {
-    await sendMessage(Command.agentThemePublish, { scheme });
+    await sendMessage(Command.AGENT_THEME_PUBLISH, { scheme });
     await restartMismatchedAgents();
   }
 

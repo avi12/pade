@@ -42,9 +42,9 @@ export function sendSettingsMessage<Key extends SettingsCommand>(
 
 /** Add a root folder. Only an `added` outcome carries settings to adopt; a
  *  missing path or a file comes back for the caller to act on. */
-export function addRoot(data: Parameters<CommandProtocolMap[typeof Command.workspaceAddRoot]>[0]) {
+export function addRoot(data: Parameters<CommandProtocolMap[typeof Command.WORKSPACE_ADD_ROOT]>[0]) {
   return queueSettingsRequest(async adopt => {
-    const outcome = await sendMessage(Command.workspaceAddRoot, data);
+    const outcome = await sendMessage(Command.WORKSPACE_ADD_ROOT, data);
     if (outcome.status === AddRootStatus.enum.added) {
       adopt(outcome.settings);
     }

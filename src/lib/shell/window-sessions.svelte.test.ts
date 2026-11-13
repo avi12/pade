@@ -194,7 +194,7 @@ describe("close", () => {
     const [session] = sessions.sessions;
     await sessions.close(session);
 
-    expect(sendMessage).toHaveBeenCalledWith(Command.ptyKill, { id });
+    expect(sendMessage).toHaveBeenCalledWith(Command.PTY_KILL, { id });
     expect(sessions.sessions).toEqual([]);
     expect(forgetSession).toHaveBeenCalledWith(id);
     expect(host.onRetired).toHaveBeenCalledWith(session);
@@ -244,8 +244,8 @@ describe("close", () => {
     const { first, second } = launchTwo(sessions);
     await sessions.closeSessions([first, second]);
 
-    expect(sendMessage).toHaveBeenCalledWith(Command.ptyKill, { id: first });
-    expect(sendMessage).toHaveBeenCalledWith(Command.ptyKill, { id: second });
+    expect(sendMessage).toHaveBeenCalledWith(Command.PTY_KILL, { id: first });
+    expect(sendMessage).toHaveBeenCalledWith(Command.PTY_KILL, { id: second });
     expect(sessions.sessions).toEqual([]);
   });
 

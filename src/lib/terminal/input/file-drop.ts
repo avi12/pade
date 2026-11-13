@@ -35,13 +35,13 @@ export function listenForFileDrops({
   }
 
   return Promise.all([
-    onMessage(EventType.dragOver, ({ data: { position } }) => {
+    onMessage(EventType.DRAG_OVER, ({ data: { position } }) => {
       onHoverChange(isOverShownElement(position));
     }),
-    onMessage(EventType.dragLeave, () => {
+    onMessage(EventType.DRAG_LEAVE, () => {
       onHoverChange(false);
     }),
-    onMessage(EventType.dragDrop, ({ data: { paths, position } }) => {
+    onMessage(EventType.DRAG_DROP, ({ data: { paths, position } }) => {
       onHoverChange(false);
       const isLandingHere = paths.length > 0 && isOverShownElement(position);
       if (!isLandingHere) {

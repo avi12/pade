@@ -26,7 +26,7 @@ describe("matchPaneShortcut", () => {
         paneCount: 3
       })
     ).toEqual({
-      action: PaneAction.Previous
+      action: PaneAction.PREVIOUS
     });
     expect(
       matchPaneShortcut({
@@ -37,7 +37,7 @@ describe("matchPaneShortcut", () => {
         paneCount: 3
       })
     ).toEqual({
-      action: PaneAction.Next
+      action: PaneAction.NEXT
     });
   });
 
@@ -52,7 +52,7 @@ describe("matchPaneShortcut", () => {
         paneCount: 4
       })
     ).toEqual({
-      action: PaneAction.SelectAt,
+      action: PaneAction.SELECT_AT,
       iPane: 0
     });
     expect(
@@ -65,7 +65,7 @@ describe("matchPaneShortcut", () => {
         paneCount: 4
       })
     ).toEqual({
-      action: PaneAction.SelectAt,
+      action: PaneAction.SELECT_AT,
       iPane: 3
     });
     expect(
@@ -78,7 +78,7 @@ describe("matchPaneShortcut", () => {
         paneCount: 9
       })
     ).toEqual({
-      action: PaneAction.SelectAt,
+      action: PaneAction.SELECT_AT,
       iPane: 8
     });
   });
@@ -116,7 +116,7 @@ describe("matchPaneShortcut", () => {
         }),
         paneCount: 2
       })
-    ).toEqual({ action: PaneAction.Close });
+    ).toEqual({ action: PaneAction.CLOSE });
     expect(
       matchPaneShortcut({
         chord: chord({
@@ -126,7 +126,7 @@ describe("matchPaneShortcut", () => {
         }),
         paneCount: 2
       })
-    ).toEqual({ action: PaneAction.Close });
+    ).toEqual({ action: PaneAction.CLOSE });
   });
 
   it("is a no-op when there are no panes", () => {

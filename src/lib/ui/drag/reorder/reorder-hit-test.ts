@@ -4,8 +4,8 @@ import type { Point } from "@/lib/ui/drag/reorder/reorder-geometry";
 /** The panes are the one droppable-with-halves target: a tab dragged over the
  *  panes resolves which pane + half it lands on. Its one authoritative home. */
 const PANE_DROP_TARGET = {
-  selector: "[data-pane-id]",
-  idAttribute: "data-pane-id"
+  SELECTOR: "[data-pane-id]",
+  ID_ATTRIBUTE: "data-pane-id"
 } as const;
 
 // The element the pointer is truly over, resolved through the drag shield (and
@@ -52,12 +52,12 @@ export function resolveDropTarget({
   x: number;
   itemSelector: string;
 }) {
-  const elTarget = elHit?.closest(PANE_DROP_TARGET.selector);
+  const elTarget = elHit?.closest(PANE_DROP_TARGET.SELECTOR);
   if (!elHit || !elTarget || elHit.closest(itemSelector)) {
     return null;
   }
 
-  const id = elTarget.getAttribute(PANE_DROP_TARGET.idAttribute);
+  const id = elTarget.getAttribute(PANE_DROP_TARGET.ID_ATTRIBUTE);
   if (id === null || id === "") {
     return null;
   }

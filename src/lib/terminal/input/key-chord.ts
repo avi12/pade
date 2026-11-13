@@ -20,14 +20,14 @@ const LETTER = /^[a-z]$/u;
 const PLAIN_CHARACTER = /^[\x21-\x7e]$/u;
 
 const Modifier = {
-  Control: "ctrl",
-  Alt: "alt",
-  Meta: "meta",
-  Option: "option",
-  Shift: "shift"
+  CONTROL: "ctrl",
+  ALT: "alt",
+  META: "meta",
+  OPTION: "option",
+  SHIFT: "shift"
 } as const;
 /** Alt, Meta and Option all reach a terminal program as an Esc prefix. */
-const ESCAPE_PREFIX_MODIFIERS: ReadonlySet<string> = new Set([Modifier.Alt, Modifier.Meta, Modifier.Option]);
+const ESCAPE_PREFIX_MODIFIERS: ReadonlySet<string> = new Set([Modifier.ALT, Modifier.META, Modifier.OPTION]);
 const KNOWN_MODIFIERS: ReadonlySet<string> = new Set(Object.values(Modifier));
 
 /** The named keys a chord may end in, by every name configs use for them. */
@@ -83,8 +83,8 @@ function encodeKeystroke(keystroke: string) {
 
   const encoded = encodeKey({
     key,
-    isControl: modifiers.includes(Modifier.Control),
-    isShift: modifiers.includes(Modifier.Shift)
+    isControl: modifiers.includes(Modifier.CONTROL),
+    isShift: modifiers.includes(Modifier.SHIFT)
   });
   const isEscapePrefixed = modifiers.some(modifier => ESCAPE_PREFIX_MODIFIERS.has(modifier));
   if (encoded === null) {

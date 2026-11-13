@@ -53,7 +53,7 @@
     });
   }}
   onkeydown={async e => {
-    if (e.key === Key.Enter) {
+    if (e.key === Key.ENTER) {
       await openChangedFile({
         path,
         line: revealLine,

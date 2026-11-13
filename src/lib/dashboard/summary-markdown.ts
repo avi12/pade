@@ -5,11 +5,11 @@
 // an http(s) address.
 
 export const InlineKind = {
-  Text: "text",
-  Strong: "strong",
-  Emphasis: "emphasis",
-  Code: "code",
-  Link: "link"
+  TEXT: "text",
+  STRONG: "strong",
+  EMPHASIS: "emphasis",
+  CODE: "code",
+  LINK: "link"
 } as const;
 type InlineKind = (typeof InlineKind)[keyof typeof InlineKind];
 
@@ -39,14 +39,14 @@ function pieceOf(groups: Record<string, string | undefined>): InlinePiece {
   const { code, label, target, bare, strong, starred, underscored } = groups;
   if (code !== undefined) {
     return {
-      kind: InlineKind.Code,
+      kind: InlineKind.CODE,
       text: code
     };
   }
 
   if (label !== undefined && target !== undefined) {
     return {
-      kind: InlineKind.Link,
+      kind: InlineKind.LINK,
       text: label,
       url: target
     };
@@ -54,7 +54,7 @@ function pieceOf(groups: Record<string, string | undefined>): InlinePiece {
 
   if (bare !== undefined) {
     return {
-      kind: InlineKind.Link,
+      kind: InlineKind.LINK,
       text: bare,
       url: bare
     };
@@ -62,13 +62,13 @@ function pieceOf(groups: Record<string, string | undefined>): InlinePiece {
 
   if (strong !== undefined) {
     return {
-      kind: InlineKind.Strong,
+      kind: InlineKind.STRONG,
       text: strong
     };
   }
 
   return {
-    kind: InlineKind.Emphasis,
+    kind: InlineKind.EMPHASIS,
     text: starred ?? underscored ?? ""
   };
 }
@@ -80,7 +80,7 @@ export function inlineMarkdown(source: string) {
   for (const match of source.matchAll(INLINE_PATTERN)) {
     if (match.index > cursor) {
       pieces.push({
-        kind: InlineKind.Text,
+        kind: InlineKind.TEXT,
         text: source.slice(cursor, match.index)
       });
     }
@@ -91,7 +91,7 @@ export function inlineMarkdown(source: string) {
 
   if (cursor < source.length) {
     pieces.push({
-      kind: InlineKind.Text,
+      kind: InlineKind.TEXT,
       text: source.slice(cursor)
     });
   }

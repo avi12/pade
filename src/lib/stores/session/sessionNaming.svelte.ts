@@ -74,7 +74,7 @@ async function generate(id: string) {
   try {
     applyGeneratedName({
       id,
-      name: await sendMessage(Command.sessionGenerateName, {
+      name: await sendMessage(Command.SESSION_GENERATE_NAME, {
         id,
         agent
       })

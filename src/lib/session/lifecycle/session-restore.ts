@@ -196,7 +196,7 @@ export async function restoreLiveSnapshot() {
     return null;
   }
 
-  const live = await sendMessage(Command.ptyList);
+  const live = await sendMessage(Command.PTY_LIST);
   const restorable = pruneToLive({
     snapshot,
     liveIds: new Set(live.map(session => session.id))

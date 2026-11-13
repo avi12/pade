@@ -29,7 +29,7 @@
            undoing the name field's focus. -->
       <button
         class="menu-item create-option"
-        data-arrow-list={HomeMenuList.New}
+        data-arrow-list={HomeMenuList.NEW}
         onclick={e => {
           e.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
           onnew(root);
@@ -48,7 +48,7 @@
   <button
     class="menu-item create-option"
     class:picked={isTempPicked}
-    data-arrow-list={HomeMenuList.New}
+    data-arrow-list={HomeMenuList.NEW}
     onclick={ontemp}
     popovertarget={menuId}
     popovertargetaction="hide"

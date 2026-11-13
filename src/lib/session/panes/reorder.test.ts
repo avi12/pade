@@ -131,7 +131,7 @@ describe("paneDropSide", () => {
         pointerX: 140,
         ...pane
       })
-    ).toBe(DropSide.Left);
+    ).toBe(DropSide.LEFT);
   });
 
   it("reads the right half at or past the midpoint", () => {
@@ -140,7 +140,7 @@ describe("paneDropSide", () => {
         pointerX: 260,
         ...pane
       })
-    ).toBe(DropSide.Right);
+    ).toBe(DropSide.RIGHT);
   });
 
   it("treats the exact midpoint as the right half", () => {
@@ -149,7 +149,7 @@ describe("paneDropSide", () => {
         pointerX: 200,
         ...pane
       })
-    ).toBe(DropSide.Right);
+    ).toBe(DropSide.RIGHT);
   });
 });
 
@@ -160,7 +160,7 @@ describe("paneInsertIndex", () => {
       paneIds: ["a", "b", "c"],
       draggedId: "x",
       targetId: "b",
-      side: DropSide.Right
+      side: DropSide.RIGHT
     });
 
     expect(insertAt).toBe(2);
@@ -171,7 +171,7 @@ describe("paneInsertIndex", () => {
       paneIds: ["a", "b", "c"],
       draggedId: "x",
       targetId: "b",
-      side: DropSide.Left
+      side: DropSide.LEFT
     });
 
     expect(insertAt).toBe(1);
@@ -183,7 +183,7 @@ describe("paneInsertIndex", () => {
       paneIds: ["a", "b"],
       draggedId: "x",
       targetId: "a",
-      side: DropSide.Left
+      side: DropSide.LEFT
     });
 
     expect(insertAt).toBe(0);
@@ -195,7 +195,7 @@ describe("paneInsertIndex", () => {
       paneIds: ["a"],
       draggedId: "b",
       targetId: "a",
-      side: DropSide.Right
+      side: DropSide.RIGHT
     });
 
     expect(insertAt).toBe(1);
@@ -209,7 +209,7 @@ describe("paneInsertIndex", () => {
       paneIds,
       draggedId: "a",
       targetId: "c",
-      side: DropSide.Right
+      side: DropSide.RIGHT
     });
     expect(insertAt).toBe(2);
 
@@ -224,7 +224,7 @@ describe("paneInsertIndex", () => {
       paneIds: ["a", "b"],
       draggedId: "a",
       targetId: "a",
-      side: DropSide.Left
+      side: DropSide.LEFT
     });
 
     expect(insertAt).toBe(1);

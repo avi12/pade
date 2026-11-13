@@ -29,14 +29,14 @@ export async function submitPastedPrompt({
   text: string;
   wait: (milliseconds: number) => Promise<unknown>;
 }) {
-  await sendMessage(Command.ptyWrite, {
+  await sendMessage(Command.PTY_WRITE, {
     id,
     data: pastedText(text)
   });
   await wait(SUBMIT_SETTLE_MS);
 
   for (let attempt = 0; attempt < SUBMIT_ATTEMPTS; attempt += 1) {
-    await sendMessage(Command.ptyWrite, {
+    await sendMessage(Command.PTY_WRITE, {
       id,
       data: PROMPT_SUBMIT
     });

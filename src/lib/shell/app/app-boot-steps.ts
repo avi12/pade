@@ -14,7 +14,7 @@ import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { initNewProjectDetection } from "@/lib/stores/workspace/active-project/new-project-detection";
 import { StartMode } from "@/lib/types/settings";
 
-type BootRoute = Exclude<ReturnType<typeof windowRouteFor>, { kind: typeof WindowRoute.LaunchContext }>;
+type BootRoute = Exclude<ReturnType<typeof windowRouteFor>, { kind: typeof WindowRoute.LAUNCH_CONTEXT }>;
 
 export interface BootDependencies {
   windowSessions: WindowSessions;
@@ -29,7 +29,7 @@ export interface BootDependencies {
 export async function boot(dependencies: BootDependencies) {
   const { detection } = dependencies;
   await initNewProjectDetection();
-  await Promise.all([detection.detectWithinBootBudget(), sendSettingsMessage(Command.settingsGet)]);
+  await Promise.all([detection.detectWithinBootBudget(), sendSettingsMessage(Command.SETTINGS_GET)]);
 
   // An accidental reload (F5, a crash recovery) re-attaches this window to
   // the agents still running in the backend - before any query routing,
@@ -53,7 +53,7 @@ export async function boot(dependencies: BootDependencies) {
 // true when it handled the launch, so the launch_context path is skipped.
 async function routeFromAddress(dependencies: BootDependencies) {
   const route = windowRouteFor(location.search);
-  if (route.kind === WindowRoute.LaunchContext) {
+  if (route.kind === WindowRoute.LAUNCH_CONTEXT) {
     return false;
   }
 
@@ -66,11 +66,11 @@ async function routeFromAddress(dependencies: BootDependencies) {
 
 async function bootRoute({ dependencies, route }: { dependencies: BootDependencies; route: BootRoute }) {
   const { projectFlow, screen } = dependencies;
-  if (route.kind === WindowRoute.Temp) {
+  if (route.kind === WindowRoute.TEMP) {
     await projectFlow.startInTempWorkspace();
-  } else if (route.kind === WindowRoute.Picker) {
-    screen.setPhase(Phase.Project);
-  } else if (route.kind === WindowRoute.Handoff) {
+  } else if (route.kind === WindowRoute.PICKER) {
+    screen.setPhase(Phase.PROJECT);
+  } else if (route.kind === WindowRoute.HANDOFF) {
     await bootFromHandoff({
       dependencies,
       path: route.path
@@ -97,9 +97,9 @@ async function bootFromHandoff({ dependencies, path }: { dependencies: BootDepen
 
 async function bootFromLaunchContext(dependencies: BootDependencies) {
   const { projectFlow, repository, screen } = dependencies;
-  const context = await sendMessage(Command.launchContext);
+  const context = await sendMessage(Command.LAUNCH_CONTEXT);
   if (context.hasProject) {
-    await sendMessage(Command.workspaceOpen, { path: context.cwd }); // records it in recent history
+    await sendMessage(Command.WORKSPACE_OPEN, { path: context.cwd }); // records it in recent history
     await projectFlow.startAgentFlow({ path: context.cwd });
     await repository.load();
     return;
@@ -110,7 +110,7 @@ async function bootFromLaunchContext(dependencies: BootDependencies) {
   // opt-in the picker's "On launch" section offers instead.
   const prefersPicker = effective.startMode === StartMode.enum.picker;
   if (prefersPicker) {
-    screen.setPhase(Phase.Project);
+    screen.setPhase(Phase.PROJECT);
     return;
   }
 
@@ -139,7 +139,7 @@ async function restoreLastProject({ registry, projectFlow, repository }: BootDep
   }
 
   try {
-    await sendMessage(Command.workspaceOpen, { path: lastProject });
+    await sendMessage(Command.WORKSPACE_OPEN, { path: lastProject });
     await projectFlow.startAgentFlow({ path: lastProject });
     await repository.load();
     return true;
@@ -162,13 +162,13 @@ async function reattachAfterReload({ windowSessions, screen, repository }: BootD
   }
 
   try {
-    await sendMessage(Command.workspaceOpen, { path: snapshot.project });
+    await sendMessage(Command.WORKSPACE_OPEN, { path: snapshot.project });
   } catch {
     // The project vanished while the window was reloading (deleted, moved,
     // unmounted). Boot falls through to the picker - so kill the snapshot's
     // still-live sessions rather than leave them running unreachably, which
     // would recreate the very invisible-agent incident restore exists to fix.
-    await Promise.allSettled(snapshot.sessions.map(orphan => sendMessage(Command.ptyKill, { id: orphan.id })));
+    await Promise.allSettled(snapshot.sessions.map(orphan => sendMessage(Command.PTY_KILL, { id: orphan.id })));
     clearSessionSnapshot();
     return false;
   }

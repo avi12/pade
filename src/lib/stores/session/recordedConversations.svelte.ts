@@ -40,7 +40,7 @@ async function listenForConversationChanges() {
   }
 
   isListening = true;
-  await onMessage(EventType.agentConversationsChanged, async ({ data }) => {
+  await onMessage(EventType.AGENT_CONVERSATIONS_CHANGED, async ({ data }) => {
     await rereadConversations(
       projectsToReread({
         listed: listedProjects,
@@ -61,7 +61,7 @@ async function readProjectConversations(project: string) {
   const read = (latestReads[key] ?? 0) + 1;
   latestReads[key] = read;
   const conversations = await settledValue({
-    promise: sendMessage(Command.agentConversations, { project }),
+    promise: sendMessage(Command.AGENT_CONVERSATIONS, { project }),
     fallback: []
   });
   const isNewestRead = latestReads[key] === read;

@@ -62,7 +62,7 @@ export type MeasuredBurn = NonNullable<ReturnType<typeof splitBurn>>;
  *  transcripts. Never rejects: a failed read finds none. */
 export async function subagentsWrittenSince({ session, since }: { session: AgentSession; since: number }) {
   try {
-    const usage = await sendMessage(Command.sessionTokenUsage, {
+    const usage = await sendMessage(Command.SESSION_TOKEN_USAGE, {
       command: session.agent.command,
       conversationId: session.conversationId,
       since
@@ -84,7 +84,7 @@ export async function subagentsWrittenSince({ session, since }: { session: Agent
  *  rejects: a failed read is a missing measurement. */
 export async function measuredBurn({ session, now }: { session: AgentSession; now: number }) {
   try {
-    const usage = await sendMessage(Command.sessionTokenUsage, {
+    const usage = await sendMessage(Command.SESSION_TOKEN_USAGE, {
       command: session.agent.command,
       conversationId: session.conversationId,
       since: now - MEASURED_BURN_WINDOW_MINUTES * MILLISECONDS_PER_MINUTE

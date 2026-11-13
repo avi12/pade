@@ -38,7 +38,7 @@ async function freshStore() {
   vi.resetModules();
   const handlers: MessageHandler[] = [];
   mocks.onMessage.mockImplementation(async (type, handler) => {
-    if (type === EventType.languagesChanged) {
+    if (type === EventType.LANGUAGES_CHANGED) {
       handlers.push(handler);
     }
 
@@ -56,7 +56,7 @@ async function freshStore() {
 }
 
 function watchedPaths() {
-  return mocks.sendMessage.mock.calls.filter(([command]) => command === Command.watchLanguages).map(([, data]) => data);
+  return mocks.sendMessage.mock.calls.filter(([command]) => command === Command.WATCH_LANGUAGES).map(([, data]) => data);
 }
 
 describe("followProjects", () => {
@@ -86,7 +86,7 @@ describe("followProjects", () => {
   it("tells the window which followed project's mix moved after a change settles", async () => {
     let apiLanguage = "TypeScript";
     mocks.sendMessage.mockImplementation(async (command, data) => {
-      if (command !== Command.ideProjectLanguages) {
+      if (command !== Command.IDE_PROJECT_LANGUAGES) {
         return undefined;
       }
 

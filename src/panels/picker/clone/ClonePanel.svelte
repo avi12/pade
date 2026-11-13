@@ -25,8 +25,8 @@
   // Shared by mount and the "Re-check" button after installing git.
   async function checkGit() {
     const [installed, keyOnDisk] = await Promise.all([
-      sendMessage(Command.vcsGitInstalled),
-      sendMessage(Command.vcsHasSshKey)
+      sendMessage(Command.VCS_GIT_INSTALLED),
+      sendMessage(Command.VCS_HAS_SSH_KEY)
     ]);
     gitInstalled = installed;
     hasSshKey = keyOnDisk;
@@ -44,7 +44,7 @@
       </p>
       <p class="hint">PADE needs Git to clone a repository. Install it, then press Re-check</p>
       <div class="actions">
-        <button class="go" onclick={() => sendMessage(Command.openUrl, { url: GIT_DOWNLOAD_URL })} type="button">
+        <button class="go" onclick={() => sendMessage(Command.OPEN_URL, { url: GIT_DOWNLOAD_URL })} type="button">
           Install Git…
         </button>
         <button class="ghost" onclick={async () => await checkGit()} type="button">Re-check</button>

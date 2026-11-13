@@ -56,7 +56,7 @@ describe("createApiErrorRetry", () => {
     await vi.advanceTimersByTimeAsync(PAST_FIRST_RETRY_MS);
 
     expect(retry.note).toBe("");
-    expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.ptyWrite, expect.anything());
+    expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.PTY_WRITE, expect.anything());
     retry.dispose();
   });
 });

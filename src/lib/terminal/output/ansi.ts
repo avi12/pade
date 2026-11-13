@@ -66,25 +66,25 @@ type AnsiStyle = Omit<AnsiSegment, "text">;
 // Discrete SGR codes we model. Ranges (standard/bright fg & bg) are handled by
 // arithmetic below rather than enumerated here.
 const Sgr = {
-  Reset: 0,
-  Bold: 1,
-  Dim: 2,
-  Italic: 3,
-  Underline: 4,
-  NormalIntensity: 22,
-  NotItalic: 23,
-  NotUnderline: 24,
-  ExtendedForeground: 38,
-  DefaultForeground: 39,
-  ExtendedBackground: 48,
-  DefaultBackground: 49
+  RESET: 0,
+  BOLD: 1,
+  DIM: 2,
+  ITALIC: 3,
+  UNDERLINE: 4,
+  NORMAL_INTENSITY: 22,
+  NOT_ITALIC: 23,
+  NOT_UNDERLINE: 24,
+  EXTENDED_FOREGROUND: 38,
+  DEFAULT_FOREGROUND: 39,
+  EXTENDED_BACKGROUND: 48,
+  DEFAULT_BACKGROUND: 49
 } as const;
 
 // The `38`/`48` extended-colour selector: `5;n` for a palette index, `2;r;g;b`
 // for truecolor.
 const ExtendedColorMode = {
-  Palette: 5,
-  TrueColor: 2
+  PALETTE: 5,
+  TRUE_COLOR: 2
 } as const;
 
 const STANDARD_FOREGROUND_START = 30;
@@ -165,11 +165,11 @@ function applyExtendedColor({
   isForeground: boolean;
 }) {
   const mode = codes[iCode + 1];
-  if (mode === ExtendedColorMode.TrueColor) {
+  if (mode === ExtendedColorMode.TRUE_COLOR) {
     return iCode + TRUE_COLOR_SELECTOR_LENGTH;
   }
 
-  if (mode !== ExtendedColorMode.Palette) {
+  if (mode !== ExtendedColorMode.PALETTE) {
     return iCode;
   }
 
@@ -191,58 +191,58 @@ function applyExtendedColor({
 // The attribute (non-colour) SGR codes, each a mutator on the running style - a
 // declarative table so `applySimpleCode` stays a lookup, not a long switch.
 const ATTRIBUTE_SETTERS: ReadonlyMap<number, (style: AnsiStyle) => void> = new Map([
-  [Sgr.Reset, resetStyle],
+  [Sgr.RESET, resetStyle],
   [
-    Sgr.Bold,
+    Sgr.BOLD,
     style => {
       style.bold = true;
     }
   ],
   [
-    Sgr.Dim,
+    Sgr.DIM,
     style => {
       style.dim = true;
     }
   ],
   [
-    Sgr.Italic,
+    Sgr.ITALIC,
     style => {
       style.italic = true;
     }
   ],
   [
-    Sgr.Underline,
+    Sgr.UNDERLINE,
     style => {
       style.underline = true;
     }
   ],
   [
-    Sgr.NormalIntensity,
+    Sgr.NORMAL_INTENSITY,
     style => {
       style.bold = false;
       style.dim = false;
     }
   ],
   [
-    Sgr.NotItalic,
+    Sgr.NOT_ITALIC,
     style => {
       style.italic = false;
     }
   ],
   [
-    Sgr.NotUnderline,
+    Sgr.NOT_UNDERLINE,
     style => {
       style.underline = false;
     }
   ],
   [
-    Sgr.DefaultForeground,
+    Sgr.DEFAULT_FOREGROUND,
     style => {
       style.color = undefined;
     }
   ],
   [
-    Sgr.DefaultBackground,
+    Sgr.DEFAULT_BACKGROUND,
     style => {
       style.background = undefined;
     }
@@ -282,17 +282,17 @@ function applySimpleCode({ style, code }: { style: AnsiStyle; code: number }) {
 function applySgr({ style, parameters }: { style: AnsiStyle; parameters: string }) {
   const codes =
     parameters === ""
-      ? [Sgr.Reset]
-      : parameters.split(PARAMETER_SEPARATOR).map(part => (part === "" ? Sgr.Reset : parseInt(part, DECIMAL_RADIX)));
+      ? [Sgr.RESET]
+      : parameters.split(PARAMETER_SEPARATOR).map(part => (part === "" ? Sgr.RESET : parseInt(part, DECIMAL_RADIX)));
   for (let i = 0; i < codes.length; i++) {
     const code = codes[i]!;
-    const isExtendedColor = code === Sgr.ExtendedForeground || code === Sgr.ExtendedBackground;
+    const isExtendedColor = code === Sgr.EXTENDED_FOREGROUND || code === Sgr.EXTENDED_BACKGROUND;
     if (isExtendedColor) {
       i = applyExtendedColor({
         style,
         codes,
         iCode: i,
-        isForeground: code === Sgr.ExtendedForeground
+        isForeground: code === Sgr.EXTENDED_FOREGROUND
       });
       continue;
     }

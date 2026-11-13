@@ -18,8 +18,8 @@
 
   const POPOVER_OPEN_SELECTOR = ":popover-open";
 
-  const newTabShortcut = TAB_SHORTCUTS[TabAction.New];
-  const launchMenuShortcut = TAB_SHORTCUTS[TabAction.LaunchMenu];
+  const newTabShortcut = TAB_SHORTCUTS[TabAction.NEW];
+  const launchMenuShortcut = TAB_SHORTCUTS[TabAction.LAUNCH_MENU];
   const agentLabel = $derived(lastAgent?.label ?? "agent");
 
   function openAddMenu() {

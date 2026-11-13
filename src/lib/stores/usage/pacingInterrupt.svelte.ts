@@ -85,7 +85,7 @@ async function press({ id, keyPress }: { id: string; keyPress: KeyPress }) {
     }
 
     for (const keystroke of keyPress.keystrokes) {
-      await sendMessage(Command.ptyWrite, {
+      await sendMessage(Command.PTY_WRITE, {
         id,
         data: keystroke
       });
@@ -113,7 +113,7 @@ async function hookStopSeenAt(conversationId: string | undefined) {
   }
 
   try {
-    return await sendMessage(Command.agentPacingStopSeen, { conversationId });
+    return await sendMessage(Command.AGENT_PACING_STOP_SEEN, { conversationId });
   } catch (error) {
     console.warn("pade: could not read whether the hook took the stop", error);
     return null;

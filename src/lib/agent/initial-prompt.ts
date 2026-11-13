@@ -34,9 +34,9 @@ const MAX_OPTION_ROWS_APART = 4;
 
 /** The key that walks the trust gate's selection toward accepting it. */
 export const TrustGateKey = {
-  Confirm: "confirm",
-  Down: "down",
-  Up: "up"
+  CONFIRM: "confirm",
+  DOWN: "down",
+  UP: "up"
 } as const;
 export type TrustGateKey = (typeof TrustGateKey)[keyof typeof TrustGateKey];
 
@@ -61,10 +61,10 @@ export function trustGateKey(rows: readonly string[]) {
 
   const iCursorRow = iFirstOptionRow + iCursorOffset;
   if (iCursorRow === iTrustRow) {
-    return TrustGateKey.Confirm;
+    return TrustGateKey.CONFIRM;
   }
 
-  return iCursorRow < iTrustRow ? TrustGateKey.Down : TrustGateKey.Up;
+  return iCursorRow < iTrustRow ? TrustGateKey.DOWN : TrustGateKey.UP;
 }
 
 /** How much of the prompt's collapsed text must reappear in the output to count

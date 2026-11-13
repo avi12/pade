@@ -142,7 +142,7 @@ export function publishToBoard({
   async function summarize(session: AgentSession) {
     summarizing.add(session.id);
     try {
-      const text = await sendMessage(Command.sessionSummarize, {
+      const text = await sendMessage(Command.SESSION_SUMMARIZE, {
         id: session.id,
         agent: session.agent.command,
         conversationId: session.conversationId ?? null

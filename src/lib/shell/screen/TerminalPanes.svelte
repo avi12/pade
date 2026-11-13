@@ -124,9 +124,9 @@
           onoutroend={() => collapsingSplitPanes.delete(session.id)}
           out:collapsePane={{ duration: collapsingSplitPanes.has(session.id) ? SPLIT_PANE_COLLAPSE_MS : 0 }}
         >
-          {#if dropSideFor(session.id) === DropSide.Left}
+          {#if dropSideFor(session.id) === DropSide.LEFT}
             <div class="drop-half left"></div>
-          {:else if dropSideFor(session.id) === DropSide.Right}
+          {:else if dropSideFor(session.id) === DropSide.RIGHT}
             <div class="drop-half right"></div>
           {/if}
           {#each pacing.pauses.filter(pause => pause.id === session.id) as pause (pause.id)}

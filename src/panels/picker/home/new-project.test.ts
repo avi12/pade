@@ -26,15 +26,15 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
           name: string;
         }
       ) => {
-        if (command === messaging.Command.workspaceTemp) {
+        if (command === messaging.Command.WORKSPACE_TEMP) {
           return TEMP;
         }
 
-        if (command === messaging.Command.workspaceProbePath) {
+        if (command === messaging.Command.WORKSPACE_PROBE_PATH) {
           return disk.probe;
         }
 
-        if (command === messaging.Command.workspaceCreate) {
+        if (command === messaging.Command.WORKSPACE_CREATE) {
           created.push(data.name);
           return `${data.root}\\${data.name}`;
         }

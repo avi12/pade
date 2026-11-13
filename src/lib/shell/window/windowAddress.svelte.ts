@@ -65,7 +65,7 @@ export function syncWindowAddress({
   });
 
   async function armRecoveryAtAddress() {
-    await Promise.allSettled([sendMessage(Command.recoveryArm, { url: location.href })]);
+    await Promise.allSettled([sendMessage(Command.RECOVERY_ARM, { url: location.href })]);
   }
 
   // Tell the other windows which project this one has in front - the project
@@ -80,7 +80,7 @@ export function syncWindowAddress({
   });
 
   async function registerProject(path: string) {
-    await Promise.allSettled([sendMessage(Command.windowRegisterProject, { path })]);
+    await Promise.allSettled([sendMessage(Command.WINDOW_REGISTER_PROJECT, { path })]);
   }
 
   // Name the OS window (title bar + taskbar) `PADE - <workspace>`, where the

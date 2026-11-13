@@ -8,9 +8,9 @@ import type { NoReading } from "@/lib/types/usage";
 /** Consumption severity, applied as a CSS class: blue while there's room, amber
  *  past 75%, red past 90% - no green, per the design's usage semantics. */
 export const Level = {
-  Normal: "normal",
-  Warning: "warn",
-  Critical: "crit"
+  NORMAL: "normal",
+  WARNING: "warn",
+  CRITICAL: "crit"
 } as const;
 
 export type Level = (typeof Level)[keyof typeof Level];

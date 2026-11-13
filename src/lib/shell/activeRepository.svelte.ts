@@ -43,19 +43,19 @@ export function createActiveRepository({
     // Not a git repository (or git missing) reads as no branches and no remote.
     const [next, onlyRemote, heads, remote] = await Promise.all([
       settledValue({
-        promise: sendMessage(Command.vcsBranches, { cwd: member }),
+        promise: sendMessage(Command.VCS_BRANCHES, { cwd: member }),
         fallback: []
       }),
       settledValue({
-        promise: sendMessage(Command.vcsRemoteBranches, { cwd: member }),
+        promise: sendMessage(Command.VCS_REMOTE_BRANCHES, { cwd: member }),
         fallback: []
       }),
       settledValue<Record<string, string>>({
-        promise: sendMessage(Command.vcsBranchOf, { paths: [member] }),
+        promise: sendMessage(Command.VCS_BRANCH_OF, { paths: [member] }),
         fallback: {}
       }),
       settledValue<string | null>({
-        promise: sendMessage(Command.vcsRemoteUrl, { cwd: member }),
+        promise: sendMessage(Command.VCS_REMOTE_URL, { cwd: member }),
         fallback: null
       })
     ]);

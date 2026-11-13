@@ -23,7 +23,7 @@ function columnsOf(text: string) {
 }
 
 function isText(part: RtlPart): part is RtlTextPart {
-  return part.kind === RtlPartKind.Text;
+  return part.kind === RtlPartKind.TEXT;
 }
 
 /** The run's parts as a readable sequence - text verbatim, the caret as `|`. */

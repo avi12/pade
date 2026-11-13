@@ -24,7 +24,7 @@ describe("interruptKeysOf", () => {
   it("presses Claude's stop-all chord twice and its Esc once by default", () => {
     expect(
       interruptKeysOf({
-        command: AgentId.Claude,
+        command: AgentId.CLAUDE,
         keybindings: null
       })
     ).toEqual({
@@ -43,7 +43,7 @@ describe("interruptKeysOf", () => {
 
   it("keeps the default when the user only adds a chord for the action", () => {
     const keys = interruptKeysOf({
-      command: AgentId.Claude,
+      command: AgentId.CLAUDE,
       keybindings: chat({ "ctrl+g": "chat:killAgents" })
     });
     expect(keys?.stopAll?.keystrokes).toEqual([CONTROL_X, CONTROL_K]);
@@ -51,7 +51,7 @@ describe("interruptKeysOf", () => {
 
   it("follows the user's chord once the default is unbound or taken", () => {
     const unbound = interruptKeysOf({
-      command: AgentId.Claude,
+      command: AgentId.CLAUDE,
       keybindings: chat({
         "ctrl+x ctrl+k": null,
         "ctrl+g": "chat:killAgents"
@@ -60,7 +60,7 @@ describe("interruptKeysOf", () => {
     expect(unbound?.stopAll?.keystrokes).toEqual([CONTROL_G]);
 
     const taken = interruptKeysOf({
-      command: AgentId.Claude,
+      command: AgentId.CLAUDE,
       keybindings: chat({ "ctrl+x ctrl+k": "chat:clearInput" })
     });
     expect(taken?.stopAll).toBeNull();
@@ -68,7 +68,7 @@ describe("interruptKeysOf", () => {
 
   it("ignores bindings of another context", () => {
     const keys = interruptKeysOf({
-      command: AgentId.Claude,
+      command: AgentId.CLAUDE,
       keybindings: {
         bindings: [
           {
@@ -86,11 +86,11 @@ describe("interruptKeysOf", () => {
   it("knows OpenCode's double Esc and no stop-all for agents nobody verified", () => {
     expect(
       interruptKeysOf({
-        command: AgentId.Opencode,
+        command: AgentId.OPENCODE,
         keybindings: null
       })?.interrupt?.presses
     ).toBe(2);
-    for (const command of [AgentId.Codex, AgentId.Copilot, AgentId.Opencode]) {
+    for (const command of [AgentId.CODEX, AgentId.COPILOT, AgentId.OPENCODE]) {
       expect(
         interruptKeysOf({
           command,
@@ -101,13 +101,13 @@ describe("interruptKeysOf", () => {
 
     expect(
       interruptKeysOf({
-        command: AgentId.Claude,
+        command: AgentId.CLAUDE,
         keybindings: null
       })?.stopAll
     ).not.toBeNull();
     expect(
       interruptKeysOf({
-        command: AgentId.Aider,
+        command: AgentId.AIDER,
         keybindings: null
       })
     ).toBeNull();

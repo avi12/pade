@@ -58,7 +58,7 @@ function bindArrowKeys({
     // Home/End belong to a focused text field's caret; only the arrows pull
     // focus out of one.
     const isTextEntry = e.target instanceof HTMLInputElement;
-    const isArrowKey = e.key === Key.ArrowDown || e.key === Key.ArrowUp;
+    const isArrowKey = e.key === Key.ARROW_DOWN || e.key === Key.ARROW_UP;
     if (isTextEntry && !isArrowKey) {
       return;
     }
@@ -103,7 +103,7 @@ function roveTo(move: Move) {
  *  descendant `<button>`s. Returns the teardown Svelte runs when it detaches. */
 export function rovingMenu(elMenu: HTMLElement) {
   function onToggle(e: ToggleEvent) {
-    if (e.newState !== ToggleState.Open) {
+    if (e.newState !== ToggleState.OPEN) {
       return;
     }
 
@@ -157,7 +157,7 @@ export function arrowListTarget({
   from: number;
   count: number;
 }) {
-  const isVerticalArrow = key === Key.ArrowDown || key === Key.ArrowUp;
+  const isVerticalArrow = key === Key.ARROW_DOWN || key === Key.ARROW_UP;
   if (isEntry && !isVerticalArrow) {
     return null;
   }
@@ -233,7 +233,7 @@ export function arrowLists(elRoot: HTMLElement) {
   }
 
   function onToggle(e: ToggleEvent) {
-    if (e.newState !== ToggleState.Open) {
+    if (e.newState !== ToggleState.OPEN) {
       return;
     }
 
@@ -268,13 +268,13 @@ export function nextIndex({ key, from, count }: { key: string; from: number; cou
 
   const isUnfocused = from < 0;
   switch (key) {
-    case Key.ArrowDown:
+    case Key.ARROW_DOWN:
       return isUnfocused ? 0 : (from + 1) % count;
-    case Key.ArrowUp:
+    case Key.ARROW_UP:
       return isUnfocused ? count - 1 : (from - 1 + count) % count;
-    case Key.Home:
+    case Key.HOME:
       return 0;
-    case Key.End:
+    case Key.END:
       return count - 1;
     default:
       return null;

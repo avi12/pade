@@ -39,7 +39,7 @@
     const isUntracked = entry.kind === VcsKind.enum.untracked;
     diff = isUntracked
       ? "(new file - not yet tracked)"
-      : await sendMessage(Command.vcsDiff, {
+      : await sendMessage(Command.VCS_DIFF, {
         cwd: project,
         path: entry.path,
         staged: entry.staged

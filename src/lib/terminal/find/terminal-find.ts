@@ -19,17 +19,17 @@ export function isFindShortcut({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyC
 
 /** Which way through the matches a search step moves. */
 export const FindDirection = {
-  Next: "next",
-  Previous: "previous"
+  NEXT: "next",
+  PREVIOUS: "previous"
 } as const;
 export type FindDirection = (typeof FindDirection)[keyof typeof FindDirection];
 
 /** How the term is matched. The names are the search addon's own option keys, so
  *  the toggled state IS the object handed to it - nothing maps in between. */
 export const FindOption = {
-  CaseSensitive: "caseSensitive",
-  WholeWord: "wholeWord",
-  Regex: "regex"
+  CASE_SENSITIVE: "caseSensitive",
+  WHOLE_WORD: "wholeWord",
+  REGEX: "regex"
 } as const;
 export type FindOption = (typeof FindOption)[keyof typeof FindOption];
 
@@ -39,9 +39,9 @@ type FindOptions = Record<FindOption, boolean>;
 
 export function defaultFindOptions() {
   const options: FindOptions = {
-    [FindOption.CaseSensitive]: false,
-    [FindOption.WholeWord]: false,
-    [FindOption.Regex]: false
+    [FindOption.CASE_SENSITIVE]: false,
+    [FindOption.WHOLE_WORD]: false,
+    [FindOption.REGEX]: false
   };
   return options;
 }
@@ -51,19 +51,19 @@ export function defaultFindOptions() {
  *  the key that flips it can never describe three different things. */
 export const FIND_OPTION_TOGGLES = [
   {
-    option: FindOption.CaseSensitive,
+    option: FindOption.CASE_SENSITIVE,
     icon: "caseSensitive",
     label: "Match case",
     chordKey: "c"
   },
   {
-    option: FindOption.WholeWord,
+    option: FindOption.WHOLE_WORD,
     icon: "wholeWord",
     label: "Whole word",
     chordKey: "w"
   },
   {
-    option: FindOption.Regex,
+    option: FindOption.REGEX,
     icon: "regex",
     label: "Regular expression",
     chordKey: "r"

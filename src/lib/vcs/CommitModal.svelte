@@ -61,7 +61,7 @@
     }
 
     try {
-      await sendMessage(Command.openUrl, { url: commitUrl });
+      await sendMessage(Command.OPEN_URL, { url: commitUrl });
     } catch {
     // Opening the remote is best-effort; a failed browser launch is silent.
     }

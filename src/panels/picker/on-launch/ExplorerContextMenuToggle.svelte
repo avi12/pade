@@ -17,7 +17,7 @@
 
   onMount(async () => {
     if (isWindows) {
-      ctxMenuOn = await sendMessage(Command.contextMenuStatus);
+      ctxMenuOn = await sendMessage(Command.CONTEXT_MENU_STATUS);
     }
   });
 </script>
@@ -30,7 +30,7 @@
       contextMenuError = "";
       contextMenuError = await setExplorerContextMenu(on);
       // Always re-read the registry - it's the real answer.
-      ctxMenuOn = await sendMessage(Command.contextMenuStatus);
+      ctxMenuOn = await sendMessage(Command.CONTEXT_MENU_STATUS);
     }}
   />
   {#if contextMenuError}

@@ -81,11 +81,11 @@ export function resumeRecordedConversation({
 
 /** What entering a project beside running sessions does with its target. */
 export const JoinStep = {
-  Resume: "resume",
-  SelectChat: "select-chat",
-  RelaunchChat: "relaunch-chat",
-  FreshChat: "fresh-chat",
-  SelectLive: "select-live"
+  RESUME: "resume",
+  SELECT_CHAT: "select-chat",
+  RELAUNCH_CHAT: "relaunch-chat",
+  FRESH_CHAT: "fresh-chat",
+  SELECT_LIVE: "select-live"
 } as const;
 type JoinStep = (typeof JoinStep)[keyof typeof JoinStep];
 
@@ -106,23 +106,23 @@ export function joinStep({
   hasLiveSession: boolean;
 }): JoinStep {
   if (target.resume !== undefined) {
-    return JoinStep.Resume;
+    return JoinStep.RESUME;
   }
 
   if (target.chatId !== undefined && isPickedChatOpen) {
-    return JoinStep.SelectChat;
+    return JoinStep.SELECT_CHAT;
   }
 
   if (target.chatId !== undefined && isPickedChatPersisted) {
-    return JoinStep.RelaunchChat;
+    return JoinStep.RELAUNCH_CHAT;
   }
 
   const wantsFreshChat = target.newChat === true || target.initialPrompt !== undefined || !hasLiveSession;
   if (wantsFreshChat) {
-    return JoinStep.FreshChat;
+    return JoinStep.FRESH_CHAT;
   }
 
-  return JoinStep.SelectLive;
+  return JoinStep.SELECT_LIVE;
 }
 
 /** Enter a project in a window that already runs sessions - from any project
@@ -148,21 +148,21 @@ export async function joinProjectChats({ host, target }: { host: ProjectEntryHos
     isPickedChatPersisted: pickedChat !== undefined,
     hasLiveSession: focusId !== undefined
   });
-  if (step === JoinStep.Resume && target.resume !== undefined) {
+  if (step === JoinStep.RESUME && target.resume !== undefined) {
     resumeRecordedConversation({
       host,
       project: target.path,
       conversation: target.resume
     });
-  } else if (step === JoinStep.SelectChat && target.chatId !== undefined) {
+  } else if (step === JoinStep.SELECT_CHAT && target.chatId !== undefined) {
     host.select(target.chatId);
-  } else if (step === JoinStep.RelaunchChat && pickedChat !== undefined) {
+  } else if (step === JoinStep.RELAUNCH_CHAT && pickedChat !== undefined) {
     await restoreChat({
       host,
       project: target.path,
       chat: pickedChat
     });
-  } else if (step === JoinStep.SelectLive && focusId !== undefined) {
+  } else if (step === JoinStep.SELECT_LIVE && focusId !== undefined) {
     host.select(focusId);
   } else {
     host.launchFreshChat({

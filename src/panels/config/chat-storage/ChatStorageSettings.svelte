@@ -67,7 +67,7 @@
 
   async function measure(limits: ChatStorageLimits) {
     return await settledValue({
-      promise: sendMessage(Command.chatStorage, limits),
+      promise: sendMessage(Command.CHAT_STORAGE, limits),
       fallback: null
     });
   }
@@ -84,7 +84,7 @@
   }
 
   async function deleteTicked(ids: string[]) {
-    storage = await sendMessage(Command.chatStorageDelete, { ids });
+    storage = await sendMessage(Command.CHAT_STORAGE_DELETE, { ids });
   }
 
   onMount(async () => {

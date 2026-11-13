@@ -16,7 +16,7 @@ export function startAppBoot(dependencies: BootDependencies) {
     } catch {
       // Never strand the user on the splash - fall back to the project picker.
       showToast("Startup hit a snag - pick a project to continue");
-      dependencies.screen.setPhase(Phase.Project);
+      dependencies.screen.setPhase(Phase.PROJECT);
     }
   });
   onDestroy(disposeNewProjectDetection);

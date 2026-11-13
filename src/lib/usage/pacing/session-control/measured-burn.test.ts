@@ -65,7 +65,7 @@ describe("measuredBurn", () => {
         })
       )?.total
     ).toBe(2000 / WINDOW_MINUTES);
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.sessionTokenUsage, {
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.SESSION_TOKEN_USAGE, {
       command: "claude",
       conversationId: "conversation-1",
       since: NOW - WINDOW_MINUTES * MINUTE_MS

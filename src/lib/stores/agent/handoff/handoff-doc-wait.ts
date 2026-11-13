@@ -17,7 +17,7 @@ const HANDOFF_DOC_POLL_MS = 1_000;
  *  answer every caller already falls back on. */
 export async function isFileOnDisk(path: string) {
   const probe = await settledValue({
-    promise: sendMessage(Command.workspaceProbePath, { path }),
+    promise: sendMessage(Command.WORKSPACE_PROBE_PATH, { path }),
     fallback: null
   });
   return probe?.isFile === true;
@@ -97,7 +97,7 @@ export function waitForFile({
     // wait even if the subscription never lands.
     async function subscribeToChanges() {
       try {
-        unlisten = await onMessage(EventType.feedChange, ({ data: event }) => {
+        unlisten = await onMessage(EventType.FEED_CHANGE, ({ data: event }) => {
           const isTarget = event.path.replaceAll("\\", "/").toLowerCase().endsWith(target);
           if (!isTarget) {
             return;

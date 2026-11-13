@@ -30,7 +30,7 @@
   {nested}
   {onclose}
   onsave={async name => {
-    await sendSettingsMessage(Command.workspaceSetLabel, {
+    await sendSettingsMessage(Command.WORKSPACE_SET_LABEL, {
       path,
       name,
       source: LabelSource.enum.manual

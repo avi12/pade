@@ -33,7 +33,7 @@ export function beginTabDrag({
     e,
     itemSelector: `[${SESSION_TAB_ATTRIBUTE}]`,
     idAttribute: SESSION_TAB_ATTRIBUTE,
-    axis: Axis.Horizontal,
+    axis: Axis.HORIZONTAL,
     threshold: DRAG_THRESHOLD,
     ignoreSelector: "[data-noreorder]",
     onCommit: ids => onreorder?.(ids),

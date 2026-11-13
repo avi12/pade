@@ -54,7 +54,7 @@
       e,
       itemSelector: "[data-pane-id]",
       idAttribute: "data-pane-id",
-      axis: Axis.Horizontal,
+      axis: Axis.HORIZONTAL,
       threshold: 4,
       ignoreSelector: "[data-noreorder]",
       onCommit: ids => onreorder(ids),

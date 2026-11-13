@@ -34,7 +34,7 @@ export interface ChatRestoreHost {
  *  falls back to none - the chat still opens, just fresh. */
 async function resumeArgumentsFor({ chat, project, agent }: { chat: PersistedChat; project: string; agent: Agent }) {
   return await settledValue({
-    promise: sendMessage(Command.agentResumeArgs, {
+    promise: sendMessage(Command.AGENT_RESUME_ARGS, {
       command: agent.command,
       cwd: chat.cwd ?? project,
       conversationId: chat.conversationId

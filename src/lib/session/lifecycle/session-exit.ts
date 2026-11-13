@@ -9,11 +9,11 @@ export const RESPAWN_MINIMUM_LIFETIME_MS = 2_000;
 /** Where an emptied workspace goes next. */
 export const EmptyWorkspaceOutcome = {
   /** Back to the project picker: an unnamed temp workspace has nothing to keep. */
-  Picker: "picker",
+  PICKER: "picker",
   /** A fresh session of the same agent, so a real project stays usable. */
-  Respawn: "respawn",
+  RESPAWN: "respawn",
   /** The agent picker, after a start that failed. */
-  Onboarding: "onboarding"
+  ONBOARDING: "onboarding"
 } as const;
 
 /** Whether a session that exited on its own died at launch. */
@@ -29,12 +29,12 @@ export function emptyWorkspaceOutcome({
   isFailedStart: boolean;
 }) {
   if (isUnnamedTemp) {
-    return EmptyWorkspaceOutcome.Picker;
+    return EmptyWorkspaceOutcome.PICKER;
   }
 
   if (isFailedStart) {
-    return EmptyWorkspaceOutcome.Onboarding;
+    return EmptyWorkspaceOutcome.ONBOARDING;
   }
 
-  return EmptyWorkspaceOutcome.Respawn;
+  return EmptyWorkspaceOutcome.RESPAWN;
 }

@@ -95,7 +95,7 @@
 
   // Each new Claude usage reading re-checks the free reset, so the offer follows
   // the meter's own refresh instead of keeping a timer of its own.
-  const claudeAccount = $derived(accounts.get(AgentId.Claude));
+  const claudeAccount = $derived(accounts.get(AgentId.CLAUDE));
   $effect(() => {
     if (claudeAccount === undefined) {
       return;

@@ -17,7 +17,7 @@ describe("projectModelDefault", () => {
       projectModelDefault({
         prefs: {},
         project: PROJECT,
-        agent: AgentId.Claude
+        agent: AgentId.CLAUDE
       })
     ).toBeUndefined();
   });
@@ -26,7 +26,7 @@ describe("projectModelDefault", () => {
     const prefs: Prefs = {
       agentModelProjects: {
         [PROJECT]: {
-          [AgentId.Claude]: {
+          [AgentId.CLAUDE]: {
             model: "claude-opus-5-5",
             effort: "high"
           }
@@ -38,7 +38,7 @@ describe("projectModelDefault", () => {
       projectModelDefault({
         prefs,
         project: PROJECT,
-        agent: AgentId.Claude
+        agent: AgentId.CLAUDE
       })
     ).toEqual({
       model: "claude-opus-5-5",
@@ -48,7 +48,7 @@ describe("projectModelDefault", () => {
       projectModelDefault({
         prefs,
         project: PROJECT,
-        agent: AgentId.Codex
+        agent: AgentId.CODEX
       })
     ).toBeUndefined();
   });
@@ -59,7 +59,7 @@ describe("withProjectModelDefault", () => {
     const prefs: Prefs = {
       agentModelProjects: {
         [PROJECT]: {
-          [AgentId.Codex]: {
+          [AgentId.CODEX]: {
             model: "gpt-5.6-terra"
           }
         }
@@ -70,17 +70,17 @@ describe("withProjectModelDefault", () => {
       withProjectModelDefault({
         prefs,
         project: PROJECT,
-        agent: AgentId.Claude,
+        agent: AgentId.CLAUDE,
         choice: {
           model: "claude-fable-5-1"
         }
       })
     ).toEqual({
       [PROJECT]: {
-        [AgentId.Codex]: {
+        [AgentId.CODEX]: {
           model: "gpt-5.6-terra"
         },
-        [AgentId.Claude]: {
+        [AgentId.CLAUDE]: {
           model: "claude-fable-5-1"
         }
       }
@@ -91,7 +91,7 @@ describe("withProjectModelDefault", () => {
     const prefs: Prefs = {
       agentModelProjects: {
         [PROJECT]: {
-          [AgentId.Claude]: {
+          [AgentId.CLAUDE]: {
             model: "claude-opus-5-5"
           }
         }
@@ -102,7 +102,7 @@ describe("withProjectModelDefault", () => {
       withProjectModelDefault({
         prefs,
         project: PROJECT,
-        agent: AgentId.Claude,
+        agent: AgentId.CLAUDE,
         choice: {}
       })
     ).toEqual({});
@@ -115,11 +115,11 @@ describe("startingModelChoice", () => {
   const SONNET = { model: "claude-sonnet-5-5" };
   const prefs: Prefs = {
     agentModelGlobal: {
-      [AgentId.Claude]: OPUS
+      [AgentId.CLAUDE]: OPUS
     },
     agentModelProjects: {
       [PROJECT]: {
-        [AgentId.Claude]: FABLE
+        [AgentId.CLAUDE]: FABLE
       }
     }
   };
@@ -130,7 +130,7 @@ describe("startingModelChoice", () => {
         explicit: undefined,
         prefs,
         project: PROJECT,
-        agent: AgentId.Claude
+        agent: AgentId.CLAUDE
       })
     ).toEqual(FABLE);
   });
@@ -141,7 +141,7 @@ describe("startingModelChoice", () => {
         explicit: undefined,
         prefs,
         project: "C:/elsewhere",
-        agent: AgentId.Claude
+        agent: AgentId.CLAUDE
       })
     ).toEqual(OPUS);
     expect(
@@ -149,7 +149,7 @@ describe("startingModelChoice", () => {
         explicit: undefined,
         prefs,
         project: "C:/elsewhere",
-        agent: AgentId.Codex
+        agent: AgentId.CODEX
       })
     ).toBeUndefined();
   });
@@ -160,7 +160,7 @@ describe("startingModelChoice", () => {
         explicit: SONNET,
         prefs,
         project: PROJECT,
-        agent: AgentId.Claude
+        agent: AgentId.CLAUDE
       })
     ).toEqual(SONNET);
   });
@@ -170,13 +170,13 @@ describe("withGlobalModelDefault", () => {
   it("sets an agent's pick and drops it when cleared", () => {
     const set = withGlobalModelDefault({
       prefs: {},
-      agent: AgentId.Claude,
+      agent: AgentId.CLAUDE,
       choice: {
         model: "claude-opus-5-5"
       }
     });
     expect(set).toEqual({
-      [AgentId.Claude]: {
+      [AgentId.CLAUDE]: {
         model: "claude-opus-5-5"
       }
     });
@@ -185,7 +185,7 @@ describe("withGlobalModelDefault", () => {
         prefs: {
           agentModelGlobal: set
         },
-        agent: AgentId.Claude,
+        agent: AgentId.CLAUDE,
         choice: {}
       })
     ).toEqual({});

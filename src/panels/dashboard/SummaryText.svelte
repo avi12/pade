@@ -10,11 +10,11 @@
 
   /** The element each formatted piece renders as. */
   const INLINE_TAGS = {
-    [InlineKind.Strong]: "strong",
-    [InlineKind.Emphasis]: "em",
-    [InlineKind.Code]: "code",
-    [InlineKind.Link]: "a",
-    [InlineKind.Text]: "span"
+    [InlineKind.STRONG]: "strong",
+    [InlineKind.EMPHASIS]: "em",
+    [InlineKind.CODE]: "code",
+    [InlineKind.LINK]: "a",
+    [InlineKind.TEXT]: "span"
   } as const;
 
   const pieces = $derived(inlineMarkdown(text));
@@ -29,7 +29,7 @@
         await openLink(e.currentTarget.href);
       }}
     >{piece.text}</a>
-  {:else if piece.kind === InlineKind.Text}
+  {:else if piece.kind === InlineKind.TEXT}
     {piece.text}
   {:else}
     <svelte:element this={INLINE_TAGS[piece.kind]}>{piece.text}</svelte:element>

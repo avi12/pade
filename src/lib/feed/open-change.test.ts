@@ -62,7 +62,7 @@ describe("openChangedFile", () => {
       editor: EDITOR
     });
 
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.revealInExplorer, { path: "dist/app.zip" });
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.REVEAL_IN_EXPLORER, { path: "dist/app.zip" });
   });
 
   it("opens a text file in the editor at the line", async () => {
@@ -73,7 +73,7 @@ describe("openChangedFile", () => {
       editor: EDITOR
     });
 
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.ideOpenFile, {
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.IDE_OPEN_FILE, {
       command: "code",
       project: "C:/project",
       file: "src/main.ts",

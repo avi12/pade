@@ -167,7 +167,7 @@
 
   async function loadOpenWindows() {
     try {
-      windowRows = await sendMessage(Command.windowList);
+      windowRows = await sendMessage(Command.WINDOW_LIST);
     } catch (error) {
       console.warn("pade: keeping the last-known open windows", error);
     }
@@ -189,12 +189,12 @@
       path: picked
     });
     if (openWindow) {
-      await sendMessage(Command.windowFocusLabel, { label: openWindow.label });
+      await sendMessage(Command.WINDOW_FOCUS_LABEL, { label: openWindow.label });
       return;
     }
 
     if (opensNewWindow) {
-      await sendMessage(Command.windowCreate, {
+      await sendMessage(Command.WINDOW_CREATE, {
         mode: WindowMode.enum.open,
         path: picked
       });
@@ -210,7 +210,7 @@
   // project re-asks for the visible rows.
   let unlistenGitState: UnlistenFn | undefined;
   onMount(async () => {
-    unlistenGitState = await onMessage(EventType.gitState, invalidateProjectBranches);
+    unlistenGitState = await onMessage(EventType.GIT_STATE, invalidateProjectBranches);
   });
   onDestroy(() => unlistenGitState?.());
 
@@ -218,7 +218,7 @@
   // "open in another window" marks follow.
   let unlistenWindowsChanged: UnlistenFn | undefined;
   onMount(async () => {
-    unlistenWindowsChanged = await onMessage(EventType.windowsChanged, loadOpenWindows);
+    unlistenWindowsChanged = await onMessage(EventType.WINDOWS_CHANGED, loadOpenWindows);
   });
   onDestroy(() => unlistenWindowsChanged?.());
 </script>
@@ -289,13 +289,13 @@
         relabelTarget = target;
       }}
       onremove={async target => {
-        await sendSettingsMessage(Command.workspaceRemoveRecent, { path: target });
+        await sendSettingsMessage(Command.WORKSPACE_REMOVE_RECENT, { path: target });
       }}
       onrenamefolder={target => {
         renameFolderTarget = target;
       }}
       onreorderpins={async paths => {
-        await sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths });
+        await sendSettingsMessage(Command.WORKSPACE_SET_PINNED_ORDER, { paths });
       }}
       onresumeconversation={target => {
         filter = "";
@@ -307,7 +307,7 @@
       }}
       {onstopchat}
       ontogglepin={async target => {
-        await sendSettingsMessage(Command.workspaceSetPinned, target);
+        await sendSettingsMessage(Command.WORKSPACE_SET_PINNED, target);
       }}
       {sections}
       {windowRows}
@@ -327,7 +327,7 @@
   <FolderWatch
     isActive
     onvanish={async () => {
-      await sendSettingsMessage(Command.workspacePrune);
+      await sendSettingsMessage(Command.WORKSPACE_PRUNE);
     }}
     projects={[...settings.pinnedProjects, ...settings.recentProjects]}
   />

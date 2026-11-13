@@ -42,7 +42,7 @@ describe("groupChanges", () => {
     expect(groups[0]).toMatchObject({
       id: ".",
       name: "pade",
-      role: GroupRole.App
+      role: GroupRole.APP
     });
     expect(groups[0].events).toHaveLength(2);
   });
@@ -69,15 +69,15 @@ describe("groupChanges", () => {
     const byId = Object.fromEntries(groups.map(group => [group.id, group]));
     expect(byId["apps/desktop"]).toMatchObject({
       name: "desktop",
-      role: GroupRole.App
+      role: GroupRole.APP
     });
     expect(byId["packages/hooks"]).toMatchObject({
       name: "hooks",
-      role: GroupRole.Lib
+      role: GroupRole.LIB
     });
     expect(byId["services/api"]).toMatchObject({
       name: "api",
-      role: GroupRole.Service
+      role: GroupRole.SERVICE
     });
   });
 
@@ -328,8 +328,8 @@ describe("groupChanges with manifest members", () => {
       events: [change({ path: `${ROOT}/packages/ui/index.ts` }), change({ path: `${ROOT}/backend/server.ts` })]
     });
     const byId = Object.fromEntries(groups.map(group => [group.id, group]));
-    expect(byId["packages/ui"].role).toBe(GroupRole.Lib);
-    expect(byId["backend"].role).toBe(GroupRole.App);
+    expect(byId["packages/ui"].role).toBe(GroupRole.LIB);
+    expect(byId["backend"].role).toBe(GroupRole.APP);
   });
 
   it("falls back to the folder-name convention when only the root member exists", () => {

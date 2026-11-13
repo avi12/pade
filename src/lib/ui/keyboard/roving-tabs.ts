@@ -42,13 +42,13 @@ export function rovingTablist(elTablist: HTMLElement) {
 /** The tab index a key moves to, or null for keys the pattern doesn't handle. */
 function nextIndex({ key, from, count }: { key: string; from: number; count: number }) {
   switch (key) {
-    case Key.ArrowRight:
+    case Key.ARROW_RIGHT:
       return (from + 1) % count;
-    case Key.ArrowLeft:
+    case Key.ARROW_LEFT:
       return (from - 1 + count) % count;
-    case Key.Home:
+    case Key.HOME:
       return 0;
-    case Key.End:
+    case Key.END:
       return count - 1;
     default:
       return null;

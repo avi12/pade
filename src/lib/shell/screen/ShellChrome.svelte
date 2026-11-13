@@ -85,7 +85,7 @@
     current={repository.currentBranch}
     cwd={activeMemberIn(project)}
     hasRemote={repository.hasRemote}
-    onopengit={() => (side = Side.Vcs)}
+    onopengit={() => (side = Side.VCS)}
     onopenremote={async () => {
       await openRepositoryTarget({
         project: remoteRepository ?? project,

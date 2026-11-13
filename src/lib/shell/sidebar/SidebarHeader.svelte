@@ -76,7 +76,7 @@
     <div id={MENU_ID} class="actions-menu popover-menu" {@attach rovingMenu} popover role="menu">
       <SwitcherActions
         onspawn={async mode => {
-          await sendMessage(Command.windowCreate, { mode });
+          await sendMessage(Command.WINDOW_CREATE, { mode });
           hideMenu();
         }}
         onswitch={onswitch === undefined
@@ -89,7 +89,7 @@
           hideMenu();
 
           if (opensNewWindow) {
-            await sendMessage(Command.windowCreate, { mode: WindowMode.enum.temp });
+            await sendMessage(Command.WINDOW_CREATE, { mode: WindowMode.enum.temp });
             return;
           }
 

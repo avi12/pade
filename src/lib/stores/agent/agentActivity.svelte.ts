@@ -21,8 +21,8 @@ import { createSettleWaiters } from "@/lib/stores/session/settle-waiters";
 
 /** What an agent's own terminal title says about its work. */
 export const AgentActivity = {
-  Busy: "busy",
-  Idle: "idle"
+  BUSY: "busy",
+  IDLE: "idle"
 } as const;
 type AgentActivity = (typeof AgentActivity)[keyof typeof AgentActivity];
 
@@ -46,11 +46,11 @@ const MAXIMUM_CARRIED_LENGTH = 1024;
 export function activityFromTitle(title: string) {
   const isAnnouncingBusy = BUSY_TITLE_GLYPHS.some(glyph => title.startsWith(`${glyph}${GLYPH_SEPARATOR}`));
   if (isAnnouncingBusy) {
-    return AgentActivity.Busy;
+    return AgentActivity.BUSY;
   }
 
   if (title.startsWith(`${IDLE_TITLE_GLYPH}${GLYPH_SEPARATOR}`)) {
-    return AgentActivity.Idle;
+    return AgentActivity.IDLE;
   }
 
   return null;
@@ -105,7 +105,7 @@ export function observeAgentActivity({ id, chunk }: { id: string; chunk: string 
     activities.set(id, activity);
   }
 
-  if (activity !== AgentActivity.Busy) {
+  if (activity !== AgentActivity.BUSY) {
     settleWaiters.settleAll(id);
   }
 }
@@ -113,7 +113,7 @@ export function observeAgentActivity({ id, chunk }: { id: string; chunk: string 
 /** Whether the agent itself reports work in flight - a running turn or delegated
  *  background work (reactive). False for an agent that announces nothing. */
 export function agentReportsBusy(id: string) {
-  return activities.get(id) === AgentActivity.Busy;
+  return activities.get(id) === AgentActivity.BUSY;
 }
 
 // An agent TUI shows how to interrupt only while a turn is running - Claude Code's

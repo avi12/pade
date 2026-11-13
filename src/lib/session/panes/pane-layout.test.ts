@@ -69,7 +69,7 @@ describe("paneAtPoint", () => {
       })
     ).toEqual({
       id: "b",
-      side: DropSide.Left
+      side: DropSide.LEFT
     });
     expect(
       paneAtPoint({
@@ -79,7 +79,7 @@ describe("paneAtPoint", () => {
       })
     ).toEqual({
       id: "a",
-      side: DropSide.Right
+      side: DropSide.RIGHT
     });
   });
 
@@ -119,7 +119,7 @@ describe("paneIdsAfterSplit", () => {
         paneIds: ["a", "b"],
         draggedId: "c",
         targetId: "a",
-        side: DropSide.Right
+        side: DropSide.RIGHT
       })
     ).toEqual(["a", "c", "b"]);
   });
@@ -130,7 +130,7 @@ describe("paneIdsAfterSplit", () => {
         paneIds: ["a", "b", "c"],
         draggedId: "a",
         targetId: "c",
-        side: DropSide.Right
+        side: DropSide.RIGHT
       })
     ).toEqual(["b", "c", "a"]);
   });

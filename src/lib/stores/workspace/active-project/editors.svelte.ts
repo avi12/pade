@@ -73,7 +73,7 @@ export function windowedEditorFor({ path, fallback }: { path: string; fallback?:
 
 async function fetchEditors({ project, token }: { project: string; token: symbol }) {
   const ranked = await settledValue({
-    promise: sendMessage(Command.ideSuggest, { cwd: project }),
+    promise: sendMessage(Command.IDE_SUGGEST, { cwd: project }),
     fallback: []
   });
   const isSuperseded = currentFetchToken.get(project) !== token;
@@ -108,7 +108,7 @@ export function refreshEditors(project: string) {
  *  surface reading this store sees the choice win at once. */
 export async function chooseEditor({ project, editorId }: { project: string; editorId: string }) {
   try {
-    await sendSettingsMessage(Command.ideChooseEditor, {
+    await sendSettingsMessage(Command.IDE_CHOOSE_EDITOR, {
       cwd: project,
       id: editorId
     });

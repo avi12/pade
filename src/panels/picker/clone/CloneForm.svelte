@@ -86,7 +86,7 @@
     }
 
     const timer = setTimeout(async () => {
-      const reachable = await sendMessage(Command.vcsProbeRemote, { url });
+      const reachable = await sendMessage(Command.VCS_PROBE_REMOTE, { url });
       remoteProbe = {
         url,
         reachable

@@ -5,7 +5,7 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
 
 export async function openLink(url: string) {
   try {
-    await sendMessage(Command.openUrl, { url });
+    await sendMessage(Command.OPEN_URL, { url });
   } catch (error) {
     console.warn("pade: could not open the dashboard link", error);
   }

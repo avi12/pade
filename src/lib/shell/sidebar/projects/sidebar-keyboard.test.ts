@@ -19,45 +19,45 @@ function move(key: string, line: number, item: number) {
 
 describe("nextSidebarPosition", () => {
   it("walks along a header to its buttons and back", () => {
-    expect(move(SidebarKey.Right, 0, 0)).toEqual({
+    expect(move(SidebarKey.RIGHT, 0, 0)).toEqual({
       line: 0,
       item: 1
     });
-    expect(move(SidebarKey.Right, 0, 1)).toEqual({
+    expect(move(SidebarKey.RIGHT, 0, 1)).toEqual({
       line: 0,
       item: 2
     });
-    expect(move(SidebarKey.Right, 0, 2)).toBeNull();
-    expect(move(SidebarKey.Left, 0, 2)).toEqual({
+    expect(move(SidebarKey.RIGHT, 0, 2)).toBeNull();
+    expect(move(SidebarKey.LEFT, 0, 2)).toEqual({
       line: 0,
       item: 1
     });
-    expect(move(SidebarKey.Left, 0, 0)).toBeNull();
+    expect(move(SidebarKey.LEFT, 0, 0)).toBeNull();
   });
 
   it("goes down through the conversations onto the next header, landing on each main control", () => {
-    expect(move(SidebarKey.Down, 0, 2)).toEqual({
+    expect(move(SidebarKey.DOWN, 0, 2)).toEqual({
       line: 1,
       item: 0
     });
-    expect(move(SidebarKey.Down, 2, 0)).toEqual({
+    expect(move(SidebarKey.DOWN, 2, 0)).toEqual({
       line: 3,
       item: 0
     });
-    expect(move(SidebarKey.Down, 3, 0)).toBeNull();
-    expect(move(SidebarKey.Up, 1, 1)).toEqual({
+    expect(move(SidebarKey.DOWN, 3, 0)).toBeNull();
+    expect(move(SidebarKey.UP, 1, 1)).toEqual({
       line: 0,
       item: 0
     });
-    expect(move(SidebarKey.Up, 0, 0)).toBeNull();
+    expect(move(SidebarKey.UP, 0, 0)).toBeNull();
   });
 
   it("jumps to the first and last line", () => {
-    expect(move(SidebarKey.Home, 2, 0)).toEqual({
+    expect(move(SidebarKey.HOME, 2, 0)).toEqual({
       line: 0,
       item: 0
     });
-    expect(move(SidebarKey.End, 0, 1)).toEqual({
+    expect(move(SidebarKey.END, 0, 1)).toEqual({
       line: 3,
       item: 0
     });

@@ -35,7 +35,7 @@
   const isErrored = $derived(previews.failedIds.has(card.id));
   const isMedia = $derived(isMediaPath(card.path));
   const canPreview = $derived(isRenderablePath(card.path));
-  const isCodeShown = $derived(!isMedia && pane === PreviewPane.Code);
+  const isCodeShown = $derived(!isMedia && pane === PreviewPane.CODE);
   const isFetching = $derived(isCodeShown && !previews.isCardPreviewLoaded(card));
   const canSwitchDiffMode = $derived(isCodeShown && lines.length > 0);
   const hasViewChoices = $derived(canPreview || canSwitchDiffMode);
@@ -49,7 +49,7 @@
   const view = $derived.by(() => {
     if (isFetching) {
       return {
-        kind: CardViewKind.Loading,
+        kind: CardViewKind.LOADING,
         text: "Loading the diff"
       } satisfies CardView;
     }
@@ -65,7 +65,7 @@
     });
   });
   const isFilled = $derived(
-    view.kind === CardViewKind.Image || view.kind === CardViewKind.Video || view.kind === CardViewKind.Document
+    view.kind === CardViewKind.IMAGE || view.kind === CardViewKind.VIDEO || view.kind === CardViewKind.DOCUMENT
   );
 </script>
 

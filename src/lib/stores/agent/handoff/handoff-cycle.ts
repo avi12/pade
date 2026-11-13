@@ -106,7 +106,7 @@ async function replaceWithSuccessor({
     id: successorId
   });
   if (isConsumed) {
-    await sendMessage(Command.handoffDocDelete, {
+    await sendMessage(Command.HANDOFF_DOC_DELETE, {
       dir: host.projectDirectory(session),
       name: doc
     });
@@ -195,7 +195,7 @@ export async function writeHandoffDoc({ context, session }: { context: HandoffCo
     context,
     session,
     doc,
-    reason: HandoffReason.Save
+    reason: HandoffReason.SAVE
   });
   return isWritten ? doc : null;
 }

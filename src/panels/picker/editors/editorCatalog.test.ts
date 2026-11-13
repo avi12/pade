@@ -27,11 +27,11 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
   return {
     ...messaging,
     sendMessage: vi.fn(async (command: string) => {
-      if (command === messaging.Command.ideDetect) {
+      if (command === messaging.Command.IDE_DETECT) {
         return detected.ides;
       }
 
-      if (command === messaging.Command.ideKinds) {
+      if (command === messaging.Command.IDE_KINDS) {
         return [
           {
             kind: "node",
@@ -41,7 +41,7 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
         ];
       }
 
-      if (command === messaging.Command.ideKindOptions) {
+      if (command === messaging.Command.IDE_KIND_OPTIONS) {
         return { node: ["code"] };
       }
 

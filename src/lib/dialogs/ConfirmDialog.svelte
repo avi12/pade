@@ -134,7 +134,7 @@
       }
     }}
     ontoggle={e => {
-      if ((e as ToggleEvent).newState === ToggleState.Closed && !busy) {
+      if ((e as ToggleEvent).newState === ToggleState.CLOSED && !busy) {
         oncancel();
       }
     }}

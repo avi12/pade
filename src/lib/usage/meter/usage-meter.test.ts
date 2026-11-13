@@ -73,9 +73,9 @@ function makeAccount(resets: (string | null)[]) {
 
 describe("severityClass", () => {
   it("paints warning and critical, and leaves normal and unknown bare", () => {
-    expect(severityClass(Level.Warning)).toBe("warning");
-    expect(severityClass(Level.Critical)).toBe("critical");
-    expect(severityClass(Level.Normal)).toBeUndefined();
+    expect(severityClass(Level.WARNING)).toBe("warning");
+    expect(severityClass(Level.CRITICAL)).toBe("critical");
+    expect(severityClass(Level.NORMAL)).toBeUndefined();
     expect(severityClass(null)).toBeUndefined();
   });
 });
@@ -84,15 +84,15 @@ describe("trigger pills and overflow", () => {
   const groups = [
     makeGroup({
       id: "claude",
-      levels: [Level.Normal]
+      levels: [Level.NORMAL]
     }),
     makeGroup({
       id: "codex",
-      levels: [Level.Normal]
+      levels: [Level.NORMAL]
     }),
     makeGroup({
       id: "gemini",
-      levels: [Level.Warning]
+      levels: [Level.WARNING]
     }),
     makeGroup({
       id: "opencode",
@@ -111,7 +111,7 @@ describe("trigger pills and overflow", () => {
       groupSeverityClass(
         makeGroup({
           id: "codex",
-          levels: [Level.Critical]
+          levels: [Level.CRITICAL]
         })
       )
     ).toBe("critical");
@@ -126,16 +126,16 @@ describe("trigger pills and overflow", () => {
   });
 
   it("dots the overflow with the worst level any agent reaches", () => {
-    expect(overflowLevel(groups)).toBe(Level.Warning);
+    expect(overflowLevel(groups)).toBe(Level.WARNING);
     expect(
       overflowLevel([
         ...groups,
         makeGroup({
           id: "copilot",
-          levels: [Level.Critical]
+          levels: [Level.CRITICAL]
         })
       ])
-    ).toBe(Level.Critical);
+    ).toBe(Level.CRITICAL);
     expect(overflowLevel(groups.slice(0, 2))).toBeNull();
   });
 });
@@ -145,12 +145,12 @@ describe("measuredAgentCount", () => {
     expect(
       measuredAgentCount([
         {
-          level: Level.Normal,
+          level: Level.NORMAL,
           label: "ok",
           count: 2
         },
         {
-          level: Level.Critical,
+          level: Level.CRITICAL,
           label: "critical",
           count: 1
         }
@@ -169,7 +169,7 @@ describe("usageAriaLabel", () => {
       usageAriaLabel([
         makeGroup({
           id: "claude",
-          levels: [Level.Normal]
+          levels: [Level.NORMAL]
         })
       ])
     ).toBe("Usage - claude limit 0 50%");
@@ -180,7 +180,7 @@ describe("isJustReset", () => {
   it("matches a limit by its agent and label", () => {
     const limit = makeLimit({
       label: "Session",
-      level: Level.Normal
+      level: Level.NORMAL
     });
     const justReset = new Set([
       limitKey({
@@ -312,7 +312,7 @@ describe("limitTooltip", () => {
     const weekly = {
       ...makeLimit({
         label: "Weekly",
-        level: Level.Normal
+        level: Level.NORMAL
       }),
       reading: "21%",
       reset: "in 3d 4h"

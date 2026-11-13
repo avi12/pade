@@ -13,7 +13,7 @@
 </script>
 
 <div class="media-wrapper" class:filling={isFilling}>
-  {#if view.kind === CardViewKind.Video}
+  {#if view.kind === CardViewKind.VIDEO}
     <!-- Muted + looping so an opened card plays like a moving
          thumbnail; the controls unmute or scrub it. -->
     <video autoplay controls loop muted playsinline src={view.url}></video>

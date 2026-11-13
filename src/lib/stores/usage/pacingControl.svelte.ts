@@ -18,7 +18,7 @@ import type { PacingRestUntil, PacingThrottle } from "@/lib/types/pacing";
 import type { ThrottledSession } from "@/lib/usage/pacing/engine/account-round";
 
 /** One part of a session's control, as the backend takes it. */
-type ControlPart = Parameters<CommandProtocolMap[typeof Command.agentSetPacingControl]>[0]["part"];
+type ControlPart = Parameters<CommandProtocolMap[typeof Command.AGENT_SET_PACING_CONTROL]>[0]["part"];
 
 /** Who a control belongs to: the agent that reads it, and its conversation. */
 export type ControlTarget = Pick<AgentSession, "conversationId"> & {
@@ -52,7 +52,7 @@ export async function setControlPart({ target, part }: { target: ControlTarget; 
 
   written.set(key, value);
   try {
-    await sendMessage(Command.agentSetPacingControl, {
+    await sendMessage(Command.AGENT_SET_PACING_CONTROL, {
       command: target.command,
       conversationId,
       part

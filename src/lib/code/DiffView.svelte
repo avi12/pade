@@ -54,9 +54,9 @@
     {#each diffLines as line, i (i)}
       <div
         class="line"
-        class:add={line.kind === DiffKind.Added}
-        class:deletion={line.kind === DiffKind.Removed}
-        class:meta={line.kind === DiffKind.Meta}
+        class:add={line.kind === DiffKind.ADDED}
+        class:deletion={line.kind === DiffKind.REMOVED}
+        class:meta={line.kind === DiffKind.META}
         data-newline={line.newLine}
         data-snippet-line={line.newLine ?? line.oldLine}
       >

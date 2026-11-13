@@ -18,39 +18,39 @@ function classOf(text: string) {
 
 describe("tokenize", () => {
   it("classifies a // line comment", () => {
-    expect(classOf("// a note")).toBe(TokenClass.Comment);
+    expect(classOf("// a note")).toBe(TokenClass.COMMENT);
   });
 
   it("classifies a /* block */ comment", () => {
-    expect(classOf("/* spans\ntwo lines */")).toBe(TokenClass.Comment);
+    expect(classOf("/* spans\ntwo lines */")).toBe(TokenClass.COMMENT);
   });
 
   it("classifies an <!-- html --> comment", () => {
-    expect(classOf("<!-- hidden -->")).toBe(TokenClass.Comment);
+    expect(classOf("<!-- hidden -->")).toBe(TokenClass.COMMENT);
   });
 
   it("classifies a leading # line as a comment", () => {
-    expect(classOf("# shell comment")).toBe(TokenClass.Comment);
-    expect(classOf("## markdown heading")).toBe(TokenClass.Comment);
+    expect(classOf("# shell comment")).toBe(TokenClass.COMMENT);
+    expect(classOf("## markdown heading")).toBe(TokenClass.COMMENT);
   });
 
   it("classifies all three string quote styles", () => {
-    expect(classOf(`"double"`)).toBe(TokenClass.String);
-    expect(classOf("'single'")).toBe(TokenClass.String);
-    expect(classOf("`template`")).toBe(TokenClass.String);
+    expect(classOf(`"double"`)).toBe(TokenClass.STRING);
+    expect(classOf("'single'")).toBe(TokenClass.STRING);
+    expect(classOf("`template`")).toBe(TokenClass.STRING);
   });
 
   it("resolves a hex color to its own swatch", () => {
     const [token] = tokenize("#3366ff");
 
-    expect(token.tokenClass).toBe(TokenClass.Color);
+    expect(token.tokenClass).toBe(TokenClass.COLOR);
     expect(token.color).toBe("#3366ff");
   });
 
   it("resolves an rgb() color", () => {
     const [token] = tokenize("rgb(1, 2, 3)");
 
-    expect(token.tokenClass).toBe(TokenClass.Color);
+    expect(token.tokenClass).toBe(TokenClass.COLOR);
     expect(token.color).toBe("rgb(1, 2, 3)");
   });
 
@@ -58,75 +58,75 @@ describe("tokenize", () => {
     const variables = new Map([["--brand", "#123456"]]);
     const [token] = tokenize("var(--brand)", variables);
 
-    expect(token.tokenClass).toBe(TokenClass.Color);
+    expect(token.tokenClass).toBe(TokenClass.COLOR);
     expect(token.color).toBe("#123456");
   });
 
   it("leaves an unresolvable var() color without a swatch", () => {
     const [token] = tokenize("var(--missing)", new Map());
 
-    expect(token.tokenClass).toBe(TokenClass.Color);
+    expect(token.tokenClass).toBe(TokenClass.COLOR);
     expect(token.color).toBeUndefined();
   });
 
   it("classifies an at-rule as a keyword", () => {
-    expect(classOf("@media")).toBe(TokenClass.Keyword);
+    expect(classOf("@media")).toBe(TokenClass.KEYWORD);
   });
 
   it("classifies numbers, including fractions and digit separators", () => {
-    expect(classOf("42")).toBe(TokenClass.Number);
-    expect(classOf("3.14")).toBe(TokenClass.Number);
-    expect(classOf("1_000")).toBe(TokenClass.Number);
+    expect(classOf("42")).toBe(TokenClass.NUMBER);
+    expect(classOf("3.14")).toBe(TokenClass.NUMBER);
+    expect(classOf("1_000")).toBe(TokenClass.NUMBER);
   });
 
   it("classifies keywords from the cross-language set", () => {
-    expect(classOf("const")).toBe(TokenClass.Keyword);
-    expect(classOf("fn")).toBe(TokenClass.Keyword);
-    expect(classOf("true")).toBe(TokenClass.Keyword);
+    expect(classOf("const")).toBe(TokenClass.KEYWORD);
+    expect(classOf("fn")).toBe(TokenClass.KEYWORD);
+    expect(classOf("true")).toBe(TokenClass.KEYWORD);
   });
 
   it("classifies an ordinary identifier as plain", () => {
-    expect(classOf("banana")).toBe(TokenClass.Plain);
+    expect(classOf("banana")).toBe(TokenClass.PLAIN);
   });
 
   it("colors an identifier immediately followed by `(` as a function", () => {
-    expect(classOf("linear-gradient(0deg, red, blue)")).toBe(TokenClass.Function);
-    expect(classOf("calc(100% - 24px)")).toBe(TokenClass.Function);
+    expect(classOf("linear-gradient(0deg, red, blue)")).toBe(TokenClass.FUNCTION);
+    expect(classOf("calc(100% - 24px)")).toBe(TokenClass.FUNCTION);
   });
 
   it("colors an identifier immediately followed by `:` as a property/key", () => {
-    expect(classOf("align-items: center")).toBe(TokenClass.Property);
-    expect(classOf("background: red")).toBe(TokenClass.Property);
+    expect(classOf("align-items: center")).toBe(TokenClass.PROPERTY);
+    expect(classOf("background: red")).toBe(TokenClass.PROPERTY);
   });
 
   it("does not treat a `::` pseudo-element or a `://` scheme as a property", () => {
-    expect(classOf("div::before")).toBe(TokenClass.Plain);
-    expect(tokenize("https://x")[0].tokenClass).toBe(TokenClass.Plain);
+    expect(classOf("div::before")).toBe(TokenClass.PLAIN);
+    expect(tokenize("https://x")[0].tokenClass).toBe(TokenClass.PLAIN);
   });
 
   it("keeps a hyphenated identifier whole", () => {
     expect(tokenize("mask-image")).toEqual([
       {
         text: "mask-image",
-        tokenClass: TokenClass.Plain
+        tokenClass: TokenClass.PLAIN
       }
     ]);
   });
 
   it("does not turn a keyword before `(` into a function", () => {
-    expect(classOf("if(x)")).toBe(TokenClass.Keyword);
+    expect(classOf("if(x)")).toBe(TokenClass.KEYWORD);
   });
 
   it("emits the gaps between matches as plain runs", () => {
     const tokens = tokenize("const width = 42;");
 
     expect(tokens.map(token => token.tokenClass)).toEqual([
-      TokenClass.Keyword,
-      TokenClass.Plain,
-      TokenClass.Plain,
-      TokenClass.Plain,
-      TokenClass.Number,
-      TokenClass.Plain
+      TokenClass.KEYWORD,
+      TokenClass.PLAIN,
+      TokenClass.PLAIN,
+      TokenClass.PLAIN,
+      TokenClass.NUMBER,
+      TokenClass.PLAIN
     ]);
   });
 
@@ -141,7 +141,7 @@ describe("tokenize", () => {
     expect(tokenize("=+;")).toEqual([
       {
         text: "=+;",
-        tokenClass: TokenClass.Plain
+        tokenClass: TokenClass.PLAIN
       }
     ]);
   });
@@ -149,17 +149,17 @@ describe("tokenize", () => {
 
 describe("isSyntax", () => {
   it("marks comment, string, number, keyword and function as syntax-colored", () => {
-    expect(isSyntax(TokenClass.Comment)).toBe(true);
-    expect(isSyntax(TokenClass.String)).toBe(true);
-    expect(isSyntax(TokenClass.Number)).toBe(true);
-    expect(isSyntax(TokenClass.Keyword)).toBe(true);
-    expect(isSyntax(TokenClass.Function)).toBe(true);
-    expect(isSyntax(TokenClass.Property)).toBe(true);
+    expect(isSyntax(TokenClass.COMMENT)).toBe(true);
+    expect(isSyntax(TokenClass.STRING)).toBe(true);
+    expect(isSyntax(TokenClass.NUMBER)).toBe(true);
+    expect(isSyntax(TokenClass.KEYWORD)).toBe(true);
+    expect(isSyntax(TokenClass.FUNCTION)).toBe(true);
+    expect(isSyntax(TokenClass.PROPERTY)).toBe(true);
   });
 
   it("leaves plain and color tokens on the default color", () => {
-    expect(isSyntax(TokenClass.Plain)).toBe(false);
-    expect(isSyntax(TokenClass.Color)).toBe(false);
+    expect(isSyntax(TokenClass.PLAIN)).toBe(false);
+    expect(isSyntax(TokenClass.COLOR)).toBe(false);
   });
 });
 
@@ -171,7 +171,7 @@ describe("tokenizeMarkdown", () => {
   it("leaves prose plain - 'use' and 'for' are words here, not keywords", () => {
     const tokens = tokenizeMarkdown("use pnpm for the extension framework.");
     expect(tokens).toHaveLength(1);
-    expect(tokens[0]?.tokenClass).toBe(TokenClass.Plain);
+    expect(tokens[0]?.tokenClass).toBe(TokenClass.PLAIN);
   });
 
   it("colors structure: headings, quotes, list markers, inline spans", () => {
@@ -179,21 +179,21 @@ describe("tokenizeMarkdown", () => {
       ["# Title", "> a quote", "- item with `code` and **bold** and [a link](https://x)"].join("\n")
     );
 
-    expect(markdownClassOf(tokens, "# Title")).toBe(TokenClass.Keyword);
-    expect(markdownClassOf(tokens, "> a quote")).toBe(TokenClass.Comment);
-    expect(markdownClassOf(tokens, "- ")).toBe(TokenClass.Number);
-    expect(markdownClassOf(tokens, "`code`")).toBe(TokenClass.String);
-    expect(markdownClassOf(tokens, "**bold**")).toBe(TokenClass.Keyword);
-    expect(markdownClassOf(tokens, "[a link](https://x)")).toBe(TokenClass.Function);
-    expect(markdownClassOf(tokens, "item with ")).toBe(TokenClass.Plain);
+    expect(markdownClassOf(tokens, "# Title")).toBe(TokenClass.KEYWORD);
+    expect(markdownClassOf(tokens, "> a quote")).toBe(TokenClass.COMMENT);
+    expect(markdownClassOf(tokens, "- ")).toBe(TokenClass.NUMBER);
+    expect(markdownClassOf(tokens, "`code`")).toBe(TokenClass.STRING);
+    expect(markdownClassOf(tokens, "**bold**")).toBe(TokenClass.KEYWORD);
+    expect(markdownClassOf(tokens, "[a link](https://x)")).toBe(TokenClass.FUNCTION);
+    expect(markdownClassOf(tokens, "item with ")).toBe(TokenClass.PLAIN);
   });
 
   it("hands fenced code blocks to the generic scanner", () => {
     const tokens = tokenizeMarkdown(["```ts", "const answer = 42;", "```"].join("\n"));
 
-    expect(markdownClassOf(tokens, "```ts")).toBe(TokenClass.Comment);
-    expect(markdownClassOf(tokens, "const")).toBe(TokenClass.Keyword);
-    expect(markdownClassOf(tokens, "42")).toBe(TokenClass.Number);
+    expect(markdownClassOf(tokens, "```ts")).toBe(TokenClass.COMMENT);
+    expect(markdownClassOf(tokens, "const")).toBe(TokenClass.KEYWORD);
+    expect(markdownClassOf(tokens, "42")).toBe(TokenClass.NUMBER);
   });
 
   it("round-trips the exact text, newlines included", () => {

@@ -37,7 +37,7 @@ let followed: {
 
 async function watchProjects(paths: string[]) {
   try {
-    await sendMessage(Command.watchLanguages, { paths });
+    await sendMessage(Command.WATCH_LANGUAGES, { paths });
   } catch (error) {
     console.warn("pade: could not watch the projects for language changes", error);
   }
@@ -77,7 +77,7 @@ async function recount(path: string) {
 
 async function listenForChanges() {
   isListening = true;
-  await onMessage(EventType.languagesChanged, ({ data: path }) => {
+  await onMessage(EventType.LANGUAGES_CHANGED, ({ data: path }) => {
     clearTimeout(recountTimers.get(path));
     recountTimers.set(
       path,
@@ -96,7 +96,7 @@ function ensureListening() {
 }
 
 const projectLanguages = createVisiblePathBatch<LanguageShare[]>({
-  load: paths => sendMessage(Command.ideProjectLanguages, { paths }),
+  load: paths => sendMessage(Command.IDE_PROJECT_LANGUAGES, { paths }),
   cacheLimit: PROJECT_ROW_CACHE_LIMIT,
   onVisiblePathsChange(paths) {
     ensureListening();

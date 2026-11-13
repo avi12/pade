@@ -24,17 +24,17 @@ describe("fileTypeBadge", () => {
   it("labels, tones, and logos known source extensions", () => {
     expect(fileTypeBadge("src/App.svelte")).toEqual({
       label: "SV",
-      tone: FileTone.Svelte,
+      tone: FileTone.SVELTE,
       icon: "svelte"
     });
     expect(fileTypeBadge("src/components/App.vue")).toEqual({
       label: "VUE",
-      tone: FileTone.Vue,
+      tone: FileTone.VUE,
       icon: "vue"
     });
     expect(fileTypeBadge("src/App.tsx")).toEqual({
       label: "TSX",
-      tone: FileTone.React,
+      tone: FileTone.REACT,
       icon: "react"
     });
     expect(fileTypeBadge("src/pages/index.astro").icon).toBe("astro");
@@ -71,22 +71,22 @@ describe("fileTypeBadge", () => {
     expect(fileTypeBadge("Cargo.toml").icon).toBe("toml");
     expect(fileTypeBadge("src/lib/bridge.ts")).toEqual({
       label: "TS",
-      tone: FileTone.TypeScript,
+      tone: FileTone.TYPE_SCRIPT,
       icon: "typescript"
     });
     expect(fileTypeBadge("src-tauri/src/watcher.rs")).toEqual({
       label: "RS",
-      tone: FileTone.Rust,
+      tone: FileTone.RUST,
       icon: "rust"
     });
     expect(fileTypeBadge("src/theme.css")).toEqual({
       label: "CSS",
-      tone: FileTone.Style,
+      tone: FileTone.STYLE,
       icon: "css"
     });
     expect(fileTypeBadge("services/api/usage.py")).toEqual({
       label: "PY",
-      tone: FileTone.Python,
+      tone: FileTone.PYTHON,
       icon: "python"
     });
   });
@@ -94,13 +94,13 @@ describe("fileTypeBadge", () => {
   it("logos the C and C++ family, with `.h` on C and C++ headers on C++", () => {
     expect(fileTypeBadge("src/main.cpp")).toEqual({
       label: "C++",
-      tone: FileTone.Cpp,
+      tone: FileTone.CPP,
       icon: "cplusplus"
     });
     expect(fileTypeBadge("src/util.cc").icon).toBe("cplusplus");
     expect(fileTypeBadge("include/api.hpp")).toEqual({
       label: "HPP",
-      tone: FileTone.Cpp,
+      tone: FileTone.CPP,
       icon: "cplusplus"
     });
     expect(fileTypeBadge("src/parser.c")).toEqual({
@@ -116,13 +116,13 @@ describe("fileTypeBadge", () => {
   });
 
   it("reads the extension from a Windows path", () => {
-    expect(fileTypeBadge("C:\\repos\\pade\\src\\lib\\diff.ts").tone).toBe(FileTone.TypeScript);
+    expect(fileTypeBadge("C:\\repos\\pade\\src\\lib\\diff.ts").tone).toBe(FileTone.TYPE_SCRIPT);
   });
 
   it("is case-insensitive on the extension", () => {
     expect(fileTypeBadge("README.MD")).toEqual({
       label: "MD",
-      tone: FileTone.Doc,
+      tone: FileTone.DOC,
       icon: "markdown"
     });
   });
@@ -130,18 +130,18 @@ describe("fileTypeBadge", () => {
   it("falls back to a neutral chip of the uppercased extension", () => {
     expect(fileTypeBadge("build/output.wasm")).toEqual({
       label: "WASM",
-      tone: FileTone.Neutral
+      tone: FileTone.NEUTRAL
     });
   });
 
   it("handles a dotfile and an extensionless file", () => {
     expect(fileTypeBadge(".prettierrc")).toEqual({
       label: "PRE",
-      tone: FileTone.Neutral
+      tone: FileTone.NEUTRAL
     });
     expect(fileTypeBadge("Procfile")).toEqual({
       label: "PRO",
-      tone: FileTone.Neutral
+      tone: FileTone.NEUTRAL
     });
   });
 

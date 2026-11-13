@@ -81,7 +81,7 @@
   <button
     class="menu-item" onclick={async () => {
       try {
-        await sendMessage(Command.openInExplorer, { path: project });
+        await sendMessage(Command.OPEN_IN_EXPLORER, { path: project });
       } catch {
         showToast("Couldn't open that folder");
       }

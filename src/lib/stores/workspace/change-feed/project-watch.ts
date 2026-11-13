@@ -24,7 +24,7 @@ export function onWatchesArmed(listener: () => Promise<void>) {
 
 async function askToWatch(roots: string[]) {
   try {
-    await sendMessage(Command.watchProjects, { roots });
+    await sendMessage(Command.WATCH_PROJECTS, { roots });
   } finally {
     for (const listener of armedListeners) {
       await listener();

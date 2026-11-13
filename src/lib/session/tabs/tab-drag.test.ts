@@ -46,7 +46,7 @@ describe("beginTabDrag", () => {
       e: PRESS,
       itemSelector: "[data-session-tab]",
       idAttribute: "data-session-tab",
-      axis: Axis.Horizontal,
+      axis: Axis.HORIZONTAL,
       threshold: 5,
       ignoreSelector: "[data-noreorder]",
       outsideSelector: "[data-panes]"

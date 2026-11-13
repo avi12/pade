@@ -5,7 +5,7 @@ import { Command, sendMessage } from "@/lib/ipc/messaging";
  *  Mode), so this resolves to the failure's message - empty on success - for the
  *  row to report instead of just flipping. */
 export async function setExplorerContextMenu(isOn: boolean) {
-  const command = isOn ? Command.contextMenuRegister : Command.contextMenuUnregister;
+  const command = isOn ? Command.CONTEXT_MENU_REGISTER : Command.CONTEXT_MENU_UNREGISTER;
   try {
     await sendMessage(command);
     return "";

@@ -17,19 +17,19 @@ import { isEditingText } from "@/lib/ui/keyboard/focus";
 
 /** The closed set of actions a pane shortcut can trigger. */
 export const PaneAction = {
-  Previous: "previous",
-  Next: "next",
-  SelectAt: "selectAt",
-  Close: "close"
+  PREVIOUS: "previous",
+  NEXT: "next",
+  SELECT_AT: "selectAt",
+  CLOSE: "close"
 } as const;
 type PaneAction = (typeof PaneAction)[keyof typeof PaneAction];
 
 /** What `matchPaneShortcut` resolves a chord to: a bare action, or the
  *  by-position pick that carries the 0-based pane index to select. */
 type PaneShortcut =
-  | { action: typeof PaneAction.Previous | typeof PaneAction.Next | typeof PaneAction.Close }
+  | { action: typeof PaneAction.PREVIOUS | typeof PaneAction.NEXT | typeof PaneAction.CLOSE }
   | {
-      action: typeof PaneAction.SelectAt;
+      action: typeof PaneAction.SELECT_AT;
       iPane: number;
     };
 
@@ -55,11 +55,11 @@ export function matchPaneShortcut({ chord, paneCount }: { chord: KeyChord; paneC
   const isPlainCtrl = !altKey && !shiftKey;
   if (isPlainCtrl) {
     if (key === PREVIOUS_PANE_KEY) {
-      return { action: PaneAction.Previous };
+      return { action: PaneAction.PREVIOUS };
     }
 
     if (key === NEXT_PANE_KEY) {
-      return { action: PaneAction.Next };
+      return { action: PaneAction.NEXT };
     }
 
     return null;
@@ -73,14 +73,14 @@ export function matchPaneShortcut({ chord, paneCount }: { chord: KeyChord; paneC
   }
 
   if (key.toLowerCase() === CLOSE_PANE_KEY) {
-    return { action: PaneAction.Close };
+    return { action: PaneAction.CLOSE };
   }
 
   const iPane = PANE_NUMBER_KEYS.indexOf(key);
   const isExistingPane = iPane !== -1 && iPane < paneCount;
   return isExistingPane
     ? {
-        action: PaneAction.SelectAt,
+        action: PaneAction.SELECT_AT,
         iPane
       }
     : null;
@@ -144,7 +144,7 @@ function runShortcut({
   handlers: PaneShortcutHandlers;
   paneIds: readonly string[];
 }) {
-  if (shortcut.action === PaneAction.Close) {
+  if (shortcut.action === PaneAction.CLOSE) {
     handlers.closeActivePane();
     return;
   }
@@ -171,7 +171,7 @@ function resolveTargetId({
   paneIds: readonly string[];
   activeId: string | null;
 }) {
-  if (shortcut.action === PaneAction.SelectAt) {
+  if (shortcut.action === PaneAction.SELECT_AT) {
     return paneIdAt({
       paneIds,
       iPane: shortcut.iPane
@@ -182,14 +182,14 @@ function resolveTargetId({
     return null;
   }
 
-  if (shortcut.action === PaneAction.Previous) {
+  if (shortcut.action === PaneAction.PREVIOUS) {
     return previousPaneId({
       paneIds,
       activeId
     });
   }
 
-  if (shortcut.action === PaneAction.Next) {
+  if (shortcut.action === PaneAction.NEXT) {
     return nextPaneId({
       paneIds,
       activeId

@@ -44,7 +44,7 @@
   const revealLine = $derived(firstChangedLine(lines));
   const canPreview = $derived(isRenderablePath(event.path));
   const canSwitchDiffMode = $derived(
-    !isMediaPath(event.path) && previews.paneOf(event.id) === PreviewPane.Code && lines.length > 0
+    !isMediaPath(event.path) && previews.paneOf(event.id) === PreviewPane.CODE && lines.length > 0
   );
 
   // With its path clipped the tooltip carries action + full path; readable,

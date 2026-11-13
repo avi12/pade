@@ -133,7 +133,7 @@
       decorations: xtermSearchDecorations({ readToken: rootTokenReader() }),
       incremental
     };
-    if (direction === FindDirection.Previous) {
+    if (direction === FindDirection.PREVIOUS) {
       addon.findPrevious(query, options);
       return;
     }
@@ -145,7 +145,7 @@
   // so the view doesn't jump a screen per keystroke; Enter is what advances.
   async function searchAsTyped() {
     await runSearch({
-      direction: FindDirection.Next,
+      direction: FindDirection.NEXT,
       incremental: true
     });
   }
@@ -237,7 +237,7 @@
       autocomplete="off"
       oninput={searchAsTyped}
       onkeydown={async e => {
-        if (e.key === Key.Escape) {
+        if (e.key === Key.ESCAPE) {
           e.preventDefault();
           close();
           return;
@@ -256,12 +256,12 @@
           return;
         }
 
-        if (e.key !== Key.Enter) {
+        if (e.key !== Key.ENTER) {
           return;
         }
 
         e.preventDefault();
-        await step(e.shiftKey ? FindDirection.Previous : FindDirection.Next);
+        await step(e.shiftKey ? FindDirection.PREVIOUS : FindDirection.NEXT);
       }}
       placeholder="Find in terminal"
       spellcheck="false"
@@ -287,13 +287,13 @@
     </span>
     <output class="count" class:unsearchable={!isSearchable}>{label}</output>
     {@render stepButton({
-      direction: FindDirection.Previous,
+      direction: FindDirection.PREVIOUS,
       icon: "chevronUp",
       label: "Previous match",
       chord: "Shift+Enter"
     })}
     {@render stepButton({
-      direction: FindDirection.Next,
+      direction: FindDirection.NEXT,
       icon: "chevronDown",
       label: "Next match",
       chord: "Enter"

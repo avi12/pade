@@ -17,8 +17,8 @@ import type { GridSize } from "@/lib/terminal/fit/pane-grid";
 // Claude Code itself put back with `/tui default` all live on the NORMAL screen - and
 // every rule below is the opposite there.
 export const Screen = {
-  Normal: "normal",
-  Alternate: "alternate"
+  NORMAL: "normal",
+  ALTERNATE: "alternate"
 } as const;
 
 // How long the grid must hold still before the agent is told its new width. Long
@@ -383,7 +383,7 @@ export function createTerminalFit({
      *  normal screen we deliberately let its height go stale. Returns whether the
      *  alternate screen is now up. */
     syncScreen(grid: Terminal) {
-      isOnAlternateScreen = grid.buffer.active.type === Screen.Alternate;
+      isOnAlternateScreen = grid.buffer.active.type === Screen.ALTERNATE;
       updateAnchor();
 
       if (isOnAlternateScreen) {

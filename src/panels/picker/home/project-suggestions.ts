@@ -44,8 +44,8 @@ export function matchingProjects({ options, typed }: { options: readonly Project
 /** What a key in the name field does to its suggestions: move the highlight
  *  (or close the list), or pick the highlighted project. */
 export const SuggestionStepKind = {
-  Move: "move",
-  Pick: "pick"
+  MOVE: "move",
+  PICK: "pick"
 } as const;
 
 /** The suggestions' answer to a key in the name field, or null for a key
@@ -70,27 +70,27 @@ export function suggestionKeyStep({
     from: highlightedIndex,
     count
   });
-  const isArrow = key === Key.ArrowDown || key === Key.ArrowUp;
+  const isArrow = key === Key.ARROW_DOWN || key === Key.ARROW_UP;
   if (isArrow && highlighted !== null) {
     return {
-      kind: SuggestionStepKind.Move,
+      kind: SuggestionStepKind.MOVE,
       activeIndex: highlighted,
       isListOpen: true
     };
   }
 
-  const isPickingHighlighted = key === Key.Enter && highlightedIndex >= 0;
+  const isPickingHighlighted = key === Key.ENTER && highlightedIndex >= 0;
   if (isPickingHighlighted) {
     return {
-      kind: SuggestionStepKind.Pick,
+      kind: SuggestionStepKind.PICK,
       index: highlightedIndex
     };
   }
 
-  const isDismissing = key === Key.Escape && isListVisible;
+  const isDismissing = key === Key.ESCAPE && isListVisible;
   if (isDismissing) {
     return {
-      kind: SuggestionStepKind.Move,
+      kind: SuggestionStepKind.MOVE,
       activeIndex: -1,
       isListOpen: false
     };

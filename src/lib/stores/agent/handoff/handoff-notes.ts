@@ -6,7 +6,7 @@ import type { Agent, AgentSession } from "@/lib/types/agent";
  *  background agents, a dynamic workflow - to finish. */
 export function waitingForWorkNote({ session, reason }: { session: AgentSession; reason: HandoffReason }) {
   const agent = session.agent.label;
-  if (reason === HandoffReason.ConfigurationChange) {
+  if (reason === HandoffReason.CONFIGURATION_CHANGE) {
     return `MCP servers changed - ${agent} restarts once its running work finishes…`;
   }
 
@@ -30,7 +30,7 @@ export function handingOffNote({
   successorAgent: Agent;
 }) {
   const agent = session.agent.label;
-  if (reason === HandoffReason.ConfigurationChange) {
+  if (reason === HandoffReason.CONFIGURATION_CHANGE) {
     return `MCP servers changed - ${agent} is writing a handoff before restarting…`;
   }
 

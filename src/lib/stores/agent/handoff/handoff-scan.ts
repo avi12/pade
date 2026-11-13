@@ -13,10 +13,10 @@ const COMPACTION_IMMINENT_PERCENTAGE = 5;
 
 /** What the near-limit scan does with one session. */
 export const ScanVerdict = {
-  Leave: "leave",
-  HoldBack: "hold-back",
-  HandOff: "hand-off",
-  HandOffMidTurn: "hand-off-mid-turn"
+  LEAVE: "leave",
+  HOLD_BACK: "hold-back",
+  HAND_OFF: "hand-off",
+  HAND_OFF_MID_TURN: "hand-off-mid-turn"
 } as const;
 type ScanVerdict = (typeof ScanVerdict)[keyof typeof ScanVerdict];
 
@@ -59,7 +59,7 @@ export function scanVerdict({
   thresholdPercentage: number;
 }) {
   if (isHandingOffHere) {
-    return ScanVerdict.Leave;
+    return ScanVerdict.LEAVE;
   }
 
   const isWanted = isHandoffWanted({
@@ -68,23 +68,23 @@ export function scanVerdict({
   });
   const isCompactionImminent = isAboutToCompact(session.id);
   if (!isWanted && !isCompactionImminent) {
-    return ScanVerdict.Leave;
+    return ScanVerdict.LEAVE;
   }
 
   // A model switch being applied always goes first: both type into the
   // session, and a switch that relaunches it would end the very session being
   // handed off. The scan comes back to the switched session.
   if (isModelSwitchApplying(session.id)) {
-    return ScanVerdict.HoldBack;
+    return ScanVerdict.HOLD_BACK;
   }
 
   if (isCompactionImminent) {
-    return ScanVerdict.HandOffMidTurn;
+    return ScanVerdict.HAND_OFF_MID_TURN;
   }
 
   // Otherwise never cut in on the agent's own running work: a turn, or
   // background agents and a dynamic workflow a quiet, `ready`-looking session
   // is still waiting on. The agent reporting it done re-runs the scan.
   const isQuiet = !agentReportsBusy(session.id) && sessionStatus(session.id) === SessionStatus.enum.ready;
-  return isQuiet ? ScanVerdict.HandOff : ScanVerdict.HoldBack;
+  return isQuiet ? ScanVerdict.HAND_OFF : ScanVerdict.HOLD_BACK;
 }

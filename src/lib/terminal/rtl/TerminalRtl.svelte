@@ -93,7 +93,7 @@
       class="rtl-run"
     >
       {#each run.parts as part, i (i)}
-        {#if part.kind === RtlPartKind.Caret}
+        {#if part.kind === RtlPartKind.CARET}
           <span class="rtl-caret"></span>
         {:else}
           <span

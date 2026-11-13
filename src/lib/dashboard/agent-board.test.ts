@@ -60,8 +60,8 @@ describe("agentState", () => {
           isAwaitingChoice: true
         })
       )
-    ).toBe(AgentState.Waiting);
-    expect(agentState(agent({ status: SessionStatus.enum.working }))).toBe(AgentState.Working);
+    ).toBe(AgentState.WAITING);
+    expect(agentState(agent({ status: SessionStatus.enum.working }))).toBe(AgentState.WORKING);
   });
 });
 
@@ -129,15 +129,15 @@ describe("boardTally", () => {
       ])
     ).toEqual([
       {
-        state: AgentState.Waiting,
+        state: AgentState.WAITING,
         count: 1
       },
       {
-        state: AgentState.Working,
+        state: AgentState.WORKING,
         count: 1
       },
       {
-        state: AgentState.Ready,
+        state: AgentState.READY,
         count: 2
       }
     ]);

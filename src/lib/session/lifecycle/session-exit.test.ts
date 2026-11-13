@@ -34,7 +34,7 @@ describe("emptyWorkspaceOutcome", () => {
         isUnnamedTemp: true,
         isFailedStart: true
       })
-    ).toBe(EmptyWorkspaceOutcome.Picker);
+    ).toBe(EmptyWorkspaceOutcome.PICKER);
   });
 
   it("respawns the agent in a real project", () => {
@@ -43,7 +43,7 @@ describe("emptyWorkspaceOutcome", () => {
         isUnnamedTemp: false,
         isFailedStart: false
       })
-    ).toBe(EmptyWorkspaceOutcome.Respawn);
+    ).toBe(EmptyWorkspaceOutcome.RESPAWN);
   });
 
   it("offers the agent picker after a failed start", () => {
@@ -52,6 +52,6 @@ describe("emptyWorkspaceOutcome", () => {
         isUnnamedTemp: false,
         isFailedStart: true
       })
-    ).toBe(EmptyWorkspaceOutcome.Onboarding);
+    ).toBe(EmptyWorkspaceOutcome.ONBOARDING);
   });
 });

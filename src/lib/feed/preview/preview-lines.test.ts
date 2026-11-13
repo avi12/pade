@@ -4,7 +4,7 @@ import { DiffKind } from "@/lib/code/diff";
 import { previewLines } from "@/lib/feed/preview/preview-lines";
 
 function kindsOf(lines: ReturnType<typeof previewLines>) {
-  return lines.filter(line => line.kind !== DiffKind.Meta).map(line => line.kind);
+  return lines.filter(line => line.kind !== DiffKind.META).map(line => line.kind);
 }
 
 describe("previewLines", () => {
@@ -18,7 +18,7 @@ describe("previewLines", () => {
       after: "one\nthree\n"
     });
 
-    expect(kindsOf(lines)).toEqual([DiffKind.Context, DiffKind.Removed, DiffKind.Added]);
+    expect(kindsOf(lines)).toEqual([DiffKind.CONTEXT, DiffKind.REMOVED, DiffKind.ADDED]);
   });
 
   it("previews the whole file when the baseline already equals it", () => {
@@ -27,7 +27,7 @@ describe("previewLines", () => {
       after: "late\nbaseline\n"
     });
 
-    expect(kindsOf(lines)).toEqual([DiffKind.Added, DiffKind.Added]);
+    expect(kindsOf(lines)).toEqual([DiffKind.ADDED, DiffKind.ADDED]);
   });
 
   it("keeps a deletion's removal diff", () => {
@@ -36,7 +36,7 @@ describe("previewLines", () => {
       after: ""
     });
 
-    expect(kindsOf(lines)).toEqual([DiffKind.Removed]);
+    expect(kindsOf(lines)).toEqual([DiffKind.REMOVED]);
   });
 
   it("shows nothing for an empty file that stayed empty", () => {

@@ -51,7 +51,7 @@
           return;
         }
 
-        await sendMessage(Command.ideOpen, {
+        await sendMessage(Command.IDE_OPEN, {
           command: editor.command,
           path
         });

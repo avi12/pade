@@ -20,14 +20,14 @@
   } = $props();
 </script>
 
-{#if view.kind === CardViewKind.Diff}
+{#if view.kind === CardViewKind.DIFF}
   {@render diff()}
-{:else if view.kind === CardViewKind.Document}
+{:else if view.kind === CardViewKind.DOCUMENT}
   <SandboxedPreview document={view.source} label="Preview of {name}" />
 {:else if isMediaView(view)}
   <MediaPreview {name} {isFilling} {view} />
 {:else}
-  <p class="state" class:loading={view.kind === CardViewKind.Loading}>
+  <p class="state" class:loading={view.kind === CardViewKind.LOADING}>
     <span class="spinner"><Icon name="refresh" size={14} /></span>{view.text}
   </p>
 {/if}

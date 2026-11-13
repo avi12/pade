@@ -264,7 +264,7 @@ async function watchSystemTheme() {
   }
 
   isSystemThemeWatched = true;
-  await onMessage(EventType.themeChanged, ({ data }) => {
+  await onMessage(EventType.THEME_CHANGED, ({ data }) => {
     installSystemScheme(schemeOf(data === Scheme.enum.dark));
   });
 }
@@ -276,7 +276,7 @@ async function watchSystemTheme() {
  *  Best-effort: a failed probe keeps the media query's answer. */
 async function adoptNativeSystemScheme() {
   try {
-    installSystemScheme(await sendMessage(Command.windowTheme));
+    installSystemScheme(await sendMessage(Command.WINDOW_THEME));
   } catch (error) {
     // The media-query seed above stands, and a later flip still corrects it.
     console.debug("pade: native window theme unavailable", error);
@@ -289,7 +289,7 @@ export async function loadPrefs() {
   // Before the settings land, so the first apply() already resolves a persisted
   // terminal scheme instead of flashing the app palette first.
   await loadTerminalSchemes();
-  await sendSettingsMessage(Command.settingsGet);
+  await sendSettingsMessage(Command.SETTINGS_GET);
 }
 
 /** Pick the light/dark mode. The skin is written beside it, so a legacy
@@ -329,5 +329,5 @@ export async function chooseThemePalette(palette: ThemePalette) {
 export async function updatePrefs(patch: Partial<Prefs>) {
   Object.assign(prefs, patch);
   apply();
-  await sendSettingsMessage(Command.setPrefs, { patch });
+  await sendSettingsMessage(Command.SET_PREFS, { patch });
 }

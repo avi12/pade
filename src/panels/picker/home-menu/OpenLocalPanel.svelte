@@ -67,11 +67,11 @@
   let unlistenDragLeave: UnlistenFn | undefined;
 
   onMount(async () => {
-    unlistenDragOver = await onMessage(EventType.dragOver, ({ data: { position } }) => {
+    unlistenDragOver = await onMessage(EventType.DRAG_OVER, ({ data: { position } }) => {
       isDropReady = isOverLocalField(position);
     });
-    unlistenDragLeave = await onMessage(EventType.dragLeave, () => (isDropReady = false));
-    unlistenDragDrop = await onMessage(EventType.dragDrop, ({ data: { paths, position } }) => {
+    unlistenDragLeave = await onMessage(EventType.DRAG_LEAVE, () => (isDropReady = false));
+    unlistenDragDrop = await onMessage(EventType.DRAG_DROP, ({ data: { paths, position } }) => {
       const [dropped] = paths;
       const landsOnField = dropped !== undefined && isOverLocalField(position);
       isDropReady = false;

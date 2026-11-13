@@ -5,7 +5,7 @@ import { PreviewPane } from "@/lib/feed/preview/feed-previews";
 import { FeedVideoKind } from "@/lib/types/feed";
 
 const NOTHING_CACHED = {
-  pane: PreviewPane.Code,
+  pane: PreviewPane.CODE,
   imageUrl: undefined,
   video: undefined,
   documentSource: undefined,
@@ -22,7 +22,7 @@ describe("cardView for an image", () => {
         imageUrl: "data:image/png;base64,AA"
       })
     ).toEqual({
-      kind: CardViewKind.Image,
+      kind: CardViewKind.IMAGE,
       url: "data:image/png;base64,AA"
     });
   });
@@ -35,7 +35,7 @@ describe("cardView for an image", () => {
         imageUrl: null
       })
     ).toEqual({
-      kind: CardViewKind.Message,
+      kind: CardViewKind.MESSAGE,
       text: "No image preview available"
     });
     expect(
@@ -46,7 +46,7 @@ describe("cardView for an image", () => {
         isErrored: true
       })
     ).toEqual({
-      kind: CardViewKind.Message,
+      kind: CardViewKind.MESSAGE,
       text: "Couldn't load the image"
     });
   });
@@ -60,7 +60,7 @@ describe("cardView for a video", () => {
         path: "demo.mp4"
       })
     ).toEqual({
-      kind: CardViewKind.Loading,
+      kind: CardViewKind.LOADING,
       text: "Preparing the video preview"
     });
   });
@@ -76,7 +76,7 @@ describe("cardView for a video", () => {
         }
       })
     ).toEqual({
-      kind: CardViewKind.Video,
+      kind: CardViewKind.VIDEO,
       url: "data:video/mp4;base64,AA"
     });
   });
@@ -91,7 +91,7 @@ describe("cardView for a video", () => {
         }
       })
     ).toEqual({
-      kind: CardViewKind.Message,
+      kind: CardViewKind.MESSAGE,
       text: "Install ffmpeg to preview videos"
     });
   });
@@ -105,7 +105,7 @@ describe("cardView for a video", () => {
         isErrored: true
       })
     ).toEqual({
-      kind: CardViewKind.Message,
+      kind: CardViewKind.MESSAGE,
       text: "Couldn't load the video"
     });
     expect(
@@ -115,7 +115,7 @@ describe("cardView for a video", () => {
         video: null
       })
     ).toEqual({
-      kind: CardViewKind.Message,
+      kind: CardViewKind.MESSAGE,
       text: "No video preview available"
     });
   });
@@ -129,7 +129,7 @@ describe("cardView for a document", () => {
         path: "README.md",
         lineCount: 3
       })
-    ).toEqual({ kind: CardViewKind.Diff });
+    ).toEqual({ kind: CardViewKind.DIFF });
   });
 
   it("renders the document in the Preview pane", () => {
@@ -137,21 +137,21 @@ describe("cardView for a document", () => {
       cardView({
         ...NOTHING_CACHED,
         path: "README.md",
-        pane: PreviewPane.Preview
+        pane: PreviewPane.PREVIEW
       })
     ).toEqual({
-      kind: CardViewKind.Loading,
+      kind: CardViewKind.LOADING,
       text: "Rendering the preview"
     });
     expect(
       cardView({
         ...NOTHING_CACHED,
         path: "index.html",
-        pane: PreviewPane.Preview,
+        pane: PreviewPane.PREVIEW,
         documentSource: "<p>hi</p>"
       })
     ).toEqual({
-      kind: CardViewKind.Document,
+      kind: CardViewKind.DOCUMENT,
       source: "<p>hi</p>"
     });
   });
@@ -161,12 +161,12 @@ describe("cardView for a document", () => {
       cardView({
         ...NOTHING_CACHED,
         path: "README.md",
-        pane: PreviewPane.Preview,
+        pane: PreviewPane.PREVIEW,
         documentSource: null,
         isErrored: true
       })
     ).toEqual({
-      kind: CardViewKind.Message,
+      kind: CardViewKind.MESSAGE,
       text: "Couldn't render the preview"
     });
   });
@@ -180,7 +180,7 @@ describe("cardView for a text file", () => {
         path: "main.ts",
         lineCount: 2
       })
-    ).toEqual({ kind: CardViewKind.Diff });
+    ).toEqual({ kind: CardViewKind.DIFF });
   });
 
   it("says why there is no diff", () => {
@@ -190,7 +190,7 @@ describe("cardView for a text file", () => {
         path: "main.ts"
       })
     ).toEqual({
-      kind: CardViewKind.Message,
+      kind: CardViewKind.MESSAGE,
       text: "No preview available"
     });
     expect(
@@ -200,7 +200,7 @@ describe("cardView for a text file", () => {
         isErrored: true
       })
     ).toEqual({
-      kind: CardViewKind.Message,
+      kind: CardViewKind.MESSAGE,
       text: "Couldn't load a preview"
     });
   });

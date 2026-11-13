@@ -33,7 +33,7 @@
   // button stays hidden in both cases and appears only for a repo with a remote.
   async function loadRemote(root: string) {
     try {
-      const remote = await sendMessage(Command.vcsRemoteUrl, { cwd: root });
+      const remote = await sendMessage(Command.VCS_REMOTE_URL, { cwd: root });
       if (root !== project) {
         return;
       }
@@ -89,7 +89,7 @@
         now = Date.now();
       }
     }, 1000);
-    unlistenGitState = await onMessage(EventType.gitState, ({ data: { root } }) => {
+    unlistenGitState = await onMessage(EventType.GIT_STATE, ({ data: { root } }) => {
       if (root === project) {
         loadRemote(project);
       }
@@ -235,7 +235,7 @@
   async function loadWatchStatus() {
     const root = project;
     try {
-      const status = await sendMessage(Command.watchStatus, { root });
+      const status = await sendMessage(Command.WATCH_STATUS, { root });
       if (root === project) {
         watchStatus = status;
       }

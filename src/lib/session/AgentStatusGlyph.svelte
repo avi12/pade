@@ -50,9 +50,9 @@
 <span
   class="agent-glyph {status}"
   class:awaiting-choice={isAwaitingChoice}
-  class:critical={level === ContextLevel.Critical}
+  class:critical={level === ContextLevel.CRITICAL}
   class:unknown={percentage === null}
-  class:warning={level === ContextLevel.Warning}
+  class:warning={level === ContextLevel.WARNING}
   data-tooltip={hint}
 ><Icon name={agentIconName(agentId)} size={14} /></span>
 

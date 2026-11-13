@@ -37,7 +37,7 @@ export async function registerSendShortcut(host: SendShortcutHost) {
       return;
     }
 
-    await sendMessage(Command.ptyWrite, {
+    await sendMessage(Command.PTY_WRITE, {
       id: activeId,
       data: pastedText(text)
     });

@@ -19,9 +19,9 @@
   } = $props();
 
   const WAITING_FOR_NOTES: Record<SwitchWait, string> = {
-    [SwitchWait.Applying]: "applying…",
-    [SwitchWait.Quiet]: "resumes on it once the agent is idle",
-    [SwitchWait.Successor]: "the session taking over from the handoff starts on it"
+    [SwitchWait.APPLYING]: "applying…",
+    [SwitchWait.QUIET]: "resumes on it once the agent is idle",
+    [SwitchWait.SUCCESSOR]: "the session taking over from the handoff starts on it"
   };
 
   const running = $derived(sessionModel(session.id));

@@ -56,7 +56,7 @@ export function startWindowServices({
   // creation raced navigation and once rebuilt a crashed window onto
   // about:blank - and a recovery-rebuilt window re-arms itself right here.
   onMount(async () => {
-    await sendMessage(Command.recoveryArm, { url: location.href });
+    await sendMessage(Command.RECOVERY_ARM, { url: location.href });
   });
 
   // Watch the PTY stream once for the agent's multiple-choice prompts, so a tab
@@ -90,11 +90,11 @@ export function startWindowServices({
   // most one more after it. Best-effort because an event handler can't await: a
   // failed re-read leaves the settings already adopted in place.
   const rereadSettings = coalesced(async () => {
-    await Promise.allSettled([sendSettingsMessage(Command.settingsGet)]);
+    await Promise.allSettled([sendSettingsMessage(Command.SETTINGS_GET)]);
   });
   let unlistenSettings: (() => void) | undefined;
   async function subscribeToSettingsChanges() {
-    unlistenSettings = await onMessage(EventType.settingsChanged, rereadSettings);
+    unlistenSettings = await onMessage(EventType.SETTINGS_CHANGED, rereadSettings);
   }
   onMount(() => {
     subscribeToSettingsChanges();
@@ -106,7 +106,7 @@ export function startWindowServices({
   // rail's order is the order projects were last in front. Best-effort: a
   // project that vanished meanwhile leaves the recents as they were.
   async function recordFrontProject(path: string) {
-    await Promise.allSettled([sendMessage(Command.workspaceOpen, { path })]);
+    await Promise.allSettled([sendMessage(Command.WORKSPACE_OPEN, { path })]);
     await rereadSettings();
   }
   $effect(() => {
@@ -165,7 +165,7 @@ export function startWindowServices({
   // it comes to the front.
   let unlistenGitState: (() => void) | undefined;
   async function subscribeToGitState() {
-    unlistenGitState = await onMessage(EventType.gitState, async ({ data: { root } }) => {
+    unlistenGitState = await onMessage(EventType.GIT_STATE, async ({ data: { root } }) => {
       if (root !== frontProject()) {
         return;
       }

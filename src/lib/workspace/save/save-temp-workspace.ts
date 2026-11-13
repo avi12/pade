@@ -35,7 +35,7 @@ export async function saveTempWorkspace({ name, root, host }: { name: string; ro
   // 2. Copy the temp workspace (handoff doc included) into the saved root while
   //    its agent keeps running - a copy only READS files, so it never trips the
   //    watcher/cwd handle a rename does.
-  const migration = await sendMessage(Command.workspaceSaveMigrate, {
+  const migration = await sendMessage(Command.WORKSPACE_SAVE_MIGRATE, {
     from: host.project,
     newName: name,
     root
@@ -60,7 +60,7 @@ export async function saveTempWorkspace({ name, root, host }: { name: string; ro
   await host.closeSessions(host.sessionIds);
   // The project already lives on in its saved copy, so a temp that can't be
   // deleted right now is simply left in place.
-  await Promise.allSettled([sendSettingsMessage(Command.workspaceDelete, { path: host.project })]);
+  await Promise.allSettled([sendSettingsMessage(Command.WORKSPACE_DELETE, { path: host.project })]);
 
   if (migration.install) {
     await startRunner({

@@ -11,15 +11,15 @@ import { type AgentGroup, Level, type Limit } from "@/lib/usage/groups/usage-mod
 // distribution bar (one source, DRY).
 const SEVERITY_ORDER = [
   {
-    level: Level.Critical,
+    level: Level.CRITICAL,
     label: "critical"
   },
   {
-    level: Level.Warning,
+    level: Level.WARNING,
     label: "near"
   },
   {
-    level: Level.Normal,
+    level: Level.NORMAL,
     label: "healthy"
   }
 ] as const satisfies readonly {

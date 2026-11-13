@@ -26,13 +26,13 @@ describe("windowShortcutFor", () => {
         event: functionFive,
         isDevelopment: true
       })
-    ).toBe(WindowShortcut.Reload);
+    ).toBe(WindowShortcut.RELOAD);
     expect(
       windowShortcutFor({
         event: ctrlShiftR,
         isDevelopment: true
       })
-    ).toBe(WindowShortcut.Reload);
+    ).toBe(WindowShortcut.RELOAD);
     expect(
       windowShortcutFor({
         event: functionFive,
@@ -64,7 +64,7 @@ describe("windowShortcutFor", () => {
         }),
         isDevelopment: false
       })
-    ).toBe(WindowShortcut.PreviousWindow);
+    ).toBe(WindowShortcut.PREVIOUS_WINDOW);
     expect(
       windowShortcutFor({
         event: chord({
@@ -74,7 +74,7 @@ describe("windowShortcutFor", () => {
         }),
         isDevelopment: false
       })
-    ).toBe(WindowShortcut.NextWindow);
+    ).toBe(WindowShortcut.NEXT_WINDOW);
     expect(
       windowShortcutFor({
         event: chord({
@@ -98,7 +98,7 @@ describe("windowShortcutFor", () => {
         }),
         isDevelopment: false
       })
-    ).toBe(WindowShortcut.NewWindow);
+    ).toBe(WindowShortcut.NEW_WINDOW);
   });
 
   it("finds a project on Ctrl+P, but not with Shift or Alt held", () => {
@@ -110,7 +110,7 @@ describe("windowShortcutFor", () => {
         }),
         isDevelopment: false
       })
-    ).toBe(WindowShortcut.FindProject);
+    ).toBe(WindowShortcut.FIND_PROJECT);
     expect(
       windowShortcutFor({
         event: chord({

@@ -29,16 +29,16 @@ describe("runWindowShortcut", () => {
     const reload = vi.fn();
     vi.stubGlobal("location", { reload });
 
-    await runWindowShortcut(WindowShortcut.Reload);
+    await runWindowShortcut(WindowShortcut.RELOAD);
 
     expect(reload).toHaveBeenCalledOnce();
     expect(sendMessageMock).not.toHaveBeenCalled();
   });
 
   it("opens a fresh empty window and says so", async () => {
-    await runWindowShortcut(WindowShortcut.NewWindow);
+    await runWindowShortcut(WindowShortcut.NEW_WINDOW);
 
-    expect(sendMessageMock).toHaveBeenCalledWith(Command.windowCreate, { mode: WindowMode.enum.empty });
+    expect(sendMessageMock).toHaveBeenCalledWith(Command.WINDOW_CREATE, { mode: WindowMode.enum.empty });
     expect(toastText()).toBe("Opened a new window");
   });
 
@@ -51,7 +51,7 @@ describe("runWindowShortcut", () => {
     }));
     vi.stubGlobal("document", { querySelector });
 
-    await runWindowShortcut(WindowShortcut.FindProject);
+    await runWindowShortcut(WindowShortcut.FIND_PROJECT);
 
     expect(querySelector).toHaveBeenCalledWith(`input#${PROJECT_SEARCH_ID}`);
     expect(focus).toHaveBeenCalledOnce();
@@ -60,14 +60,14 @@ describe("runWindowShortcut", () => {
   });
 
   it("cycles to the previous window", async () => {
-    await runWindowShortcut(WindowShortcut.PreviousWindow);
+    await runWindowShortcut(WindowShortcut.PREVIOUS_WINDOW);
 
-    expect(sendMessageMock).toHaveBeenCalledWith(Command.windowFocusRelative, { direction: "previous" });
+    expect(sendMessageMock).toHaveBeenCalledWith(Command.WINDOW_FOCUS_RELATIVE, { direction: "previous" });
   });
 
   it("cycles to the next window", async () => {
-    await runWindowShortcut(WindowShortcut.NextWindow);
+    await runWindowShortcut(WindowShortcut.NEXT_WINDOW);
 
-    expect(sendMessageMock).toHaveBeenCalledWith(Command.windowFocusRelative, { direction: "next" });
+    expect(sendMessageMock).toHaveBeenCalledWith(Command.WINDOW_FOCUS_RELATIVE, { direction: "next" });
   });
 });

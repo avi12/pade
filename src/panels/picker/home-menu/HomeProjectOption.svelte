@@ -21,7 +21,7 @@
     class="menu-item"
     class:picked={isPicked}
     aria-current={isPicked}
-    data-arrow-list={HomeMenuList.Projects}
+    data-arrow-list={HomeMenuList.PROJECTS}
     data-arrow-open-focus
     data-tooltip={path}
     onclick={onpick}

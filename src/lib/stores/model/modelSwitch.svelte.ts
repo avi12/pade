@@ -23,9 +23,9 @@ import type { AgentSession, ModelChoice } from "@/lib/types/agent";
 
 /** What a pending switch is waiting for, as the menu tells it. */
 export const SwitchWait = {
-  Applying: "applying",
-  Quiet: "quiet",
-  Successor: "successor"
+  APPLYING: "applying",
+  QUIET: "quiet",
+  SUCCESSOR: "successor"
 } as const;
 export type SwitchWait = (typeof SwitchWait)[keyof typeof SwitchWait];
 
@@ -118,7 +118,7 @@ export function createModelSwitcher(host: ModelSwitchHost) {
       return;
     }
 
-    const outcome = await sendMessage(Command.agentApplyModel, {
+    const outcome = await sendMessage(Command.AGENT_APPLY_MODEL, {
       sessionId: session.id,
       command: session.agent.command,
       conversationId,
@@ -136,7 +136,7 @@ export function createModelSwitcher(host: ModelSwitchHost) {
     setPending({
       id: session.id,
       choice,
-      waitingFor: SwitchWait.Quiet
+      waitingFor: SwitchWait.QUIET
     });
     await relaunchWhenQuiet(session);
   }
@@ -152,7 +152,7 @@ export function createModelSwitcher(host: ModelSwitchHost) {
       setPending({
         id: session.id,
         choice: merged,
-        waitingFor: SwitchWait.Successor
+        waitingFor: SwitchWait.SUCCESSOR
       });
       return;
     }
@@ -160,7 +160,7 @@ export function createModelSwitcher(host: ModelSwitchHost) {
     setPending({
       id: session.id,
       choice: merged,
-      waitingFor: SwitchWait.Applying
+      waitingFor: SwitchWait.APPLYING
     });
     applyingSessions.add(session.id);
     try {

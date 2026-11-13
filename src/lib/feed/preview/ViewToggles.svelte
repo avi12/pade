@@ -22,11 +22,11 @@
 
   const PANE_OPTIONS = [
     {
-      value: PreviewPane.Code,
+      value: PreviewPane.CODE,
       label: "Code"
     },
     {
-      value: PreviewPane.Preview,
+      value: PreviewPane.PREVIEW,
       label: "Preview"
     }
   ] as const;
@@ -52,7 +52,7 @@
       onchoose={async value => {
         previews.paneById.set(card.id, value);
 
-        if (value === PreviewPane.Preview) {
+        if (value === PreviewPane.PREVIEW) {
           await previews.loadPreviewDocument(card);
         }
       }}

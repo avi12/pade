@@ -71,7 +71,7 @@ export function createAutoNamer(host: AutoNameHost) {
    *  leaves the workspace on its temporary name. */
   async function suggestName(project: string) {
     try {
-      return await sendMessage(Command.projectAutoname, {
+      return await sendMessage(Command.PROJECT_AUTONAME, {
         path: project,
         agent: host.activeAgentCommand()
       });
@@ -108,7 +108,7 @@ export function createAutoNamer(host: AutoNameHost) {
       return;
     }
 
-    await sendSettingsMessage(Command.workspaceSetLabel, {
+    await sendSettingsMessage(Command.WORKSPACE_SET_LABEL, {
       path: project,
       name,
       source: LabelSource.enum.auto
@@ -120,7 +120,7 @@ export function createAutoNamer(host: AutoNameHost) {
   // whenever the set it holds changes - so the namer only listens for the
   // changes they produce; it never arms on the (drift-prone) cwd.
   async function start() {
-    unlisten = await onMessage(EventType.feedChange, ({ data }) => {
+    unlisten = await onMessage(EventType.FEED_CHANGE, ({ data }) => {
       consider(data);
     });
   }

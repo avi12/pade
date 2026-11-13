@@ -79,12 +79,12 @@ export function createTerminalOutputScheduler({
       ...flushContext(),
       isScrolling: isActivelyScrolling
     });
-    if (mode === TerminalFlushMode.Deferred) {
+    if (mode === TerminalFlushMode.DEFERRED) {
       cancelScheduled();
       return;
     }
 
-    if (mode === TerminalFlushMode.Background) {
+    if (mode === TerminalFlushMode.BACKGROUND) {
       scheduleBackground();
       return;
     }

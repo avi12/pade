@@ -30,9 +30,9 @@ interface TaskCatalogDependencies {
 
 const defaultDependencies: TaskCatalogDependencies = {
   project: frontProject,
-  descriptors: () => sendMessage(Command.tasksDescriptors),
-  list: project => sendMessage(Command.tasksList, { cwd: project }),
-  onChange: callback => onMessage(EventType.feedChange, ({ data }) => callback(data))
+  descriptors: () => sendMessage(Command.TASKS_DESCRIPTORS),
+  list: project => sendMessage(Command.TASKS_LIST, { cwd: project }),
+  onChange: callback => onMessage(EventType.FEED_CHANGE, ({ data }) => callback(data))
 };
 
 /** Whether a changed path is one of the manifests the backend reads - an exact

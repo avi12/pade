@@ -11,16 +11,16 @@ const PATH_PARAMETER = "path";
 /** Where a window's address sends it on boot. */
 export const WindowRoute = {
   /** A fresh throwaway workspace. */
-  Temp: "temp",
+  TEMP: "temp",
   /** The project picker. */
-  Picker: "picker",
+  PICKER: "picker",
   /** A named project folder. */
-  Project: "project",
+  PROJECT: "project",
   /** A window spawned to receive sessions another window handed it, in the
    *  named project folder (lib/shell/handoff/window-handoff). */
-  Handoff: "handoff",
+  HANDOFF: "handoff",
   /** No usable address - the plain main window's launch-context boot. */
-  LaunchContext: "launch-context"
+  LAUNCH_CONTEXT: "launch-context"
 } as const;
 
 /** Whether the address is the agents dashboard's - a window that boots its own
@@ -35,11 +35,11 @@ export function windowRouteFor(search: string) {
   const query = new URLSearchParams(search);
   const mode = query.get(MODE_PARAMETER);
   if (mode === WindowMode.enum.temp) {
-    return { kind: WindowRoute.Temp } as const;
+    return { kind: WindowRoute.TEMP } as const;
   }
 
   if (mode === WindowMode.enum.empty) {
-    return { kind: WindowRoute.Picker } as const;
+    return { kind: WindowRoute.PICKER } as const;
   }
 
   const isProjectMode = mode === WindowMode.enum.open || mode === WindowMode.enum.handoff;
@@ -50,18 +50,18 @@ export function windowRouteFor(search: string) {
       })
     : null;
   if (path === null) {
-    return { kind: WindowRoute.LaunchContext } as const;
+    return { kind: WindowRoute.LAUNCH_CONTEXT } as const;
   }
 
   if (mode === WindowMode.enum.handoff) {
     return {
-      kind: WindowRoute.Handoff,
+      kind: WindowRoute.HANDOFF,
       path
     } as const;
   }
 
   return {
-    kind: WindowRoute.Project,
+    kind: WindowRoute.PROJECT,
     path
   } as const;
 }

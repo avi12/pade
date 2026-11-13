@@ -14,11 +14,11 @@ const CLOSE_TAB_KEY = "w";
 
 /** The closed set of actions a tab shortcut can trigger. */
 export const TabAction = {
-  New: "new",
-  LaunchMenu: "launchMenu",
-  Close: "close",
-  Next: "next",
-  Previous: "previous"
+  NEW: "new",
+  LAUNCH_MENU: "launchMenu",
+  CLOSE: "close",
+  NEXT: "next",
+  PREVIOUS: "previous"
 } as const;
 type TabAction = (typeof TabAction)[keyof typeof TabAction];
 
@@ -36,39 +36,39 @@ export interface KeyChord {
 /** Matching and display vocabulary live together, so changing a chord cannot
  * leave the tab-strip help text describing the previous binding. */
 export const TAB_SHORTCUTS = {
-  [TabAction.New]: {
+  [TabAction.NEW]: {
     label: "Ctrl+Shift+T",
     description: "New agent tab",
     matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }) =>
       key.toLowerCase() === NEW_TAB_KEY && ctrlKey && shiftKey && !altKey && !metaKey
   },
-  [TabAction.LaunchMenu]: {
+  [TabAction.LAUNCH_MENU]: {
     label: "Ctrl+Alt+T",
     description: "Agent launch options",
     matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }) =>
       key.toLowerCase() === NEW_TAB_KEY && ctrlKey && altKey && !shiftKey && !metaKey
   },
-  [TabAction.Close]: {
+  [TabAction.CLOSE]: {
     label: "Ctrl+W or Ctrl+F4",
     description: "Close the active tab",
     matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }) =>
       ctrlKey && !shiftKey && !altKey && !metaKey && (key.toLowerCase() === CLOSE_TAB_KEY || key === Key.F4)
   },
-  [TabAction.Next]: {
+  [TabAction.NEXT]: {
     label: "Ctrl+Tab or Alt+Right",
     description: "Select the next tab",
     matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }) =>
       !shiftKey &&
       !metaKey &&
-      ((key === Key.Tab && ctrlKey && !altKey) || (key === Key.ArrowRight && altKey && !ctrlKey))
+      ((key === Key.TAB && ctrlKey && !altKey) || (key === Key.ARROW_RIGHT && altKey && !ctrlKey))
   },
-  [TabAction.Previous]: {
+  [TabAction.PREVIOUS]: {
     label: "Ctrl+Shift+Tab or Alt+Left",
     description: "Select the previous tab",
     matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }) =>
       !metaKey &&
-      ((key === Key.Tab && ctrlKey && shiftKey && !altKey) ||
-        (key === Key.ArrowLeft && altKey && !ctrlKey && !shiftKey))
+      ((key === Key.TAB && ctrlKey && shiftKey && !altKey) ||
+        (key === Key.ARROW_LEFT && altKey && !ctrlKey && !shiftKey))
   }
 } as const satisfies Record<
   TabAction,
@@ -135,11 +135,11 @@ export interface TabShortcutHandlers {
 /** Register the capture-phase listener; returns the matching unregister. */
 export function registerTabShortcuts(handlers: TabShortcutHandlers) {
   const actionHandlers: Record<TabAction, () => void> = {
-    [TabAction.New]: handlers.newTab,
-    [TabAction.LaunchMenu]: handlers.launchMenu,
-    [TabAction.Close]: handlers.closeTab,
-    [TabAction.Next]: handlers.next,
-    [TabAction.Previous]: handlers.previous
+    [TabAction.NEW]: handlers.newTab,
+    [TabAction.LAUNCH_MENU]: handlers.launchMenu,
+    [TabAction.CLOSE]: handlers.closeTab,
+    [TabAction.NEXT]: handlers.next,
+    [TabAction.PREVIOUS]: handlers.previous
   };
 
   function onKeyDown(e: KeyboardEvent) {

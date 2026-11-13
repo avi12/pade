@@ -29,7 +29,7 @@
   let unlistenProgress: UnlistenFn | undefined;
 
   onMount(async () => {
-    unlistenProgress = await onMessage(EventType.relocateProgress, ({ data }) => {
+    unlistenProgress = await onMessage(EventType.RELOCATE_PROGRESS, ({ data }) => {
       const isThisFolder = normalizePath(data.from) === normalizePath(path);
       if (isThisFolder) {
         step = data.step;

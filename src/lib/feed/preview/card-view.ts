@@ -8,31 +8,31 @@ import { FeedVideoKind } from "@/lib/types/feed";
 import type { FeedVideo } from "@/lib/types/feed";
 
 export const CardViewKind = {
-  Message: "message",
-  Loading: "loading",
-  Image: "image",
-  Video: "video",
-  Document: "document",
-  Diff: "diff"
+  MESSAGE: "message",
+  LOADING: "loading",
+  IMAGE: "image",
+  VIDEO: "video",
+  DOCUMENT: "document",
+  DIFF: "diff"
 } as const;
 
 /** A card whose preview is its picture or clip. */
 export interface MediaView {
-  kind: typeof CardViewKind.Image | typeof CardViewKind.Video;
+  kind: typeof CardViewKind.IMAGE | typeof CardViewKind.VIDEO;
   url: string;
 }
 
 export type CardView =
   | {
-      kind: typeof CardViewKind.Message | typeof CardViewKind.Loading;
+      kind: typeof CardViewKind.MESSAGE | typeof CardViewKind.LOADING;
       text: string;
     }
   | MediaView
   | {
-      kind: typeof CardViewKind.Document;
+      kind: typeof CardViewKind.DOCUMENT;
       source: string;
     }
-  | { kind: typeof CardViewKind.Diff };
+  | { kind: typeof CardViewKind.DIFF };
 
 /** A card's cached previews, `undefined` while a fetch has not landed. */
 interface CardPreviews {
@@ -48,12 +48,12 @@ interface CardPreviews {
 
 /** Whether `view` is a picture or a clip. */
 export function isMediaView(view: CardView): view is MediaView {
-  return view.kind === CardViewKind.Image || view.kind === CardViewKind.Video;
+  return view.kind === CardViewKind.IMAGE || view.kind === CardViewKind.VIDEO;
 }
 
 function message(text: string) {
   return {
-    kind: CardViewKind.Message,
+    kind: CardViewKind.MESSAGE,
     text
   } satisfies CardView;
 }
@@ -61,7 +61,7 @@ function message(text: string) {
 // A preview still on its way, drawn with a loading animation.
 function loading(text: string) {
   return {
-    kind: CardViewKind.Loading,
+    kind: CardViewKind.LOADING,
     text
   } satisfies CardView;
 }
@@ -75,7 +75,7 @@ function emptyMessage({ isErrored, failed, empty }: { isErrored: boolean; failed
 function imageView({ imageUrl, isErrored }: CardPreviews) {
   if (imageUrl) {
     return {
-      kind: CardViewKind.Image,
+      kind: CardViewKind.IMAGE,
       url: imageUrl
     } satisfies CardView;
   }
@@ -94,7 +94,7 @@ function videoView({ video, isErrored }: CardPreviews) {
 
   if (video?.kind === FeedVideoKind.enum.ready) {
     return {
-      kind: CardViewKind.Video,
+      kind: CardViewKind.VIDEO,
       url: video.dataUrl
     } satisfies CardView;
   }
@@ -117,7 +117,7 @@ function documentView({ documentSource, isErrored }: CardPreviews) {
 
   if (documentSource) {
     return {
-      kind: CardViewKind.Document,
+      kind: CardViewKind.DOCUMENT,
       source: documentSource
     } satisfies CardView;
   }
@@ -131,7 +131,7 @@ function documentView({ documentSource, isErrored }: CardPreviews) {
 
 function diffView({ lineCount, isErrored }: CardPreviews) {
   if (lineCount > 0) {
-    return { kind: CardViewKind.Diff } satisfies CardView;
+    return { kind: CardViewKind.DIFF } satisfies CardView;
   }
 
   return emptyMessage({
@@ -152,7 +152,7 @@ export function cardView(card: CardPreviews) {
     return videoView(card);
   }
 
-  const isPreviewShown = isRenderablePath(card.path) && card.pane === PreviewPane.Preview;
+  const isPreviewShown = isRenderablePath(card.path) && card.pane === PreviewPane.PREVIEW;
   if (isPreviewShown) {
     return documentView(card);
   }

@@ -54,7 +54,7 @@ const ESCAPE_ONCE: AgentShortcut = {
 };
 
 const AGENT_INTERRUPT_SHORTCUTS: Readonly<Partial<Record<string, AgentInterruptShortcuts>>> = {
-  [AgentId.Claude]: {
+  [AgentId.CLAUDE]: {
     interrupt: {
       chord: ESCAPE_CHORD,
       presses: 1,
@@ -74,7 +74,7 @@ const AGENT_INTERRUPT_SHORTCUTS: Readonly<Partial<Record<string, AgentInterruptS
     hasMidTurnStopHook: true,
     canHoldToolCalls: true
   },
-  [AgentId.Opencode]: {
+  [AgentId.OPENCODE]: {
     interrupt: {
       ...ESCAPE_ONCE,
       presses: 2
@@ -83,13 +83,13 @@ const AGENT_INTERRUPT_SHORTCUTS: Readonly<Partial<Record<string, AgentInterruptS
     hasMidTurnStopHook: true,
     canHoldToolCalls: false
   },
-  [AgentId.Codex]: {
+  [AgentId.CODEX]: {
     interrupt: ESCAPE_ONCE,
     stopAll: null,
     hasMidTurnStopHook: false,
     canHoldToolCalls: false
   },
-  [AgentId.Copilot]: {
+  [AgentId.COPILOT]: {
     interrupt: ESCAPE_ONCE,
     stopAll: null,
     hasMidTurnStopHook: false,
@@ -187,7 +187,7 @@ export type KeyPress = NonNullable<InterruptKeys["interrupt"]>;
  *  or isn't the shape Claude takes, which Claude itself then ignores too. */
 async function readClaudeKeybindings() {
   try {
-    return await sendMessage(Command.claudeKeybindings);
+    return await sendMessage(Command.CLAUDE_KEYBINDINGS);
   } catch (error) {
     console.warn("pade: could not read Claude's keybindings, using its defaults", error);
     return null;
@@ -197,7 +197,7 @@ async function readClaudeKeybindings() {
 /** `command`'s interrupt keys as the user has them now, read fresh each time
  *  so a rebinding applies without a restart. Never rejects. */
 export async function interruptKeys(command: string) {
-  const keybindings = command === AgentId.Claude ? await readClaudeKeybindings() : null;
+  const keybindings = command === AgentId.CLAUDE ? await readClaudeKeybindings() : null;
   return interruptKeysOf({
     command,
     keybindings

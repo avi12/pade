@@ -38,7 +38,7 @@ export function limitResetConfirmation() {
 /** Re-read the offers - on each of the meter's usage readings, and after a claim. */
 export async function refreshLimitResetOffers() {
   offers = await settledValue({
-    promise: sendMessage(Command.limitResetOffers),
+    promise: sendMessage(Command.LIMIT_RESET_OFFERS),
     fallback: []
   });
   announceNewOffers();
@@ -86,7 +86,7 @@ export async function confirmLimitReset(onreset: () => Promise<void>) {
 
   isClaiming = true;
   try {
-    const outcome = await sendMessage(Command.limitResetClaim, { grantId: chosen.grantId });
+    const outcome = await sendMessage(Command.LIMIT_RESET_CLAIM, { grantId: chosen.grantId });
     if (!outcome.reset) {
       failure = `Not reset: ${outcome.reason ?? outcome.result}`;
       return;

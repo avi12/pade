@@ -17,7 +17,7 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
   return {
     ...messaging,
     sendMessage: vi.fn(async (command: string, data: unknown) => {
-      if (command === messaging.Command.workspaceSaveMigrate) {
+      if (command === messaging.Command.WORKSPACE_SAVE_MIGRATE) {
         calls.push(`copy ${JSON.stringify(data)}`);
         return migration;
       }
@@ -31,7 +31,7 @@ vi.mock("@/lib/settings/settings-requests", async () => {
   const { Command } = await import("@/lib/ipc/messaging");
   return {
     sendSettingsMessage: vi.fn(async (command: string, data: { path: string }) => {
-      if (command === Command.workspaceDelete) {
+      if (command === Command.WORKSPACE_DELETE) {
         calls.push(`delete ${data.path}`);
         throw new Error("folder busy");
       }

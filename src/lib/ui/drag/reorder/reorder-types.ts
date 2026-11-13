@@ -2,8 +2,8 @@ import type { DropSide } from "@/lib/session/panes/reorder";
 
 /** The direction items are laid out in, and the one the reorder tracks. */
 export const Axis = {
-  Horizontal: "horizontal",
-  Vertical: "vertical"
+  HORIZONTAL: "horizontal",
+  VERTICAL: "vertical"
 } as const;
 export type Axis = (typeof Axis)[keyof typeof Axis];
 

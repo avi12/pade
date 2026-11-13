@@ -88,7 +88,7 @@ export function createProjectFlow({
       return false;
     }
 
-    return await sendMessage(Command.windowFocusProject, { path: project });
+    return await sendMessage(Command.WINDOW_FOCUS_PROJECT, { path: project });
   }
 
   // Enter a project beside the sessions already open (lib/session/chats/project-entry).
@@ -133,8 +133,8 @@ export function createProjectFlow({
       return;
     }
 
-    await sendMessage(Command.workspaceOpen, { path: target.path });
-    await sendSettingsMessage(Command.settingsGet); // pick up the updated recent history
+    await sendMessage(Command.WORKSPACE_OPEN, { path: target.path });
+    await sendSettingsMessage(Command.SETTINGS_GET); // pick up the updated recent history
     const isWindowEmpty = windowSessions.sessions.length === 0;
     if (isWindowEmpty) {
       await startAgentFlow(target);
@@ -150,7 +150,7 @@ export function createProjectFlow({
   // (a launch that starts in one).
   async function startInTempWorkspace() {
     await openProject({
-      path: await sendMessage(Command.workspaceTemp),
+      path: await sendMessage(Command.WORKSPACE_TEMP),
       created: true
     });
   }

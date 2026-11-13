@@ -46,10 +46,10 @@ const EDITOR_AGENT_ID_PREFIX = "editor-";
 
 function limitLevel(percentage: number) {
   if (percentage >= CRITICAL_PERCENTAGE) {
-    return Level.Critical;
+    return Level.CRITICAL;
   }
 
-  return percentage >= WARNING_PERCENTAGE ? Level.Warning : Level.Normal;
+  return percentage >= WARNING_PERCENTAGE ? Level.WARNING : Level.NORMAL;
 }
 
 function clampPercentage(value: number) {

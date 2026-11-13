@@ -31,7 +31,7 @@
 
     return modelMenuAnchor({
       sessionId: session.id,
-      opener: ModelMenuOpener.Tab
+      opener: ModelMenuOpener.TAB
     });
   });
 </script>
@@ -45,7 +45,7 @@
     data-tooltip={`${look.label} · click to change`}
     onclick={async () => await openModelMenu({
       session,
-      opener: ModelMenuOpener.Tab
+      opener: ModelMenuOpener.TAB
     })}
     popovertarget={MODEL_MENU_ID}
   >

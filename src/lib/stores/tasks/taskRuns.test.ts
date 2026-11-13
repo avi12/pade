@@ -48,24 +48,24 @@ const DEMO_TASKS = [
 ];
 
 mocks.sendMessage.mockImplementation(async command => {
-  if (command === Command.sessionTaskRunning) {
+  if (command === Command.SESSION_TASK_RUNNING) {
     mocks.runningChecks += 1;
     return mocks.taskRunning;
   }
 
-  if (command === Command.sessionTaskStop) {
+  if (command === Command.SESSION_TASK_STOP) {
     return true;
   }
 
-  if (command === Command.tasksDescriptors) {
+  if (command === Command.TASKS_DESCRIPTORS) {
     return [];
   }
 
-  if (command === Command.tasksList) {
+  if (command === Command.TASKS_LIST) {
     return DEMO_TASKS;
   }
 
-  if (command === Command.runnerList) {
+  if (command === Command.RUNNER_LIST) {
     return mocks.backendRunners;
   }
 
@@ -73,7 +73,7 @@ mocks.sendMessage.mockImplementation(async command => {
 });
 
 mocks.onMessage.mockImplementation(async (type, handler) => {
-  if (type === EventType.ptyData) {
+  if (type === EventType.PTY_DATA) {
     mocks.onData = chunk => handler({ data: chunk });
   }
 
@@ -116,7 +116,7 @@ describe("task run detection", () => {
 
     expect(runnerRows()).toHaveLength(1);
     expect(mocks.runningChecks).toBe(1);
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.sessionTaskRunning, {
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.SESSION_TASK_RUNNING, {
       id: "session-1",
       command: "cargo check"
     });

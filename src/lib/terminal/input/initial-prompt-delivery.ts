@@ -19,9 +19,9 @@ const TRUST_GATE_MAXIMUM_KEYS = 6;
 const RECENT_OUTPUT_CAP = 8_000;
 
 const TRUST_GATE_KEY_BYTES = {
-  [TrustGateKey.Confirm]: ENTER,
-  [TrustGateKey.Down]: CURSOR_DOWN,
-  [TrustGateKey.Up]: CURSOR_UP
+  [TrustGateKey.CONFIRM]: ENTER,
+  [TrustGateKey.DOWN]: CURSOR_DOWN,
+  [TrustGateKey.UP]: CURSOR_UP
 } as const satisfies Record<TrustGateKey, string>;
 
 // A freshly-spawned TUI can paint its whole splash while not yet READING

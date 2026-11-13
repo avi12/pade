@@ -5,9 +5,9 @@ import { FirstPrompt, parseInput, ProjectName } from "@/lib/validate";
 /** What the composer's project menu has picked: a project that exists, a new
  *  one to name under a root, or a throwaway workspace. */
 export const ProjectChoice = {
-  Existing: "existing",
-  New: "new",
-  Temp: "temp"
+  EXISTING: "existing",
+  NEW: "new",
+  TEMP: "temp"
 } as const;
 export type ProjectChoice = (typeof ProjectChoice)[keyof typeof ProjectChoice];
 
@@ -53,7 +53,7 @@ export function resolveHomeStart({
   rawPrompt: string;
   agent: string | null;
 }): HomeStart {
-  if (choice === ProjectChoice.Temp) {
+  if (choice === ProjectChoice.TEMP) {
     return { kind: "temp" };
   }
 
@@ -62,7 +62,7 @@ export function resolveHomeStart({
       schema: FirstPrompt,
       raw: rawPrompt
     }) ?? "";
-  if (choice === ProjectChoice.New) {
+  if (choice === ProjectChoice.NEW) {
     const name = parseInput({
       schema: ProjectName,
       raw: rawName
@@ -144,14 +144,14 @@ export function projectTrigger({
   selectedName: string | null;
   selectedPath: string;
 }) {
-  if (choice === ProjectChoice.Temp) {
+  if (choice === ProjectChoice.TEMP) {
     return {
       prefix: "",
       name: THROWAWAY_LABEL
     };
   }
 
-  if (choice === ProjectChoice.New) {
+  if (choice === ProjectChoice.NEW) {
     return {
       prefix: root ? directoryPrefix(root) : "",
       name: NEW_PROJECT_PLACEHOLDER

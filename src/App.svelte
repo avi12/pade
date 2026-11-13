@@ -41,7 +41,7 @@
   let elPanes = $state<HTMLElement>();
   let workspaceScreen = $state<WorkspaceScreen>();
   // The open side panel (lib/shell/side-panels); `null` means none is open.
-  let side = $state<Side | null>(Side.Feed);
+  let side = $state<Side | null>(Side.FEED);
   // The side column's width, which SidePanelResizer moves live during a drag.
   let sidePanelWidth = $state(effective.sidePanelWidth);
   // Only the focused window publishes Discord presence (see windowServices).
@@ -78,12 +78,12 @@
         isUnnamedTemp: isUnnamedTemporary(project),
         isFailedStart
       });
-      if (outcome === EmptyWorkspaceOutcome.Picker) {
+      if (outcome === EmptyWorkspaceOutcome.PICKER) {
         projectFlow.returnToPicker();
         return;
       }
 
-      if (outcome === EmptyWorkspaceOutcome.Respawn) {
+      if (outcome === EmptyWorkspaceOutcome.RESPAWN) {
         windowSessions.launch({
           agent,
           project
@@ -92,7 +92,7 @@
       }
 
       screen.clearPendingPrompt();
-      screen.setPhase(Phase.Onboarding);
+      screen.setPhase(Phase.ONBOARDING);
     }
   });
 
@@ -134,7 +134,7 @@
   });
 
   syncWindowAddress({
-    isBooted: () => screen.phase !== Phase.Loading,
+    isBooted: () => screen.phase !== Phase.LOADING,
     project: () => activeProject,
     isUnnamedTemp: () => isUnnamedTemp,
     windowSessions
@@ -175,7 +175,7 @@
     windowSessions,
     joinProject: projectFlow.joinProject,
     async openWorkspace(path) {
-      await sendMessage(Command.workspaceOpen, { path });
+      await sendMessage(Command.WORKSPACE_OPEN, { path });
     },
     onEmptiedByMove: projectFlow.returnToPicker
   });
@@ -204,7 +204,7 @@
   // Tab and pane keyboard shortcuts (lib/shell/shortcuts/session-shortcuts).
   registerSessionShortcuts({
     windowSessions,
-    isWorkspaceShown: () => screen.phase === Phase.Ready,
+    isWorkspaceShown: () => screen.phase === Phase.READY,
     fallbackAgent: () => detection.bestAgent,
     closeSession: chatActions.closeThroughTab
   });
@@ -243,7 +243,7 @@
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monospaceFamily} class="app-root">
-  {#if screen.phase === Phase.Project}
+  {#if screen.phase === Phase.PROJECT}
     <div class="home-shell">
       <ProjectSidebar
         activeId={windowSessions.activeId}
@@ -273,7 +273,7 @@
         onrenamefolder={relocator.renameFolder}
       />
     </div>
-  {:else if screen.phase === Phase.Onboarding}
+  {:else if screen.phase === Phase.ONBOARDING}
     <Onboarding
       agents={detection.agents}
       onpick={agent => windowSessions.launch({
@@ -283,7 +283,7 @@
       onswitchproject={screen.switchToPicker}
       path={activeProject}
     />
-  {:else if screen.phase === Phase.Ready}
+  {:else if screen.phase === Phase.READY}
     <WorkspaceScreen
       bind:this={workspaceScreen}
       agents={detection.agents}

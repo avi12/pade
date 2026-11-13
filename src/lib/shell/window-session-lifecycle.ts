@@ -95,7 +95,7 @@ export async function closeSessions({ layout, ids }: { layout: WindowLayout; ids
     layout.closingByHand.add(id);
   }
 
-  await Promise.all(ids.map(id => sendMessage(Command.ptyKill, { id })));
+  await Promise.all(ids.map(id => sendMessage(Command.PTY_KILL, { id })));
 
   for (const id of ids) {
     layout.detach(id);
@@ -135,7 +135,7 @@ export async function closeAllGracefully(layout: WindowLayout) {
 export async function closeSession({ context, session }: { context: LifecycleContext; session: AgentSession }) {
   const { layout, host } = context;
   layout.closingByHand.add(session.id);
-  await sendMessage(Command.ptyKill, { id: session.id });
+  await sendMessage(Command.PTY_KILL, { id: session.id });
 
   // `pty_kill` yields to the event loop. During that gap a project switch (or
   // another close) can already have detached this session and launched a
@@ -185,7 +185,7 @@ export async function sessionExited({ context, id }: { context: LifecycleContext
   });
   layout.detach(id);
   // Reap the backend record; the child is already gone, so a failure is moot.
-  await Promise.allSettled([sendMessage(Command.ptyKill, { id })]);
+  await Promise.allSettled([sendMessage(Command.PTY_KILL, { id })]);
   host.onRetired(session);
 
   if (wasLastSession) {
@@ -212,7 +212,7 @@ export async function restartSessions({
   await Promise.all(
     targets.map(target => {
       layout.closingByHand.add(target.id);
-      return sendMessage(Command.ptyKill, { id: target.id });
+      return sendMessage(Command.PTY_KILL, { id: target.id });
     })
   );
 

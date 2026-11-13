@@ -20,7 +20,7 @@ function base(): {
 } {
   return {
     selectedPath: "",
-    choice: ProjectChoice.Existing,
+    choice: ProjectChoice.EXISTING,
     root: ROOT,
     rawName: "",
     rawPrompt: "",
@@ -72,7 +72,7 @@ describe("resolveHomeStart", () => {
     expect(
       resolveHomeStart({
         ...base(),
-        choice: ProjectChoice.New,
+        choice: ProjectChoice.NEW,
         rawName: "  poll  ",
         rawPrompt: "scaffold it"
       })
@@ -89,7 +89,7 @@ describe("resolveHomeStart", () => {
     expect(
       resolveHomeStart({
         ...base(),
-        choice: ProjectChoice.New,
+        choice: ProjectChoice.NEW,
         rawName: "poll",
         root: ""
       })
@@ -97,14 +97,14 @@ describe("resolveHomeStart", () => {
     expect(
       resolveHomeStart({
         ...base(),
-        choice: ProjectChoice.New,
+        choice: ProjectChoice.NEW,
         rawName: "  "
       })
     ).toEqual({ kind: "none" });
     expect(
       resolveHomeStart({
         ...base(),
-        choice: ProjectChoice.New,
+        choice: ProjectChoice.NEW,
         rawName: "has/slash"
       })
     ).toEqual({ kind: "none" });
@@ -114,7 +114,7 @@ describe("resolveHomeStart", () => {
     expect(
       resolveHomeStart({
         ...base(),
-        choice: ProjectChoice.Temp,
+        choice: ProjectChoice.TEMP,
         rawName: "ignored"
       })
     ).toEqual({ kind: "temp" });
@@ -142,14 +142,14 @@ describe("projectTrigger", () => {
   }
 
   it("names the throwaway workspace", () => {
-    expect(trigger({ choice: ProjectChoice.Temp })).toEqual({
+    expect(trigger({ choice: ProjectChoice.TEMP })).toEqual({
       prefix: "",
       name: "Throwaway workspace"
     });
   });
 
   it("says which root a new project goes under", () => {
-    expect(trigger({ choice: ProjectChoice.New })).toEqual({
+    expect(trigger({ choice: ProjectChoice.NEW })).toEqual({
       prefix: "repositories\\",
       name: NEW_PROJECT_PLACEHOLDER
     });
@@ -158,7 +158,7 @@ describe("projectTrigger", () => {
   it("names no root for a new project while none is chosen", () => {
     expect(
       trigger({
-        choice: ProjectChoice.New,
+        choice: ProjectChoice.NEW,
         root: ""
       }).prefix
     ).toBe("");
@@ -167,7 +167,7 @@ describe("projectTrigger", () => {
   it("names the chosen project with its root", () => {
     expect(
       trigger({
-        choice: ProjectChoice.Existing,
+        choice: ProjectChoice.EXISTING,
         selectedName: "pade",
         selectedPath: "C:\\repositories\\avi\\pade"
       })
@@ -178,7 +178,7 @@ describe("projectTrigger", () => {
   });
 
   it("asks for a project while none is chosen", () => {
-    expect(trigger({ choice: ProjectChoice.Existing }).name).toBe("Choose a project");
+    expect(trigger({ choice: ProjectChoice.EXISTING }).name).toBe("Choose a project");
   });
 });
 

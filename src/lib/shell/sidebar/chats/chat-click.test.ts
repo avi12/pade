@@ -129,7 +129,7 @@ describe("chatClickAction", () => {
         ...PLAIN,
         isLiveHere: true
       })
-    ).toBe(ChatClickAction.SelectHere);
+    ).toBe(ChatClickAction.SELECT_HERE);
   });
 
   it("focuses the window that runs a session, even on a new-window click", () => {
@@ -138,14 +138,14 @@ describe("chatClickAction", () => {
         ...PLAIN,
         elsewhereWindow: "w-2"
       })
-    ).toBe(ChatClickAction.FocusOtherWindow);
+    ).toBe(ChatClickAction.FOCUS_OTHER_WINDOW);
     expect(
       chatClickAction({
         ...PLAIN,
         elsewhereWindow: "w-2",
         opensNewWindow: true
       })
-    ).toBe(ChatClickAction.FocusOtherWindow);
+    ).toBe(ChatClickAction.FOCUS_OTHER_WINDOW);
   });
 
   it("moves a live session to a new window on a new-window click", () => {
@@ -155,7 +155,7 @@ describe("chatClickAction", () => {
         isLiveHere: true,
         opensNewWindow: true
       })
-    ).toBe(ChatClickAction.MoveToNewWindow);
+    ).toBe(ChatClickAction.MOVE_TO_NEW_WINDOW);
   });
 
   it("reopens a persisted chat or a recorded conversation in a new window on a new-window click", () => {
@@ -164,14 +164,14 @@ describe("chatClickAction", () => {
         ...PLAIN,
         opensNewWindow: true
       })
-    ).toBe(ChatClickAction.ReopenInNewWindow);
+    ).toBe(ChatClickAction.REOPEN_IN_NEW_WINDOW);
     expect(
       chatClickAction({
         ...PLAIN,
         isRecorded: true,
         opensNewWindow: true
       })
-    ).toBe(ChatClickAction.ReopenInNewWindow);
+    ).toBe(ChatClickAction.REOPEN_IN_NEW_WINDOW);
   });
 
   it("resumes a recorded conversation and relaunches a persisted chat here", () => {
@@ -180,8 +180,8 @@ describe("chatClickAction", () => {
         ...PLAIN,
         isRecorded: true
       })
-    ).toBe(ChatClickAction.Resume);
-    expect(chatClickAction(PLAIN)).toBe(ChatClickAction.Relaunch);
+    ).toBe(ChatClickAction.RESUME);
+    expect(chatClickAction(PLAIN)).toBe(ChatClickAction.RELAUNCH);
   });
 
   it("prefers this window's live copy over another window's report of it", () => {
@@ -191,6 +191,6 @@ describe("chatClickAction", () => {
         isLiveHere: true,
         elsewhereWindow: "w-2"
       })
-    ).toBe(ChatClickAction.SelectHere);
+    ).toBe(ChatClickAction.SELECT_HERE);
   });
 });

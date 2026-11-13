@@ -32,7 +32,7 @@ describe("feed previews", () => {
     await previews.loadCardPreview(card);
 
     expect(mocks.sendMessage).toHaveBeenCalledTimes(1);
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.feedDiff, { path: "src/a.ts" });
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.FEED_DIFF, { path: "src/a.ts" });
     expect(previews.diffCache.get("e1")?.length).toBeGreaterThan(0);
   });
 
@@ -45,7 +45,7 @@ describe("feed previews", () => {
       path: "logo.png"
     });
 
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.feedImage, { path: "logo.png" });
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.FEED_IMAGE, { path: "logo.png" });
     expect(previews.failedIds.has("e2")).toBe(true);
     expect(previews.imageCache.get("e2")).toBeNull();
   });
@@ -59,7 +59,7 @@ describe("feed previews", () => {
       path: "README.md"
     });
 
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.feedText, { path: "README.md" });
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.FEED_TEXT, { path: "README.md" });
     expect(previews.documentCache.get("e3")).toContain("Title");
   });
 
@@ -91,9 +91,9 @@ describe("feed previews", () => {
 
   it("shows the Code pane until a card is switched", () => {
     const previews = createFeedPreviews();
-    expect(previews.paneOf("e4")).toBe(PreviewPane.Code);
+    expect(previews.paneOf("e4")).toBe(PreviewPane.CODE);
 
-    previews.paneById.set("e4", PreviewPane.Preview);
-    expect(previews.paneOf("e4")).toBe(PreviewPane.Preview);
+    previews.paneById.set("e4", PreviewPane.PREVIEW);
+    expect(previews.paneOf("e4")).toBe(PreviewPane.PREVIEW);
   });
 });

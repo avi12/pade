@@ -102,11 +102,11 @@
     });
   });
   const statusText = $derived.by(() => {
-    if (activity === ChatActivity.NeedsYou) {
+    if (activity === ChatActivity.NEEDS_YOU) {
       return NEEDS_YOU;
     }
 
-    if (activity === ChatActivity.Idle) {
+    if (activity === ChatActivity.IDLE) {
       return idleAge;
     }
 

@@ -5,34 +5,34 @@
 
 /** A closed set of panel ids; the open panel is one of these or `null`. */
 export const Side = {
-  Feed: "feed",
-  Vcs: "vcs",
-  Tasks: "tasks",
-  Config: "config"
+  FEED: "feed",
+  VCS: "vcs",
+  TASKS: "tasks",
+  CONFIG: "config"
 } as const;
 export type Side = (typeof Side)[keyof typeof Side];
 
 export const SIDE_PANEL_TABS = [
   {
-    id: Side.Feed,
+    id: Side.FEED,
     icon: "activity",
     short: "Feed",
     label: "Change Feed"
   },
   {
-    id: Side.Vcs,
+    id: Side.VCS,
     icon: "branch",
     short: "Git",
     label: "Version control"
   },
   {
-    id: Side.Tasks,
+    id: Side.TASKS,
     icon: "checks",
     short: "Tasks",
     label: "Tasks"
   },
   {
-    id: Side.Config,
+    id: Side.CONFIG,
     icon: "sliders",
     short: "Config",
     label: "Agent config"

@@ -50,7 +50,7 @@
         e,
         itemSelector: "[data-runner-id]",
         idAttribute: "data-runner-id",
-        axis: Axis.Horizontal,
+        axis: Axis.HORIZONTAL,
         ignoreSelector: "button",
         onCommit: orderedIds => setRunnerOrder(orderedIds)
       });

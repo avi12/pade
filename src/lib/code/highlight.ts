@@ -9,14 +9,14 @@ import { resolveColor } from "@/lib/code/colors";
 /** The closed set of roles a token can play; each value is also the themed CSS
  *  class ColorText paints it with. */
 export const TokenClass = {
-  Comment: "comment",
-  String: "string",
-  Number: "number",
-  Keyword: "keyword",
-  Function: "function",
-  Property: "property",
-  Color: "color",
-  Plain: "plain"
+  COMMENT: "comment",
+  STRING: "string",
+  NUMBER: "number",
+  KEYWORD: "keyword",
+  FUNCTION: "function",
+  PROPERTY: "property",
+  COLOR: "color",
+  PLAIN: "plain"
 } as const;
 export type TokenClass = (typeof TokenClass)[keyof typeof TokenClass];
 
@@ -30,12 +30,12 @@ export interface Token {
 /** The classes that carry a syntax color - plain text and color tokens keep the
  *  default color. */
 const SYNTAX_CLASSES: ReadonlySet<TokenClass> = new Set([
-  TokenClass.Comment,
-  TokenClass.String,
-  TokenClass.Number,
-  TokenClass.Keyword,
-  TokenClass.Function,
-  TokenClass.Property
+  TokenClass.COMMENT,
+  TokenClass.STRING,
+  TokenClass.NUMBER,
+  TokenClass.KEYWORD,
+  TokenClass.FUNCTION,
+  TokenClass.PROPERTY
 ]);
 
 // A broad, cross-language keyword set. Mis-coloring an identifier that happens to
@@ -141,7 +141,7 @@ const SCANNER = new RegExp(
 function plain(text: string) {
   return {
     text,
-    tokenClass: TokenClass.Plain
+    tokenClass: TokenClass.PLAIN
   };
 }
 
@@ -154,33 +154,33 @@ const MATCH_RULES: readonly {
 }[] = [
   {
     test: raw => COMMENT_OPENERS.some(opener => raw.startsWith(opener)) || HASH_COMMENT.test(raw),
-    tokenClass: TokenClass.Comment
+    tokenClass: TokenClass.COMMENT
   },
   {
     test: raw => QUOTES.has(raw[0]),
-    tokenClass: TokenClass.String
+    tokenClass: TokenClass.STRING
   },
   {
     test: raw => raw.startsWith("#") || RGB_HSL_FUNCTION.test(raw) || raw.startsWith("var("),
-    tokenClass: TokenClass.Color
+    tokenClass: TokenClass.COLOR
   },
   {
     test: raw => raw.startsWith("@") || KEYWORDS.has(raw),
-    tokenClass: TokenClass.Keyword
+    tokenClass: TokenClass.KEYWORD
   },
   {
     test: raw => DIGIT.test(raw),
-    tokenClass: TokenClass.Number
+    tokenClass: TokenClass.NUMBER
   }
 ];
 
 function classOfMatch(raw: string) {
-  return MATCH_RULES.find(rule => rule.test(raw))?.tokenClass ?? TokenClass.Plain;
+  return MATCH_RULES.find(rule => rule.test(raw))?.tokenClass ?? TokenClass.PLAIN;
 }
 
 function classify(raw: string, variables?: Map<string, string>) {
   const tokenClass = classOfMatch(raw);
-  if (tokenClass === TokenClass.Color) {
+  if (tokenClass === TokenClass.COLOR) {
     return {
       text: raw,
       tokenClass,
@@ -201,11 +201,11 @@ function classify(raw: string, variables?: Map<string, string>) {
 function identifierRole({ text, end }: { text: string; end: number }) {
   const next = text[end];
   if (next === "(") {
-    return TokenClass.Function;
+    return TokenClass.FUNCTION;
   }
 
   const isPropertyKey = next === ":" && text[end + 1] !== ":" && text[end + 1] !== "/";
-  return isPropertyKey ? TokenClass.Property : TokenClass.Plain;
+  return isPropertyKey ? TokenClass.PROPERTY : TokenClass.PLAIN;
 }
 
 /** Split a snippet (a line, or a whole file) into highlighted tokens; color
@@ -222,7 +222,7 @@ export function tokenize(text: string, variables?: Map<string, string>) {
 
     const token: Token = classify(match[0], variables);
     const end = start + match[0].length;
-    if (token.tokenClass === TokenClass.Plain) {
+    if (token.tokenClass === TokenClass.PLAIN) {
       token.tokenClass = identifierRole({
         text,
         end
@@ -260,10 +260,10 @@ const INLINE_SPAN = /`[^`\n]+`|\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\n]+\)/g;
 
 function inlineSpanClass(span: string) {
   if (span.startsWith("`")) {
-    return TokenClass.String;
+    return TokenClass.STRING;
   }
 
-  return span.startsWith("**") ? TokenClass.Keyword : TokenClass.Function;
+  return span.startsWith("**") ? TokenClass.KEYWORD : TokenClass.FUNCTION;
 }
 
 /** Tokens for one line of markdown prose: inline code spans read as strings,
@@ -298,7 +298,7 @@ function markdownLineTokens(line: string) {
     return [
       {
         text: line,
-        tokenClass: TokenClass.Keyword
+        tokenClass: TokenClass.KEYWORD
       }
     ];
   }
@@ -307,7 +307,7 @@ function markdownLineTokens(line: string) {
     return [
       {
         text: line,
-        tokenClass: TokenClass.Comment
+        tokenClass: TokenClass.COMMENT
       }
     ];
   }
@@ -320,7 +320,7 @@ function markdownLineTokens(line: string) {
   return [
     {
       text: listMarker[0],
-      tokenClass: TokenClass.Number
+      tokenClass: TokenClass.NUMBER
     },
     ...markdownProseTokens(line.slice(listMarker[0].length))
   ];
@@ -341,7 +341,7 @@ export function tokenizeMarkdown(text: string, variables?: Map<string, string>) 
       isInFence = !isInFence;
       tokens.push({
         text: line,
-        tokenClass: TokenClass.Comment
+        tokenClass: TokenClass.COMMENT
       });
       continue;
     }

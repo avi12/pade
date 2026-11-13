@@ -29,9 +29,9 @@ const USAGE_WORD = "usage";
 
 /** The `.severity` modifier each level paints with; a normal level takes none. */
 const SEVERITY_CLASS: Record<Level, string | undefined> = {
-  [Level.Normal]: undefined,
-  [Level.Warning]: "warning",
-  [Level.Critical]: "critical"
+  [Level.NORMAL]: undefined,
+  [Level.WARNING]: "warning",
+  [Level.CRITICAL]: "critical"
 };
 
 export function severityClass(level: Level | null | undefined) {
@@ -61,12 +61,12 @@ export function overflowCount(groups: readonly AgentGroup[]) {
  *  near its cap, else no dot. */
 export function overflowLevel(groups: readonly AgentGroup[]) {
   const levels = new Set(groups.map(group => worstLimit(group.limits)?.level));
-  if (levels.has(Level.Critical)) {
-    return Level.Critical;
+  if (levels.has(Level.CRITICAL)) {
+    return Level.CRITICAL;
   }
 
-  if (levels.has(Level.Warning)) {
-    return Level.Warning;
+  if (levels.has(Level.WARNING)) {
+    return Level.WARNING;
   }
 
   return null;

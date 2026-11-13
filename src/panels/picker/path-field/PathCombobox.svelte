@@ -102,7 +102,7 @@
     }
 
     const timer = setTimeout(async () => {
-      const result = await sendMessage(Command.workspaceProbePath, { path });
+      const result = await sendMessage(Command.WORKSPACE_PROBE_PATH, { path });
       probe = {
         path,
         result
@@ -192,7 +192,7 @@
     // agree (the one match, drilled into; or the prefix the matches share),
     // then shows the completions (IDE-style). Suppress the space it would
     // otherwise insert.
-    const isCompleteChord = e.ctrlKey && e.key === Key.Space;
+    const isCompleteChord = e.ctrlKey && e.key === Key.SPACE;
     if (isCompleteChord) {
       e.preventDefault();
       const completion = nextSegmentCompletion({
@@ -212,16 +212,16 @@
       return;
     }
 
-    if (e.key === Key.ArrowDown) {
+    if (e.key === Key.ARROW_DOWN) {
       e.preventDefault();
       select((activeIndex + 1) % suggestions.length);
-    } else if (e.key === Key.ArrowUp) {
+    } else if (e.key === Key.ARROW_UP) {
       e.preventDefault();
       select(activeIndex <= 0 ? suggestions.length - 1 : activeIndex - 1);
-    } else if (e.key === Key.Enter && activeIndex >= 0) {
+    } else if (e.key === Key.ENTER && activeIndex >= 0) {
       e.preventDefault();
       pick(suggestions[activeIndex]);
-    } else if (e.key === Key.Tab && activeIndex >= 0) {
+    } else if (e.key === Key.TAB && activeIndex >= 0) {
       // Accept the highlighted folder and append a separator instead of moving
       // focus, then keep the list open so the debounced probe immediately starts
       // completing that folder's sub-folders - where the selection starts fresh
@@ -230,7 +230,7 @@
       value = suggestions[activeIndex] + pathSeparator;
       lastSelected = null;
       isListOpen = true;
-    } else if (e.key === Key.Escape) {
+    } else if (e.key === Key.ESCAPE) {
       // Handled here: an enclosing popover (the composer's project menu) must
       // not close on the same press that only dismisses the suggestions.
       e.preventDefault();

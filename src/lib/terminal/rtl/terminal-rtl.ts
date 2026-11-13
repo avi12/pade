@@ -52,14 +52,14 @@ const POWERLINE_LAST = 0xe0bf;
 
 /** What one cell contributes to the direction of the text around it. */
 const CellDirection = {
-  Rtl: "rtl",
-  Ltr: "ltr",
+  RTL: "rtl",
+  LTR: "ltr",
   /** A digit: it cannot start a run, but it belongs to one it follows. */
-  Weak: "weak",
+  WEAK: "weak",
   /** Spaces and punctuation - they take the direction of their neighbours. */
-  Neutral: "neutral",
+  NEUTRAL: "neutral",
   /** A frame glyph: layout, and a hard end to any run. */
-  Frame: "frame"
+  FRAME: "frame"
 } as const;
 type CellDirection = (typeof CellDirection)[keyof typeof CellDirection];
 
@@ -79,26 +79,26 @@ function isFrameGlyph(text: string) {
 function cellDirection(text: string) {
   // The trailing half of a wide glyph holds no characters of its own.
   if (text === "") {
-    return CellDirection.Neutral;
+    return CellDirection.NEUTRAL;
   }
 
   if (isFrameGlyph(text)) {
-    return CellDirection.Frame;
+    return CellDirection.FRAME;
   }
 
   if (RTL_SCRIPT.test(text)) {
-    return CellDirection.Rtl;
+    return CellDirection.RTL;
   }
 
   if (LTR_LETTER.test(text)) {
-    return CellDirection.Ltr;
+    return CellDirection.LTR;
   }
 
   if (DIGIT.test(text)) {
-    return CellDirection.Weak;
+    return CellDirection.WEAK;
   }
 
-  return CellDirection.Neutral;
+  return CellDirection.NEUTRAL;
 }
 
 /** Does this text contain anything that reads right to left? The cheap latch that
@@ -139,8 +139,8 @@ export function rtlRuns({ cells }: { cells: readonly string[] }) {
 
   for (let column = 0; column < cells.length; column++) {
     const direction = cellDirection(cells[column] ?? "");
-    const isOpeningRun = direction === CellDirection.Rtl;
-    const isContinuingRun = direction === CellDirection.Weak && firstRtlColumn >= 0;
+    const isOpeningRun = direction === CellDirection.RTL;
+    const isContinuingRun = direction === CellDirection.WEAK && firstRtlColumn >= 0;
     if (isOpeningRun || isContinuingRun) {
       if (firstRtlColumn < 0) {
         firstRtlColumn = column;
@@ -153,7 +153,7 @@ export function rtlRuns({ cells }: { cells: readonly string[] }) {
 
     // A digit before any right-to-left text reads left to right like the rest of
     // the row, so it neither opens a run nor widens the gap inside one.
-    if (direction === CellDirection.Weak || direction === CellDirection.Neutral) {
+    if (direction === CellDirection.WEAK || direction === CellDirection.NEUTRAL) {
       neutralsSinceCarried += 1;
 
       if (neutralsSinceCarried > RUN_NEUTRAL_GAP_LIMIT) {
@@ -191,12 +191,12 @@ export interface RtlCell extends RtlStyle {
 
 /** What a run is made of, in visual sequence. */
 export const RtlPartKind = {
-  Text: "text",
+  TEXT: "text",
   /** The text cursor. It is a MARKER IN THE SEQUENCE, not a measured position:
    *  a logical column means nothing once a line has been reordered, so the caret
    *  is placed between parts and the browser lays it out with the text - it
    *  cannot end up disagreeing with the glyphs. */
-  Caret: "caret"
+  CARET: "caret"
 } as const;
 type RtlPartKind = (typeof RtlPartKind)[keyof typeof RtlPartKind];
 
@@ -204,13 +204,13 @@ type RtlPartKind = (typeof RtlPartKind)[keyof typeof RtlPartKind];
  *  Splitting is kept to the minimum the styling forces, because letters do not
  *  join across an element boundary: every extra part is a broken join. */
 export interface RtlTextPart extends RtlStyle {
-  readonly kind: typeof RtlPartKind.Text;
+  readonly kind: typeof RtlPartKind.TEXT;
   readonly text: string;
   readonly isSelected: boolean;
 }
 
 export interface RtlCaretPart {
-  readonly kind: typeof RtlPartKind.Caret;
+  readonly kind: typeof RtlPartKind.CARET;
 }
 
 export type RtlPart = RtlTextPart | RtlCaretPart;
@@ -225,7 +225,7 @@ export interface RtlRun {
   readonly parts: readonly RtlPart[];
 }
 
-const CARET: RtlCaretPart = { kind: RtlPartKind.Caret };
+const CARET: RtlCaretPart = { kind: RtlPartKind.CARET };
 
 function isSameStyle({ part, cell }: { part: RtlStyle; cell: RtlStyle }) {
   return (
@@ -327,7 +327,7 @@ function runParts({
 
     open = {
       ...cell,
-      kind: RtlPartKind.Text,
+      kind: RtlPartKind.TEXT,
       isSelected
     };
   }

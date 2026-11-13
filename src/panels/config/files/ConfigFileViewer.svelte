@@ -20,24 +20,24 @@
   // A markdown file reads as its source or rendered; the pick holds as the user
   // moves between files.
   const ViewerPane = {
-    Source: "source",
-    Preview: "preview"
+    SOURCE: "source",
+    PREVIEW: "preview"
   } as const;
   type ViewerPane = (typeof ViewerPane)[keyof typeof ViewerPane];
   const viewerPanes = [
     {
-      value: ViewerPane.Source,
+      value: ViewerPane.SOURCE,
       label: "Source"
     },
     {
-      value: ViewerPane.Preview,
+      value: ViewerPane.PREVIEW,
       label: "Preview"
     }
   ] as const;
-  let viewerPane = $state<ViewerPane>(ViewerPane.Source);
+  let viewerPane = $state<ViewerPane>(ViewerPane.SOURCE);
   const heading = $derived(file?.rel ?? "Select a file to view");
   const isMarkdownFile = $derived(isMarkdownPath(file?.rel ?? ""));
-  const isShowingPreview = $derived(isMarkdownFile && viewerPane === ViewerPane.Preview);
+  const isShowingPreview = $derived(isMarkdownFile && viewerPane === ViewerPane.PREVIEW);
 </script>
 
 <section class="viewer">

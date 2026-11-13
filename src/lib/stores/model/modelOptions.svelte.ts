@@ -14,7 +14,7 @@ const requestedCommands = new SvelteSet<string>();
 
 /** Rejects when the backend call fails; the previous options stay in place. */
 async function loadModelOptions(command: string) {
-  optionsByAgent.set(command, await sendMessage(Command.agentModelOptions, { command }));
+  optionsByAgent.set(command, await sendMessage(Command.AGENT_MODEL_OPTIONS, { command }));
 }
 
 /** Load `command`'s catalog the first time anything asks for it - the tab's

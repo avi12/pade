@@ -22,8 +22,8 @@ function chord(overrides: Partial<KeyChord> = {}) {
 
 describe("matchTabShortcut", () => {
   it("owns the shortcut display vocabulary beside its actions", () => {
-    expect(TAB_SHORTCUTS[TabAction.New].label).toBe("Ctrl+Shift+T");
-    expect(TAB_SHORTCUTS[TabAction.LaunchMenu].label).toBe("Ctrl+Alt+T");
+    expect(TAB_SHORTCUTS[TabAction.NEW].label).toBe("Ctrl+Shift+T");
+    expect(TAB_SHORTCUTS[TabAction.LAUNCH_MENU].label).toBe("Ctrl+Alt+T");
   });
 
   it("opens the launch menu on Ctrl+Alt+T and a new tab on Ctrl+Shift+T", () => {
@@ -35,7 +35,7 @@ describe("matchTabShortcut", () => {
           key: "t"
         })
       )
-    ).toBe(TabAction.LaunchMenu);
+    ).toBe(TabAction.LAUNCH_MENU);
     // Plain Ctrl+T is no longer a tab shortcut - it belongs to the terminal now.
     expect(
       matchTabShortcut(
@@ -53,7 +53,7 @@ describe("matchTabShortcut", () => {
           key: "T"
         })
       )
-    ).toBe(TabAction.New);
+    ).toBe(TabAction.NEW);
   });
 
   it("closes on Ctrl+W and Ctrl+F4", () => {
@@ -64,7 +64,7 @@ describe("matchTabShortcut", () => {
           key: "w"
         })
       )
-    ).toBe(TabAction.Close);
+    ).toBe(TabAction.CLOSE);
     expect(
       matchTabShortcut(
         chord({
@@ -72,7 +72,7 @@ describe("matchTabShortcut", () => {
           key: "F4"
         })
       )
-    ).toBe(TabAction.Close);
+    ).toBe(TabAction.CLOSE);
   });
 
   it("cycles with Ctrl+Tab / Ctrl+Shift+Tab", () => {
@@ -83,7 +83,7 @@ describe("matchTabShortcut", () => {
           key: "Tab"
         })
       )
-    ).toBe(TabAction.Next);
+    ).toBe(TabAction.NEXT);
     expect(
       matchTabShortcut(
         chord({
@@ -92,7 +92,7 @@ describe("matchTabShortcut", () => {
           key: "Tab"
         })
       )
-    ).toBe(TabAction.Previous);
+    ).toBe(TabAction.PREVIOUS);
   });
 
   it("cycles with Alt+Arrow", () => {
@@ -103,7 +103,7 @@ describe("matchTabShortcut", () => {
           key: "ArrowRight"
         })
       )
-    ).toBe(TabAction.Next);
+    ).toBe(TabAction.NEXT);
     expect(
       matchTabShortcut(
         chord({
@@ -111,7 +111,7 @@ describe("matchTabShortcut", () => {
           key: "ArrowLeft"
         })
       )
-    ).toBe(TabAction.Previous);
+    ).toBe(TabAction.PREVIOUS);
   });
 
   it("ignores plain keys and unrelated chords", () => {

@@ -72,5 +72,5 @@ export function isPromptNewlineShortcut(
   event: Pick<KeyboardEvent, "key" | "shiftKey" | "altKey" | "ctrlKey" | "metaKey">
 ) {
   const isShiftOnly = event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
-  return event.key === Key.Enter && isShiftOnly;
+  return event.key === Key.ENTER && isShiftOnly;
 }

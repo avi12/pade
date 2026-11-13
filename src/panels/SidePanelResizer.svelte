@@ -78,13 +78,13 @@
   data-tooltip="Drag to resize · double-click to reset"
   ondblclick={reset}
   onkeydown={async e => {
-    if (e.key === Key.ArrowLeft) {
+    if (e.key === Key.ARROW_LEFT) {
       e.preventDefault();
       await nudge(NUDGE_PIXELS);
-    } else if (e.key === Key.ArrowRight) {
+    } else if (e.key === Key.ARROW_RIGHT) {
       e.preventDefault();
       await nudge(-NUDGE_PIXELS);
-    } else if (e.key === Key.Home) {
+    } else if (e.key === Key.HOME) {
       e.preventDefault();
       await reset();
     }

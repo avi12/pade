@@ -13,8 +13,8 @@ export const MODEL_MENU_ANCHOR = "--model-menu-anchor";
 
 /** Where a model chip sits; a session's tab and its pane each carry one. */
 export const ModelMenuOpener = {
-  Tab: "tab",
-  Pane: "pane"
+  TAB: "tab",
+  PANE: "pane"
 } as const;
 export type ModelMenuOpener = (typeof ModelMenuOpener)[keyof typeof ModelMenuOpener];
 

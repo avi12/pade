@@ -7,16 +7,16 @@ export const WindowShortcut = {
   /** Dev-only: F5 / Ctrl+Shift+R reloads the WebView - the escape hatch when
    *  Vite's HMR socket drops (a Tauri window wires no reload of its own).
    *  Ctrl+R is left to the terminal's shell reverse-search. */
-  Reload: "reload",
+  RELOAD: "reload",
   /** Ctrl+Alt+[ cycles to the previous open PADE window. */
-  PreviousWindow: "previousWindow",
+  PREVIOUS_WINDOW: "previousWindow",
   /** Ctrl+Alt+] cycles to the next open PADE window. */
-  NextWindow: "nextWindow",
+  NEXT_WINDOW: "nextWindow",
   /** Ctrl+Shift+N spawns a fresh empty window (the app-menu shortcut chip). */
-  NewWindow: "newWindow",
+  NEW_WINDOW: "newWindow",
   /** Ctrl+P focuses the left rail's project search - it wins over the
    *  terminal, which would send it to the agent, and the print dialog. */
-  FindProject: "findProject"
+  FIND_PROJECT: "findProject"
 } as const;
 
 const RELOAD_KEY = "F5";
@@ -39,10 +39,10 @@ function cycleShortcut(event: ChordEvent) {
   }
 
   if (event.code === PREVIOUS_WINDOW_CODE) {
-    return WindowShortcut.PreviousWindow;
+    return WindowShortcut.PREVIOUS_WINDOW;
   }
 
-  return event.code === NEXT_WINDOW_CODE ? WindowShortcut.NextWindow : null;
+  return event.code === NEXT_WINDOW_CODE ? WindowShortcut.NEXT_WINDOW : null;
 }
 
 /** The window-level action `event` asks for, or null for any other key. */
@@ -50,17 +50,17 @@ export function windowShortcutFor({ event, isDevelopment }: { event: ChordEvent;
   const letter = event.key.toLowerCase();
   const isReload = event.key === RELOAD_KEY || (event.ctrlKey && event.shiftKey && letter === RELOAD_LETTER);
   if (isDevelopment && isReload) {
-    return WindowShortcut.Reload;
+    return WindowShortcut.RELOAD;
   }
 
   const isNewWindow = event.ctrlKey && event.shiftKey && letter === NEW_WINDOW_LETTER;
   if (isNewWindow) {
-    return WindowShortcut.NewWindow;
+    return WindowShortcut.NEW_WINDOW;
   }
 
   const isFindProject = event.ctrlKey && !event.shiftKey && !event.altKey && letter === FIND_PROJECT_LETTER;
   if (isFindProject) {
-    return WindowShortcut.FindProject;
+    return WindowShortcut.FIND_PROJECT;
   }
 
   return cycleShortcut(event);

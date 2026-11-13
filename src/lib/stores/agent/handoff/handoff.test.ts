@@ -25,11 +25,11 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => ({
 /** The backend as the handoff sees it: every probed file is on disk, usage
  *  reads come back empty, and writes / doc deletes simply succeed. */
 async function answerMessage(command: Command) {
-  if (command === Command.workspaceProbePath) {
+  if (command === Command.WORKSPACE_PROBE_PATH) {
     return { isFile: true };
   }
 
-  if (command === Command.usageGet || command === Command.usageAccountAgent) {
+  if (command === Command.USAGE_GET || command === Command.USAGE_ACCOUNT_AGENT) {
     return null;
   }
 
@@ -135,11 +135,11 @@ describe("createAutoHandoff", () => {
     const docPath = "C:/repositories/pade/continue-pade-1a2b3c4d.md";
     let isDocWritten = false;
     mocks.sendMessage.mockImplementation(async command => {
-      if (command === Command.workspaceProbePath) {
+      if (command === Command.WORKSPACE_PROBE_PATH) {
         return { isFile: isDocWritten };
       }
 
-      if (command === Command.ptyWrite) {
+      if (command === Command.PTY_WRITE) {
         // The agent takes the request and writes the doc.
         vi.mocked(sessionStatus).mockReturnValue(SessionStatus.enum.working);
         isDocWritten = true;
@@ -170,7 +170,7 @@ describe("createAutoHandoff", () => {
     await vi.waitFor(() => expect(successorSeed).toBeDefined(), { timeout: 5_000 });
 
     const typed = mocks.sendMessage.mock.calls
-      .filter(([command]) => command === Command.ptyWrite)
+      .filter(([command]) => command === Command.PTY_WRITE)
       .map(([, data]) => JSON.stringify(data))
       .join("");
     expect(typed).toContain(docPath);
@@ -278,7 +278,7 @@ describe("createAutoHandoff", () => {
 
     handoff.force(predecessor);
     await vi.waitFor(() => expect(handoff.note).toContain("once its running work finishes"));
-    expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.ptyWrite, expect.anything());
+    expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.PTY_WRITE, expect.anything());
     expect(mocks.kill).not.toHaveBeenCalled();
 
     observeAgentActivity({
@@ -349,7 +349,7 @@ describe("createAutoHandoff", () => {
         chunk: `${ESCAPE}]0;◐ Reading the handoff${BELL}`
       });
       await vi.advanceTimersByTimeAsync(4_000);
-      expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.handoffDocDelete, expect.anything());
+      expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.HANDOFF_DOC_DELETE, expect.anything());
 
       observeAgentActivity({
         id: "reading-successor",
@@ -357,7 +357,7 @@ describe("createAutoHandoff", () => {
       });
       await vi.advanceTimersByTimeAsync(4_000);
       expect(mocks.sendMessage).toHaveBeenCalledWith(
-        Command.handoffDocDelete,
+        Command.HANDOFF_DOC_DELETE,
         expect.objectContaining({
           dir: "C:/repositories/pade"
         })
@@ -375,7 +375,7 @@ describe("createAutoHandoff", () => {
 
       // Ten minutes of a successor that boots, errors and reports nothing.
       await vi.advanceTimersByTimeAsync(11 * 60_000);
-      expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.handoffDocDelete, expect.anything());
+      expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.HANDOFF_DOC_DELETE, expect.anything());
 
       handoff.dispose();
     });
@@ -468,7 +468,7 @@ describe("createAutoHandoff", () => {
 
   it("clears its status line as soon as the session it waits on is closed", async () => {
     mocks.sendMessage.mockImplementation(async command => {
-      if (command === Command.workspaceProbePath) {
+      if (command === Command.WORKSPACE_PROBE_PATH) {
         return { isFile: false };
       }
 

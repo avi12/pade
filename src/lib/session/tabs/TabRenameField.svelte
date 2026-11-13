@@ -66,10 +66,10 @@
     onblur={commit}
     oninput={e => (draft = e.currentTarget.value)}
     onkeydown={e => {
-      if (e.key === Key.Enter) {
+      if (e.key === Key.ENTER) {
         e.preventDefault();
         commit();
-      } else if (e.key === Key.Escape) {
+      } else if (e.key === Key.ESCAPE) {
         e.preventDefault();
         isSettled = true;
         ondone();

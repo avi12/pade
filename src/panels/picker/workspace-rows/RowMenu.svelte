@@ -44,7 +44,7 @@
     <li>
       <button
         class="menu-item"
-        onclick={() => sendMessage(Command.openInExplorer, { path })}
+        onclick={() => sendMessage(Command.OPEN_IN_EXPLORER, { path })}
         popovertarget={identifier}
         popovertargetaction="hide"
       >
@@ -54,7 +54,7 @@
     <li>
       <button
         class="menu-item"
-        onclick={() => sendMessage(Command.openInTerminal, { path })}
+        onclick={() => sendMessage(Command.OPEN_IN_TERMINAL, { path })}
         popovertarget={identifier}
         popovertargetaction="hide"
       >

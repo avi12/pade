@@ -43,15 +43,15 @@ describe("ideIcon", () => {
 
 describe("ideBrand", () => {
   it("keys each JetBrains product to its own tint despite the shared mark", () => {
-    expect(ideBrand("webstorm")).toBe(IdeId.WebStorm);
-    expect(ideBrand("rider")).toBe(IdeId.Rider);
-    expect(ideBrand("added-pycharm64")).toBe(IdeId.PyCharm);
+    expect(ideBrand("webstorm")).toBe(IdeId.WEB_STORM);
+    expect(ideBrand("rider")).toBe(IdeId.RIDER);
+    expect(ideBrand("added-pycharm64")).toBe(IdeId.PY_CHARM);
   });
 
   it("resolves user-added aliases to the canonical editor id", () => {
-    expect(ideBrand("added-code - insiders")).toBe(IdeId.VsCode);
-    expect(ideBrand("added-sublime_text")).toBe(IdeId.Sublime);
-    expect(ideBrand("added-devenv")).toBe(IdeId.VisualStudio);
+    expect(ideBrand("added-code - insiders")).toBe(IdeId.VS_CODE);
+    expect(ideBrand("added-sublime_text")).toBe(IdeId.SUBLIME);
+    expect(ideBrand("added-devenv")).toBe(IdeId.VISUAL_STUDIO);
   });
 
   it("leaves console and unknown editors untinted", () => {

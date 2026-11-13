@@ -73,7 +73,7 @@ export function createTerminalSession({
   const activity = createSessionActivity({ onSettled: () => delivery.deliverIfReady() });
   const writeToPty = createPtyWriter({
     send: data =>
-      sendMessage(Command.ptyWrite, {
+      sendMessage(Command.PTY_WRITE, {
         id: session().id,
         data
       }),
@@ -100,7 +100,7 @@ export function createTerminalSession({
     // resizing, and a dropped resize on a dead PTY is harmless.
     async resizeAgent({ columns, rows }) {
       try {
-        await sendMessage(Command.ptyResize, {
+        await sendMessage(Command.PTY_RESIZE, {
           id: session().id,
           cols: columns,
           rows
@@ -145,7 +145,7 @@ export function createTerminalSession({
     flushContext() {
       const buffer = terminal?.buffer.active;
       const isReadingScrollback =
-        buffer !== undefined && buffer.type !== Screen.Alternate && buffer.viewportY < buffer.baseY;
+        buffer !== undefined && buffer.type !== Screen.ALTERNATE && buffer.viewportY < buffer.baseY;
       return {
         ...view(),
         isReadingScrollback
@@ -196,7 +196,7 @@ export function createTerminalSession({
     observeAgentOutput({
       id: session().id,
       chunk: chunk.data,
-      isOnNormalScreen: terminal.buffer.active.type !== Screen.Alternate
+      isOnNormalScreen: terminal.buffer.active.type !== Screen.ALTERNATE
     });
     // Accept the first-run trust gate so the pending first prompt can land.
     delivery.watchOutput(chunk.data);
@@ -208,7 +208,7 @@ export function createTerminalSession({
   // sessions don't cross-write. False when the pane was torn down meanwhile.
   async function listenToSession({ grid, elPane }: { grid: Terminal; elPane: HTMLElement }) {
     const isDataListening = keepListening([
-      await onMessage(EventType.ptyData, ({ data: chunk }) => {
+      await onMessage(EventType.PTY_DATA, ({ data: chunk }) => {
         if (chunk.id === session().id) {
           stream.accept(chunk);
         }
@@ -219,7 +219,7 @@ export function createTerminalSession({
     }
 
     const isExitListening = keepListening([
-      await onMessage(EventType.ptyExit, ({ data: { id } }) => {
+      await onMessage(EventType.PTY_EXIT, ({ data: { id } }) => {
         if (id !== session().id) {
           return;
         }
@@ -312,7 +312,7 @@ export function createTerminalSession({
     // the session not-running, so the pane stops lying and a graceful leave never
     // waits on it.
     try {
-      await sendMessage(Command.ptySpawn, {
+      await sendMessage(Command.PTY_SPAWN, {
         id,
         command: agent.command,
         cwd: cwd ?? null,
@@ -345,7 +345,7 @@ export function createTerminalSession({
   // empty and this costs nothing. Live chunks that arrived meanwhile were parked
   // and go in after it (see lib/terminal/pty/pty-stream).
   async function replayHistory(grid: Terminal) {
-    const history = await sendMessage(Command.ptyHistory, { id: session().id });
+    const history = await sendMessage(Command.PTY_HISTORY, { id: session().id });
     if (isDestroyed) {
       return;
     }

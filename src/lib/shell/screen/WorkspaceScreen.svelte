@@ -197,7 +197,7 @@
           // Spawn an agent on its own git worktree for `branch`, isolated from
         // the other sessions. Uses the active session's agent (or the first).
           const agent = windowSessions.activeSession?.agent ?? bestAgent;
-          const cwd = await sendMessage(Command.vcsWorktreeAdd, {
+          const cwd = await sendMessage(Command.VCS_WORKTREE_ADD, {
             cwd: activeMemberIn(project),
             branch,
             create: false

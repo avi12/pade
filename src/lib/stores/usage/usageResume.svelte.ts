@@ -30,22 +30,22 @@ import type { AccountUsage } from "@/lib/types/usage";
 
 /** The usage windows an agent CLI can exhaust - which one names the reset time. */
 export const LimitWindow = {
-  Session: "session",
-  Weekly: "weekly"
+  SESSION: "session",
+  WEEKLY: "weekly"
 } as const;
 type LimitWindow = (typeof LimitWindow)[keyof typeof LimitWindow];
 
 /** What the account says about a session stopped on a usage limit. */
 export const LimitVerdict = {
   /** The window is exhausted and no credits carry the session - keep waiting. */
-  Blocked: "blocked",
+  BLOCKED: "blocked",
   /** The account can't say (offline, expired token) and no known reset has passed. */
-  Unknown: "unknown",
+  UNKNOWN: "unknown",
   /** It can run again: its window reset, or usage credits now carry it. */
-  Runnable: "runnable",
+  RUNNABLE: "runnable",
   /** The account never showed the session blocked - the message was a stale
    *  repaint of scrollback. */
-  Stale: "stale"
+  STALE: "stale"
 } as const;
 type LimitVerdict = (typeof LimitVerdict)[keyof typeof LimitVerdict];
 
@@ -164,9 +164,9 @@ export function parseLimitHit({ text, now }: { text: string; now: number }) {
   }
 
   const windowName = stop.groups?.reachedWindow ?? stop.groups?.hitWindow ?? "";
-  const isWeekly = windowName.toLowerCase() === LimitWindow.Weekly;
+  const isWeekly = windowName.toLowerCase() === LimitWindow.WEEKLY;
   return {
-    window: isWeekly ? LimitWindow.Weekly : LimitWindow.Session,
+    window: isWeekly ? LimitWindow.WEEKLY : LimitWindow.SESSION,
     resetAt: parseResetClock({
       text: plain,
       now
@@ -219,16 +219,16 @@ export function assessLimit({
 
   const isWindowExhausted = (usageWindow?.utilization ?? 0) >= EXHAUSTED_PERCENTAGE;
   if (isWindowExhausted && !areCreditsCarrying) {
-    return LimitVerdict.Blocked;
+    return LimitVerdict.BLOCKED;
   }
 
-  return hit.isConfirmed ? LimitVerdict.Runnable : LimitVerdict.Stale;
+  return hit.isConfirmed ? LimitVerdict.RUNNABLE : LimitVerdict.STALE;
 }
 
 /** With the account silent, the reset clock alone decides - a little after it. */
 function verdictByResetClock({ resetAt, now }: { resetAt: number | null; now: number }) {
   const isResetPassed = resetAt !== null && now >= resetAt + RESET_BUFFER_MS;
-  return isResetPassed ? LimitVerdict.Runnable : LimitVerdict.Unknown;
+  return isResetPassed ? LimitVerdict.RUNNABLE : LimitVerdict.UNKNOWN;
 }
 
 // Record a stop message found in a session's output, unless the session is already
@@ -346,7 +346,7 @@ export function createUsageResume(host: RecoveryHost) {
       return;
     }
 
-    await sendMessage(Command.ptyWrite, {
+    await sendMessage(Command.PTY_WRITE, {
       id: session.id,
       data: CONTINUE_PROMPT
     });
@@ -367,7 +367,7 @@ export function createUsageResume(host: RecoveryHost) {
   }) {
     const waiting = {
       ...hit,
-      isConfirmed: hit.isConfirmed || verdict === LimitVerdict.Blocked,
+      isConfirmed: hit.isConfirmed || verdict === LimitVerdict.BLOCKED,
       resetAt:
         accountResetAt({
           hit,
@@ -406,12 +406,12 @@ export function createUsageResume(host: RecoveryHost) {
       account,
       now: Date.now()
     });
-    if (verdict === LimitVerdict.Stale) {
+    if (verdict === LimitVerdict.STALE) {
       settle(id);
       return;
     }
 
-    if (verdict === LimitVerdict.Runnable) {
+    if (verdict === LimitVerdict.RUNNABLE) {
       await resume(session);
       return;
     }

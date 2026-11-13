@@ -181,42 +181,42 @@ export function elsewhereSessions({
 
 /** What an agent amounts to at a glance, most urgent first. */
 export const AgentState = {
-  Waiting: "waiting",
-  Working: "working",
-  Starting: "starting",
-  Ready: "ready",
-  Exited: "exited"
+  WAITING: "waiting",
+  WORKING: "working",
+  STARTING: "starting",
+  READY: "ready",
+  EXITED: "exited"
 } as const;
 export type AgentState = (typeof AgentState)[keyof typeof AgentState];
 
 const AGENT_STATE_ORDER: readonly AgentState[] = [
-  AgentState.Waiting,
-  AgentState.Working,
-  AgentState.Starting,
-  AgentState.Ready,
-  AgentState.Exited
+  AgentState.WAITING,
+  AgentState.WORKING,
+  AgentState.STARTING,
+  AgentState.READY,
+  AgentState.EXITED
 ];
 
 /** What the dashboard calls each state. */
 export const AGENT_STATE_TEXT: Record<AgentState, string> = {
-  [AgentState.Waiting]: "Needs you",
-  [AgentState.Working]: "Working",
-  [AgentState.Starting]: "Starting",
-  [AgentState.Ready]: "Idle",
-  [AgentState.Exited]: "Exited"
+  [AgentState.WAITING]: "Needs you",
+  [AgentState.WORKING]: "Working",
+  [AgentState.STARTING]: "Starting",
+  [AgentState.READY]: "Idle",
+  [AgentState.EXITED]: "Exited"
 };
 
 const STATE_OF_STATUS: Record<SessionStatus, AgentState> = {
-  [SessionStatus.enum.starting]: AgentState.Starting,
-  [SessionStatus.enum.working]: AgentState.Working,
-  [SessionStatus.enum.ready]: AgentState.Ready,
-  [SessionStatus.enum.exited]: AgentState.Exited
+  [SessionStatus.enum.starting]: AgentState.STARTING,
+  [SessionStatus.enum.working]: AgentState.WORKING,
+  [SessionStatus.enum.ready]: AgentState.READY,
+  [SessionStatus.enum.exited]: AgentState.EXITED
 };
 
 /** An agent waiting on the user's choice outranks whatever its status says. */
 export function agentState(agent: Pick<BoardAgent, "status" | "isAwaitingChoice">) {
   if (agent.isAwaitingChoice) {
-    return AgentState.Waiting;
+    return AgentState.WAITING;
   }
 
   return STATE_OF_STATUS[agent.status];
@@ -254,7 +254,7 @@ function stateRank(state: AgentState) {
 
 /** A window's most urgent agent state - Exited for a window with none. */
 function windowState(window: Pick<BoardWindow, "agents">) {
-  let urgent: AgentState = AgentState.Exited;
+  let urgent: AgentState = AgentState.EXITED;
   for (const agent of window.agents) {
     const state = agentState(agent);
     if (stateRank(state) < stateRank(urgent)) {

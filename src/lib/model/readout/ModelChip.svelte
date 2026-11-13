@@ -26,7 +26,7 @@
   <button
     style:anchor-name={modelMenuAnchor({
       sessionId: session.id,
-      opener: ModelMenuOpener.Pane
+      opener: ModelMenuOpener.PANE
     })}
     class="model-chip"
     aria-label={`${look.label} - change model or effort`}
@@ -34,7 +34,7 @@
     data-tooltip={`${look.label} · click to change`}
     onclick={async () => await openModelMenu({
       session,
-      opener: ModelMenuOpener.Pane
+      opener: ModelMenuOpener.PANE
     })}
     popovertarget={MODEL_MENU_ID}
   >

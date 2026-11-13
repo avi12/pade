@@ -29,7 +29,7 @@ const NO_MOUSE_TRACKING = "none";
 //  • OpenCode - reacts to ANY paste event by consulting the OS clipboard (a
 //    lingering image would attach alongside the newline); a raw LF is its own
 //    ctrl+j insert-newline binding, so the newline lands without a paste.
-const NEWLINE_VIA_RAW_LF_AGENTS = new Set<string>([AgentId.Claude, AgentId.Opencode]);
+const NEWLINE_VIA_RAW_LF_AGENTS = new Set<string>([AgentId.CLAUDE, AgentId.OPENCODE]);
 
 type PtyWrite = (data: string) => Promise<void>;
 
@@ -66,7 +66,7 @@ export function attachKeyOverrides({
     try {
       // An image on the clipboard beats text: the backend saves it as a PNG
       // and the pasted *path* is what agent composers attach.
-      const imagePath = await sendMessage(Command.clipboardImageSave);
+      const imagePath = await sendMessage(Command.CLIPBOARD_IMAGE_SAVE);
       if (imagePath) {
         terminal.paste(pathsAsPromptText([imagePath]));
         return;
@@ -113,7 +113,7 @@ export function attachKeyOverrides({
   // The Ctrl-only chords (no Shift, Alt or Meta), by lowercased key.
   const plainCtrlActions: Record<string, () => unknown> = {
     [PASTE_LETTER]: pasteClipboard,
-    [Key.Backspace.toLowerCase()]: () => write(ERASE_WORD)
+    [Key.BACKSPACE.toLowerCase()]: () => write(ERASE_WORD)
   };
 
   // Ctrl+C acts only with a selection, so without one it falls through to

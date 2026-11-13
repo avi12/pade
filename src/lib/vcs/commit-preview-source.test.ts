@@ -37,9 +37,9 @@ describe("commit preview source", () => {
       };
     }
 
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.vcsCommitImage, file("art/logo.png"));
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.vcsCommitVideo, file("clips/demo.mp4"));
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.vcsCommitText, file("README.md"));
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.VCS_COMMIT_IMAGE, file("art/logo.png"));
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.VCS_COMMIT_VIDEO, file("clips/demo.mp4"));
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.VCS_COMMIT_TEXT, file("README.md"));
   });
 
   it("parses the commit's diff into lines", async () => {
@@ -47,7 +47,7 @@ describe("commit preview source", () => {
 
     const lines = await commitPreviewSource(COMMIT).diff("a.ts");
 
-    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.vcsCommitDiff, {
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.VCS_COMMIT_DIFF, {
       ...COMMIT,
       path: "a.ts"
     });

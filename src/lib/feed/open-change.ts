@@ -29,12 +29,12 @@ export async function openChangedFile({
   editor: Ide | undefined;
 }) {
   if (isBinaryPath(path)) {
-    await sendMessage(Command.revealInExplorer, { path });
+    await sendMessage(Command.REVEAL_IN_EXPLORER, { path });
     return;
   }
 
   if (editor) {
-    await sendMessage(Command.ideOpenFile, {
+    await sendMessage(Command.IDE_OPEN_FILE, {
       command: editor.command,
       project,
       file: path,

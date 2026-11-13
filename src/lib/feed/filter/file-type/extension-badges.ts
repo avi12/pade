@@ -12,59 +12,59 @@ import type { FileTypeBadge } from "@/lib/feed/filter/file-type/badge-model";
 
 const XML_BADGE: FileTypeBadge = {
   label: "XML",
-  tone: FileTone.Xml,
+  tone: FileTone.XML,
   icon: "xml"
 };
 const SQL_BADGE: FileTypeBadge = {
   label: "SQL",
-  tone: FileTone.Sql,
+  tone: FileTone.SQL,
   icon: "sql"
 };
 const BATCH_BADGE: FileTypeBadge = {
   label: "BAT",
-  tone: FileTone.Batch,
+  tone: FileTone.BATCH,
   icon: "batch"
 };
 const GRAPHQL_BADGE: FileTypeBadge = {
   label: "GQL",
-  tone: FileTone.GraphQL,
+  tone: FileTone.GRAPH_QL,
   icon: "graphql"
 };
 const IMAGE_BADGE: FileTypeBadge = {
   label: "IMG",
-  tone: FileTone.Image,
+  tone: FileTone.IMAGE,
   icon: "image"
 };
 const HTML_BADGE: FileTypeBadge = {
   label: "HTML",
-  tone: FileTone.Markup,
+  tone: FileTone.MARKUP,
   icon: "html"
 };
 const STYLE_BADGE: FileTypeBadge = {
   label: "CSS",
-  tone: FileTone.Style,
+  tone: FileTone.STYLE,
   icon: "css"
 };
 const JSON_BADGE: FileTypeBadge = {
   label: "JSON",
-  tone: FileTone.Data,
+  tone: FileTone.DATA,
   icon: "json"
 };
 const SHELL_BADGE: FileTypeBadge = {
   label: "SH",
-  tone: FileTone.Shell,
+  tone: FileTone.SHELL,
   icon: "shell"
 };
 // GPU shader sources: GLSL and its per-stage extensions, plus HLSL, WGSL and Metal.
 const SHADER_BADGE: FileTypeBadge = {
   label: "GLSL",
-  tone: FileTone.Shader,
+  tone: FileTone.SHADER,
   icon: "shader"
 };
 // Windows linker inputs: module-definition exports and symbol lists.
 const LINKER_BADGE: FileTypeBadge = {
   label: "LINK",
-  tone: FileTone.Windows,
+  tone: FileTone.WINDOWS,
   icon: "link"
 };
 
@@ -76,182 +76,182 @@ const LINKER_BADGE: FileTypeBadge = {
 export const EXTENSION_BADGES: Record<string, FileTypeBadge> = {
   ts: {
     label: "TS",
-    tone: FileTone.TypeScript,
+    tone: FileTone.TYPE_SCRIPT,
     icon: "typescript"
   },
   tsx: {
     label: "TSX",
-    tone: FileTone.React,
+    tone: FileTone.REACT,
     icon: "react"
   },
   mts: {
     label: "TS",
-    tone: FileTone.TypeScript,
+    tone: FileTone.TYPE_SCRIPT,
     icon: "typescript"
   },
   cts: {
     label: "TS",
-    tone: FileTone.TypeScript,
+    tone: FileTone.TYPE_SCRIPT,
     icon: "typescript"
   },
   js: {
     label: "JS",
-    tone: FileTone.JavaScript,
+    tone: FileTone.JAVA_SCRIPT,
     icon: "javascript"
   },
   jsx: {
     label: "JSX",
-    tone: FileTone.React,
+    tone: FileTone.REACT,
     icon: "react"
   },
   mjs: {
     label: "JS",
-    tone: FileTone.JavaScript,
+    tone: FileTone.JAVA_SCRIPT,
     icon: "javascript"
   },
   cjs: {
     label: "JS",
-    tone: FileTone.JavaScript,
+    tone: FileTone.JAVA_SCRIPT,
     icon: "javascript"
   },
   svelte: {
     label: "SV",
-    tone: FileTone.Svelte,
+    tone: FileTone.SVELTE,
     icon: "svelte"
   },
   vue: {
     label: "VUE",
-    tone: FileTone.Vue,
+    tone: FileTone.VUE,
     icon: "vue"
   },
   astro: {
     label: "ASTRO",
-    tone: FileTone.Astro,
+    tone: FileTone.ASTRO,
     icon: "astro"
   },
   erb: {
     label: "ERB",
-    tone: FileTone.Rails,
+    tone: FileTone.RAILS,
     icon: "rails"
   },
   rs: {
     label: "RS",
-    tone: FileTone.Rust,
+    tone: FileTone.RUST,
     icon: "rust"
   },
   css: {
     label: "CSS",
-    tone: FileTone.Style,
+    tone: FileTone.STYLE,
     icon: "css"
   },
   scss: {
     label: "SCSS",
-    tone: FileTone.Style,
+    tone: FileTone.STYLE,
     icon: "css"
   },
   sass: {
     label: "SASS",
-    tone: FileTone.Style,
+    tone: FileTone.STYLE,
     icon: "css"
   },
   html: {
     label: "HTML",
-    tone: FileTone.Markup,
+    tone: FileTone.MARKUP,
     icon: "html"
   },
   svg: {
     label: "SVG",
-    tone: FileTone.Markup,
+    tone: FileTone.MARKUP,
     icon: "image"
   },
   py: {
     label: "PY",
-    tone: FileTone.Python,
+    tone: FileTone.PYTHON,
     icon: "python"
   },
   go: {
     label: "GO",
-    tone: FileTone.Go,
+    tone: FileTone.GO,
     icon: "go"
   },
   php: {
     label: "PHP",
-    tone: FileTone.Php,
+    tone: FileTone.PHP,
     icon: "php"
   },
   java: {
     label: "JAVA",
-    tone: FileTone.Java,
+    tone: FileTone.JAVA,
     icon: "java"
   },
   cs: {
     label: "C#",
-    tone: FileTone.CSharp,
+    tone: FileTone.C_SHARP,
     icon: "csharp"
   },
   rb: {
     label: "RB",
-    tone: FileTone.Ruby,
+    tone: FileTone.RUBY,
     icon: "ruby"
   },
   rake: {
     label: "RAKE",
-    tone: FileTone.Ruby,
+    tone: FileTone.RUBY,
     icon: "ruby"
   },
   kt: {
     label: "KT",
-    tone: FileTone.Kotlin,
+    tone: FileTone.KOTLIN,
     icon: "kotlin"
   },
   kts: {
     label: "KTS",
-    tone: FileTone.Kotlin,
+    tone: FileTone.KOTLIN,
     icon: "kotlin"
   },
   swift: {
     label: "SWIFT",
-    tone: FileTone.Swift,
+    tone: FileTone.SWIFT,
     icon: "swift"
   },
   dart: {
     label: "DART",
-    tone: FileTone.Dart,
+    tone: FileTone.DART,
     icon: "dart"
   },
   lua: {
     label: "LUA",
-    tone: FileTone.Lua,
+    tone: FileTone.LUA,
     icon: "lua"
   },
   scala: {
     label: "SCALA",
-    tone: FileTone.Scala,
+    tone: FileTone.SCALA,
     icon: "scala"
   },
   sc: {
     label: "SC",
-    tone: FileTone.Scala,
+    tone: FileTone.SCALA,
     icon: "scala"
   },
   ex: {
     label: "EX",
-    tone: FileTone.Elixir,
+    tone: FileTone.ELIXIR,
     icon: "elixir"
   },
   exs: {
     label: "EXS",
-    tone: FileTone.Elixir,
+    tone: FileTone.ELIXIR,
     icon: "elixir"
   },
   hs: {
     label: "HS",
-    tone: FileTone.Haskell,
+    tone: FileTone.HASKELL,
     icon: "haskell"
   },
   lhs: {
     label: "LHS",
-    tone: FileTone.Haskell,
+    tone: FileTone.HASKELL,
     icon: "haskell"
   },
   r: {
@@ -266,58 +266,58 @@ export const EXTENSION_BADGES: Record<string, FileTypeBadge> = {
   },
   zig: {
     label: "ZIG",
-    tone: FileTone.Zig,
+    tone: FileTone.ZIG,
     icon: "zig"
   },
   pl: {
     label: "PL",
-    tone: FileTone.Perl,
+    tone: FileTone.PERL,
     icon: "perl"
   },
   pm: {
     label: "PM",
-    tone: FileTone.Perl,
+    tone: FileTone.PERL,
     icon: "perl"
   },
   psm1: {
     label: "PS",
-    tone: FileTone.PowerShell,
+    tone: FileTone.POWER_SHELL,
     icon: "powershell"
   },
   psd1: {
     label: "PS",
-    tone: FileTone.PowerShell,
+    tone: FileTone.POWER_SHELL,
     icon: "powershell"
   },
   cpp: {
     label: "C++",
-    tone: FileTone.Cpp,
+    tone: FileTone.CPP,
     icon: "cplusplus"
   },
   cc: {
     label: "CC",
-    tone: FileTone.Cpp,
+    tone: FileTone.CPP,
     icon: "cplusplus"
   },
   cxx: {
     label: "CXX",
-    tone: FileTone.Cpp,
+    tone: FileTone.CPP,
     icon: "cplusplus"
   },
   // C++ headers take the C++ mark; the plain `.h` header below stays with C.
   hpp: {
     label: "HPP",
-    tone: FileTone.Cpp,
+    tone: FileTone.CPP,
     icon: "cplusplus"
   },
   hh: {
     label: "HH",
-    tone: FileTone.Cpp,
+    tone: FileTone.CPP,
     icon: "cplusplus"
   },
   hxx: {
     label: "HXX",
-    tone: FileTone.Cpp,
+    tone: FileTone.CPP,
     icon: "cplusplus"
   },
   c: {
@@ -332,87 +332,87 @@ export const EXTENSION_BADGES: Record<string, FileTypeBadge> = {
   },
   json: {
     label: "JSON",
-    tone: FileTone.Data,
+    tone: FileTone.DATA,
     icon: "json"
   },
   jsonc: {
     label: "JSON",
-    tone: FileTone.Data,
+    tone: FileTone.DATA,
     icon: "json"
   },
   toml: {
     label: "TOML",
-    tone: FileTone.Data,
+    tone: FileTone.DATA,
     icon: "toml"
   },
   yaml: {
     label: "YAML",
-    tone: FileTone.Data,
+    tone: FileTone.DATA,
     icon: "yaml"
   },
   yml: {
     label: "YAML",
-    tone: FileTone.Data,
+    tone: FileTone.DATA,
     icon: "yaml"
   },
   md: {
     label: "MD",
-    tone: FileTone.Doc,
+    tone: FileTone.DOC,
     icon: "markdown"
   },
   mdx: {
     label: "MDX",
-    tone: FileTone.Doc,
+    tone: FileTone.DOC,
     icon: "markdown"
   },
   txt: {
     label: "TXT",
-    tone: FileTone.Doc,
+    tone: FileTone.DOC,
     icon: "text"
   },
   log: {
     label: "LOG",
-    tone: FileTone.Doc,
+    tone: FileTone.DOC,
     icon: "text"
   },
   sh: {
     label: "SH",
-    tone: FileTone.Shell,
+    tone: FileTone.SHELL,
     icon: "shell"
   },
   bash: {
     label: "SH",
-    tone: FileTone.Shell,
+    tone: FileTone.SHELL,
     icon: "shell"
   },
   ps1: {
     label: "PS1",
-    tone: FileTone.PowerShell,
+    tone: FileTone.POWER_SHELL,
     icon: "powershell"
   },
   png: {
     label: "IMG",
-    tone: FileTone.Image,
+    tone: FileTone.IMAGE,
     icon: "image"
   },
   jpg: {
     label: "IMG",
-    tone: FileTone.Image,
+    tone: FileTone.IMAGE,
     icon: "image"
   },
   jpeg: {
     label: "IMG",
-    tone: FileTone.Image,
+    tone: FileTone.IMAGE,
     icon: "image"
   },
   gif: {
     label: "IMG",
-    tone: FileTone.Image,
+    tone: FileTone.IMAGE,
     icon: "image"
   },
   webp: {
     label: "IMG",
-    tone: FileTone.Image,
+    tone: FileTone.IMAGE,
     icon: "image"
   },
   avif: IMAGE_BADGE,
@@ -438,12 +438,12 @@ export const EXTENSION_BADGES: Record<string, FileTypeBadge> = {
   properties: CONFIG_BADGE,
   xaml: {
     label: "XAML",
-    tone: FileTone.Xml,
+    tone: FileTone.XML,
     icon: "xml"
   },
   axaml: {
     label: "XAML",
-    tone: FileTone.Xml,
+    tone: FileTone.XML,
     icon: "xml"
   },
   resx: XML_BADGE,
@@ -464,12 +464,12 @@ export const EXTENSION_BADGES: Record<string, FileTypeBadge> = {
   mysql: SQL_BADGE,
   csv: {
     label: "CSV",
-    tone: FileTone.Csv,
+    tone: FileTone.CSV,
     icon: "csv"
   },
   tsv: {
     label: "TSV",
-    tone: FileTone.Csv,
+    tone: FileTone.CSV,
     icon: "csv"
   },
   bat: BATCH_BADGE,
@@ -479,7 +479,7 @@ export const EXTENSION_BADGES: Record<string, FileTypeBadge> = {
   graphqls: GRAPHQL_BADGE,
   prisma: {
     label: "PRSM",
-    tone: FileTone.Prisma,
+    tone: FileTone.PRISMA,
     icon: "prisma"
   },
   gradle: GRADLE_BADGE,
@@ -514,7 +514,7 @@ export const EXTENSION_BADGES: Record<string, FileTypeBadge> = {
   sym: LINKER_BADGE,
   rc: {
     label: "RC",
-    tone: FileTone.Windows,
+    tone: FileTone.WINDOWS,
     icon: "window"
   }
 };

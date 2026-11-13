@@ -18,7 +18,7 @@ export function createSessionReadings(session: () => AgentSession) {
     }
 
     try {
-      const running = await sendMessage(Command.agentRunningModel, {
+      const running = await sendMessage(Command.AGENT_RUNNING_MODEL, {
         command: agent.command,
         conversationId
       });
@@ -56,7 +56,7 @@ export function createSessionReadings(session: () => AgentSession) {
     readContextFromSessionLog: coalesced(async () => {
       const { id, agent, conversationId } = session();
       try {
-        const context = await sendMessage(Command.agentSessionContext, {
+        const context = await sendMessage(Command.AGENT_SESSION_CONTEXT, {
           command: agent.command,
           conversationId
         });
@@ -77,7 +77,7 @@ export function createSessionReadings(session: () => AgentSession) {
     /** Re-read the moment the backend says this session's report - or a settings
      *  file every session reads - changed. */
     listenForModelChanges() {
-      return onMessage(EventType.agentModelChanged, async ({ data: { sessionId } }) => {
+      return onMessage(EventType.AGENT_MODEL_CHANGED, async ({ data: { sessionId } }) => {
         const isAboutThisSession = sessionId === null || sessionId === session().conversationId;
         if (isAboutThisSession) {
           await readRunningModel();

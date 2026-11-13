@@ -33,7 +33,7 @@ function relayFor(agentId: string) {
 
 describe("createColorSchemeRelay", () => {
   it("reports once when the handshake arrives split across two chunks", () => {
-    const { relay, report } = relayFor(AgentId.Codex);
+    const { relay, report } = relayFor(AgentId.CODEX);
     relay.observe("output\x1b[?20");
     expect(report).not.toHaveBeenCalled();
 
@@ -43,7 +43,7 @@ describe("createColorSchemeRelay", () => {
   });
 
   it("relays a palette change only once the agent subscribed", () => {
-    const { relay, report } = relayFor(AgentId.Codex);
+    const { relay, report } = relayFor(AgentId.CODEX);
     relay.relayChange();
     expect(report).not.toHaveBeenCalled();
 
@@ -53,14 +53,14 @@ describe("createColorSchemeRelay", () => {
   });
 
   it("reports to a known subscriber without a handshake, exactly once", async () => {
-    const { relay, report } = relayFor(AgentId.Claude);
+    const { relay, report } = relayFor(AgentId.CLAUDE);
     await relay.reportToSubscribedAgent();
     await relay.reportToSubscribedAgent();
     expect(report).toHaveBeenCalledTimes(1);
   });
 
   it("leaves an agent that never subscribes alone", async () => {
-    const { relay, report } = relayFor(AgentId.Codex);
+    const { relay, report } = relayFor(AgentId.CODEX);
     await relay.reportToSubscribedAgent();
     expect(report).not.toHaveBeenCalled();
   });

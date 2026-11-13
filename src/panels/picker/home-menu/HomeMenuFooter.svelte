@@ -43,7 +43,7 @@
     createIn?: string;
   } = $props();
 
-  let selectedTab = $state<HomeMenuTab>(HomeMenuTab.New);
+  let selectedTab = $state<HomeMenuTab>(HomeMenuTab.NEW);
   // Which way the last switch moved, so the panels slide the same way.
   let slideDirection = $state(0);
 
@@ -67,7 +67,7 @@
 
     const listening = new AbortController();
     elMenu.addEventListener("toggle", e => {
-      if (e.newState === ToggleState.Closed) {
+      if (e.newState === ToggleState.CLOSED) {
         slideDirection = 0;
       }
     }, { signal: listening.signal });
@@ -118,13 +118,13 @@
   </div>
 
   <div style:--tab-slide-direction={slideDirection} class="panels" {@attach forgetSlideOnClose}>
-    <HomeMenuTabPanel isForm={false} isSelected={selectedTab === HomeMenuTab.New} {menuId} tab={HomeMenuTab.New}>
+    <HomeMenuTabPanel isForm={false} isSelected={selectedTab === HomeMenuTab.NEW} {menuId} tab={HomeMenuTab.NEW}>
       <HomeNewSection {isTempPicked} {menuId} {onnew} {ontemp} {roots} />
     </HomeMenuTabPanel>
-    <HomeMenuTabPanel isForm isSelected={selectedTab === HomeMenuTab.Open} {menuId} tab={HomeMenuTab.Open}>
-      <OpenLocalPanel isActive={selectedTab === HomeMenuTab.Open} onopen={pickFolder} />
+    <HomeMenuTabPanel isForm isSelected={selectedTab === HomeMenuTab.OPEN} {menuId} tab={HomeMenuTab.OPEN}>
+      <OpenLocalPanel isActive={selectedTab === HomeMenuTab.OPEN} onopen={pickFolder} />
     </HomeMenuTabPanel>
-    <HomeMenuTabPanel isForm isSelected={selectedTab === HomeMenuTab.Clone} {menuId} tab={HomeMenuTab.Clone}>
+    <HomeMenuTabPanel isForm isSelected={selectedTab === HomeMenuTab.CLONE} {menuId} tab={HomeMenuTab.CLONE}>
       <ClonePanel
         onnewroot={() => {
           hideMenu();

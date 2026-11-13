@@ -38,7 +38,7 @@
         <UsageAgentPill
           {group}
           {justReset}
-          resetOffers={group.id === AgentId.Claude ? resetOffers : []}
+          resetOffers={group.id === AgentId.CLAUDE ? resetOffers : []}
         />
       {/each}
       <UsageOverflowChip {groups} />

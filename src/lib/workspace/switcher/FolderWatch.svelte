@@ -24,7 +24,7 @@
 
   async function watchFolders(dirs: string[]) {
     try {
-      await sendMessage(Command.watchDirs, { dirs });
+      await sendMessage(Command.WATCH_DIRS, { dirs });
     } catch (error) {
       console.warn("pade: could not watch the switcher's folders", error);
     }
@@ -48,7 +48,7 @@
   });
 
   onMount(async () => {
-    unlistenDirectories = await onMessage(EventType.directoriesChanged, () => {
+    unlistenDirectories = await onMessage(EventType.DIRECTORIES_CHANGED, () => {
       clearTimeout(settleTimer);
       settleTimer = setTimeout(onvanish, SETTLE_MILLISECONDS);
     });

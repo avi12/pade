@@ -3,16 +3,16 @@ import type { IconName } from "@/lib/Icon.svelte";
 // Mirrors the project-kind ids in the Rust kind registry (src-tauri/src/ide.rs) -
 // the closed set the logo map keys off, so no bare kind string literals leak out.
 export const ProjectKind = {
-  Web: "web",
-  Python: "python",
-  Java: "java",
-  Go: "go",
-  Rust: "rust",
-  Android: "android",
-  Cpp: "cpp",
-  DotNet: "dotnet",
-  Php: "php",
-  Ruby: "ruby"
+  WEB: "web",
+  PYTHON: "python",
+  JAVA: "java",
+  GO: "go",
+  RUST: "rust",
+  ANDROID: "android",
+  CPP: "cpp",
+  DOT_NET: "dotnet",
+  PHP: "php",
+  RUBY: "ruby"
 } as const;
 type ProjectKind = (typeof ProjectKind)[keyof typeof ProjectKind];
 
@@ -20,16 +20,16 @@ type ProjectKind = (typeof ProjectKind)[keyof typeof ProjectKind];
 // its icon. Umbrella kinds take their most recognisable member's mark: web → the
 // JavaScript badge, .NET → the C# badge.
 const PROJECT_KIND_ICONS: Record<ProjectKind, IconName> = {
-  [ProjectKind.Web]: "javascript",
-  [ProjectKind.Python]: "python",
-  [ProjectKind.Java]: "java",
-  [ProjectKind.Go]: "go",
-  [ProjectKind.Rust]: "rust",
-  [ProjectKind.Android]: "android",
-  [ProjectKind.Cpp]: "cplusplus",
-  [ProjectKind.DotNet]: "csharp",
-  [ProjectKind.Php]: "php",
-  [ProjectKind.Ruby]: "ruby"
+  [ProjectKind.WEB]: "javascript",
+  [ProjectKind.PYTHON]: "python",
+  [ProjectKind.JAVA]: "java",
+  [ProjectKind.GO]: "go",
+  [ProjectKind.RUST]: "rust",
+  [ProjectKind.ANDROID]: "android",
+  [ProjectKind.CPP]: "cplusplus",
+  [ProjectKind.DOT_NET]: "csharp",
+  [ProjectKind.PHP]: "php",
+  [ProjectKind.RUBY]: "ruby"
 };
 
 const FALLBACK_ICON: IconName = "code";

@@ -37,7 +37,7 @@ export async function ensureChoiceAttention() {
   }
 
   isListening = true;
-  await onMessage(EventType.ptyData, ({ data: { id, data } }) => {
+  await onMessage(EventType.PTY_DATA, ({ data: { id, data } }) => {
     if (awaiting.get(id) || !detectChoicePrompt(data)) {
       return;
     }

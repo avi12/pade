@@ -52,7 +52,7 @@ describe("terminalFlushMode", () => {
         isReadingScrollback: false,
         isScrolling: false
       })
-    ).toBe(TerminalFlushMode.AnimationFrame);
+    ).toBe(TerminalFlushMode.ANIMATION_FRAME);
   });
 
   it("bounds output paints in an unfocused window", () => {
@@ -63,7 +63,7 @@ describe("terminalFlushMode", () => {
         isReadingScrollback: false,
         isScrolling: false
       })
-    ).toBe(TerminalFlushMode.Background);
+    ).toBe(TerminalFlushMode.BACKGROUND);
   });
 
   it("bounds output paints for a hidden tab", () => {
@@ -74,7 +74,7 @@ describe("terminalFlushMode", () => {
         isReadingScrollback: false,
         isScrolling: false
       })
-    ).toBe(TerminalFlushMode.Background);
+    ).toBe(TerminalFlushMode.BACKGROUND);
   });
 
   it("bounds output paints while the user reads scrollback", () => {
@@ -85,7 +85,7 @@ describe("terminalFlushMode", () => {
         isReadingScrollback: true,
         isScrolling: false
       })
-    ).toBe(TerminalFlushMode.Background);
+    ).toBe(TerminalFlushMode.BACKGROUND);
   });
 
   it("defers output paints during an active wheel gesture", () => {
@@ -96,6 +96,6 @@ describe("terminalFlushMode", () => {
         isReadingScrollback: true,
         isScrolling: true
       })
-    ).toBe(TerminalFlushMode.Deferred);
+    ).toBe(TerminalFlushMode.DEFERRED);
   });
 });

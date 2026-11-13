@@ -65,7 +65,7 @@ describe("handoff prompts", () => {
   it("explains that an MCP handoff will reload project configuration", () => {
     const prompt = handoffPrompt({
       doc: documentName,
-      reason: HandoffReason.ConfigurationChange
+      reason: HandoffReason.CONFIGURATION_CHANGE
     });
     expect(prompt).toContain("MCP server configuration changed");
     expect(prompt).toContain(`handoff to ${documentName}`);
@@ -76,7 +76,7 @@ describe("handoff prompts", () => {
     // a body carrying its own CR or paste marker would defeat that delivery.
     const body = handoffRequestBody({
       doc: documentName,
-      reason: HandoffReason.ContextLimit
+      reason: HandoffReason.CONTEXT_LIMIT
     });
     expect(body).not.toContain(PROMPT_SUBMIT);
     expect(body).not.toContain(BRACKETED_PASTE_END);
@@ -86,7 +86,7 @@ describe("handoff prompts", () => {
   it("explains a save handoff is for restarting in the saved location", () => {
     const body = handoffRequestBody({
       doc: documentName,
-      reason: HandoffReason.Save
+      reason: HandoffReason.SAVE
     });
     expect(body).toContain("saved as a permanent project");
     expect(body).toContain(`handoff to ${documentName}`);

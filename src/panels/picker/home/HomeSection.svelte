@@ -129,8 +129,8 @@
   // name field (the root was picked in the menu). Collisions surface from the
   // submit's own authoritative probe (tagged with the name + root it
   // described, so typing on never shows a stale verdict).
-  let choice = $state<ProjectChoice>(ProjectChoice.Existing);
-  const isNewProject = $derived(choice === ProjectChoice.New);
+  let choice = $state<ProjectChoice>(ProjectChoice.EXISTING);
+  const isNewProject = $derived(choice === ProjectChoice.NEW);
   let createName = $state("");
   const trimmedName = $derived(createName.trim());
   let lastProbe = $state<(CreateTarget & {
@@ -184,7 +184,7 @@
   // opened or cloned in its foot, or a suggestion under the new name.
   function pickProject(path: string) {
     selectedPath = path;
-    choice = ProjectChoice.Existing;
+    choice = ProjectChoice.EXISTING;
   }
 </script>
 
@@ -250,14 +250,14 @@
                 createIn = root;
               }
 
-              choice = ProjectChoice.New;
+              choice = ProjectChoice.NEW;
               nameFocusRequest += 1;
             }}
             {onnewroot}
             onpick={pickProject}
             ontemp={() => {
               selectedPath = "";
-              choice = ProjectChoice.Temp;
+              choice = ProjectChoice.TEMP;
             }}
             {roots}
             {selectedPath}

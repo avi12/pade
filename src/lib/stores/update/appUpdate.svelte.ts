@@ -29,18 +29,18 @@ export async function watchAppUpdate() {
   }
 
   isWatching = true;
-  await onMessage(EventType.updateAvailable, ({ data }) => {
+  await onMessage(EventType.UPDATE_AVAILABLE, ({ data }) => {
     status = data;
     showToast(INSTALL_MSIX_NOTICE);
   });
-  status = await sendMessage(Command.updateStatus);
+  status = await sendMessage(Command.UPDATE_STATUS);
 }
 
 /** Look for a newer release now; a failure is shown, not thrown. */
 export async function checkForUpdate() {
   isChecking = true;
   try {
-    status = await sendMessage(Command.updateCheck);
+    status = await sendMessage(Command.UPDATE_CHECK);
   } catch (error) {
     showToast(
       `Could not check for updates - ${errorMessage({

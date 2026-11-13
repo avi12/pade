@@ -92,7 +92,7 @@ export async function sendPacingReport({
       ),
       observed: recorder.drain(at)
     };
-    await sendMessage(Command.pacingReport, report);
+    await sendMessage(Command.PACING_REPORT, report);
   } catch (error) {
     console.warn("pade: could not send the pacing report, dropping it", error);
   }

@@ -24,20 +24,20 @@ export function scanForHandoffs(context: HandoffContext) {
       isHandingOffHere: state.handingOff.has(session.id),
       thresholdPercentage: host.thresholdPercentage()
     });
-    if (verdict === ScanVerdict.HoldBack) {
+    if (verdict === ScanVerdict.HOLD_BACK) {
       heldBackNote ||= waitingForWorkNote({
         session,
-        reason: HandoffReason.ContextLimit
+        reason: HandoffReason.CONTEXT_LIMIT
       });
       continue;
     }
 
-    if (verdict === ScanVerdict.HandOff || verdict === ScanVerdict.HandOffMidTurn) {
+    if (verdict === ScanVerdict.HAND_OFF || verdict === ScanVerdict.HAND_OFF_MID_TURN) {
       state.markHandingOff(session.id);
       context.runHandoff({
         session,
-        reason: HandoffReason.ContextLimit,
-        isMidTurn: verdict === ScanVerdict.HandOffMidTurn
+        reason: HandoffReason.CONTEXT_LIMIT,
+        isMidTurn: verdict === ScanVerdict.HAND_OFF_MID_TURN
       });
     }
   }
@@ -58,7 +58,7 @@ export function forceHandoff({ context, session }: { context: HandoffContext; se
   context.state.markHandingOff(session.id);
   context.runHandoff({
     session,
-    reason: HandoffReason.ContextLimit
+    reason: HandoffReason.CONTEXT_LIMIT
   });
 }
 
@@ -79,6 +79,6 @@ export async function restartForConfiguration({
   context.state.markHandingOff(session.id);
   await context.runHandoff({
     session,
-    reason: HandoffReason.ConfigurationChange
+    reason: HandoffReason.CONFIGURATION_CHANGE
   });
 }

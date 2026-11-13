@@ -20,7 +20,7 @@
   /** Lists the agent's files, or null when the agent changed mid-request - its
    *  answer is superseded and must not land. */
   async function listFiles(requestedAgent: string) {
-    const listed = await sendMessage(Command.configList, { agent: requestedAgent });
+    const listed = await sendMessage(Command.CONFIG_LIST, { agent: requestedAgent });
     if (requestedAgent !== agent) {
       return null;
     }
@@ -35,7 +35,7 @@
     }
 
     return await settledValue({
-      promise: sendMessage(Command.configRead, { rel: file.rel }),
+      promise: sendMessage(Command.CONFIG_READ, { rel: file.rel }),
       fallback: ""
     });
   }
@@ -72,7 +72,7 @@
   // file can appear or vanish - and re-read the one on show.
   let unlistenFileChanges: UnlistenFn | undefined;
   onMount(async () => {
-    unlistenFileChanges = await onMessage(EventType.feedChange, async ({ data }) => {
+    unlistenFileChanges = await onMessage(EventType.FEED_CHANGE, async ({ data }) => {
       if (!isListedConfigFile({
         changedPath: data.path,
         files

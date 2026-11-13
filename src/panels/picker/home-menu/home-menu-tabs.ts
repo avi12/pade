@@ -3,9 +3,9 @@ import type { IconName } from "@/lib/Icon.svelte";
 /** The ways in at the foot of the composer's project menu: start a new
  *  project, open a folder already on disk, or clone a repository. */
 export const HomeMenuTab = {
-  New: "new",
-  Open: "open",
-  Clone: "clone"
+  NEW: "new",
+  OPEN: "open",
+  CLONE: "clone"
 } as const;
 export type HomeMenuTab = (typeof HomeMenuTab)[keyof typeof HomeMenuTab];
 
@@ -13,8 +13,8 @@ export type HomeMenuTab = (typeof HomeMenuTab)[keyof typeof HomeMenuTab];
  *  project rows, and the New tab's items, which Down from the New tab
  *  steps into. */
 export const HomeMenuList = {
-  Projects: "projects",
-  New: "new"
+  PROJECTS: "projects",
+  NEW: "new"
 } as const;
 
 /** The tabs in reading order - the order the arrow keys walk and the panels
@@ -26,18 +26,18 @@ export const HOME_MENU_TABS: readonly {
   entersList?: (typeof HomeMenuList)[keyof typeof HomeMenuList];
 }[] = [
   {
-    id: HomeMenuTab.New,
+    id: HomeMenuTab.NEW,
     label: "New",
     icon: "folderPlus",
-    entersList: HomeMenuList.New
+    entersList: HomeMenuList.NEW
   },
   {
-    id: HomeMenuTab.Open,
+    id: HomeMenuTab.OPEN,
     label: "Open",
     icon: "folderOpen"
   },
   {
-    id: HomeMenuTab.Clone,
+    id: HomeMenuTab.CLONE,
     label: "Clone",
     icon: "git"
   }

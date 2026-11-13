@@ -56,7 +56,7 @@ export async function cloneRepository({
   }
 
   try {
-    const path = await sendMessage(Command.vcsClone, {
+    const path = await sendMessage(Command.VCS_CLONE, {
       url,
       root,
       name,

@@ -21,7 +21,7 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
           name: string;
         }
       ) => {
-        if (command === messaging.Command.vcsClone) {
+        if (command === messaging.Command.VCS_CLONE) {
           return await mocks.clone(data);
         }
 

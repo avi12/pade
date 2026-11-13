@@ -60,7 +60,7 @@ describe("frontProject", () => {
     });
     await namer.start();
     for (const name of ["a.ts", "b.ts", "c.ts"]) {
-      mocks.handlers.get(EventType.feedChange)?.({
+      mocks.handlers.get(EventType.FEED_CHANGE)?.({
         data: {
           id: name,
           root: TEMP,

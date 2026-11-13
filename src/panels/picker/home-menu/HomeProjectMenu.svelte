@@ -38,7 +38,7 @@
   } = $props();
 
   const hasOptions = $derived(groups.length > 0);
-  const pickedPath = $derived(choice === ProjectChoice.Existing ? selectedPath : null);
+  const pickedPath = $derived(choice === ProjectChoice.EXISTING ? selectedPath : null);
 </script>
 
 <!-- Keyboard: the project rows are one Tab stop walked by Up/Down, then the
@@ -72,7 +72,7 @@
   </ul>
   <HomeMenuFooter
     isSeparated={hasOptions}
-    isTempPicked={choice === ProjectChoice.Temp}
+    isTempPicked={choice === ProjectChoice.TEMP}
     {menuId}
     {onnew}
     {onnewroot}

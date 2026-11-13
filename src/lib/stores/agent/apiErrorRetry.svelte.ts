@@ -146,7 +146,7 @@ function isPastRetrying(status: SessionStatus) {
  *  next tick nudges again. */
 async function nudge(id: string) {
   try {
-    await sendMessage(Command.ptyWrite, {
+    await sendMessage(Command.PTY_WRITE, {
       id,
       data: CONTINUE_PROMPT
     });

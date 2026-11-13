@@ -122,15 +122,15 @@ function languageFields(kind?: string) {
 // Stop reporting entirely - used when the (focused, publishing) window closes so
 // PADE's process-wide presence doesn't linger on the last project.
 export async function clearDiscordPresence() {
-  await bestEffort(() => sendMessage(Command.discordClearActivity));
+  await bestEffort(() => sendMessage(Command.DISCORD_CLEAR_ACTIVITY));
 }
 
 export async function updateDiscordPresence(presence: PresenceState) {
   const activity = presenceActivity(presence);
   if (activity === null) {
-    await bestEffort(() => sendMessage(Command.discordClearActivity));
+    await bestEffort(() => sendMessage(Command.DISCORD_CLEAR_ACTIVITY));
     return;
   }
 
-  await bestEffort(() => sendMessage(Command.discordSetActivity, activity));
+  await bestEffort(() => sendMessage(Command.DISCORD_SET_ACTIVITY, activity));
 }

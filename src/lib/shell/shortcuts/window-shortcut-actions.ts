@@ -15,25 +15,25 @@ export const PROJECT_SEARCH_ID = "project-search";
 
 /** Carry out a window-level chord. */
 export async function runWindowShortcut(shortcut: Shortcut) {
-  if (shortcut === WindowShortcut.Reload) {
+  if (shortcut === WindowShortcut.RELOAD) {
     location.reload();
     return;
   }
 
-  if (shortcut === WindowShortcut.NewWindow) {
-    await sendMessage(Command.windowCreate, { mode: WindowMode.enum.empty });
+  if (shortcut === WindowShortcut.NEW_WINDOW) {
+    await sendMessage(Command.WINDOW_CREATE, { mode: WindowMode.enum.empty });
     showToast("Opened a new window");
     return;
   }
 
-  if (shortcut === WindowShortcut.FindProject) {
+  if (shortcut === WindowShortcut.FIND_PROJECT) {
     const elSearch = document.querySelector<HTMLInputElement>(`input#${PROJECT_SEARCH_ID}`);
     elSearch?.focus();
     elSearch?.select();
     return;
   }
 
-  await sendMessage(Command.windowFocusRelative, {
-    direction: shortcut === WindowShortcut.PreviousWindow ? "previous" : "next"
+  await sendMessage(Command.WINDOW_FOCUS_RELATIVE, {
+    direction: shortcut === WindowShortcut.PREVIOUS_WINDOW ? "previous" : "next"
   });
 }

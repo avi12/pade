@@ -64,7 +64,7 @@
 
   async function loadOpenWindows() {
     try {
-      windowRows = await sendMessage(Command.windowList);
+      windowRows = await sendMessage(Command.WINDOW_LIST);
     } catch (error) {
       console.warn("pade: keeping the last-known open windows", error);
     }
@@ -85,14 +85,14 @@
   // → this menu morphs to match), so two open menus never disagree.
   let unlistenWindowsChanged: UnlistenFn | undefined;
   onMount(async () => {
-    unlistenWindowsChanged = await onMessage(EventType.windowsChanged, async () => {
+    unlistenWindowsChanged = await onMessage(EventType.WINDOWS_CHANGED, async () => {
       if (!isMenuOpen) {
         return;
       }
 
       let openWindows: WindowInfo[];
       try {
-        openWindows = await sendMessage(Command.windowList);
+        openWindows = await sendMessage(Command.WINDOW_LIST);
       } catch {
         return;
       }
@@ -117,7 +117,7 @@
     style:position-anchor={MENU_ANCHOR}
     class="menu popover-menu" {@attach arrowFocus(ARROW_STOP_SELECTOR)}
     ontoggle={async e => {
-      isMenuOpen = (e as ToggleEvent).newState === ToggleState.Open;
+      isMenuOpen = (e as ToggleEvent).newState === ToggleState.OPEN;
 
       if (isMenuOpen) {
         await loadOpenWindows();
@@ -147,7 +147,7 @@
       {labels}
       onfocuswindow={async windowLabel => {
         hide();
-        await sendMessage(Command.windowFocusLabel, { label: windowLabel });
+        await sendMessage(Command.WINDOW_FOCUS_LABEL, { label: windowLabel });
       }}
       onmerge={async windowLabel => {
         hide();
@@ -161,7 +161,7 @@
           windowRows,
           order: windowLabels
         });
-        await sendMessage(Command.windowReorder, { labels: windowLabels });
+        await sendMessage(Command.WINDOW_REORDER, { labels: windowLabels });
         await loadOpenWindows();
       }}
       {windowRows}

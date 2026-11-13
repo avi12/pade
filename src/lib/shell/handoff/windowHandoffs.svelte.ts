@@ -64,7 +64,7 @@ export function createWindowHandoffs(host: WindowHandoffsHost) {
   /** Open a new window that receives `handoff` (and the PTYs of `sessions`). */
   async function sendToNewWindow({ handoff, sessions }: { handoff: WindowHandoff; sessions: readonly AgentSession[] }) {
     try {
-      await sendMessage(Command.windowCreate, {
+      await sendMessage(Command.WINDOW_CREATE, {
         mode: WindowMode.enum.handoff,
         path: handoffProject(handoff),
         sessions: sessions.map(session => session.id),
@@ -103,7 +103,7 @@ export function createWindowHandoffs(host: WindowHandoffsHost) {
   async function mergeInto(label: string) {
     const sessions = [...windowSessions.sessions];
     if (sessions.length > 0) {
-      const isMoved = await sendMessage(Command.windowHandOff, {
+      const isMoved = await sendMessage(Command.WINDOW_HAND_OFF, {
         to: label,
         sessions: sessions.map(session => session.id),
         payload: handoffPayload(sessionsHandoff(sessions))
@@ -146,7 +146,7 @@ export function createWindowHandoffs(host: WindowHandoffsHost) {
 
   /** Take every hand-off waiting for this window. True when there was any. */
   async function takeHandoffs() {
-    const handoffs = parseHandoffs(await sendMessage(Command.windowTakeHandoffs));
+    const handoffs = parseHandoffs(await sendMessage(Command.WINDOW_TAKE_HANDOFFS));
     for (const handoff of handoffs) {
       await receive(handoff);
     }
@@ -157,7 +157,7 @@ export function createWindowHandoffs(host: WindowHandoffsHost) {
   // A running window is told when another hands it sessions (a merge).
   let unlistenHandoff: UnlistenFn | undefined;
   onMount(async () => {
-    unlistenHandoff = await onMessage(EventType.windowHandoff, async () => {
+    unlistenHandoff = await onMessage(EventType.WINDOW_HANDOFF, async () => {
       await takeHandoffs();
     });
   });

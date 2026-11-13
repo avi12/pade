@@ -44,9 +44,9 @@ describe("watchHeldProjects", () => {
     await rewatchHeldProjects();
 
     expect(vi.mocked(sendMessage).mock.calls).toEqual([
-      [Command.watchProjects, { roots: [API, APP] }],
-      [Command.watchProjects, { roots: [APP] }],
-      [Command.watchProjects, { roots: [APP] }]
+      [Command.WATCH_PROJECTS, { roots: [API, APP] }],
+      [Command.WATCH_PROJECTS, { roots: [APP] }],
+      [Command.WATCH_PROJECTS, { roots: [APP] }]
     ]);
   });
 

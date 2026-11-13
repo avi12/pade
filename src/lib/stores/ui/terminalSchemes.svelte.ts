@@ -21,7 +21,7 @@ export function terminalSchemes() {
  *  resolves to "follow the app theme", which is the honest fallback. */
 export async function loadTerminalSchemes() {
   try {
-    catalogue.schemes = await sendMessage(Command.terminalSchemes);
+    catalogue.schemes = await sendMessage(Command.TERMINAL_SCHEMES);
   } catch {
     // No catalogue (an older backend, an unreadable settings file): the picker
     // shows only "Follow the app theme" and that is what the terminal wears.

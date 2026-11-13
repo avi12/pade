@@ -152,7 +152,7 @@ export function repositoryCommitUrl({ remoteUrl, commit }: { remoteUrl: string |
 
 async function readRemoteUrl(project: string) {
   try {
-    return await sendMessage(Command.vcsRemoteUrl, { cwd: project });
+    return await sendMessage(Command.VCS_REMOTE_URL, { cwd: project });
   } catch {
     showToast("Could not read Git remote");
     return null;
@@ -161,7 +161,7 @@ async function readRemoteUrl(project: string) {
 
 async function readDefaultBranch(project: string) {
   try {
-    return await sendMessage(Command.vcsDefaultBranch, { cwd: project });
+    return await sendMessage(Command.VCS_DEFAULT_BRANCH, { cwd: project });
   } catch {
     return null;
   }
@@ -169,7 +169,7 @@ async function readDefaultBranch(project: string) {
 
 async function launchRepositoryUrl(url: string) {
   try {
-    await sendMessage(Command.openUrl, { url });
+    await sendMessage(Command.OPEN_URL, { url });
   } catch {
     showToast("Could not open repository in browser");
   }

@@ -40,7 +40,7 @@
       return;
     }
 
-    await sendMessage(Command.ideOpen, {
+    await sendMessage(Command.IDE_OPEN, {
       command: editor.command,
       path: cwd
     });
@@ -111,7 +111,7 @@
       <li class="menu-divider" role="separator"></li>
       <li>
         <button
-          onclick={async () => await sendMessage(Command.openInExplorer, { path: cwd })}
+          onclick={async () => await sendMessage(Command.OPEN_IN_EXPLORER, { path: cwd })}
           popovertarget={MENU_ID}
           popovertargetaction="hide"
         >

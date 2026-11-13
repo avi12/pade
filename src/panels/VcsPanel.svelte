@@ -32,8 +32,8 @@
 
     try {
       const [nextEntries, nextCommits] = await Promise.all([
-        sendMessage(Command.vcsStatus, { cwd: workspace }),
-        sendMessage(Command.vcsLog, {
+        sendMessage(Command.VCS_STATUS, { cwd: workspace }),
+        sendMessage(Command.VCS_LOG, {
           cwd: workspace,
           limit: COMMIT_LOG_LIMIT
         })
@@ -68,14 +68,14 @@
   onMount(async () => {
     // Only this panel's project counts: the window also watches the projects
     // behind it, and their changes say nothing about this one's status.
-    unlisten = await onMessage(EventType.feedChange, ({ data: { root } }) => {
+    unlisten = await onMessage(EventType.FEED_CHANGE, ({ data: { root } }) => {
       if (root === project) {
         scheduleRefresh();
       }
     });
     // A branch switch, remote change, or git init reshapes the status and the
     // log without necessarily touching a watched file - refresh on it too.
-    unlistenGitState = await onMessage(EventType.gitState, ({ data: { root } }) => {
+    unlistenGitState = await onMessage(EventType.GIT_STATE, ({ data: { root } }) => {
       if (root === project) {
         scheduleRefresh();
       }

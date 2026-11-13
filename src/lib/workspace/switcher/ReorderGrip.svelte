@@ -29,7 +29,7 @@
       e,
       itemSelector,
       idAttribute,
-      axis: Axis.Vertical,
+      axis: Axis.VERTICAL,
       threshold: ROW_DRAG_THRESHOLD,
       onCommit: oncommit
     })}

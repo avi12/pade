@@ -30,7 +30,7 @@ function createdTarget({ path, prompt, agent }: { path: string; prompt: string; 
 }
 
 async function openTemp({ prompt, agent, onopen }: NewProjectHandoff & { prompt: string }) {
-  const path = await sendMessage(Command.workspaceTemp);
+  const path = await sendMessage(Command.WORKSPACE_TEMP);
   onopen(
     createdTarget({
       path,
@@ -106,7 +106,7 @@ export async function submitNewProject({
     parent: root,
     name
   });
-  const probe = await sendMessage(Command.workspaceProbePath, { path });
+  const probe = await sendMessage(Command.WORKSPACE_PROBE_PATH, { path });
   onprobe({
     path,
     isDir: probe.isDir,
@@ -117,7 +117,7 @@ export async function submitNewProject({
     return;
   }
 
-  const created = await sendMessage(Command.workspaceCreate, {
+  const created = await sendMessage(Command.WORKSPACE_CREATE, {
     root,
     name
   });

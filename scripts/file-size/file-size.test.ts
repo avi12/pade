@@ -100,7 +100,7 @@ describe("judgeSizes", () => {
         path: "a.ts",
         size: FILE_SIZE_LIMIT + 1,
         recorded: undefined,
-        kind: Verdict.Fail
+        kind: Verdict.FAIL
       }
     ]);
   });
@@ -125,7 +125,7 @@ describe("judgeSizes", () => {
         "a.ts": BASELINED
       }
     });
-    expect(findings.map(finding => finding.kind)).toEqual([Verdict.Fail]);
+    expect(findings.map(finding => finding.kind)).toEqual([Verdict.FAIL]);
   });
 
   it("reports a shrunk baselined file without failing", () => {
@@ -137,7 +137,7 @@ describe("judgeSizes", () => {
         "a.ts": BASELINED
       }
     });
-    expect(findings.map(finding => finding.kind)).toEqual([Verdict.Shrunk]);
+    expect(findings.map(finding => finding.kind)).toEqual([Verdict.SHRUNK]);
   });
 });
 

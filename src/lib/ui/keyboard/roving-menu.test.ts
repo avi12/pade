@@ -98,7 +98,7 @@ describe("arrowListTarget - several lists in one popover", () => {
   it("walks a list from one of its items and wraps", () => {
     expect(
       arrowListTarget({
-        key: Key.ArrowDown,
+        key: Key.ARROW_DOWN,
         isEntry: false,
         from: 2,
         count: 3
@@ -106,7 +106,7 @@ describe("arrowListTarget - several lists in one popover", () => {
     ).toBe(0);
     expect(
       arrowListTarget({
-        key: Key.ArrowUp,
+        key: Key.ARROW_UP,
         isEntry: false,
         from: 1,
         count: 3
@@ -114,7 +114,7 @@ describe("arrowListTarget - several lists in one popover", () => {
     ).toBe(0);
     expect(
       arrowListTarget({
-        key: Key.End,
+        key: Key.END,
         isEntry: false,
         from: 0,
         count: 3
@@ -125,7 +125,7 @@ describe("arrowListTarget - several lists in one popover", () => {
   it("steps in from the entry: Down to the first item, Up to the last", () => {
     expect(
       arrowListTarget({
-        key: Key.ArrowDown,
+        key: Key.ARROW_DOWN,
         isEntry: true,
         from: -1,
         count: 3
@@ -133,7 +133,7 @@ describe("arrowListTarget - several lists in one popover", () => {
     ).toBe(0);
     expect(
       arrowListTarget({
-        key: Key.ArrowUp,
+        key: Key.ARROW_UP,
         isEntry: true,
         from: -1,
         count: 3
@@ -142,7 +142,7 @@ describe("arrowListTarget - several lists in one popover", () => {
   });
 
   it("leaves Home, End and the side arrows to the entry's own pattern", () => {
-    for (const key of [Key.Home, Key.End, Key.ArrowLeft, Key.ArrowRight]) {
+    for (const key of [Key.HOME, Key.END, Key.ARROW_LEFT, Key.ARROW_RIGHT]) {
       expect(
         arrowListTarget({
           key,
@@ -157,7 +157,7 @@ describe("arrowListTarget - several lists in one popover", () => {
   it("goes nowhere in an empty list", () => {
     expect(
       arrowListTarget({
-        key: Key.ArrowDown,
+        key: Key.ARROW_DOWN,
         isEntry: true,
         from: -1,
         count: 0

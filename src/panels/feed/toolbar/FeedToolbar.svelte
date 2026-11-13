@@ -48,7 +48,7 @@
       onclick={async () => {
         isSyncing = true;
         try {
-          const outcome = await sendMessage(Command.vcsPull, { cwd: project });
+          const outcome = await sendMessage(Command.VCS_PULL, { cwd: project });
           showToast(outcome.message);
         } catch (error) {
           showToast(

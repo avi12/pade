@@ -2,16 +2,16 @@
 // home so the roving lists, the shortcut matchers, the drag's cancel key and
 // every component key handler compare against a member, never a bare string.
 export const Key = {
-  ArrowUp: "ArrowUp",
-  ArrowDown: "ArrowDown",
-  ArrowLeft: "ArrowLeft",
-  ArrowRight: "ArrowRight",
-  Backspace: "Backspace",
-  End: "End",
-  Enter: "Enter",
-  Escape: "Escape",
+  ARROW_UP: "ArrowUp",
+  ARROW_DOWN: "ArrowDown",
+  ARROW_LEFT: "ArrowLeft",
+  ARROW_RIGHT: "ArrowRight",
+  BACKSPACE: "Backspace",
+  END: "End",
+  ENTER: "Enter",
+  ESCAPE: "Escape",
   F4: "F4",
-  Home: "Home",
-  Space: " ",
-  Tab: "Tab"
+  HOME: "Home",
+  SPACE: " ",
+  TAB: "Tab"
 } as const;

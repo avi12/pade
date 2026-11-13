@@ -39,7 +39,7 @@ export async function probeSaveTargets({ name, roots }: { name: string; roots: r
   return await Promise.all(
     roots.map(async root => {
       try {
-        const probe = await sendMessage(Command.workspaceProbePath, {
+        const probe = await sendMessage(Command.WORKSPACE_PROBE_PATH, {
           path: childPath({
             parent: root,
             name

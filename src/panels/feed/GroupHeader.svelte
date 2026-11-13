@@ -33,7 +33,7 @@
   });
 
   const roleLabel = $derived.by(() => {
-    if (group.role === GroupRole.Service) {
+    if (group.role === GroupRole.SERVICE) {
       return "SVC";
     }
 

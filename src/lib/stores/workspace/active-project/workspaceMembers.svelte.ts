@@ -83,7 +83,7 @@ export async function loadWorkspaceMembers(projectRoot: string) {
   }
 
   const found = await settledValue({
-    promise: sendMessage(Command.membersList, { root: projectRoot }),
+    promise: sendMessage(Command.MEMBERS_LIST, { root: projectRoot }),
     fallback: []
   });
   if (root !== projectRoot) {
@@ -105,7 +105,7 @@ export async function refreshMemberBranches() {
   }
 
   const heads = await settledValue({
-    promise: sendMessage(Command.vcsBranchOf, { paths }),
+    promise: sendMessage(Command.VCS_BRANCH_OF, { paths }),
     fallback: {}
   });
   if (root !== asked) {

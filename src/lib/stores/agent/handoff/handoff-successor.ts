@@ -72,7 +72,7 @@ export async function pickHandoffSuccessor({
   available: Agent[];
   hasHeadroom: (agentId: string) => Promise<boolean>;
 }) {
-  if (reason === HandoffReason.ConfigurationChange) {
+  if (reason === HandoffReason.CONFIGURATION_CHANGE) {
     return current;
   }
 
@@ -86,7 +86,7 @@ export async function pickHandoffSuccessor({
 // Only cycle when there's quota to spare - a handoff itself costs tokens.
 export async function hasEnoughUsage(agent: string) {
   const quota = await settledValue({
-    promise: sendMessage(Command.usageGet, { agent }),
+    promise: sendMessage(Command.USAGE_GET, { agent }),
     fallback: null
   });
   const reading = await settledValue({

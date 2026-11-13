@@ -20,47 +20,47 @@ import { ShadowSummary } from "@/lib/usage/pacing/shadow-report/pacing-report";
 import type { PacingReport } from "@/lib/usage/pacing/shadow-report/pacing-report";
 
 export const AGENT_COMMANDS = {
-  agentsDetect: "agents_detect",
-  agentThemePublish: "agent_theme_publish",
-  agentModelOptions: "agent_model_options",
-  agentApplyModel: "agent_apply_model",
-  agentSetPacingControl: "agent_set_pacing_control",
-  agentPacingStopSeen: "agent_pacing_stop_seen",
-  pacingReport: "pacing_report",
-  pacingShadowSummary: "pacing_shadow_summary",
-  claudeKeybindings: "claude_keybindings",
-  agentResumeArgs: "agent_resume_args",
-  agentConversations: "agent_conversations",
-  chatStorage: "chat_storage",
-  chatStorageDelete: "chat_storage_delete",
-  agentSessionContext: "agent_session_context",
-  sessionTokenUsage: "session_token_usage",
-  agentRunningModel: "agent_running_model",
-  projectAutoname: "project_autoname",
-  sessionGenerateName: "session_generate_name",
-  sessionSummarize: "session_summarize"
+  AGENTS_DETECT: "agents_detect",
+  AGENT_THEME_PUBLISH: "agent_theme_publish",
+  AGENT_MODEL_OPTIONS: "agent_model_options",
+  AGENT_APPLY_MODEL: "agent_apply_model",
+  AGENT_SET_PACING_CONTROL: "agent_set_pacing_control",
+  AGENT_PACING_STOP_SEEN: "agent_pacing_stop_seen",
+  PACING_REPORT: "pacing_report",
+  PACING_SHADOW_SUMMARY: "pacing_shadow_summary",
+  CLAUDE_KEYBINDINGS: "claude_keybindings",
+  AGENT_RESUME_ARGS: "agent_resume_args",
+  AGENT_CONVERSATIONS: "agent_conversations",
+  CHAT_STORAGE: "chat_storage",
+  CHAT_STORAGE_DELETE: "chat_storage_delete",
+  AGENT_SESSION_CONTEXT: "agent_session_context",
+  SESSION_TOKEN_USAGE: "session_token_usage",
+  AGENT_RUNNING_MODEL: "agent_running_model",
+  PROJECT_AUTONAME: "project_autoname",
+  SESSION_GENERATE_NAME: "session_generate_name",
+  SESSION_SUMMARIZE: "session_summarize"
 } as const;
 
 export const AGENT_EVENTS = {
-  agentModelChanged: "agent-model://changed",
-  agentConversationsChanged: "agent-conversations://changed",
-  mcpChanged: "mcp://changed"
+  AGENT_MODEL_CHANGED: "agent-model://changed",
+  AGENT_CONVERSATIONS_CHANGED: "agent-conversations://changed",
+  MCP_CHANGED: "mcp://changed"
 } as const;
 
 export interface AgentCommandProtocol {
-  [AGENT_COMMANDS.agentsDetect]: () => Agent[];
+  [AGENT_COMMANDS.AGENTS_DETECT]: () => Agent[];
   /** Re-theme every RUNNING session of a live-themed agent (Claude Code) by
    *  rewriting the theme definition it watches. Sent on every scheme flip: the
    *  agent repaints itself, so a conversation in flight never restarts to
    *  follow the app's appearance (see theming.rs). */
-  [AGENT_COMMANDS.agentThemePublish]: (data: { scheme: Scheme }) => void;
+  [AGENT_COMMANDS.AGENT_THEME_PUBLISH]: (data: { scheme: Scheme }) => void;
   /** The models `command` offers to switch to, from the agent's own local
    *  catalog. Empty for an agent PADE can't read a catalog for. */
-  [AGENT_COMMANDS.agentModelOptions]: (data: { command: string }) => ModelOption[];
+  [AGENT_COMMANDS.AGENT_MODEL_OPTIONS]: (data: { command: string }) => ModelOption[];
   /** Apply a model / effort picked from the tab to the running session.
    *  `applied`: switched in place (Claude). `needsRestart`: the agent only
    *  takes a model at launch - relaunch it on its conversation. */
-  [AGENT_COMMANDS.agentApplyModel]: (data: {
+  [AGENT_COMMANDS.AGENT_APPLY_MODEL]: (data: {
     sessionId: string;
     command: string;
     conversationId: string;
@@ -71,7 +71,7 @@ export interface AgentCommandProtocol {
    *  lifts it), whether it is being stopped (`stop`), when its rest ends
    *  (`rest`, epoch ms - its tool calls are held until then, null lifts it), or the account-wide
    *  round's per-subagent steps and spawn block (`throttle`). */
-  [AGENT_COMMANDS.agentSetPacingControl]: (data: {
+  [AGENT_COMMANDS.AGENT_SET_PACING_CONTROL]: (data: {
     command: string;
     conversationId: string;
     part:
@@ -97,54 +97,54 @@ export interface AgentCommandProtocol {
   }) => void;
   /** When the session's hook last answered a call while pacing was stopping
    *  it (epoch ms), null when it hasn't since the stop was written. */
-  [AGENT_COMMANDS.agentPacingStopSeen]: (data: { conversationId: string }) => number | null;
+  [AGENT_COMMANDS.AGENT_PACING_STOP_SEEN]: (data: { conversationId: string }) => number | null;
   /** This window's pacing scan, for the backend engine to compare its own
    *  decisions with (shadow phase: it acts on nothing). */
-  [AGENT_COMMANDS.pacingReport]: (data: PacingReport) => void;
+  [AGENT_COMMANDS.PACING_REPORT]: (data: PacingReport) => void;
   /** How often the engine's decisions agreed with this app's, per kind, and the
    *  latest disagreements. */
-  [AGENT_COMMANDS.pacingShadowSummary]: () => ShadowSummary;
+  [AGENT_COMMANDS.PACING_SHADOW_SUMMARY]: () => ShadowSummary;
   /** The user's Claude Code keybindings as written, null when none. */
-  [AGENT_COMMANDS.claudeKeybindings]: () => ClaudeKeybindings | null;
+  [AGENT_COMMANDS.CLAUDE_KEYBINDINGS]: () => ClaudeKeybindings | null;
   /** Launch args that reopen the agent's recorded conversation for `cwd`
    *  (`["resume", "<uuid>"]` for Codex), empty when the agent has no such
    *  mechanism or no recording. `conversationId`: when the agent reported its
    *  own session id for it, that exact session is resumed. */
-  [AGENT_COMMANDS.agentResumeArgs]: (data: { command: string; cwd: string; conversationId?: string }) => string[];
+  [AGENT_COMMANDS.AGENT_RESUME_ARGS]: (data: { command: string; cwd: string; conversationId?: string }) => string[];
   /** Every conversation the agents recorded for `project`, newest first -
    *  the sidebar's take on each CLI's `/resume` list. */
-  [AGENT_COMMANDS.agentConversations]: (data: { project: string }) => RecordedConversation[];
+  [AGENT_COMMANDS.AGENT_CONVERSATIONS]: (data: { project: string }) => RecordedConversation[];
   /** The disk every agent's chats take, and which chats these limits flag
    *  (a project's newest chat and last week's chats never are). */
-  [AGENT_COMMANDS.chatStorage]: (data: {
+  [AGENT_COMMANDS.CHAT_STORAGE]: (data: {
     sizeLimitMegabytes: number | null;
     storageLimitMegabytes: number | null;
   }) => ChatStorage;
   /** Delete the ticked chats (`ids`, only ones the saved limits flag), then
    *  measure again. */
-  [AGENT_COMMANDS.chatStorageDelete]: (data: { ids: string[] }) => ChatStorage;
+  [AGENT_COMMANDS.CHAT_STORAGE_DELETE]: (data: { ids: string[] }) => ChatStorage;
   /** How full the session's context window is, read from the agent's own
    *  session log; `null` for an agent that keeps no readable log. */
-  [AGENT_COMMANDS.agentSessionContext]: (data: { command: string; conversationId?: string }) => SessionContext | null;
+  [AGENT_COMMANDS.AGENT_SESSION_CONTEXT]: (data: { command: string; conversationId?: string }) => SessionContext | null;
   /** What the session and each of its subagents spent since `since` (epoch
    *  ms), one entry per model, read from the agent's own transcripts; empty
    *  for an agent that keeps none. */
-  [AGENT_COMMANDS.sessionTokenUsage]: (data: {
+  [AGENT_COMMANDS.SESSION_TOKEN_USAGE]: (data: {
     command: string;
     conversationId?: string;
     since: number;
   }) => SessionTokenUsage;
   /** The model and effort the session runs, as the agent itself reported it
    *  (hooks, its session log, a plugin - never its terminal). */
-  [AGENT_COMMANDS.agentRunningModel]: (data: { command: string; conversationId: string }) => RunningModel | null;
+  [AGENT_COMMANDS.AGENT_RUNNING_MODEL]: (data: { command: string; conversationId: string }) => RunningModel | null;
   /** Suggest a name for a temp workspace via the agent CLI, else a heuristic. */
-  [AGENT_COMMANDS.projectAutoname]: (data: { path: string; agent: string }) => string | null;
+  [AGENT_COMMANDS.PROJECT_AUTONAME]: (data: { path: string; agent: string }) => string | null;
   /** A concise session name from its transcript (null until there's enough
    *  conversation, or if nothing usable is produced). */
-  [AGENT_COMMANDS.sessionGenerateName]: (data: { id: string; agent: string }) => string | null;
+  [AGENT_COMMANDS.SESSION_GENERATE_NAME]: (data: { id: string; agent: string }) => string | null;
   /** A sentence or two on what the session has done and is doing now, from its
    *  transcript, for the agents dashboard (null until there's enough). */
-  [AGENT_COMMANDS.sessionSummarize]: (data: {
+  [AGENT_COMMANDS.SESSION_SUMMARIZE]: (data: {
     id: string;
     agent: string;
     /** The conversation the session is pinned to, whose own log may tie it
@@ -154,41 +154,41 @@ export interface AgentCommandProtocol {
 }
 
 export const AGENT_RESPONSE_SCHEMAS = {
-  [AGENT_COMMANDS.agentsDetect]: z.array(Agent),
-  [AGENT_COMMANDS.agentThemePublish]: NO_REPLY,
-  [AGENT_COMMANDS.agentModelOptions]: z.array(ModelOption),
-  [AGENT_COMMANDS.agentApplyModel]: SwitchOutcome,
-  [AGENT_COMMANDS.agentSetPacingControl]: NO_REPLY,
-  [AGENT_COMMANDS.agentPacingStopSeen]: z.number().nullable(),
-  [AGENT_COMMANDS.pacingReport]: NO_REPLY,
-  [AGENT_COMMANDS.pacingShadowSummary]: ShadowSummary,
-  [AGENT_COMMANDS.claudeKeybindings]: ClaudeKeybindings.nullable(),
-  [AGENT_COMMANDS.agentResumeArgs]: z.array(z.string()),
-  [AGENT_COMMANDS.agentConversations]: z.array(RecordedConversation),
-  [AGENT_COMMANDS.chatStorage]: ChatStorage,
-  [AGENT_COMMANDS.chatStorageDelete]: ChatStorage,
-  [AGENT_COMMANDS.agentSessionContext]: SessionContext.nullable(),
-  [AGENT_COMMANDS.sessionTokenUsage]: SessionTokenUsage,
-  [AGENT_COMMANDS.agentRunningModel]: RunningModel.nullable(),
-  [AGENT_COMMANDS.projectAutoname]: z.string().nullable(),
-  [AGENT_COMMANDS.sessionGenerateName]: z.string().nullable(),
-  [AGENT_COMMANDS.sessionSummarize]: z.string().nullable()
+  [AGENT_COMMANDS.AGENTS_DETECT]: z.array(Agent),
+  [AGENT_COMMANDS.AGENT_THEME_PUBLISH]: NO_REPLY,
+  [AGENT_COMMANDS.AGENT_MODEL_OPTIONS]: z.array(ModelOption),
+  [AGENT_COMMANDS.AGENT_APPLY_MODEL]: SwitchOutcome,
+  [AGENT_COMMANDS.AGENT_SET_PACING_CONTROL]: NO_REPLY,
+  [AGENT_COMMANDS.AGENT_PACING_STOP_SEEN]: z.number().nullable(),
+  [AGENT_COMMANDS.PACING_REPORT]: NO_REPLY,
+  [AGENT_COMMANDS.PACING_SHADOW_SUMMARY]: ShadowSummary,
+  [AGENT_COMMANDS.CLAUDE_KEYBINDINGS]: ClaudeKeybindings.nullable(),
+  [AGENT_COMMANDS.AGENT_RESUME_ARGS]: z.array(z.string()),
+  [AGENT_COMMANDS.AGENT_CONVERSATIONS]: z.array(RecordedConversation),
+  [AGENT_COMMANDS.CHAT_STORAGE]: ChatStorage,
+  [AGENT_COMMANDS.CHAT_STORAGE_DELETE]: ChatStorage,
+  [AGENT_COMMANDS.AGENT_SESSION_CONTEXT]: SessionContext.nullable(),
+  [AGENT_COMMANDS.SESSION_TOKEN_USAGE]: SessionTokenUsage,
+  [AGENT_COMMANDS.AGENT_RUNNING_MODEL]: RunningModel.nullable(),
+  [AGENT_COMMANDS.PROJECT_AUTONAME]: z.string().nullable(),
+  [AGENT_COMMANDS.SESSION_GENERATE_NAME]: z.string().nullable(),
+  [AGENT_COMMANDS.SESSION_SUMMARIZE]: z.string().nullable()
 } satisfies { [Key in keyof AgentCommandProtocol]: z.ZodType<ReturnType<AgentCommandProtocol[Key]>> };
 
 export interface AgentEventProtocol {
   /** A session's model or effort may have changed: the agent reported
    *  (`sessionId` is its conversation id), or a settings file every session of
    *  an agent reads changed (`sessionId` null). */
-  [AGENT_EVENTS.agentModelChanged]: (data: RunningModelChanged) => void;
+  [AGENT_EVENTS.AGENT_MODEL_CHANGED]: (data: RunningModelChanged) => void;
   /** An agent's recorded conversations may have changed (started, renamed,
    *  grown, replaced) - throttled per project in the backend. */
-  [AGENT_EVENTS.agentConversationsChanged]: (data: RecordedConversationsChanged) => void;
+  [AGENT_EVENTS.AGENT_CONVERSATIONS_CHANGED]: (data: RecordedConversationsChanged) => void;
   /** Project MCP config changed in an agent's registered file. */
-  [AGENT_EVENTS.mcpChanged]: (data: McpChange) => void;
+  [AGENT_EVENTS.MCP_CHANGED]: (data: McpChange) => void;
 }
 
 export const AGENT_PAYLOAD_SCHEMAS = {
-  [AGENT_EVENTS.agentModelChanged]: RunningModelChanged,
-  [AGENT_EVENTS.agentConversationsChanged]: RecordedConversationsChanged,
-  [AGENT_EVENTS.mcpChanged]: McpChange
+  [AGENT_EVENTS.AGENT_MODEL_CHANGED]: RunningModelChanged,
+  [AGENT_EVENTS.AGENT_CONVERSATIONS_CHANGED]: RecordedConversationsChanged,
+  [AGENT_EVENTS.MCP_CHANGED]: McpChange
 } satisfies { [Key in keyof AgentEventProtocol]: z.ZodType<Parameters<AgentEventProtocol[Key]>[0]> };

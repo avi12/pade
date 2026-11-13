@@ -44,7 +44,7 @@
     restoreError = null;
     restoreDone = null;
     try {
-      candidates = await sendMessage(Command.vcsRestoreCandidates, {
+      candidates = await sendMessage(Command.VCS_RESTORE_CANDIDATES, {
         cwd: project,
         query
       });
@@ -69,7 +69,7 @@
       class="text-field"
       aria-label="Restore to a previous version"
       onkeydown={e => {
-        const isSubmit = e.key === Key.Enter;
+        const isSubmit = e.key === Key.ENTER;
         if (isSubmit) {
           runRestore();
         }
@@ -100,7 +100,7 @@
             onclick={async () => {
               restoreError = null;
               try {
-                const branch = await sendMessage(Command.vcsRestoreCheckout, {
+                const branch = await sendMessage(Command.VCS_RESTORE_CHECKOUT, {
                   cwd: project,
                   sha: candidate.id
                 });

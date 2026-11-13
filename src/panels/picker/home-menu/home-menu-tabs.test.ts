@@ -10,7 +10,7 @@ import {
 
 describe("HOME_MENU_TABS", () => {
   it("reads New, Open, Clone", () => {
-    expect(HOME_MENU_TABS.map(({ id }) => id)).toEqual([HomeMenuTab.New, HomeMenuTab.Open, HomeMenuTab.Clone]);
+    expect(HOME_MENU_TABS.map(({ id }) => id)).toEqual([HomeMenuTab.NEW, HomeMenuTab.OPEN, HomeMenuTab.CLONE]);
   });
 });
 
@@ -35,8 +35,8 @@ describe("tabSlideDirection", () => {
   it("slides in from the end side when the new tab lies after the old", () => {
     expect(
       tabSlideDirection({
-        from: HomeMenuTab.New,
-        to: HomeMenuTab.Clone
+        from: HomeMenuTab.NEW,
+        to: HomeMenuTab.CLONE
       })
     ).toBe(1);
   });
@@ -44,8 +44,8 @@ describe("tabSlideDirection", () => {
   it("slides in from the start side when the new tab lies before the old", () => {
     expect(
       tabSlideDirection({
-        from: HomeMenuTab.Clone,
-        to: HomeMenuTab.Open
+        from: HomeMenuTab.CLONE,
+        to: HomeMenuTab.OPEN
       })
     ).toBe(-1);
   });
@@ -53,8 +53,8 @@ describe("tabSlideDirection", () => {
   it("stays put on the tab already selected", () => {
     expect(
       tabSlideDirection({
-        from: HomeMenuTab.Open,
-        to: HomeMenuTab.Open
+        from: HomeMenuTab.OPEN,
+        to: HomeMenuTab.OPEN
       })
     ).toBe(0);
   });

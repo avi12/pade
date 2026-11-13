@@ -22,9 +22,9 @@ const MAX_NOTCHES_PER_EVENT = 3;
 // the accumulator stays a pure numeric function with no dependency on the DOM
 // WheelEvent global - which keeps it unit-testable off a browser.
 const WheelDeltaMode = {
-  Pixel: 0,
-  Line: 1,
-  Page: 2
+  PIXEL: 0,
+  LINE: 1,
+  PAGE: 2
 } as const;
 
 interface WheelScroll {
@@ -36,11 +36,11 @@ interface WheelScroll {
 
 // Normalize a wheel delta to pixels, whatever unit it arrived in.
 function wheelDeltaPixels({ deltaY, deltaMode }: { deltaY: number; deltaMode: number }) {
-  if (deltaMode === WheelDeltaMode.Line) {
+  if (deltaMode === WheelDeltaMode.LINE) {
     return deltaY * PIXELS_PER_WHEEL_LINE;
   }
 
-  if (deltaMode === WheelDeltaMode.Page) {
+  if (deltaMode === WheelDeltaMode.PAGE) {
     return deltaY * PIXELS_PER_NOTCH;
   }
 

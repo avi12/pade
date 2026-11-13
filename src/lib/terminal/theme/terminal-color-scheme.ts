@@ -19,7 +19,7 @@ const COLOR_SCHEME_ENABLE = `${CONTROL_SEQUENCE_INTRODUCER}${COLOR_SCHEME_NOTIFI
 // history. (The report only carries the scheme; opencode's own light/dark
 // *detection* is spawn-themed instead - see agents.rs - because its mode
 // probe is answered by ConPTY, not by ADE.)
-const SCHEME_SUBSCRIBED_AGENTS = new Set<string>([AgentId.Claude, AgentId.Opencode]);
+const SCHEME_SUBSCRIBED_AGENTS = new Set<string>([AgentId.CLAUDE, AgentId.OPENCODE]);
 
 /** Report the current terminal color preference to a TUI that opted into DECSET
  * 2031 notifications. */

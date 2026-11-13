@@ -3,21 +3,21 @@ import type { IconName } from "@/lib/Icon.svelte";
 // The editors PADE detects - mirrors the launcher ids in src-tauri/src/ide.rs, so
 // no bare editor-id string leaks into the icon map (enums over magic strings).
 export const IdeId = {
-  VsCode: "vscode",
-  Cursor: "cursor",
-  WebStorm: "webstorm",
-  IntelliJ: "idea",
-  PyCharm: "pycharm",
-  GoLand: "goland",
-  RustRover: "rustrover",
-  Rider: "rider",
-  CLion: "clion",
-  PhpStorm: "phpstorm",
-  RubyMine: "rubymine",
-  AndroidStudio: "androidstudio",
-  Zed: "zed",
-  Sublime: "sublime",
-  VisualStudio: "visualstudio"
+  VS_CODE: "vscode",
+  CURSOR: "cursor",
+  WEB_STORM: "webstorm",
+  INTELLI_J: "idea",
+  PY_CHARM: "pycharm",
+  GO_LAND: "goland",
+  RUST_ROVER: "rustrover",
+  RIDER: "rider",
+  C_LION: "clion",
+  PHP_STORM: "phpstorm",
+  RUBY_MINE: "rubymine",
+  ANDROID_STUDIO: "androidstudio",
+  ZED: "zed",
+  SUBLIME: "sublime",
+  VISUAL_STUDIO: "visualstudio"
 } as const;
 type IdeId = (typeof IdeId)[keyof typeof IdeId];
 
@@ -25,21 +25,21 @@ type IdeId = (typeof IdeId)[keyof typeof IdeId];
 // official icon (the full-colour gradient square, vendored from
 // github.com/JetBrains/logos) - the icon name matches the editor id.
 const IDE_ICONS: Record<string, IconName> = {
-  [IdeId.VsCode]: "vscode",
-  [IdeId.Cursor]: "cursor",
-  [IdeId.WebStorm]: "webstorm",
-  [IdeId.IntelliJ]: "idea",
-  [IdeId.PyCharm]: "pycharm",
-  [IdeId.GoLand]: "goland",
-  [IdeId.RustRover]: "rustrover",
-  [IdeId.Rider]: "rider",
-  [IdeId.CLion]: "clion",
-  [IdeId.PhpStorm]: "phpstorm",
-  [IdeId.RubyMine]: "rubymine",
-  [IdeId.AndroidStudio]: "androidstudio",
-  [IdeId.Zed]: "zed",
-  [IdeId.Sublime]: "sublime",
-  [IdeId.VisualStudio]: "visualstudio"
+  [IdeId.VS_CODE]: "vscode",
+  [IdeId.CURSOR]: "cursor",
+  [IdeId.WEB_STORM]: "webstorm",
+  [IdeId.INTELLI_J]: "idea",
+  [IdeId.PY_CHARM]: "pycharm",
+  [IdeId.GO_LAND]: "goland",
+  [IdeId.RUST_ROVER]: "rustrover",
+  [IdeId.RIDER]: "rider",
+  [IdeId.C_LION]: "clion",
+  [IdeId.PHP_STORM]: "phpstorm",
+  [IdeId.RUBY_MINE]: "rubymine",
+  [IdeId.ANDROID_STUDIO]: "androidstudio",
+  [IdeId.ZED]: "zed",
+  [IdeId.SUBLIME]: "sublime",
+  [IdeId.VISUAL_STUDIO]: "visualstudio"
 };
 
 const FALLBACK_ICON: IconName = "code";
@@ -49,10 +49,10 @@ const ADDED_PREFIX = "added-";
 // basename can differ from the launcher id - these aliases bridge the gap
 // (`code` → VS Code, `subl` → Sublime, `studio` → Android Studio).
 const ALIAS_IDS: Record<string, IdeId> = {
-  code: IdeId.VsCode,
-  subl: IdeId.Sublime,
-  studio: IdeId.AndroidStudio,
-  devenv: IdeId.VisualStudio
+  code: IdeId.VS_CODE,
+  subl: IdeId.SUBLIME,
+  studio: IdeId.ANDROID_STUDIO,
+  devenv: IdeId.VISUAL_STUDIO
 };
 
 // Console editors have no brand mark or tint - they get the terminal glyph.

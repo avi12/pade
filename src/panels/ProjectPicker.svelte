@@ -88,14 +88,14 @@
     // prune, not settings: a folder deleted outside PADE is forgotten here, so
     // its row leaves the page (collapsing out) instead of lingering as a link
     // to nothing.
-    await sendSettingsMessage(Command.workspacePrune);
+    await sendSettingsMessage(Command.WORKSPACE_PRUNE);
     projectsByRoot = await scanRoots();
   }
 
   // Full reload: everything, including the machine's editors + project kinds.
   async function refresh() {
     await Promise.all([
-      sendSettingsMessage(Command.workspacePrune),
+      sendSettingsMessage(Command.WORKSPACE_PRUNE),
       editors.detect()
     ]);
     projectsByRoot = await scanRoots();
@@ -104,7 +104,7 @@
   // A root that can't be read lists no projects.
   async function scan(root: string) {
     return await settledValue<ProjectEntry[]>({
-      promise: sendMessage(Command.workspaceScan, { root }),
+      promise: sendMessage(Command.WORKSPACE_SCAN, { root }),
       fallback: []
     });
   }
@@ -131,7 +131,7 @@
     ondelete: path => ondelete(path),
     ondeleteproject: path => ondeleteproject(path),
     onrenamefolder: target => onrenamefolder(target),
-    openWindows: () => sendMessage(Command.windowList),
+    openWindows: () => sendMessage(Command.WINDOW_LIST),
     // A rename/move/delete changes the project lists, not the installed editors -
     // so catch the lists up cheaply, without re-probing the machine for editors.
     refresh: refreshProjects
@@ -143,7 +143,7 @@
   // list changes; the backend replaces the previous set. Nothing downstream
   // waits on it, so it's a genuine fire-and-forget.
   $effect(() => {
-    sendMessage(Command.watchDirs, { dirs: watchedDirectories(settings) });
+    sendMessage(Command.WATCH_DIRS, { dirs: watchedDirectories(settings) });
   });
 
   // The filesystem answers in bursts (one delete lands as several events), so the
@@ -155,7 +155,7 @@
     await refresh();
     createRoot ||= popularRoot(settings);
     isLoaded = true;
-    unlisten = await onMessage(EventType.directoriesChanged, () => {
+    unlisten = await onMessage(EventType.DIRECTORIES_CHANGED, () => {
       clearTimeout(rescan);
       // A folder appearing/vanishing under a watched root only moves projects
       // around - the light refresh, not a full editor re-detect.
@@ -168,7 +168,7 @@
   let unlistenWindows: (() => void) | undefined;
   onMount(async () => {
     await lifecycle.loadOpenWindows();
-    unlistenWindows = await onMessage(EventType.windowsChanged, () => lifecycle.loadOpenWindows());
+    unlistenWindows = await onMessage(EventType.WINDOWS_CHANGED, () => lifecycle.loadOpenWindows());
   });
 
   onDestroy(() => {
@@ -177,7 +177,7 @@
     unlistenWindows?.();
     // Let the folders go: nothing should hold a handle on them once the picker is
     // no longer on screen.
-    sendMessage(Command.watchDirs, { dirs: [] });
+    sendMessage(Command.WATCH_DIRS, { dirs: [] });
   });
 </script>
 
@@ -223,7 +223,7 @@
           ides={editors.ides}
           labels={settings.labels}
           {lifecycle}
-          onclear={async () => await sendSettingsMessage(Command.workspaceClearRecent)}
+          onclear={async () => await sendSettingsMessage(Command.WORKSPACE_CLEAR_RECENT)}
           {onopen}
           recentProjects={settings.recentProjects}
         />
@@ -231,7 +231,7 @@
         <AgentsSection
           {agents}
           defaultAgent={settings.defaultAgent}
-          onpick={async agentId => await sendSettingsMessage(Command.setDefaultAgent, { agent: agentId })}
+          onpick={async agentId => await sendSettingsMessage(Command.SET_DEFAULT_AGENT, { agent: agentId })}
         />
 
         <EditorsSection
@@ -276,7 +276,7 @@
           }}
           {onopen}
           onremove={async path => {
-            await sendSettingsMessage(Command.workspaceRemoveRoot, { path });
+            await sendSettingsMessage(Command.WORKSPACE_REMOVE_ROOT, { path });
             const { [path]: _drop, ...rest } = projectsByRoot;
             projectsByRoot = rest;
 

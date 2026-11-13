@@ -54,7 +54,7 @@ export function createSessionAutomation({
     // session.
     async endSession(id) {
       windowSessions.markClosing([id]);
-      await Promise.allSettled([sendMessage(Command.ptyKill, { id })]);
+      await Promise.allSettled([sendMessage(Command.PTY_KILL, { id })]);
     },
     removeSession: id => windowSessions.removeHandedOff(id),
     launchSuccessor({ agent, cwd, initialPrompt, predecessorId }) {
@@ -110,7 +110,7 @@ export function createSessionAutomation({
 
       windowSessions.applyResumeArgs({
         id,
-        args: await sendMessage(Command.agentResumeArgs, {
+        args: await sendMessage(Command.AGENT_RESUME_ARGS, {
           command: target.agent.command,
           cwd: target.cwd ?? target.project,
           conversationId: target.conversationId
@@ -199,7 +199,7 @@ export function createSessionAutomation({
   // interrupt. Worktrees remain scoped to their own config directory.
   let unlistenMcp: (() => void) | undefined;
   async function subscribeToMcpChanges() {
-    unlistenMcp = await onMessage(EventType.mcpChanged, async ({ data: change }) => {
+    unlistenMcp = await onMessage(EventType.MCP_CHANGED, async ({ data: change }) => {
       const targets = mcpRestartTargets({
         sessions: windowSessions.sessions,
         change

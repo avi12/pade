@@ -1,7 +1,7 @@
 export const TerminalFlushMode = {
-  AnimationFrame: "animation-frame",
-  Background: "background",
-  Deferred: "deferred"
+  ANIMATION_FRAME: "animation-frame",
+  BACKGROUND: "background",
+  DEFERRED: "deferred"
 } as const;
 
 /** Whether a wheel tick moves xterm's OWN viewport - the only case where the
@@ -40,10 +40,10 @@ export function terminalFlushMode({
   isScrolling: boolean;
 }) {
   if (isScrolling) {
-    return TerminalFlushMode.Deferred;
+    return TerminalFlushMode.DEFERRED;
   }
 
   return isShown && isWindowFocused && !isReadingScrollback
-    ? TerminalFlushMode.AnimationFrame
-    : TerminalFlushMode.Background;
+    ? TerminalFlushMode.ANIMATION_FRAME
+    : TerminalFlushMode.BACKGROUND;
 }

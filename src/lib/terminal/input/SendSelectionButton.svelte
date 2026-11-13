@@ -84,7 +84,7 @@
     id: string;
     text: string;
   }) {
-    await sendMessage(Command.ptyWrite, {
+    await sendMessage(Command.PTY_WRITE, {
       id,
       data: pastedText(text)
     });

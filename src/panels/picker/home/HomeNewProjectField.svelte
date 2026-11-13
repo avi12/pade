@@ -169,7 +169,7 @@
 
         e.preventDefault();
 
-        if (step.kind === SuggestionStepKind.Pick) {
+        if (step.kind === SuggestionStepKind.PICK) {
           onpick(suggestions[step.index].path);
           return;
         }

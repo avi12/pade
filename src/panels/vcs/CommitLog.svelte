@@ -23,7 +23,7 @@
 
   async function loadRemoteUrl(workspace = project) {
     try {
-      const next = await sendMessage(Command.vcsRemoteUrl, { cwd: workspace });
+      const next = await sendMessage(Command.VCS_REMOTE_URL, { cwd: workspace });
       if (workspace !== project) {
         return;
       }
@@ -42,7 +42,7 @@
     await loadRemoteUrl();
     // A `git remote add`/`remove` (or git init) flips whether remote links
     // exist - re-read the remote the moment the live git state changes.
-    unlistenGitState = await onMessage(EventType.gitState, async ({ data: { root } }) => {
+    unlistenGitState = await onMessage(EventType.GIT_STATE, async ({ data: { root } }) => {
       if (root === project) {
         await loadRemoteUrl();
       }
@@ -69,7 +69,7 @@
   }
 
   async function openOnRemote(commit: Commit) {
-    const base = remoteUrl ?? (await sendMessage(Command.vcsRemoteUrl, { cwd: project }));
+    const base = remoteUrl ?? (await sendMessage(Command.VCS_REMOTE_URL, { cwd: project }));
     remoteUrl = base;
 
     const commitUrl = repositoryCommitUrl({
@@ -77,7 +77,7 @@
       commit: commit.id
     });
     if (commitUrl) {
-      await sendMessage(Command.openUrl, { url: commitUrl });
+      await sendMessage(Command.OPEN_URL, { url: commitUrl });
     }
   }
 </script>
@@ -101,7 +101,7 @@
             }
 
             try {
-              openCommit = await sendMessage(Command.vcsCommit, {
+              openCommit = await sendMessage(Command.VCS_COMMIT, {
                 cwd: project,
                 sha: commit.id
               });
@@ -110,8 +110,8 @@
             }
           }}
           onkeydown={async e => {
-            const isDown = e.key === Key.ArrowDown;
-            const isUp = e.key === Key.ArrowUp;
+            const isDown = e.key === Key.ARROW_DOWN;
+            const isUp = e.key === Key.ARROW_UP;
             if (isDown || isUp) {
               e.preventDefault();
               const count = commits.length;
@@ -121,7 +121,7 @@
               return;
             }
 
-            const isOpenKey = e.key === Key.Enter || e.key === Key.Space;
+            const isOpenKey = e.key === Key.ENTER || e.key === Key.SPACE;
             if (isOpenKey && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               openCommitOnRemote(commit);

@@ -11,26 +11,26 @@ export function commitPreviewSource({ cwd, sha }: { cwd: string; sha: string }) 
   return {
     diff: async path =>
       parseDiff(
-        await sendMessage(Command.vcsCommitDiff, {
+        await sendMessage(Command.VCS_COMMIT_DIFF, {
           cwd,
           sha,
           path
         })
       ),
     image: path =>
-      sendMessage(Command.vcsCommitImage, {
+      sendMessage(Command.VCS_COMMIT_IMAGE, {
         cwd,
         sha,
         path
       }),
     video: path =>
-      sendMessage(Command.vcsCommitVideo, {
+      sendMessage(Command.VCS_COMMIT_VIDEO, {
         cwd,
         sha,
         path
       }),
     text: path =>
-      sendMessage(Command.vcsCommitText, {
+      sendMessage(Command.VCS_COMMIT_TEXT, {
         cwd,
         sha,
         path

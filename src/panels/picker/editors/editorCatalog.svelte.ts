@@ -14,7 +14,7 @@ export function createEditorCatalog() {
   let kindOptions = $state<Record<string, string[]>>({});
 
   async function redetectEditors() {
-    ides = await sendMessage(Command.ideDetect);
+    ides = await sendMessage(Command.IDE_DETECT);
   }
 
   return {
@@ -31,9 +31,9 @@ export function createEditorCatalog() {
      *  registry/PATH probing, so only mount pays for it). */
     async detect() {
       const [detectedIdes, detectedKinds, detectedKindOptions] = await Promise.all([
-        sendMessage(Command.ideDetect),
-        sendMessage(Command.ideKinds),
-        sendMessage(Command.ideKindOptions)
+        sendMessage(Command.IDE_DETECT),
+        sendMessage(Command.IDE_KINDS),
+        sendMessage(Command.IDE_KIND_OPTIONS)
       ]);
       ides = detectedIdes;
       kinds = detectedKinds;
@@ -44,7 +44,7 @@ export function createEditorCatalog() {
      *  Resolves to the new editor's label on success, or the rejection message. */
     async add(path: string) {
       try {
-        await sendSettingsMessage(Command.ideAddEditor, { path });
+        await sendSettingsMessage(Command.IDE_ADD_EDITOR, { path });
         await redetectEditors();
         const added = settings.prefs.addedEditors?.find(editor => editor.path === path.trim());
         return { label: added?.label ?? "Editor" };
@@ -63,7 +63,7 @@ export function createEditorCatalog() {
     /** Drop a user-added editor, then refresh the detected list so it leaves
      *  every menu. The returned settings are adopted before detection refreshes. */
     async remove(id: string) {
-      await sendSettingsMessage(Command.ideRemoveEditor, { id });
+      await sendSettingsMessage(Command.IDE_REMOVE_EDITOR, { id });
       await redetectEditors();
     }
   };

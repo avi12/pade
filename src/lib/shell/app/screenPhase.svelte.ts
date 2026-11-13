@@ -3,10 +3,10 @@ import { tick } from "svelte";
 // Which top-level screen is showing. A closed set defined once, compared
 // against by member so no bare literal leaks into the flow logic.
 export const Phase = {
-  Loading: "loading",
-  Project: "project",
-  Onboarding: "onboarding",
-  Ready: "ready"
+  LOADING: "loading",
+  PROJECT: "project",
+  ONBOARDING: "onboarding",
+  READY: "ready"
 } as const;
 type Phase = (typeof Phase)[keyof typeof Phase];
 
@@ -15,7 +15,7 @@ const ENTERING_WORKSPACE_CLASS = "entering-workspace";
 
 /** The window's top-level screen, and the way between them. */
 export function createScreenPhase() {
-  let phase = $state<Phase>(Phase.Loading);
+  let phase = $state<Phase>(Phase.LOADING);
   // Carried through the agent picker so a new-project prompt survives onboarding.
   let pendingPrompt = $state<string | undefined>();
 
@@ -23,15 +23,15 @@ export function createScreenPhase() {
   // view transition with the project rail held still (ProjectSidebar), instead of
   // the screen snapping; from anywhere else it simply shows.
   async function showWorkspace() {
-    const isLeavingPicker = phase === Phase.Project;
+    const isLeavingPicker = phase === Phase.PROJECT;
     if (!isLeavingPicker) {
-      phase = Phase.Ready;
+      phase = Phase.READY;
       return;
     }
 
     document.documentElement.classList.add(ENTERING_WORKSPACE_CLASS);
     const transition = document.startViewTransition(async () => {
-      phase = Phase.Ready;
+      phase = Phase.READY;
       await tick();
     });
     await transition.finished;
@@ -40,7 +40,7 @@ export function createScreenPhase() {
 
   function switchToPicker() {
     document.startViewTransition(async () => {
-      phase = Phase.Project;
+      phase = Phase.PROJECT;
       await tick();
     });
   }

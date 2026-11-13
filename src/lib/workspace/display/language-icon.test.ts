@@ -4,16 +4,16 @@ import { languageIcon, languageIconOf, ProjectKind } from "@/lib/workspace/displ
 
 describe("languageIcon", () => {
   it("maps each project kind to its language logo", () => {
-    expect(languageIcon(ProjectKind.Web)).toBe("javascript");
-    expect(languageIcon(ProjectKind.Python)).toBe("python");
-    expect(languageIcon(ProjectKind.Java)).toBe("java");
-    expect(languageIcon(ProjectKind.Go)).toBe("go");
-    expect(languageIcon(ProjectKind.Rust)).toBe("rust");
-    expect(languageIcon(ProjectKind.Android)).toBe("android");
-    expect(languageIcon(ProjectKind.Cpp)).toBe("cplusplus");
-    expect(languageIcon(ProjectKind.DotNet)).toBe("csharp");
-    expect(languageIcon(ProjectKind.Php)).toBe("php");
-    expect(languageIcon(ProjectKind.Ruby)).toBe("ruby");
+    expect(languageIcon(ProjectKind.WEB)).toBe("javascript");
+    expect(languageIcon(ProjectKind.PYTHON)).toBe("python");
+    expect(languageIcon(ProjectKind.JAVA)).toBe("java");
+    expect(languageIcon(ProjectKind.GO)).toBe("go");
+    expect(languageIcon(ProjectKind.RUST)).toBe("rust");
+    expect(languageIcon(ProjectKind.ANDROID)).toBe("android");
+    expect(languageIcon(ProjectKind.CPP)).toBe("cplusplus");
+    expect(languageIcon(ProjectKind.DOT_NET)).toBe("csharp");
+    expect(languageIcon(ProjectKind.PHP)).toBe("php");
+    expect(languageIcon(ProjectKind.RUBY)).toBe("ruby");
   });
 
   it("shows the TypeScript badge for the backend's TS narrowing", () => {

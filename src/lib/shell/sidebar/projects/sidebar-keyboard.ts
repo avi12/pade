@@ -6,12 +6,12 @@
 // lines and land on a line's main control; left and right move along a line.
 
 export const SidebarKey = {
-  Up: "ArrowUp",
-  Down: "ArrowDown",
-  Left: "ArrowLeft",
-  Right: "ArrowRight",
-  Home: "Home",
-  End: "End"
+  UP: "ArrowUp",
+  DOWN: "ArrowDown",
+  LEFT: "ArrowLeft",
+  RIGHT: "ArrowRight",
+  HOME: "Home",
+  END: "End"
 } as const;
 
 const SIDEBAR_KEYS = new Set<string>(Object.values(SidebarKey));
@@ -38,42 +38,42 @@ export function nextSidebarPosition({
 }): SidebarPosition | null {
   const lastLine = lineLengths.length - 1;
   const lastItem = (lineLengths[position.line] ?? 1) - 1;
-  if (key === SidebarKey.Down && position.line < lastLine) {
+  if (key === SidebarKey.DOWN && position.line < lastLine) {
     return {
       line: position.line + 1,
       item: 0
     };
   }
 
-  if (key === SidebarKey.Up && position.line > 0) {
+  if (key === SidebarKey.UP && position.line > 0) {
     return {
       line: position.line - 1,
       item: 0
     };
   }
 
-  if (key === SidebarKey.Right && position.item < lastItem) {
+  if (key === SidebarKey.RIGHT && position.item < lastItem) {
     return {
       line: position.line,
       item: position.item + 1
     };
   }
 
-  if (key === SidebarKey.Left && position.item > 0) {
+  if (key === SidebarKey.LEFT && position.item > 0) {
     return {
       line: position.line,
       item: position.item - 1
     };
   }
 
-  if (key === SidebarKey.Home && lastLine >= 0) {
+  if (key === SidebarKey.HOME && lastLine >= 0) {
     return {
       line: 0,
       item: 0
     };
   }
 
-  if (key === SidebarKey.End && lastLine >= 0) {
+  if (key === SidebarKey.END && lastLine >= 0) {
     return {
       line: lastLine,
       item: 0

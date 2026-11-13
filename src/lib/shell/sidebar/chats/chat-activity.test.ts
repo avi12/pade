@@ -14,7 +14,7 @@ describe("chatActivity", () => {
         isLive: true,
         status: SessionStatus.enum.ready
       })
-    ).toBe(ChatActivity.NeedsYou);
+    ).toBe(ChatActivity.NEEDS_YOU);
   });
 
   it("reads a starting or mid-turn agent as working", () => {
@@ -23,13 +23,13 @@ describe("chatActivity", () => {
         isLive: true,
         status: SessionStatus.enum.working
       })
-    ).toBe(ChatActivity.Working);
+    ).toBe(ChatActivity.WORKING);
     expect(
       chatActivity({
         isLive: true,
         status: SessionStatus.enum.starting
       })
-    ).toBe(ChatActivity.Working);
+    ).toBe(ChatActivity.WORKING);
   });
 
   it("reads anything not running as idle", () => {
@@ -38,20 +38,20 @@ describe("chatActivity", () => {
         isLive: false,
         status: SessionStatus.enum.ready
       })
-    ).toBe(ChatActivity.Idle);
+    ).toBe(ChatActivity.IDLE);
     expect(
       chatActivity({
         isLive: true,
         status: SessionStatus.enum.exited
       })
-    ).toBe(ChatActivity.Idle);
+    ).toBe(ChatActivity.IDLE);
   });
 });
 
 describe("activityCounts", () => {
   it("counts the working chats and the ones waiting on the user", () => {
     expect(
-      activityCounts([ChatActivity.Working, ChatActivity.NeedsYou, ChatActivity.Idle, ChatActivity.NeedsYou])
+      activityCounts([ChatActivity.WORKING, ChatActivity.NEEDS_YOU, ChatActivity.IDLE, ChatActivity.NEEDS_YOU])
     ).toEqual({
       working: 1,
       needsYou: 2

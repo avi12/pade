@@ -20,7 +20,7 @@
     aria-label="Switch project by name or path"
     autocomplete="off"
     onkeydown={e => {
-      if (e.key === Key.Enter) {
+      if (e.key === Key.ENTER) {
         onenter();
       }
     }}

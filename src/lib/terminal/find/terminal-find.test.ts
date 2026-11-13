@@ -143,7 +143,7 @@ describe("matchFindOptionChord", () => {
           altKey: true
         })
       )
-    ).toBe(FindOption.CaseSensitive);
+    ).toBe(FindOption.CASE_SENSITIVE);
     expect(
       matchFindOptionChord(
         chord({
@@ -151,7 +151,7 @@ describe("matchFindOptionChord", () => {
           altKey: true
         })
       )
-    ).toBe(FindOption.WholeWord);
+    ).toBe(FindOption.WHOLE_WORD);
     expect(
       matchFindOptionChord(
         chord({
@@ -159,7 +159,7 @@ describe("matchFindOptionChord", () => {
           altKey: true
         })
       )
-    ).toBe(FindOption.Regex);
+    ).toBe(FindOption.REGEX);
   });
 
   it("leaves a plain letter to be typed into the box", () => {

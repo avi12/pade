@@ -126,7 +126,7 @@ function setUp({ button = 0 } = {}) {
     },
     itemSelector: ".item",
     idAttribute: "data-id",
-    axis: Axis.Horizontal,
+    axis: Axis.HORIZONTAL,
     onCommit,
     onHint,
     onDropOutside,

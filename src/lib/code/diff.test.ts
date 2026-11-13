@@ -22,16 +22,16 @@ describe("parseDiff", () => {
     const kinds = parseDiff(SAMPLE).map(line => line.kind);
 
     expect(kinds).toEqual([
-      DiffKind.Meta,
-      DiffKind.Meta,
-      DiffKind.Meta,
-      DiffKind.Meta,
-      DiffKind.Meta,
-      DiffKind.Context,
-      DiffKind.Removed,
-      DiffKind.Added,
-      DiffKind.Added,
-      DiffKind.Context
+      DiffKind.META,
+      DiffKind.META,
+      DiffKind.META,
+      DiffKind.META,
+      DiffKind.META,
+      DiffKind.CONTEXT,
+      DiffKind.REMOVED,
+      DiffKind.ADDED,
+      DiffKind.ADDED,
+      DiffKind.CONTEXT
     ]);
   });
 
@@ -60,7 +60,7 @@ describe("parseDiff", () => {
   it("gives lines before any hunk header no line number", () => {
     const [line] = parseDiff("plain text");
 
-    expect(line.kind).toBe(DiffKind.Context);
+    expect(line.kind).toBe(DiffKind.CONTEXT);
     expect(line.newLine).toBeUndefined();
   });
 });
@@ -177,11 +177,11 @@ describe("unifiedDiff", () => {
     );
 
     expect(lines.map(line => line.kind)).toEqual([
-      DiffKind.Meta,
-      DiffKind.Context,
-      DiffKind.Removed,
-      DiffKind.Added,
-      DiffKind.Context
+      DiffKind.META,
+      DiffKind.CONTEXT,
+      DiffKind.REMOVED,
+      DiffKind.ADDED,
+      DiffKind.CONTEXT
     ]);
     expect(lines.map(line => line.newLine)).toEqual([undefined, 1, undefined, 2, 3]);
     expect(firstChangedLine(lines)).toBe(2);

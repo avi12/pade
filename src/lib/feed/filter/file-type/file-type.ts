@@ -29,11 +29,11 @@ const LEADING_DOT = /^\./;
 
 function nameRuleMatches({ rule, lowerName }: { rule: NameRule; lowerName: string }) {
   switch (rule.match) {
-    case NameMatch.Exact:
+    case NameMatch.EXACT:
       return lowerName === rule.pattern;
-    case NameMatch.Prefix:
+    case NameMatch.PREFIX:
       return lowerName.startsWith(rule.pattern);
-    case NameMatch.Suffix:
+    case NameMatch.SUFFIX:
       return lowerName.endsWith(rule.pattern);
   }
 }
@@ -76,7 +76,7 @@ export function fileTypeBadge(path: string) {
     const stem = name.replace(LEADING_DOT, "").slice(0, NAME_LABEL_LENGTH).toUpperCase();
     return {
       label: stem.length > 0 ? stem : FALLBACK_LABEL,
-      tone: FileTone.Neutral
+      tone: FileTone.NEUTRAL
     };
   }
 
@@ -89,7 +89,7 @@ export function fileTypeBadge(path: string) {
   return (
     EXTENSION_BADGES[extension] ?? {
       label: extension.slice(0, EXTENSION_LABEL_LENGTH).toUpperCase(),
-      tone: FileTone.Neutral
+      tone: FileTone.NEUTRAL
     }
   );
 }

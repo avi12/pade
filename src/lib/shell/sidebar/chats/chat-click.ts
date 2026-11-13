@@ -26,18 +26,18 @@ export interface ConversationPick {
 /** The closed set of things a chat click can do. */
 export const ChatClickAction = {
   /** Bring this window's live session forward. */
-  SelectHere: "select-here",
+  SELECT_HERE: "select-here",
   /** Focus the window that runs it and bring it forward there. */
-  FocusOtherWindow: "focus-other-window",
+  FOCUS_OTHER_WINDOW: "focus-other-window",
   /** Move this window's live session - same process, still running - into a
    *  new window. */
-  MoveToNewWindow: "move-to-new-window",
+  MOVE_TO_NEW_WINDOW: "move-to-new-window",
   /** Open a new window on its project that resumes it there. */
-  ReopenInNewWindow: "reopen-in-new-window",
+  REOPEN_IN_NEW_WINDOW: "reopen-in-new-window",
   /** Resume a recorded conversation in a new session here. */
-  Resume: "resume",
+  RESUME: "resume",
   /** Relaunch a persisted chat on its conversation here. */
-  Relaunch: "relaunch"
+  RELAUNCH: "relaunch"
 } as const;
 type ChatClickAction = (typeof ChatClickAction)[keyof typeof ChatClickAction];
 
@@ -57,26 +57,26 @@ export function chatClickAction({
   opensNewWindow: boolean;
 }): ChatClickAction {
   if (elsewhereWindow !== undefined && !isLiveHere) {
-    return ChatClickAction.FocusOtherWindow;
+    return ChatClickAction.FOCUS_OTHER_WINDOW;
   }
 
   if (opensNewWindow) {
     if (isLiveHere) {
-      return ChatClickAction.MoveToNewWindow;
+      return ChatClickAction.MOVE_TO_NEW_WINDOW;
     }
 
-    return ChatClickAction.ReopenInNewWindow;
+    return ChatClickAction.REOPEN_IN_NEW_WINDOW;
   }
 
   if (isLiveHere) {
-    return ChatClickAction.SelectHere;
+    return ChatClickAction.SELECT_HERE;
   }
 
   if (isRecorded) {
-    return ChatClickAction.Resume;
+    return ChatClickAction.RESUME;
   }
 
-  return ChatClickAction.Relaunch;
+  return ChatClickAction.RELAUNCH;
 }
 
 /** What the shell does on a chat click's behalf. */
@@ -114,12 +114,12 @@ export async function runChatClick({
   openHere: OpenTarget;
 }) {
   const handlers: Record<ChatClickAction, () => Promise<void>> = {
-    async [ChatClickAction.SelectHere]() {
+    async [ChatClickAction.SELECT_HERE]() {
       if (liveSession !== undefined) {
         host.select(liveSession.id);
       }
     },
-    async [ChatClickAction.FocusOtherWindow]() {
+    async [ChatClickAction.FOCUS_OTHER_WINDOW]() {
       if (elsewhere !== undefined) {
         await host.focusElsewhere({
           label: elsewhere.windowLabel,
@@ -127,14 +127,14 @@ export async function runChatClick({
         });
       }
     },
-    async [ChatClickAction.MoveToNewWindow]() {
+    async [ChatClickAction.MOVE_TO_NEW_WINDOW]() {
       if (liveSession !== undefined) {
         await host.moveToNewWindow(liveSession);
       }
     },
-    [ChatClickAction.ReopenInNewWindow]: async () => await host.reopenInNewWindow(reopen),
-    [ChatClickAction.Resume]: async () => await host.openHere(openHere),
-    [ChatClickAction.Relaunch]: async () => await host.openHere(openHere)
+    [ChatClickAction.REOPEN_IN_NEW_WINDOW]: async () => await host.reopenInNewWindow(reopen),
+    [ChatClickAction.RESUME]: async () => await host.openHere(openHere),
+    [ChatClickAction.RELAUNCH]: async () => await host.openHere(openHere)
   };
   await handlers[
     chatClickAction({

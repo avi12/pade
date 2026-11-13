@@ -38,8 +38,8 @@
     aria-labelledby="commit-file-list-label"
     aria-orientation="vertical"
     onkeydown={async e => {
-      const isVertical = e.key === Key.ArrowDown || e.key === Key.ArrowUp;
-      const isEdge = e.key === Key.Home || e.key === Key.End;
+      const isVertical = e.key === Key.ARROW_DOWN || e.key === Key.ARROW_UP;
+      const isEdge = e.key === Key.HOME || e.key === Key.END;
       if (!isVertical && !isEdge) {
         return;
       }
@@ -52,11 +52,11 @@
 
       const current = files.findIndex(file => file.path === selectedPath);
       let next = current;
-      if (e.key === Key.ArrowDown) {
+      if (e.key === Key.ARROW_DOWN) {
         next = (current + 1) % count;
-      } else if (e.key === Key.ArrowUp) {
+      } else if (e.key === Key.ARROW_UP) {
         next = (current - 1 + count) % count;
-      } else if (e.key === Key.Home) {
+      } else if (e.key === Key.HOME) {
         next = 0;
       } else {
         next = count - 1;

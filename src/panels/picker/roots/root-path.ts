@@ -6,42 +6,42 @@ import { FolderPath, parseInput } from "@/lib/validate";
 /** The live status banner's tones - each states what adding the typed path
  *  will do. */
 const StatusTone = {
-  Critical: "critical",
-  Warning: "warning",
-  Ok: "ok",
-  Primary: "primary",
-  Neutral: "neutral"
+  CRITICAL: "critical",
+  WARNING: "warning",
+  OK: "ok",
+  PRIMARY: "primary",
+  NEUTRAL: "neutral"
 } as const;
 type StatusTone = (typeof StatusTone)[keyof typeof StatusTone];
 
 const ROOT_PATH_STATUSES = {
   alreadyRoot: {
-    tone: StatusTone.Warning,
+    tone: StatusTone.WARNING,
     icon: "folder",
     text: "Already a root folder"
   },
   checking: {
-    tone: StatusTone.Neutral,
+    tone: StatusTone.NEUTRAL,
     icon: "search",
     text: "Checking…"
   },
   file: {
-    tone: StatusTone.Critical,
+    tone: StatusTone.CRITICAL,
     icon: "alert",
     text: "That path is a file, not a folder"
   },
   existingFolder: {
-    tone: StatusTone.Ok,
+    tone: StatusTone.OK,
     icon: "check",
     text: "Folder exists - ready to add"
   },
   willCreate: {
-    tone: StatusTone.Primary,
+    tone: StatusTone.PRIMARY,
     icon: "folderPlus",
     text: "Folder doesn’t exist - PADE will create it"
   },
   invalidLocation: {
-    tone: StatusTone.Critical,
+    tone: StatusTone.CRITICAL,
     icon: "alert",
     text: "That location doesn’t exist - enter a full folder path"
   }

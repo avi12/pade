@@ -16,7 +16,7 @@
   </label>
   <button
     class="field-action"
-    onclick={async () => await sendMessage(Command.restart)}
+    onclick={async () => await sendMessage(Command.RESTART)}
     type="button"
   >Restart PADE</button>
 </div>

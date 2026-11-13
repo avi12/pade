@@ -3,14 +3,14 @@ import type { IconName } from "@/lib/Icon.svelte";
 // Mirrors the agent ids in src-tauri/src/agents.rs - the closed set the icon map
 // keys off, so no bare id string literals leak out.
 export const AgentId = {
-  Claude: "claude",
-  Codex: "codex",
-  Copilot: "copilot",
-  Grok: "grok",
-  Antigravity: "antigravity",
-  Cursor: "cursor",
-  Opencode: "opencode",
-  Aider: "aider"
+  CLAUDE: "claude",
+  CODEX: "codex",
+  COPILOT: "copilot",
+  GROK: "grok",
+  ANTIGRAVITY: "antigravity",
+  CURSOR: "cursor",
+  OPENCODE: "opencode",
+  AIDER: "aider"
 } as const;
 type AgentId = (typeof AgentId)[keyof typeof AgentId];
 
@@ -18,13 +18,13 @@ type AgentId = (typeof AgentId)[keyof typeof AgentId];
 // glyphs - the SVGs carry their own `fill="currentColor" stroke="none"`. Aider has
 // no distinct brand icon, so it isn't mapped and falls through to the terminal mark.
 const AGENT_ICONS: Record<string, IconName> = {
-  [AgentId.Claude]: "claude",
-  [AgentId.Codex]: "codex",
-  [AgentId.Copilot]: "copilot",
-  [AgentId.Grok]: "grok",
-  [AgentId.Antigravity]: "antigravity",
-  [AgentId.Cursor]: "cursor",
-  [AgentId.Opencode]: "opencode"
+  [AgentId.CLAUDE]: "claude",
+  [AgentId.CODEX]: "codex",
+  [AgentId.COPILOT]: "copilot",
+  [AgentId.GROK]: "grok",
+  [AgentId.ANTIGRAVITY]: "antigravity",
+  [AgentId.CURSOR]: "cursor",
+  [AgentId.OPENCODE]: "opencode"
 };
 const FALLBACK_ICON: IconName = "terminal";
 

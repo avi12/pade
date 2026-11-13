@@ -126,7 +126,7 @@ async function attachWhenRunning({
 
   lastLivenessCheck.set(checkKey, now);
   const isRunning = await settledValue({
-    promise: sendMessage(Command.sessionTaskRunning, {
+    promise: sendMessage(Command.SESSION_TASK_RUNNING, {
       id: sessionId,
       command: task.command
     }),
@@ -153,7 +153,7 @@ async function startListeners() {
   const pendingUnlistens: UnlistenFn[] = [];
   try {
     pendingUnlistens.push(
-      await onMessage(EventType.ptyData, ({ data }) => {
+      await onMessage(EventType.PTY_DATA, ({ data }) => {
         const lines = data.data.split("\n");
         const { snapshot } = taskCatalog;
         for (const task of knownTaskCommands(snapshot)) {
@@ -179,7 +179,7 @@ async function startListeners() {
     // Nothing can be running under a PTY that has exited, and a fresh session
     // must be free to ask again at once - drop the dead session's throttle entries.
     pendingUnlistens.push(
-      await onMessage(EventType.ptyExit, ({ data }) => {
+      await onMessage(EventType.PTY_EXIT, ({ data }) => {
         const prefix = `${data.id}${KEY_SEPARATOR}`;
         for (const checkKey of lastLivenessCheck.keys()) {
           if (checkKey.startsWith(prefix)) {
@@ -222,7 +222,7 @@ export async function adoptRunningTasks(snapshot: TaskCatalogSnapshot) {
   }
 
   const running = await settledValue({
-    promise: sendMessage(Command.runnerList),
+    promise: sendMessage(Command.RUNNER_LIST),
     fallback: []
   });
   const tasks = knownTaskCommands(snapshot);

@@ -20,8 +20,8 @@
   } = $props();
 
   const StatusKind = {
-    Ok: "ok",
-    Error: "err"
+    OK: "ok",
+    ERROR: "err"
   } as const;
   type StatusKind = (typeof StatusKind)[keyof typeof StatusKind];
 
@@ -30,7 +30,7 @@
     kind: StatusKind;
     text: string;
   } | null>(null);
-  const isStatusError = $derived(status?.kind === StatusKind.Error);
+  const isStatusError = $derived(status?.kind === StatusKind.ERROR);
   const statusIcon = $derived.by(() => {
     if (isStatusError) {
       return "alert";
@@ -68,7 +68,7 @@
     <AddEditorForm
       onadded={label => {
         status = {
-          kind: StatusKind.Ok,
+          kind: StatusKind.OK,
           text: `${label} added.`
         };
         showToast(`${label} added`);
@@ -82,7 +82,7 @@
       onedit={() => (status = null)}
       onrejected={reason => {
         status = {
-          kind: StatusKind.Error,
+          kind: StatusKind.ERROR,
           text: reason
         };
       }}
