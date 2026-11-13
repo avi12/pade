@@ -38,6 +38,8 @@ export function prefersReducedMotion() {
 
 // One coordinate of a cubic Bézier with anchors fixed at 0 and 1 (P0 = 0,
 // P3 = 1), for progress `t` in [0, 1], shaped by the two control points.
+const BEZIER_CONTROL_WEIGHT = 3;
+
 function bezierAxis({
   controlOne,
   controlTwo,
@@ -49,8 +51,8 @@ function bezierAxis({
 }) {
   const inverse = 1 - curveProgress;
   return (
-    3 * inverse * inverse * curveProgress * controlOne +
-    3 * inverse * curveProgress * curveProgress * controlTwo +
+    BEZIER_CONTROL_WEIGHT * inverse * inverse * curveProgress * controlOne +
+    BEZIER_CONTROL_WEIGHT * inverse * curveProgress * curveProgress * controlTwo +
     curveProgress * curveProgress * curveProgress
   );
 }

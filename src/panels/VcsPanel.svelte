@@ -10,6 +10,7 @@
   import { onDestroy, onMount } from "svelte";
 
   const COMMIT_LOG_LIMIT = 20;
+  const REFRESH_DEBOUNCE_MS = 400;
 
   const { project }: { project: string } = $props();
 
@@ -64,7 +65,7 @@
   let timer: ReturnType<typeof setTimeout> | undefined;
   function scheduleRefresh() {
     clearTimeout(timer);
-    timer = setTimeout(refresh, 400);
+    timer = setTimeout(refresh, REFRESH_DEBOUNCE_MS);
   }
 
   onMount(async () => {

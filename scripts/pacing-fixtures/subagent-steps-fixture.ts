@@ -4,6 +4,10 @@ import { SubagentStepKind } from "@/lib/types/pacing";
 import type { SubagentStep } from "@/lib/types/pacing";
 import { easedSubagentStep, holdForSaving, nextSubagentStep } from "@/lib/usage/pacing/engine/subagent-steps";
 
+const HOLD_FRACTION_STEPS = 100;
+
+const SHED_FRACTIONS = [null, 0, 0.1, 0.5, 0.99, 1];
+
 export function gate(holdSeconds: number) {
   return {
     step: SubagentStepKind.enum.gate,
@@ -18,12 +22,12 @@ export function subagentStepsFixture() {
   const steps: SubagentStep[] = [...holds.map(gate), WRAP_UP];
   const currents = [null, ...steps];
   return {
-    holdForSaving: Array.from({ length: 101 }, (_, i) => i / 100).map(fraction => ({
+    holdForSaving: Array.from({ length: HOLD_FRACTION_STEPS + 1 }, (_, i) => i / HOLD_FRACTION_STEPS).map(fraction => ({
       fraction,
       expected: holdForSaving(fraction)
     })),
     nextSubagentStep: currents.flatMap(current =>
-      [null, 0, 0.1, 0.5, 0.99, 1].map(shed => ({
+      SHED_FRACTIONS.map(shed => ({
         current,
         shed,
         expected: nextSubagentStep({

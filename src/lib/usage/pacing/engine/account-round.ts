@@ -138,7 +138,7 @@ export function parsePacingMessage(raw: unknown) {
 /** A window's report counts this long - a couple of its scans - so a window
  *  that closed without a goodbye stops leading and stops being planned for. */
 export function reportLifetime(pollMs: number) {
-  return 2.5 * pollMs;
+  return REPORT_LIFETIME_POLLS * pollMs;
 }
 
 /** The reports still current at `now`. */
@@ -165,6 +165,8 @@ export function subagentKey({ sessionId, subagentId }: { sessionId: string; suba
 }
 
 /** Candidate ids, which say whose step it is. */
+const REPORT_LIFETIME_POLLS = 2.5;
+
 const SESSION_CANDIDATE = "session:";
 const SUBAGENT_CANDIDATE = "subagent:";
 

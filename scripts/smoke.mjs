@@ -19,6 +19,10 @@ const CDP_ORIGIN = "http://127.0.0.1:9222";
 const APPLICATION_URL = "http://localhost:1420";
 const LAUNCH_TIMEOUT_MS = 180_000;
 
+const CDP_POLL_MS = 2000;
+
+const SETTLE_MS = 500;
+
 async function cdpTargets() {
   try {
     const response = await fetch(`${CDP_ORIGIN}/json`);
@@ -45,7 +49,7 @@ if (!(await cdpTargets())) {
       fail("app never exposed CDP on :9222");
     }
 
-    await sleep(2000);
+    await sleep(CDP_POLL_MS);
   }
 }
 
@@ -98,7 +102,7 @@ async function navigateAndExpect({ url, expression, label }) {
       return;
     }
 
-    await sleep(500);
+    await sleep(SETTLE_MS);
   }
   fail(label);
 }

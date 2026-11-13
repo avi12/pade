@@ -11,6 +11,18 @@ export const DAY = 24 * HOUR;
 
 const SEED = 0x9ace_2026;
 
+const MULBERRY_INCREMENT = 0x6d2b_79f5;
+
+const MIX_SHIFT_FIRST = 15;
+
+const MIX_SHIFT_SECOND = 7;
+
+const MIX_SHIFT_FINAL = 14;
+
+const MIX_MULTIPLIER = 61;
+
+const UINT32_RANGE = 4_294_967_296;
+
 /** A burn rate in the formula's units, from percent per hour. */
 export function perHour(percentage: number) {
   return percentage / HOUR;
@@ -20,10 +32,10 @@ export function perHour(percentage: number) {
 function seededRandom(seed: number) {
   let state = seed;
   return () => {
-    state = (state + 0x6d2b_79f5) | 0;
-    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
-    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
-    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296;
+    state = (state + MULBERRY_INCREMENT) | 0;
+    let mixed = Math.imul(state ^ (state >>> MIX_SHIFT_FIRST), 1 | state);
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> MIX_SHIFT_SECOND), MIX_MULTIPLIER | mixed)) ^ mixed;
+    return ((mixed ^ (mixed >>> MIX_SHIFT_FINAL)) >>> 0) / UINT32_RANGE;
   };
 }
 

@@ -125,12 +125,57 @@ const SESSION_RATES = [null, perHour(30), perHour(90)];
 
 const BOTH_WAYS = [false, true];
 
+const SESSION_UTILIZATIONS = [59, 75, 95];
+
+const WEEKLY_UTILIZATIONS = [60, 75, 95];
+
+const SESSION_GRID_MARGINS = [15 * MINUTE, 30 * MINUTE];
+
+const SPARE_BOUNDARY_UTILIZATION = 70;
+
+const SPARE_BOUNDARY_RESETS_IN = 2 * HOUR + 10 * MINUTE;
+
+const SPARE_BOUNDARY_MARGIN = 30 * MINUTE;
+
+const WEEKLY_BOUNDARY_CASE_COUNT = 21;
+
+const WEEKLY_BOUNDARY_BASE_UTILIZATION = 50;
+
+const WEEKLY_BOUNDARY_RESETS_IN = 3 * DAY;
+
+const REVERSED_WINDOWS_THRESHOLD = 0.5;
+
+const SCATTERED_CASE_COUNT = 70;
+
+const SCATTERED_SESSION_RATES = [null, perHour(10), perHour(30), perHour(60)];
+
+const SCATTERED_WEEKLY_RATES = [null, perHour(1), perHour(4)];
+
+const SCATTERED_SESSION_MARGINS = [null, 15 * MINUTE, 30 * MINUTE];
+
+const SCATTERED_WEEKLY_MARGINS = [null, HOUR, 6 * HOUR, 12 * HOUR];
+
+const PAUSED_THRESHOLD = 0.5;
+
+const BURN_START_LOW = 50;
+
+const BURN_START_HIGH = 80;
+
+const BURN_START_STEP = 0.5;
+
+const BURN_DELTA_LOW = -0.5;
+
+const BURN_DELTA_STEP = 0.25;
+
+const BURN_GAPS = [30_000, MINUTE, MINUTE, 2 * MINUTE, 6 * MINUTE, 0];
+
+const BURN_RATE_CASE_COUNT = 30;
+
 function sessionGrid() {
-  const margins = [15 * MINUTE, 30 * MINUTE];
-  return [59, 75, 95].flatMap(utilization =>
+  return SESSION_UTILIZATIONS.flatMap(utilization =>
     SESSION_RESETS_IN.flatMap(resetsIn =>
       SESSION_RATES.flatMap(rate =>
-        margins.flatMap(margin =>
+        SESSION_GRID_MARGINS.flatMap(margin =>
           BOTH_WAYS.map(isPaused =>
             singleWindowCase({
               kind: PacedWindowKind.enum.session,
@@ -149,7 +194,7 @@ function sessionGrid() {
 
 function weeklyGrid() {
   const margins = [HOUR, 12 * HOUR];
-  return [60, 75, 95].flatMap(utilization =>
+  return WEEKLY_UTILIZATIONS.flatMap(utilization =>
     WEEKLY_RESETS_IN.flatMap(resetsIn =>
       margins.flatMap(margin =>
         BOTH_WAYS.map(isPaused =>
@@ -174,10 +219,10 @@ function spareBoundaryCases() {
   return ratesPerHour.map(ratePerHour =>
     singleWindowCase({
       kind: PacedWindowKind.enum.session,
-      utilization: 70,
-      resetsIn: 2 * HOUR + 10 * MINUTE,
+      utilization: SPARE_BOUNDARY_UTILIZATION,
+      resetsIn: SPARE_BOUNDARY_RESETS_IN,
       rate: perHour(ratePerHour),
-      margin: 30 * MINUTE,
+      margin: SPARE_BOUNDARY_MARGIN,
       isPaused: false
     })
   );
@@ -186,11 +231,11 @@ function spareBoundaryCases() {
 /** The weekly spends around an even spend three days from the reset, where the
  *  margin decides. */
 function weeklyBoundaryCases() {
-  return Array.from({ length: 21 }, (_, step) =>
+  return Array.from({ length: WEEKLY_BOUNDARY_CASE_COUNT }, (_, step) =>
     singleWindowCase({
       kind: PacedWindowKind.enum.weekly,
-      utilization: 50 + step,
-      resetsIn: 3 * DAY,
+      utilization: WEEKLY_BOUNDARY_BASE_UTILIZATION + step,
+      resetsIn: WEEKLY_BOUNDARY_RESETS_IN,
       rate: null,
       margin: HOUR,
       isPaused: false
@@ -271,26 +316,26 @@ const SCATTERED_WINDOWS = [
 
 function scatteredWindows() {
   const windows = SCATTERED_WINDOWS.filter(draw => random() > draw.absent).map(draw => scatteredWindow(draw));
-  return random() > 0.5 ? windows.toReversed() : windows;
+  return random() > REVERSED_WINDOWS_THRESHOLD ? windows.toReversed() : windows;
 }
 
 /** An account with both paced windows (in either order, now and then one of them
  *  missing, now and then a per-model window beside them) drawn at random. */
 function scatteredPaceInputs() {
   return Array.from(
-    { length: 70 },
+    { length: SCATTERED_CASE_COUNT },
     () =>
       ({
         windows: scatteredWindows(),
         rates: {
-          [PacedWindowKind.enum.session]: pick([null, perHour(10), perHour(30), perHour(60)]),
-          [PacedWindowKind.enum.weekly]: pick([null, perHour(1), perHour(4)])
+          [PacedWindowKind.enum.session]: pick(SCATTERED_SESSION_RATES),
+          [PacedWindowKind.enum.weekly]: pick(SCATTERED_WEEKLY_RATES)
         },
         margins: {
-          [PacedWindowKind.enum.session]: pick([null, 15 * MINUTE, 30 * MINUTE]),
-          [PacedWindowKind.enum.weekly]: pick([null, HOUR, 6 * HOUR, 12 * HOUR])
+          [PacedWindowKind.enum.session]: pick(SCATTERED_SESSION_MARGINS),
+          [PacedWindowKind.enum.weekly]: pick(SCATTERED_WEEKLY_MARGINS)
         },
-        isPaused: random() > 0.5
+        isPaused: random() > PAUSED_THRESHOLD
       }) satisfies PaceInputs
   );
 }
@@ -336,9 +381,9 @@ function burnSamples(drawn: number) {
   const samples: UsageSample[] = [];
   let takenAt = NOW;
   let utilization = between({
-    low: 50,
-    high: 80,
-    step: 0.5
+    low: BURN_START_LOW,
+    high: BURN_START_HIGH,
+    step: BURN_START_STEP
   });
   for (let i = 0; i < length; i += 1) {
     samples.push({
@@ -346,11 +391,11 @@ function burnSamples(drawn: number) {
       utilization,
       resetsAt: pick(resets)
     });
-    takenAt += pick([30_000, MINUTE, MINUTE, 2 * MINUTE, 6 * MINUTE, 0]);
+    takenAt += pick(BURN_GAPS);
     utilization += between({
-      low: -0.5,
+      low: BURN_DELTA_LOW,
       high: 2,
-      step: 0.25
+      step: BURN_DELTA_STEP
     });
   }
 
@@ -479,7 +524,7 @@ export function usagePaceFixture() {
     })),
     paceForecasts: forecasts.cases,
     isForecastOverPace: forecasts.overPace,
-    burnRate: Array.from({ length: 30 }, (_, drawn) => burnSamples(drawn)).map(samples => ({
+    burnRate: Array.from({ length: BURN_RATE_CASE_COUNT }, (_, drawn) => burnSamples(drawn)).map(samples => ({
       samples,
       expected: burnRate(samples)
     })),

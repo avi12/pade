@@ -11,6 +11,8 @@
   // Restore a version - natural-language query → ranked prior commits →
   // checkout. Self-contained: the checkout touches the working tree, so the
   // panel's watcher-driven refresh picks up the result on its own.
+  const FULL_CONFIDENCE_SCORE = 1.5;
+  const PERCENT = 100;
   let restoreQuery = $state("");
   let candidates = $state<RestoreCandidate[]>([]);
   let restoreError = $state<string | null>(null);
@@ -58,7 +60,7 @@
 
   // Confidence as a 0..100 percentage - scores run 0..≈1.5, clamped for display.
   function confidencePercentage(score: number) {
-    return Math.round(Math.min(score / 1.5, 1) * 100);
+    return Math.round(Math.min(score / FULL_CONFIDENCE_SCORE, 1) * PERCENT);
   }
 </script>
 

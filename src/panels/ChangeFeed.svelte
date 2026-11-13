@@ -19,6 +19,8 @@
   import { onDestroy, onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
 
+  const AGE_LABEL_REFRESH_MS = 1000;
+
   // The open project's root dir - lets an editor open a change in the window
   // that already has this project, at the right line.
   const { project }: { project: string } = $props();
@@ -88,7 +90,7 @@
       if (isAgeLabelStale()) {
         now = Date.now();
       }
-    }, 1000);
+    }, AGE_LABEL_REFRESH_MS);
     unlistenGitState = await onMessage(EventType.GIT_STATE, ({ data: { root } }) => {
       if (root === project) {
         loadRemote(project);

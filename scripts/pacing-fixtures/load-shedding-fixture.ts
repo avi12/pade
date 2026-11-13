@@ -39,10 +39,14 @@ function costWeightCases() {
   );
 }
 
+const SHED_UTILIZATIONS = [60, 80, 95];
+
+const PLAN_CASE_COUNT = 30;
+
 function shedFractionCases() {
   const rates = [null, 0, perHour(1), perHour(10), perHour(60)];
   const timesLeft = [10 * MINUTE, 100 * MINUTE, 5 * HOUR];
-  return [60, 80, 95].flatMap(utilization =>
+  return SHED_UTILIZATIONS.flatMap(utilization =>
     timesLeft.flatMap(timeLeft =>
       rates.map(rate => ({
         utilization,
@@ -64,7 +68,7 @@ function shedFractionCases() {
 }
 
 function planSheddingCases() {
-  return Array.from({ length: 30 }, () => {
+  return Array.from({ length: PLAN_CASE_COUNT }, () => {
     const candidates: ShedCandidate[] = Array.from({ length: 1 + Math.floor(random() * 5) }, (_, i) => ({
       id: `candidate-${i}`,
       load: between({

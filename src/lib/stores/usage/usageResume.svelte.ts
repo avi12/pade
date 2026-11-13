@@ -81,6 +81,8 @@ const LIMIT_STOP_RE = new RegExp(
     "|error\\s*type\\s*rate_limit|rate_limit_error|http\\s*429",
   "i"
 );
+const MERIDIEM_GROUP = 3;
+
 const RESET_CLOCK_RE = /resets?\s*(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i;
 /** A 12-hour clock: "3pm" is hour 3 past noon, and "12am" is midnight. */
 const HOURS_ON_A_CLOCK = 12;
@@ -142,7 +144,7 @@ export function parseResetClock({ text, now }: { text: string; now: number }) {
   return nextOccurrence({
     hour,
     minute,
-    meridiem: clock[3],
+    meridiem: clock[MERIDIEM_GROUP],
     now
   });
 }
