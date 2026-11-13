@@ -10,6 +10,8 @@
 // It also keeps the latest round's throttles for the usage panel, in every
 // window - the leader's plan reaches them all.
 
+import { SvelteMap } from "svelte/reactivity";
+
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { CommandProtocolMap } from "@/lib/ipc/messaging";
 import type { AgentSession } from "@/lib/types/agent";
@@ -26,7 +28,7 @@ export type ControlTarget = Pick<AgentSession, "conversationId"> & {
 };
 
 /** What each part was last set to, by conversation and part. */
-const written = new Map<string, string>();
+const written = new SvelteMap<string, string>();
 
 function writtenKey({ conversationId, part }: { conversationId: string; part: ControlPart["part"] }) {
   return `${conversationId}:${part}`;

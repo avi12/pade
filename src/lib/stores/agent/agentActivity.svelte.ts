@@ -80,7 +80,7 @@ export function readTitles(text: string) {
 }
 
 const activities = new SvelteMap<string, AgentActivity>();
-const carriedSequences = new Map<string, string>();
+const carriedSequences = new SvelteMap<string, string>();
 // Pending `whenAgentSettled` resolvers, settled the moment the agent stops
 // reporting busy (or the session is dropped).
 const settleWaiters = createSettleWaiters();
@@ -150,9 +150,9 @@ export function backgroundAgentsShown(screen: string) {
  *  tell this: it stays busy while background work runs after the turn ends, and
  *  PADE's session status counts every byte, so a quiet session still ticking a
  *  workflow's timer reads `working`. The screen says whether a turn is running. */
-const turnRunningOnScreen = new Map<string, boolean>();
+const turnRunningOnScreen = new SvelteMap<string, boolean>();
 /** The background agents each session's screen counted, as last painted. */
-const backgroundAgentsOnScreen = new Map<string, number>();
+const backgroundAgentsOnScreen = new SvelteMap<string, number>();
 
 /** Feed a session's rendered screen (xterm viewport rows) through the turn and
  *  background-agent readers. */

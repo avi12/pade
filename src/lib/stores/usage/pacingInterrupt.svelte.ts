@@ -62,7 +62,7 @@ const unstopped = new SvelteMap<
   }
 >();
 /** Each session's current run, so a newer stop or a resume ends an older one. */
-const runs = new Map<string, symbol>();
+const runs = new SvelteMap<string, symbol>();
 
 /** The subagents pacing couldn't stop, per session, across this window. */
 export function unstoppedSubagents() {

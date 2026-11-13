@@ -6,11 +6,12 @@
 // carries it there, so a session moved before its prompt went in still gets it.
 // A restart drops it - the restarted agent resumes rather than re-sends.
 
+import { SvelteMap } from "svelte/reactivity";
 import { z } from "zod";
 
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 
-const pending = new Map<string, string>();
+const pending = new SvelteMap<string, string>();
 
 /** File a session's first prompt for delivery - a session launched without one
  *  has nothing pending. */

@@ -5,7 +5,7 @@
 // asks the backend about the rows on or near the screen, never one call per row
 // and never the whole list up front.
 
-import { SvelteMap } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 import { normalizePath } from "@/lib/util/paths";
 
@@ -35,13 +35,13 @@ export function createVisiblePathBatch<Value>({
   onVisiblePathsChange?: (paths: string[]) => void;
 }) {
   const values = new SvelteMap<string, Value | null>();
-  const originalPaths = new Map<string, string>();
-  const latestRequests = new Map<string, symbol>();
-  const refreshRequests = new Map<string, symbol>();
-  const pending = new Set<string>();
+  const originalPaths = new SvelteMap<string, string>();
+  const latestRequests = new SvelteMap<string, symbol>();
+  const refreshRequests = new SvelteMap<string, symbol>();
+  const pending = new SvelteSet<string>();
   // Cached values still shown, but re-asked the next time their row is on screen.
-  const staleKeys = new Set<string>();
-  const visibleCounts = new Map<string, number>();
+  const staleKeys = new SvelteSet<string>();
+  const visibleCounts = new SvelteMap<string, number>();
   const observed = new WeakMap<
     Element,
     {

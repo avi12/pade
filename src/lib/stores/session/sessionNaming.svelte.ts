@@ -37,7 +37,7 @@ interface Controller {
   lastGeneratedAt: number;
 }
 // Plain Map: timers/last-status are runtime bookkeeping, not reactive UI state.
-const controllers = new Map<string, Controller>();
+const controllers = new SvelteMap<string, Controller>();
 
 /** The session's controller when a name is due, or undefined while throttled:
  *  at most one name per 30s per session, whatever triggered it (toggle-on, the

@@ -7,7 +7,7 @@
 // pays for them unwatched.
 
 import { onDestroy, onMount } from "svelte";
-import { SvelteMap } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 import {
   BOARD_CHANNEL,
@@ -64,7 +64,7 @@ export function publishToBoard({
       at: number;
     }
   >();
-  const summarizing = new Set<string>();
+  const summarizing = new SvelteSet<string>();
   let dashboardSeenAt = $state<number | null>(null);
   let now = $state(Date.now());
 

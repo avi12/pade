@@ -6,6 +6,7 @@
 // change is counted again once the burst settles.
 
 import { untrack } from "svelte";
+import { SvelteMap } from "svelte/reactivity";
 
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
@@ -23,7 +24,7 @@ const WATCH_SETTLE_MS = 300;
 const RECOUNT_SETTLE_MS = 1_500;
 
 let watchTimer: ReturnType<typeof setTimeout> | undefined;
-const recountTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const recountTimers = new SvelteMap<string, ReturnType<typeof setTimeout>>();
 let isListening = false;
 let visiblePaths: string[] = [];
 /** The projects the window follows and what to do when one's languages change. */

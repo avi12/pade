@@ -101,7 +101,7 @@ interface LimitHit extends RecoveryHit {
 
 const hits = new SvelteMap<string, LimitHit>();
 /** Sessions whose stop message is settled, and until when their sniffs are ignored. */
-const quietUntil = new Map<string, number>();
+const quietUntil = new SvelteMap<string, number>();
 
 /** The next wall-clock occurrence of an "3am" / "3:30pm" style clock time. */
 export function nextOccurrence({

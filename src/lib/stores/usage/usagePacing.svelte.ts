@@ -44,7 +44,7 @@
 // (lib/stores/usage/pacingControl), which the agent's hook reads on every tool
 // call; a stop is written there too, so it lands mid-turn, not only at its end.
 
-import { SvelteMap } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { z } from "zod";
 
 import { interruptKeys } from "@/lib/agent/interrupt-keys";
@@ -235,26 +235,26 @@ const skippedUntil = new SvelteMap<string, number>();
 /** Sessions the user continued anyway, left alone until that run ends - true
  *  once the run is underway, so a scan before the agent picks the prompt up
  *  doesn't end it early. */
-const continuedAnyway = new Map<string, boolean>();
+const continuedAnyway = new SvelteMap<string, boolean>();
 /** Handoff successors pacing leaves alone while they read the handoff doc:
  *  null until the session is first seen working, then when the shield ends. */
-const shieldedUntil = new Map<string, number | null>();
+const shieldedUntil = new SvelteMap<string, number | null>();
 /** Each agent's account forecast per window, for the Config panel's live lines. */
 const forecasts = new SvelteMap<string, Partial<Record<PacedWindowKind, PaceForecast>>>();
 /** The live loop's sessions, for the count of those pacing slows. */
 let sessionIdsSource: (() => string[]) | null = null;
 /** When each working session's current stretch of work began - how long a
  *  resting session has just worked, which sizes its rest. */
-const workingSince = new Map<string, number>();
+const workingSince = new SvelteMap<string, number>();
 /** How much of the recent time each session spent working, 0 to 1 - one input
  *  to its share of its account's spend (`loadOf`). */
-const workingShares = new Map<string, number>();
+const workingShares = new SvelteMap<string, number>();
 /** The account each session bills, as last read - so an override can start its
  *  burn rate over. */
-const accountKeys = new Map<string, string>();
+const accountKeys = new SvelteMap<string, string>();
 /** Recent working readings per account window, for its burn rate. An account is
  *  shared by every agent billing it, so their work adds up in one history. */
-const samples = new Map<string, UsageSample[]>();
+const samples = new SvelteMap<string, UsageSample[]>();
 
 /** The readings, kept across a reload of the window like its pauses - a burn
  *  rate takes ten minutes of work to measure, and a reload must not restart it. */
@@ -652,25 +652,25 @@ export function createUsagePacing(host: PacingHost) {
   });
   /** This window's latest judgement of each working session, for the steps a
    *  round hands back after the scan that judged it. */
-  const assessed = new Map<string, WorkingAssessment>();
+  const assessed = new SvelteMap<string, WorkingAssessment>();
   /** Each measured session's running subagents this scan, each with its load. */
-  const runningSubagents = new Map<string, MeasuredBurn["subagents"]>();
+  const runningSubagents = new SvelteMap<string, MeasuredBurn["subagents"]>();
   /** Each measured session's own share this scan, its running subagents'
    *  excluded - they are candidates of their own. */
-  const ownLoads = new Map<string, number>();
+  const ownLoads = new SvelteMap<string, number>();
   /** The sessions whose control says they are being stopped. */
-  const stopping = new Map<string, ControlTarget>();
+  const stopping = new SvelteMap<string, ControlTarget>();
   /** The sessions whose control says they are resting, their tool calls held. */
-  const resting = new Map<string, ControlTarget>();
+  const resting = new SvelteMap<string, ControlTarget>();
   /** Paused sessions a scan found back on pace, by account - only one of each
    *  account's is let go (`releaseOnePerAccount`). */
-  const releasable = new Map<string, AgentSession[]>();
+  const releasable = new SvelteMap<string, AgentSession[]>();
   /** When each account last let a paused session go. */
-  const lastReleaseAt = new Map<string, number>();
+  const lastReleaseAt = new SvelteMap<string, number>();
   /** Each working session's measured burn this scan, in priced tokens per
    *  minute (`measuredBurn`) - read once per scan, before the accounts are
    *  shared out. A session missing here has its load estimated. */
-  const measuredLoads = new Map<string, number>();
+  const measuredLoads = new SvelteMap<string, number>();
   /** What one unit of estimated load measures as this scan
    *  (`measuredPerEstimated`). */
   let estimateScale = 1;
@@ -1353,7 +1353,7 @@ export function createUsagePacing(host: PacingHost) {
   // The rest is reconciled the same way: a held pause hands its end to the
   // hook, every other open session - and any that closed - is told none.
   async function syncStops() {
-    const isStopping = new Map<string, ControlTarget>();
+    const isStopping = new SvelteMap<string, ControlTarget>();
     for (const session of host.sessions()) {
       const target = {
         command: session.agent.command,
@@ -1668,7 +1668,7 @@ export function createUsagePacing(host: PacingHost) {
 
   // Track each session's current stretch of work, and forget closed sessions.
   function trackSessions({ sessions, now }: { sessions: readonly AgentSession[]; now: number }) {
-    const open = new Set(sessions.map(session => session.id));
+    const open = new SvelteSet(sessions.map(session => session.id));
     for (const id of paced.keys()) {
       if (!open.has(id)) {
         forgetPace(id);
@@ -1788,8 +1788,8 @@ export function createUsagePacing(host: PacingHost) {
       now
     });
 
-    const accounts = new Map<string, Promise<AccountUsage | null>>();
-    const sampled = new Set<string>();
+    const accounts = new SvelteMap<string, Promise<AccountUsage | null>>();
+    const sampled = new SvelteSet<string>();
     assessed.clear();
     for (const session of sessions) {
       const isWorthALook = paced.has(session.id) || isWorking(session.id) || adapter.isSteppedDown(session.id);

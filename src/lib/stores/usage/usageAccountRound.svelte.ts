@@ -14,6 +14,8 @@
 // have to learn all of it to decide, while a window only needs everyone's
 // reports.
 
+import { SvelteMap } from "svelte/reactivity";
+
 import { windowLabel } from "@/lib/ipc/platform";
 import { NO_THROTTLE, setThrottlePart, showThrottles } from "@/lib/stores/usage/pacingControl.svelte";
 import type { ControlTarget } from "@/lib/stores/usage/pacingControl.svelte";
@@ -45,12 +47,12 @@ export function createAccountRound({
   const channel = new BroadcastChannel(PACING_CHANNEL);
   const ownLabel = windowLabel();
   const lifetimeMs = reportLifetime(pollMs);
-  const reports = new Map<string, WindowReport>();
+  const reports = new SvelteMap<string, WindowReport>();
   /** When this window's rounds last stepped each session. */
-  const steppedAt = new Map<string, number>();
+  const steppedAt = new SvelteMap<string, number>();
   /** The sessions this window last throttled as leader, to lift the throttle
    *  of one that leaves the round. */
-  let throttled = new Map<string, ControlTarget>();
+  let throttled = new SvelteMap<string, ControlTarget>();
 
   function post(message: PacingMessage) {
     channel.postMessage(message);
@@ -78,7 +80,7 @@ export function createAccountRound({
     }
 
     // Another window leads now: what this one throttled is theirs to lift.
-    throttled = new Map();
+    throttled = new SvelteMap();
     showThrottles(message.plan.throttles);
     await onPlan(message.plan);
   };
@@ -86,7 +88,7 @@ export function createAccountRound({
   /** Write every reported session's throttle, and lift it from one that left
    *  the round since. */
   async function writeThrottles({ fresh, plan }: { fresh: readonly WindowReport[]; plan: RoundPlan }) {
-    const targets = new Map<string, ControlTarget>();
+    const targets = new SvelteMap<string, ControlTarget>();
     for (const report of fresh) {
       for (const session of report.sessions) {
         targets.set(session.id, {

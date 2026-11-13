@@ -40,7 +40,7 @@ const feedsByProject = new SvelteMap<string, ChangeEvent[]>();
 // it, so the first answer carries no arming - and with no identity to save
 // under, the unload save skipped it and an F5 emptied its feed. Bookkeeping,
 // never rendered.
-const armedAtByProject = new Map<string, number>();
+const armedAtByProject = new SvelteMap<string, number>();
 
 // The stream is subscribed exactly once for the process lifetime.
 let isSubscribed = false;
