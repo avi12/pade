@@ -4,6 +4,7 @@ version = "0.19.27"
 description = "PADE -Power ADE (Agentic Development Environment)"
 authors = ["Avi"]
 edition = "2021"
+publish = false
 license = "Apache-2.0"
 
 # `pade` is also the workspace root. `contextmenu-handler` is a separate cdylib

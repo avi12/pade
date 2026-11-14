@@ -7,7 +7,8 @@ all-features = true
 [advisories]
 unmaintained = "workspace"
 yanked = "deny"
-ignore = []
+# Fixed in libsqlite3-sys 0.39, which rusqlite 0.40 (it asks for 0.38.1) does not accept yet; drop this on the next rusqlite release
+ignore = ["RUSTSEC-2026-0459"]
 
 [licenses]
 confidence-threshold = 0.9
@@ -23,8 +24,12 @@ allow = [
   "Unicode-3.0",
   "CC0-1.0",
   "MPL-2.0",
-  "BSL-1.0"
+  "BSL-1.0",
+  "CDLA-Permissive-2.0"
 ]
+
+[licenses.private]
+ignore = true
 
 [bans]
 multiple-versions = "warn"
