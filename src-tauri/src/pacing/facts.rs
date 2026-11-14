@@ -120,7 +120,6 @@ pub struct PaceFacts {
 /// own judgement and arrive as facts: only a window can see its screens.
 // A mirror of the TypeScript `SessionFacts`: each flag is one fact the window
 // reports, and folding them into a bit set would hide them from the wire.
-#[expect(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionFacts {
@@ -165,7 +164,8 @@ pub enum ObservedKind {
 #[serde(rename_all = "camelCase")]
 pub struct ObservedDecision {
     pub session_id: SessionId,
-    pub at: EpochMilliseconds,
+    #[serde(rename = "at")]
+    pub time: EpochMilliseconds,
     pub kind: ObservedKind,
 }
 
@@ -174,7 +174,8 @@ pub struct ObservedDecision {
 #[serde(rename_all = "camelCase")]
 pub struct PacingReport {
     pub window_label: WindowLabel,
-    pub at: EpochMilliseconds,
+    #[serde(rename = "at")]
+    pub time: EpochMilliseconds,
     pub sessions: Vec<SessionFacts>,
     pub observed: Vec<ObservedDecision>,
 }

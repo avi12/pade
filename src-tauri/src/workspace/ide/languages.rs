@@ -30,7 +30,9 @@ pub(crate) struct LanguageShare {
 // `async` + `spawn_blocking`: this is the git-tracked source census, once per
 // visible row - real filesystem work, off the UI thread.
 #[tauri::command]
-pub(crate) async fn ide_project_languages(paths: Vec<String>) -> BTreeMap<String, Vec<LanguageShare>> {
+pub(crate) async fn ide_project_languages(
+    paths: Vec<String>,
+) -> BTreeMap<String, Vec<LanguageShare>> {
     tauri::async_runtime::spawn_blocking(move || {
         paths
             .into_iter()

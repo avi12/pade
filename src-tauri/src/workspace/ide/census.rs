@@ -132,7 +132,7 @@ pub(super) fn source_content(path: &std::path::Path) -> Option<SourceContent> {
     let bytes = file.metadata().map_or(0, |metadata| metadata.len());
     let mut sample = [0u8; SOURCE_SAMPLE_BYTES];
     let read = file.read(&mut sample).ok()?;
-    let sample = &sample[..read];
+    let sample = sample.get(..read)?;
     let binary = sample.contains(&0);
     if binary {
         return Some(SourceContent {

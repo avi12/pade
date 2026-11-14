@@ -133,7 +133,7 @@ fn parse_fraction(fraction: &str) -> Option<u32> {
     }
 
     let is_plain =
-        fraction.len() <= MILLISECOND_DIGITS && fraction.bytes().all(|b| b.is_ascii_digit());
+        fraction.len() <= MILLISECOND_DIGITS && fraction.bytes().all(|byte| byte.is_ascii_digit());
     if !is_plain {
         return None;
     }
@@ -143,7 +143,7 @@ fn parse_fraction(fraction: &str) -> Option<u32> {
 
 /// A number written with exactly `width` digits.
 fn fixed_digits(text: &str, width: usize) -> Option<u32> {
-    let is_exact = text.len() == width && text.bytes().all(|b| b.is_ascii_digit());
+    let is_exact = text.len() == width && text.bytes().all(|byte| byte.is_ascii_digit());
     if !is_exact {
         return None;
     }

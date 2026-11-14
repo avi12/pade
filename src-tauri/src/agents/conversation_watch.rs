@@ -264,14 +264,16 @@ fn has_extension(path: &Path, extension: &str) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Emission {
     Now,
-    At(Instant),
+    Deadline(Instant),
 }
 
 /// The throttle rule: at once unless the last announcement for the same scope
 /// was under `EMISSION_INTERVAL` ago, else once that interval has passed.
 fn next_emission(last_emitted: Option<Instant>, now: Instant) -> Emission {
     match last_emitted {
-        Some(last) if now < last + EMISSION_INTERVAL => Emission::At(last + EMISSION_INTERVAL),
+        Some(last) if now < last + EMISSION_INTERVAL => {
+            Emission::Deadline(last + EMISSION_INTERVAL)
+        }
         _ => Emission::Now,
     }
 }
@@ -295,7 +297,7 @@ impl Throttle {
                 self.last_emitted.insert(scope.clone(), now);
                 Some(scope)
             }
-            Emission::At(deadline) => {
+            Emission::Deadline(deadline) => {
                 self.pending.insert(scope, deadline);
                 None
             }

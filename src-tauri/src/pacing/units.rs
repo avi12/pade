@@ -213,7 +213,7 @@ impl Percentage {
 
     /// This share of `span`.
     #[must_use]
-    pub fn of(self, span: SpanMilliseconds) -> SpanMilliseconds {
+    pub fn share_of(self, span: SpanMilliseconds) -> SpanMilliseconds {
         span * (self.0 / PERCENT_PER_WHOLE)
     }
 }
@@ -335,7 +335,7 @@ mod tests {
     #[test]
     fn a_share_of_a_span_scales_it() {
         assert_eq!(
-            Percentage::new(50.0).of(SpanMilliseconds::from_days(1.0)),
+            Percentage::new(50.0).share_of(SpanMilliseconds::from_days(1.0)),
             SpanMilliseconds::from_hours(12.0)
         );
     }

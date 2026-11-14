@@ -214,7 +214,10 @@ pub(super) fn suggest_for(cwd: &str) -> Result<Vec<Ide>, String> {
 /// through [`ide_suggest`], which puts it first. Only a known editor id (a
 /// registry entry or a user-added editor) is persisted.
 #[tauri::command]
-pub(crate) fn ide_choose_editor(cwd: String, id: String) -> Result<crate::workspace::Settings, String> {
+pub(crate) fn ide_choose_editor(
+    cwd: String,
+    id: String,
+) -> Result<crate::workspace::Settings, String> {
     let is_known_editor = REGISTRY.iter().any(|editor| editor.id == id)
         || added_editors().iter().any(|editor| editor.id == id);
     if !is_known_editor {

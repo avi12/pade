@@ -109,7 +109,7 @@ impl InteractiveSession {
     /// `None` for a line that is no interactive session's - a `codex exec`
     /// oneshot has `"source":"exec"` and cannot be resumed into a TUI
     /// conversation.
-    pub(super) fn of(metadata_line: &str) -> Option<Self> {
+    pub(super) fn from_metadata_line(metadata_line: &str) -> Option<Self> {
         let is_oneshot = json_string_field(metadata_line, SOURCE_FIELD)
             .is_some_and(|source| source == EXEC_SOURCE);
         if is_oneshot {
@@ -136,7 +136,7 @@ impl InteractiveSession {
 /// Pull the session id out of one `session_meta` line - only when it records an
 /// interactive session in the wanted working directory.
 pub(super) fn interactive_session_id(metadata_line: &str, wanted_cwd: &str) -> Option<String> {
-    InteractiveSession::of(metadata_line)?.id_in(wanted_cwd)
+    InteractiveSession::from_metadata_line(metadata_line)?.id_in(wanted_cwd)
 }
 
 /// How long the `opencode db` lookup may take before ADE gives up and spawns a

@@ -90,17 +90,17 @@ pub(super) fn read(conversation_id: &str) -> Option<RunningModel> {
     let saved = saved_settings();
 
     let hook_model = state.model.as_deref().map(|model| (model, state.model_at));
-    let turn_model = turn.as_ref().map(|turn| (turn.model.as_str(), turn.at));
+    let turn_model = turn.as_ref().map(|turn| (turn.model.as_str(), turn.time));
     let reported_model = [hook_model, turn_model]
         .into_iter()
         .flatten()
-        .max_by_key(|(_, at)| *at);
+        .max_by_key(|(_, time)| *time);
     let model = newer(reported_model, saved.model.as_ref(), 0)?;
 
     // A turn's effort, or one PADE launched the session with - whichever is newer.
     let turned_effort = turn
         .as_ref()
-        .and_then(|turn| Some((turn.effort.as_deref()?, turn.at)));
+        .and_then(|turn| Some((turn.effort.as_deref()?, turn.time)));
     let launched_effort = state
         .effort
         .as_deref()
@@ -108,7 +108,7 @@ pub(super) fn read(conversation_id: &str) -> Option<RunningModel> {
     let reported_effort = [turned_effort, launched_effort]
         .into_iter()
         .flatten()
-        .max_by_key(|(_, at)| *at);
+        .max_by_key(|(_, time)| *time);
     Some(RunningModel {
         effort: newer(reported_effort, saved.effort.as_ref(), 0),
         model,
@@ -194,7 +194,7 @@ fn toml_string(value: &str) -> String {
 struct Turn {
     model: String,
     effort: Option<String>,
-    at: u64,
+    time: u64,
 }
 
 fn newest_turn_in(lines: &str) -> Option<Turn> {
@@ -215,7 +215,7 @@ fn turn_from_line(line: &str) -> Option<Turn> {
         effort: text("/effort")
             .or_else(|| text("/collaboration_mode/settings/reasoning_effort"))
             .map(str::to_string),
-        at: timestamp_milliseconds(entry.get("timestamp")?.as_str()?)?,
+        time: timestamp_milliseconds(entry.get("timestamp")?.as_str()?)?,
     })
 }
 

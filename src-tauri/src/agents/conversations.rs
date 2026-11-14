@@ -369,7 +369,7 @@ fn without_tag(text: &str, tag: &str) -> String {
 /// The interactive session a Codex rollout records, `None` for a oneshot.
 fn codex_session(path: &Path, modified: SystemTime) -> Option<InteractiveSession> {
     CODEX_SESSIONS.get_or_parse(path, modified, |path| {
-        InteractiveSession::of(&first_line(path)?)
+        InteractiveSession::from_metadata_line(&first_line(path)?)
     })
 }
 

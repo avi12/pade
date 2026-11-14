@@ -24,9 +24,9 @@ fn a_held_permission_outlasts_a_hook_that_deletes_it() {
 
 #[test]
 fn the_newest_effort_the_transcript_logs_is_the_sessions_own() {
-    let set = |level: &str, at: &str| {
+    let set = |level: &str, timestamp: &str| {
         format!(
-            r#"{{"type":"user","message":{{"role":"user","content":"<local-command-stdout>Set effort level to {level} (saved as your default for new sessions): Deeper</local-command-stdout>"}},"timestamp":"{at}"}}"#
+            r#"{{"type":"user","message":{{"role":"user","content":"<local-command-stdout>Set effort level to {level} (saved as your default for new sessions): Deeper</local-command-stdout>"}},"timestamp":"{timestamp}"}}"#
         )
     };
     let cancelled = r#"{"type":"user","message":{"role":"user","content":"<local-command-stdout>Cancelled</local-command-stdout>"},"timestamp":"2026-10-15T02:28:32.508Z"}"#;

@@ -147,7 +147,10 @@ fn package_names_come_from_each_manifest_family() {
         Some("engine".to_string())
     );
     assert_eq!(
-        package_name_from_text("module example.com/team/api\n\ngo 1.22\n", Ecosystem::Go),
+        package_name_from_text(
+            "module example.com/team/api\n\ngo 1.22\n",
+            Ecosystem::Golang
+        ),
         Some("api".to_string())
     );
     assert_eq!(
@@ -431,7 +434,7 @@ fn a_polyglot_root_collects_patterns_from_every_defining_file() {
         .iter()
         .find(|member| member.path == "api")
         .expect("api member");
-    assert_eq!(api.ecosystem, Some(Ecosystem::Go));
+    assert_eq!(api.ecosystem, Some(Ecosystem::Golang));
     assert_eq!(api.name.as_deref(), Some("api"));
 
     let _ = fs::remove_dir_all(&root);

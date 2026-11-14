@@ -41,7 +41,8 @@ const LAST_DISAGREEMENT_LIMIT: usize = 20;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Verdict {
-    pub at: EpochMilliseconds,
+    #[serde(rename = "at")]
+    pub time: EpochMilliseconds,
     pub session_id: SessionId,
     pub observed: Option<ObservedKind>,
     pub decided: Option<ObservedKind>,
@@ -94,7 +95,7 @@ pub struct SessionContext {
 
 impl SessionContext {
     #[must_use]
-    pub fn of(session: &SessionFacts) -> Self {
+    pub fn from_facts(session: &SessionFacts) -> Self {
         Self {
             is_working: session.is_working,
             pace_phase: session.pace.as_ref().map(|pace| pace.phase),
@@ -141,7 +142,7 @@ impl ShadowState {
         for waiting in std::mem::take(&mut self.waiting) {
             let matched = claim(&mut unclaimed, &waiting.session, waiting.kind);
             verdicts.push(Verdict {
-                at: matched.map_or(now, |decision| decision.at),
+                time: matched.map_or(now, |decision| decision.time),
                 session_id: waiting.session,
                 observed: matched.map(|decision| decision.kind),
                 decided: Some(waiting.kind),
@@ -156,7 +157,7 @@ impl ShadowState {
             let session = decision.session();
             match claim(&mut unclaimed, session, kind) {
                 Some(matched) => verdicts.push(Verdict {
-                    at: matched.at,
+                    time: matched.time,
                     session_id: session.clone(),
                     observed: Some(kind),
                     decided: Some(kind),
@@ -169,7 +170,7 @@ impl ShadowState {
         }
 
         verdicts.extend(unclaimed.into_iter().map(|decision| Verdict {
-            at: decision.at,
+            time: decision.time,
             session_id: decision.session_id.clone(),
             observed: Some(decision.kind),
             decided: None,
@@ -233,7 +234,8 @@ struct LogEntry<'a> {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LogLine<'a> {
-    at: EpochMilliseconds,
+    #[serde(rename = "at")]
+    time: EpochMilliseconds,
     entries: Vec<LogEntry<'a>>,
 }
 
@@ -257,7 +259,7 @@ pub fn log_line(
             context: contexts.get(&verdict.session_id).copied(),
         })
         .collect();
-    serde_json::to_string(&LogLine { at: now, entries }).ok()
+    serde_json::to_string(&LogLine { time: now, entries }).ok()
 }
 
 /// The size-bounded JSONL file the lines go to.

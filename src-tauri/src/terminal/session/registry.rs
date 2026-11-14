@@ -86,7 +86,10 @@ impl SessionRegistry {
             if is_already_live {
                 return Ok(());
             }
-            let owner_session_count = sessions.values().filter(|pty| pty.owner.is(owner)).count();
+            let owner_session_count = sessions
+                .values()
+                .filter(|pty| pty.owner.matches_label(owner))
+                .count();
             if owner_session_count >= MAXIMUM_SESSIONS_PER_WINDOW {
                 return Err(SessionError::WindowFull);
             }
@@ -190,7 +193,7 @@ impl SessionRegistry {
         let sessions = self.sessions.lock()?;
         let mut roster: Vec<HostedSession> = sessions
             .iter()
-            .filter(|(_, pty)| owner.is_none_or(|owner| pty.owner.is(owner)))
+            .filter(|(_, pty)| owner.is_none_or(|owner| pty.owner.matches_label(owner)))
             .map(|(id, pty)| HostedSession {
                 id: id.clone(),
                 owner: pty.owner.label(),
@@ -266,7 +269,10 @@ impl SessionRegistry {
                 None => Err(SessionError::Missing { id: id.clone() }),
             })
             .collect::<Result<Vec<_>, SessionError>>()?;
-        let receiving_count = sessions.values().filter(|pty| pty.owner.is(to)).count();
+        let receiving_count = sessions
+            .values()
+            .filter(|pty| pty.owner.matches_label(to))
+            .count();
         if receiving_count + moving.len() > MAXIMUM_SESSIONS_PER_WINDOW {
             return Err(SessionError::ReceivingWindowFull);
         }
@@ -288,7 +294,7 @@ impl SessionRegistry {
         };
         let owned_ids: Vec<String> = sessions
             .iter()
-            .filter(|(_, pty)| pty.owner.is(owner))
+            .filter(|(_, pty)| pty.owner.matches_label(owner))
             .map(|(id, _)| id.clone())
             .collect();
         let ended: Vec<Arc<Pty>> = owned_ids

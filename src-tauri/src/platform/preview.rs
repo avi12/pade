@@ -57,11 +57,18 @@ pub(crate) fn image_mime_type(path: &Path) -> Option<&'static str> {
 fn base64_encode(bytes: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     const PAD: char = '=';
-    let sextet = |value: u8| char::from(ALPHABET[usize::from(value & 0x3f)]);
+    let sextet = |value: u8| {
+        char::from(
+            ALPHABET
+                .get(usize::from(value & 0x3f))
+                .copied()
+                .unwrap_or(b'='),
+        )
+    };
 
     let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
-        let first = chunk[0];
+        let first = chunk.first().copied().unwrap_or(0);
         let second = chunk.get(1).copied().unwrap_or(0);
         let third = chunk.get(2).copied().unwrap_or(0);
         encoded.push(sextet(first >> 2));
@@ -95,7 +102,7 @@ pub(crate) struct FeedImage {
 impl FeedImage {
     /// The preview of `bytes` read from `path`, tagged with the MIME type of its
     /// extension. `None` when `path` does not name a previewable image.
-    pub(crate) fn of(path: &Path, bytes: &[u8]) -> Option<Self> {
+    pub(crate) fn from_bytes(path: &Path, bytes: &[u8]) -> Option<Self> {
         let mime = image_mime_type(path)?;
         Some(Self {
             data_url: data_url(mime, bytes),
@@ -189,9 +196,9 @@ mod tests {
 
     #[test]
     fn an_image_preview_is_a_data_url_of_its_mime_type() {
-        let preview = FeedImage::of(Path::new("logo.png"), b"foo").expect("a png previews");
+        let preview = FeedImage::from_bytes(Path::new("logo.png"), b"foo").expect("a png previews");
         assert_eq!(preview.data_url, "data:image/png;base64,Zm9v");
-        assert!(FeedImage::of(Path::new("notes.txt"), b"foo").is_none());
+        assert!(FeedImage::from_bytes(Path::new("notes.txt"), b"foo").is_none());
     }
 
     #[test]

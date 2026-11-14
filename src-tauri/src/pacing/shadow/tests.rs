@@ -5,7 +5,7 @@ use crate::test_support::assert_empty;
 
 const START: f64 = 5_000_000.0;
 
-fn at(minutes: f64) -> EpochMilliseconds {
+fn epoch(minutes: f64) -> EpochMilliseconds {
     EpochMilliseconds::new(START) + SpanMilliseconds::from_minutes(minutes)
 }
 
@@ -18,7 +18,7 @@ fn stop(id: &str) -> Decision {
 fn observed(id: &str, minutes: f64, kind: ObservedKind) -> ObservedDecision {
     ObservedDecision {
         session_id: SessionId::new(id),
-        at: at(minutes),
+        time: epoch(minutes),
         kind,
     }
 }
@@ -30,7 +30,7 @@ fn compare(
     reported: &[ObservedDecision],
 ) -> Vec<Verdict> {
     state.compare(Comparison {
-        now: at(minutes),
+        now: epoch(minutes),
         decisions,
         observed: reported,
     })
@@ -217,7 +217,7 @@ fn the_summary_serializes_in_the_shape_the_frontend_reads() {
 #[test]
 fn a_log_line_carries_each_verdict_with_what_the_engine_saw() {
     let verdict = Verdict {
-        at: at(1.0),
+        time: epoch(1.0),
         session_id: SessionId::new("a"),
         observed: None,
         decided: Some(ObservedKind::Stop),
@@ -231,13 +231,13 @@ fn a_log_line_carries_each_verdict_with_what_the_engine_saw() {
             is_pacing_on: true,
         },
     )]);
-    let line = log_line(at(1.0), &[verdict], &contexts).expect("a line");
+    let line = log_line(epoch(1.0), &[verdict], &contexts).expect("a line");
     let json: serde_json::Value = serde_json::from_str(&line).expect("json");
     let entry = &json["entries"][0];
     assert_eq!(entry["isAgreement"], false);
     assert_eq!(entry["decided"], "stop");
     assert_eq!(entry["context"]["isWorking"], true);
-    assert!(log_line(at(1.0), &[], &contexts).is_none());
+    assert!(log_line(epoch(1.0), &[], &contexts).is_none());
 }
 
 fn scratch(name: &str) -> PathBuf {

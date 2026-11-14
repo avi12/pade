@@ -22,7 +22,7 @@ impl SessionOwner {
         self.0.read().map(|label| label.clone()).unwrap_or_default()
     }
 
-    pub(super) fn is(&self, label: &str) -> bool {
+    pub(super) fn matches_label(&self, label: &str) -> bool {
         self.0.read().is_ok_and(|owner| owner.as_str() == label)
     }
 

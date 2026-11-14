@@ -190,7 +190,7 @@ pub(super) fn manifest_ignore_directories(file_name: &str) -> &'static [&'static
         "dist",
         ".eggs",
     ];
-    const GO: &[&str] = &["vendor", "bin"];
+    const GO_DIRECTORIES: &[&str] = &["vendor", "bin"];
     const JVM: &[&str] = &["target", "build", ".gradle"];
     const RUBY: &[&str] = &["vendor", ".bundle"];
     const PHP: &[&str] = &["vendor"];
@@ -208,7 +208,7 @@ pub(super) fn manifest_ignore_directories(file_name: &str) -> &'static [&'static
         "package.json" | "pnpm-lock.yaml" | "yarn.lock" | "package-lock.json" => NODE,
         "Cargo.toml" => RUST,
         "pyproject.toml" | "requirements.txt" | "setup.py" | "Pipfile" => PYTHON,
-        "go.mod" => GO,
+        "go.mod" => GO_DIRECTORIES,
         "pom.xml" | "build.gradle" | "build.gradle.kts" => JVM,
         "Gemfile" => RUBY,
         "composer.json" => PHP,

@@ -20,7 +20,7 @@ const OBSERVED_LIMIT: usize = 256;
 
 #[derive(Debug, Clone)]
 struct StoredReport {
-    at: EpochMilliseconds,
+    time: EpochMilliseconds,
     sessions: Vec<SessionFacts>,
     observed: Vec<ObservedDecision>,
 }
@@ -44,7 +44,7 @@ impl Registry {
     pub fn submit(&mut self, report: PacingReport) {
         let PacingReport {
             window_label,
-            at,
+            time,
             sessions,
             observed,
         } = report;
@@ -59,7 +59,7 @@ impl Registry {
         self.windows.insert(
             window_label,
             StoredReport {
-                at,
+                time,
                 sessions,
                 observed: waiting,
             },
@@ -72,11 +72,11 @@ impl Registry {
         let lifetime = report_lifetime(POLL_INTERVAL);
         self.windows
             .iter()
-            .filter(|(_, stored)| now - stored.at <= lifetime)
+            .filter(|(_, stored)| now - stored.time <= lifetime)
             .flat_map(|(label, stored)| {
                 stored.sessions.iter().map(|facts| LiveSession {
                     window: label.clone(),
-                    reported_at: stored.at,
+                    reported_at: stored.time,
                     facts: facts.clone(),
                 })
             })
@@ -91,14 +91,14 @@ impl Registry {
         for stored in self.windows.values_mut() {
             let (happened, later): (Vec<_>, Vec<_>) = std::mem::take(&mut stored.observed)
                 .into_iter()
-                .partition(|decision| decision.at <= now);
+                .partition(|decision| decision.time <= now);
             due.extend(happened);
             stored.observed = later;
         }
 
         let lifetime = report_lifetime(POLL_INTERVAL);
         self.windows
-            .retain(|_, stored| now - stored.at <= lifetime || !stored.observed.is_empty());
+            .retain(|_, stored| now - stored.time <= lifetime || !stored.observed.is_empty());
         due
     }
 }
@@ -111,7 +111,7 @@ mod tests {
 
     const START: f64 = 1_000_000.0;
 
-    fn at(offset_minutes: f64) -> EpochMilliseconds {
+    fn epoch(offset_minutes: f64) -> EpochMilliseconds {
         EpochMilliseconds::new(START) + SpanMilliseconds::from_minutes(offset_minutes)
     }
 
@@ -130,7 +130,7 @@ mod tests {
     fn report(label: &str, reported_at: EpochMilliseconds, ids: &[&str]) -> PacingReport {
         PacingReport {
             window_label: WindowLabel::new(label),
-            at: reported_at,
+            time: reported_at,
             sessions: ids.iter().map(|id| session(id)).collect(),
             observed: Vec::new(),
         }
@@ -139,7 +139,7 @@ mod tests {
     fn observed(id: &str, when: EpochMilliseconds, kind: ObservedKind) -> ObservedDecision {
         ObservedDecision {
             session_id: SessionId::new(id),
-            at: when,
+            time: when,
             kind,
         }
     }
@@ -147,29 +147,29 @@ mod tests {
     #[test]
     fn a_report_is_live_for_two_and_a_half_polls() {
         let mut registry = Registry::default();
-        registry.submit(report("main", at(0.0), &["a"]));
-        assert_eq!(registry.live_sessions(at(0.0)).len(), 1);
-        assert_eq!(registry.live_sessions(at(2.5)).len(), 1);
-        assert_empty(&registry.live_sessions(at(2.6)));
+        registry.submit(report("main", epoch(0.0), &["a"]));
+        assert_eq!(registry.live_sessions(epoch(0.0)).len(), 1);
+        assert_eq!(registry.live_sessions(epoch(2.5)).len(), 1);
+        assert_empty(&registry.live_sessions(epoch(2.6)));
     }
 
     #[test]
     fn a_newer_report_replaces_the_windows_sessions() {
         let mut registry = Registry::default();
-        registry.submit(report("main", at(0.0), &["a", "b"]));
-        registry.submit(report("main", at(1.0), &["c"]));
-        let live = registry.live_sessions(at(1.0));
+        registry.submit(report("main", epoch(0.0), &["a", "b"]));
+        registry.submit(report("main", epoch(1.0), &["c"]));
+        let live = registry.live_sessions(epoch(1.0));
         assert_eq!(live.len(), 1);
         assert_eq!(live[0].facts.id.as_str(), "c");
-        assert_eq!(live[0].reported_at, at(1.0));
+        assert_eq!(live[0].reported_at, epoch(1.0));
     }
 
     #[test]
     fn every_fresh_window_contributes_and_a_stale_one_does_not() {
         let mut registry = Registry::default();
-        registry.submit(report("main", at(0.0), &["a"]));
-        registry.submit(report("second", at(3.0), &["b"]));
-        let live = registry.live_sessions(at(3.0));
+        registry.submit(report("main", epoch(0.0), &["a"]));
+        registry.submit(report("second", epoch(3.0), &["b"]));
+        let live = registry.live_sessions(epoch(3.0));
         assert_eq!(live.len(), 1);
         assert_eq!(live[0].window.as_str(), "second");
     }
@@ -177,49 +177,49 @@ mod tests {
     #[test]
     fn observed_decisions_queue_across_reports_until_drained() {
         let mut registry = Registry::default();
-        let mut first = report("main", at(0.0), &["a"]);
+        let mut first = report("main", epoch(0.0), &["a"]);
         first
             .observed
-            .push(observed("a", at(0.0), ObservedKind::Stop));
+            .push(observed("a", epoch(0.0), ObservedKind::Stop));
         registry.submit(first);
-        let mut second = report("main", at(1.0), &["a"]);
+        let mut second = report("main", epoch(1.0), &["a"]);
         second
             .observed
-            .push(observed("a", at(1.0), ObservedKind::Resume));
+            .push(observed("a", epoch(1.0), ObservedKind::Resume));
         registry.submit(second);
 
-        let due = registry.drain_observed(at(1.0));
+        let due = registry.drain_observed(epoch(1.0));
         assert_eq!(due.len(), 2);
-        assert_empty(&registry.drain_observed(at(1.0)));
+        assert_empty(&registry.drain_observed(epoch(1.0)));
     }
 
     #[test]
     fn a_decision_after_now_waits_for_a_later_drain() {
         let mut registry = Registry::default();
-        let mut early = report("main", at(0.0), &["a"]);
+        let mut early = report("main", epoch(0.0), &["a"]);
         early
             .observed
-            .push(observed("a", at(0.5), ObservedKind::Rest));
+            .push(observed("a", epoch(0.5), ObservedKind::Rest));
         registry.submit(early);
-        assert_empty(&registry.drain_observed(at(0.0)));
-        assert_eq!(registry.drain_observed(at(1.0)).len(), 1);
+        assert_empty(&registry.drain_observed(epoch(0.0)));
+        assert_eq!(registry.drain_observed(epoch(1.0)).len(), 1);
     }
 
     #[test]
     fn an_expired_window_is_forgotten_once_it_has_nothing_to_compare() {
         let mut registry = Registry::default();
-        let mut last = report("main", at(0.0), &["a"]);
+        let mut last = report("main", epoch(0.0), &["a"]);
         last.observed
-            .push(observed("a", at(0.0), ObservedKind::Stop));
+            .push(observed("a", epoch(0.0), ObservedKind::Stop));
         registry.submit(last);
-        assert_eq!(registry.drain_observed(at(10.0)).len(), 1);
+        assert_eq!(registry.drain_observed(epoch(10.0)).len(), 1);
         assert!(registry.windows.is_empty());
     }
 
     #[test]
     fn the_observed_queue_is_bounded_keeping_the_newest() {
         let mut registry = Registry::default();
-        let mut busy = report("main", at(0.0), &["a"]);
+        let mut busy = report("main", epoch(0.0), &["a"]);
         for index in 0..(OBSERVED_LIMIT + 10) {
             let offset = f64::from(u32::try_from(index).expect("small"));
             busy.observed.push(observed(
@@ -229,8 +229,8 @@ mod tests {
             ));
         }
         registry.submit(busy);
-        let due = registry.drain_observed(at(1.0));
+        let due = registry.drain_observed(epoch(1.0));
         assert_eq!(due.len(), OBSERVED_LIMIT);
-        assert_eq!(due[0].at, EpochMilliseconds::new(START + 10.0));
+        assert_eq!(due[0].time, EpochMilliseconds::new(START + 10.0));
     }
 }

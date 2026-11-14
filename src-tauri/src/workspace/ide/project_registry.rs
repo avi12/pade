@@ -113,7 +113,7 @@ pub(super) const LANGUAGE_REGISTRY: &[LanguageDefinition] = &[
     },
     LanguageDefinition {
         name: "Go",
-        kind: ProjectKind::Go,
+        kind: ProjectKind::Golang,
         extensions: &["go"],
     },
     LanguageDefinition {
@@ -208,7 +208,7 @@ pub(super) const KIND_REGISTRY: &[KindDefinition] = &[
         markers: &[Marker::Named("Gemfile")],
     },
     KindDefinition {
-        kind: ProjectKind::Go,
+        kind: ProjectKind::Golang,
         label: "Go",
         markers: &[Marker::Named("go.mod")],
     },

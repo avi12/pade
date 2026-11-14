@@ -95,7 +95,7 @@ fn recreate(app: &tauri::AppHandle, label: &str, url: &tauri::Url) {
         return;
     };
     let placement = Placement {
-        look: crate::platform::window::WindowLook::of(&crashed),
+        look: crate::platform::window::WindowLook::from_window(&crashed),
         position: crashed.outer_position().ok(),
         is_maximized: crashed.is_maximized().unwrap_or(false),
     };

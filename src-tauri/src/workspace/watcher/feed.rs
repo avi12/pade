@@ -175,7 +175,7 @@ pub(crate) async fn feed_image(
         return Ok(None);
     };
 
-    Ok(FeedImage::of(file, &bytes))
+    Ok(FeedImage::from_bytes(file, &bytes))
 }
 
 /// The video preview for `path`: its opening seconds transcoded by ffmpeg into a

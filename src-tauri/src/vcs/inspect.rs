@@ -155,7 +155,11 @@ fn status_kinds_by_path(name_status: &str) -> HashMap<&str, StatusKind> {
 
 /// Raw unified diff for one path within a commit.
 #[tauri::command]
-pub(crate) async fn vcs_commit_diff(cwd: String, sha: String, path: String) -> Result<String, String> {
+pub(crate) async fn vcs_commit_diff(
+    cwd: String,
+    sha: String,
+    path: String,
+) -> Result<String, String> {
     let sha = validate_object_id(&sha)?;
     run_git(
         &cwd,
@@ -235,7 +239,7 @@ pub(crate) async fn vcs_commit_image(
         return Ok(None);
     }
     Ok(read_commit_blob(&cwd, sha, &path, MAXIMUM_IMAGE_BYTES)
-        .and_then(|bytes| FeedImage::of(Path::new(&path), &bytes)))
+        .and_then(|bytes| FeedImage::from_bytes(Path::new(&path), &bytes)))
 }
 
 /// The video preview of `path` as the commit left it - the commit view's

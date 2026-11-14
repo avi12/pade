@@ -171,8 +171,8 @@ fn declared_project_kinds_ignore_ancillary_source_languages() {
             "rubymine",
         ),
         (
-            ProjectKind::Go,
-            ProjectKind::Go,
+            ProjectKind::Golang,
+            ProjectKind::Golang,
             ProjectKind::Rust,
             "goland",
         ),
@@ -384,11 +384,11 @@ fn generated_content_sits_out_the_census_without_a_path_rule() {
     let totals = census(&directory);
     assert_eq!(
         totals.get(&ProjectKind::Web),
-        Some(&(web_source.len() as u64))
+        Some(&u64::try_from(web_source.len()).unwrap_or_default())
     );
     assert_eq!(
         totals.get(&ProjectKind::Rust),
-        Some(&(rust_source.len() as u64))
+        Some(&u64::try_from(rust_source.len()).unwrap_or_default())
     );
 
     std::fs::remove_dir_all(&directory).expect("cleanup");
@@ -443,11 +443,11 @@ fn the_census_honors_git_attributes_and_ignores_ignored_junk() {
     let totals = census(&directory);
     assert_eq!(
         totals.get(&ProjectKind::Web),
-        Some(&((web_source.len() + overridden_source.len()) as u64))
+        Some(&u64::try_from(web_source.len() + overridden_source.len()).unwrap_or_default())
     );
     assert_eq!(
         totals.get(&ProjectKind::Rust),
-        Some(&(rust_source.len() as u64))
+        Some(&u64::try_from(rust_source.len()).unwrap_or_default())
     );
 
     std::fs::remove_dir_all(&directory).expect("cleanup");
@@ -487,11 +487,11 @@ fn the_census_counts_an_untracked_file_nobody_has_staged_yet() {
     let totals = census(&directory);
     assert_eq!(
         totals.get(&ProjectKind::Web),
-        Some(&(web_source.len() as u64))
+        Some(&u64::try_from(web_source.len()).unwrap_or_default())
     );
     assert_eq!(
         totals.get(&ProjectKind::Rust),
-        Some(&(rust_source.len() as u64))
+        Some(&u64::try_from(rust_source.len()).unwrap_or_default())
     );
 
     std::fs::remove_dir_all(&directory).expect("cleanup");
@@ -621,7 +621,7 @@ fn a_nested_project_census_does_not_expand_to_its_git_root() {
     let totals = census(&nested);
     assert_eq!(
         totals.get(&ProjectKind::Rust),
-        Some(&(rust_source.len() as u64))
+        Some(&u64::try_from(rust_source.len()).unwrap_or_default())
     );
     assert!(!totals.contains_key(&ProjectKind::Web));
 

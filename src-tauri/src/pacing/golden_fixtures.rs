@@ -56,7 +56,7 @@ struct PerKind<Number> {
 }
 
 impl<Number: Copy> PerKind<Number> {
-    fn of(&self, kind: PacedWindowKind) -> Option<Number> {
+    fn for_kind(&self, kind: PacedWindowKind) -> Option<Number> {
         match kind {
             PacedWindowKind::Session => self.session,
             PacedWindowKind::Weekly => self.weekly,
@@ -76,12 +76,12 @@ struct PaceInputs {
 impl PaceInputs {
     fn rate_of(&self, window: &UsageWindow) -> Option<BurnRate> {
         PacedWindowKind::from_window_kind(window.kind)
-            .and_then(|kind| self.rates.of(kind))
+            .and_then(|kind| self.rates.for_kind(kind))
             .map(BurnRate::new)
     }
 
     fn margin_of(&self, kind: PacedWindowKind) -> Option<SpanMilliseconds> {
-        self.margins.of(kind).map(SpanMilliseconds::new)
+        self.margins.for_kind(kind).map(SpanMilliseconds::new)
     }
 }
 
@@ -178,7 +178,7 @@ fn usage_pace_fixture() -> UsagePaceFixture {
     fixture
 }
 
-fn at(milliseconds: f64) -> EpochMilliseconds {
+fn epoch(milliseconds: f64) -> EpochMilliseconds {
     EpochMilliseconds::new(milliseconds)
 }
 
@@ -300,8 +300,8 @@ fn working_runway_agrees_with_the_typescript() {
         let runway = working_runway(WorkingRunwayParams {
             window: &case.window,
             rate: BurnRate::new(case.rate),
-            ready_at: at(case.ready_at),
-            continue_at: at(case.continue_at),
+            ready_at: epoch(case.ready_at),
+            continue_at: epoch(case.continue_at),
         });
         assert_json_close(
             &json!(runway.get()),
@@ -331,9 +331,9 @@ fn slow_rest_and_rest_enough_agree_with_the_typescript() {
     for (i, case) in usage_pace_fixture().slow_rest.iter().enumerate() {
         let rest_until = slow_rest_until(SlowRestParams {
             runway: span(case.runway),
-            ready_at: at(case.ready_at),
-            continue_at: at(case.continue_at),
-            now: at(case.now),
+            ready_at: epoch(case.ready_at),
+            continue_at: epoch(case.continue_at),
+            now: epoch(case.now),
         });
         assert_json_close(
             &json!(rest_until.get()),
@@ -342,8 +342,8 @@ fn slow_rest_and_rest_enough_agree_with_the_typescript() {
         );
         let is_enough = is_rest_enough(RestEnoughParams {
             runway: span(case.runway),
-            continue_at: at(case.continue_at),
-            now: at(case.now),
+            continue_at: epoch(case.continue_at),
+            now: epoch(case.now),
         });
         assert_eq!(
             is_enough, case.expected_is_rest_enough,
@@ -540,14 +540,14 @@ fn plan_round_agrees_with_the_typescript_over_the_scenarios() {
         let stepped_at: HashMap<String, EpochMilliseconds> = scenario
             .stepped_at
             .iter()
-            .map(|(session, time)| (session.clone(), at(*time)))
+            .map(|(session, time)| (session.clone(), epoch(*time)))
             .collect();
         let outcome: RoundOutcome = plan_round(PlanRoundParams {
             reports: &reports,
             steps: &scenario.steps,
             stepped_at: &stepped_at,
             leader: &scenario.leader,
-            now: at(scenario.now),
+            now: epoch(scenario.now),
         });
         assert_json_close(
             &to_json(&outcome),

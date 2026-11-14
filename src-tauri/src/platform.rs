@@ -9,9 +9,9 @@
 pub(crate) mod clipboard;
 pub(crate) mod contextmenu;
 pub(crate) mod design;
+pub(crate) mod desktop;
 pub(crate) mod discord;
 pub(crate) mod media;
-pub(crate) mod os;
 pub(crate) mod package;
 pub(crate) mod preview;
 pub(crate) mod recovery;

@@ -61,7 +61,8 @@ enum TaskKind {
     Qmake,
     Dotnet,
     Msbuild,
-    Go,
+    #[serde(rename = "go")]
+    Golang,
     Gradle,
     Maven,
 }

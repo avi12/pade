@@ -157,7 +157,7 @@ fn a_change_within_the_interval_waits_for_its_end() {
     let soon = last + EMISSION_INTERVAL / 4;
     assert_eq!(
         next_emission(Some(last), soon),
-        Emission::At(last + EMISSION_INTERVAL)
+        Emission::Deadline(last + EMISSION_INTERVAL)
     );
 }
 

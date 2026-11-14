@@ -16,7 +16,7 @@ fn per_hour(percentage: f64) -> BurnRate {
 fn readings(minutes: u32, rise: f64, resets_at: &str) -> Vec<UsageSample> {
     (0..=minutes)
         .map(|i| UsageSample {
-            at: NOW + MINUTE * f64::from(i),
+            time: NOW + MINUTE * f64::from(i),
             utilization: Percentage::new(60.0 + f64::from(i) * rise),
             resets_at: Some(resets_at.to_string()),
         })
@@ -64,9 +64,9 @@ fn burn_rate_counts_readings_whose_reset_differs_only_by_the_vendors_jitter_as_o
 #[test]
 fn burn_rate_still_tells_a_new_window_from_the_old_one_by_hours() {
     let old = readings(10, 0.5, "2026-11-14T00:59:59.533870+00:00");
-    let last_at = old.last().map_or(NOW, |sample| sample.at);
+    let last_at = old.last().map_or(NOW, |sample| sample.time);
     let next = UsageSample {
-        at: last_at + MINUTE,
+        time: last_at + MINUTE,
         utilization: Percentage::new(1.0),
         resets_at: Some("2026-11-14T05:59:59.533870+00:00".to_string()),
     };
@@ -80,14 +80,14 @@ fn burn_rate_leaves_idle_gaps_and_a_new_window_out_of_the_measure() {
     let after_idle_hour: Vec<UsageSample> = working
         .iter()
         .map(|sample| UsageSample {
-            at: sample.at + HOUR,
+            time: sample.time + HOUR,
             utilization: sample.utilization + Percentage::new(5.0),
             ..sample.clone()
         })
         .collect();
-    let last_working_at = after_idle_hour.last().map_or(NOW, |sample| sample.at);
+    let last_working_at = after_idle_hour.last().map_or(NOW, |sample| sample.time);
     let next_window = UsageSample {
-        at: last_working_at + MINUTE,
+        time: last_working_at + MINUTE,
         utilization: Percentage::new(1.0),
         resets_at: Some("next".to_string()),
     };

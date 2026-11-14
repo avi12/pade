@@ -6,8 +6,8 @@ fn a_moved_owner_is_seen_by_every_clone() {
     let owner = SessionOwner::new("w-1".to_string());
     let pump_view = owner.clone();
     owner.set("w-2").expect("set owner");
-    assert!(pump_view.is("w-2"));
-    assert!(!pump_view.is("w-1"));
+    assert!(pump_view.matches_label("w-2"));
+    assert!(!pump_view.matches_label("w-1"));
     assert_eq!(pump_view.label(), "w-2");
 }
 

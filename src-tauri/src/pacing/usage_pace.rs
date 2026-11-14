@@ -128,7 +128,8 @@ pub fn reported_paced_kinds(account: Option<&AccountUsage>) -> Vec<PacedWindowKi
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageSample {
-    pub at: EpochMilliseconds,
+    #[serde(rename = "at")]
+    pub time: EpochMilliseconds,
     pub utilization: Percentage,
     #[serde(default)]
     pub resets_at: Option<String>,
@@ -163,7 +164,7 @@ pub fn burn_rate(samples: &[UsageSample]) -> Option<BurnRate> {
             continue;
         };
 
-        let gap = current.at - previous.at;
+        let gap = current.time - previous.time;
         let is_working_stretch = gap > SpanMilliseconds::ZERO && gap <= MAXIMUM_SAMPLE_GAP_MS;
         let rise = current.utilization - previous.utilization;
         let is_falling = rise < Percentage::ZERO;
@@ -226,7 +227,7 @@ fn runway_of(window: &UsageWindow, rate: BurnRate) -> SpanMilliseconds {
 /// When an even spend over a weekly window starting `WEEKLY_WINDOW_MS` before
 /// `reset_at` reaches `utilization`.
 fn even_spend_reaches(reset_at: EpochMilliseconds, utilization: Percentage) -> EpochMilliseconds {
-    (reset_at - WEEKLY_WINDOW_MS) + utilization.of(WEEKLY_WINDOW_MS)
+    (reset_at - WEEKLY_WINDOW_MS) + utilization.share_of(WEEKLY_WINDOW_MS)
 }
 
 /// When an even spend over a weekly window reaches what it has used - when it is

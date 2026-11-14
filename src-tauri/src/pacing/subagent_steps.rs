@@ -40,7 +40,7 @@ impl HoldSeconds {
     const fn fixed(seconds: u32) -> Self {
         match NonZeroU32::new(seconds) {
             Some(positive) => Self(positive),
-            None => panic!("a hold is at least a second"),
+            None => Self(NonZeroU32::MIN),
         }
     }
 

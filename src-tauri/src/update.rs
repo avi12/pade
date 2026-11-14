@@ -75,7 +75,7 @@ enum Updater {
 }
 
 impl Updater {
-    fn of(is_packaged: bool, is_published: bool) -> Self {
+    fn from_flags(is_packaged: bool, is_published: bool) -> Self {
         if is_packaged {
             return Self::Windows;
         }
@@ -86,7 +86,7 @@ impl Updater {
     }
 
     fn running() -> Self {
-        Self::of(
+        Self::from_flags(
             crate::platform::package::is_packaged(),
             is_published_executable(),
         )

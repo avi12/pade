@@ -30,7 +30,9 @@ pub struct EffortQuery<'a> {
 /// the form the agents' catalogs list.
 #[must_use]
 pub fn bare_model(model: &str) -> &str {
-    let start = model.rfind(PROVIDER_SEPARATOR).map_or(0, |at| at + 1);
+    let start = model
+        .rfind(PROVIDER_SEPARATOR)
+        .map_or(0, |position| position + 1);
     let unprefixed = &model[start..];
     strip_context_variant(unprefixed)
 }
@@ -43,8 +45,11 @@ fn strip_context_variant(id: &str) -> &str {
         return id;
     };
 
-    let tail_start = body.rfind(']').map_or(0, |at| at + 1);
-    let Some(open) = body[tail_start..].find('[').map(|at| tail_start + at) else {
+    let tail_start = body.rfind(']').map_or(0, |position| position + 1);
+    let Some(open) = body[tail_start..]
+        .find('[')
+        .map(|position| tail_start + position)
+    else {
         return id;
     };
 

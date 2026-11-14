@@ -58,7 +58,7 @@ pub(crate) struct WindowLook {
 }
 
 impl WindowLook {
-    pub(crate) fn of(window: &WebviewWindow) -> Self {
+    pub(crate) fn from_window(window: &WebviewWindow) -> Self {
         Self {
             theme: window.theme().ok(),
             size: window.inner_size().ok(),
@@ -371,7 +371,7 @@ pub(crate) async fn window_create(
     let url = WebviewUrl::App(format!("index.html?{query}").into());
     let main_look = app
         .get_webview_window(MAIN_WINDOW_LABEL)
-        .map(|main| WindowLook::of(&main));
+        .map(|main| WindowLook::from_window(&main));
 
     // Build visible: the builder's background color already paints the themed
     // surface at creation, so there's no white flash to hide. (Building hidden
@@ -418,7 +418,7 @@ pub(crate) fn recreate_session_windows<'owner>(
     reserve_sequences_past(&missing);
     let main_look = app
         .get_webview_window(MAIN_WINDOW_LABEL)
-        .map(|main| WindowLook::of(&main));
+        .map(|main| WindowLook::from_window(&main));
     for label in missing {
         let url = WebviewUrl::App(PLAIN_ROUTE.into());
         if let Err(error) = app_window_builder(app, &label, url, main_look.as_ref()).build() {

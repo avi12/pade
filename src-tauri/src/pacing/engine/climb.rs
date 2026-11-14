@@ -33,7 +33,7 @@ impl<'a> Pass<'a> {
         let now = self.inputs.now;
         let report = WindowReport {
             label: ROUND_LEADER.to_string(),
-            at: now,
+            time: now,
             sessions: self
                 .assessments
                 .iter()

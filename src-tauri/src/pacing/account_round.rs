@@ -85,7 +85,8 @@ pub struct SessionReport {
 #[serde(rename_all = "camelCase")]
 pub struct WindowReport {
     pub label: String,
-    pub at: EpochMilliseconds,
+    #[serde(rename = "at")]
+    pub time: EpochMilliseconds,
     pub sessions: Vec<SessionReport>,
 }
 
@@ -117,7 +118,8 @@ pub struct ThrottledSession {
 #[serde(rename_all = "camelCase")]
 pub struct RoundPlan {
     pub leader: String,
-    pub at: EpochMilliseconds,
+    #[serde(rename = "at")]
+    pub time: EpochMilliseconds,
     /// Sessions to take their next step, each in its own window.
     pub climb: Vec<String>,
     /// Stepped-down sessions to step back up.
@@ -162,7 +164,7 @@ pub fn fresh_reports(params: FreshReportsParams<'_>) -> Vec<&WindowReport> {
     } = params;
     reports
         .iter()
-        .filter(|report| now - report.at <= lifetime)
+        .filter(|report| now - report.time <= lifetime)
         .collect()
 }
 
@@ -257,7 +259,7 @@ pub fn plan_round(params: PlanRoundParams<'_>) -> RoundOutcome {
     } = params;
     let mut plan = RoundPlan {
         leader: leader.to_string(),
-        at: now,
+        time: now,
         climb: Vec::new(),
         restore: Vec::new(),
         stepped_accounts: Vec::new(),

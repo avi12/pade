@@ -174,7 +174,12 @@ impl PacingEngine {
         });
         let contexts: BTreeMap<SessionId, SessionContext> = sessions
             .iter()
-            .map(|live| (live.facts.id.clone(), SessionContext::of(&live.facts)))
+            .map(|live| {
+                (
+                    live.facts.id.clone(),
+                    SessionContext::from_facts(&live.facts),
+                )
+            })
             .collect();
         Writes {
             samples,
@@ -378,8 +383,8 @@ mod tests {
         })
     }
 
-    fn stop_observed(at: EpochMilliseconds) -> serde_json::Value {
-        serde_json::json!([{ "sessionId": "a", "at": at.get(), "kind": "stop" }])
+    fn stop_observed(observed_at: EpochMilliseconds) -> serde_json::Value {
+        serde_json::json!([{ "sessionId": "a", "at": observed_at.get(), "kind": "stop" }])
     }
 
     #[test]
@@ -404,7 +409,7 @@ mod tests {
 
         let later = NOW + SpanMilliseconds::from_minutes(1.0);
         let mut next = report(&serde_json::json!([]));
-        next.at = later;
+        next.time = later;
         engine.submit(next);
         pass(&engine, later, 80.0);
         let summary = engine.summary();

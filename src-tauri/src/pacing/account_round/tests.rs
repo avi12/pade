@@ -40,7 +40,7 @@ fn subagent(id: &str, description: Option<&str>, load: f64) -> SubagentReport {
 fn window_report(label: &str, sessions: Vec<SessionReport>) -> WindowReport {
     WindowReport {
         label: label.to_string(),
-        at: NOW,
+        time: NOW,
         sessions,
     }
 }
@@ -94,7 +94,7 @@ fn the_leader_is_one_window_the_same_whichever_window_asks() {
 #[test]
 fn a_window_that_stopped_reporting_is_dropped_so_the_next_one_leads() {
     let stale = WindowReport {
-        at: NOW - SpanMilliseconds::from_minutes(10.0),
+        time: NOW - SpanMilliseconds::from_minutes(10.0),
         ..window_report("main", vec![])
     };
     let reports = [stale, window_report("window-1", vec![])];

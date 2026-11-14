@@ -37,7 +37,8 @@ use toml_text::toml_string_value;
 pub(crate) enum Ecosystem {
     JavaScript,
     Rust,
-    Go,
+    #[serde(rename = "go")]
+    Golang,
     Python,
 }
 
@@ -47,7 +48,7 @@ pub(crate) enum Ecosystem {
 const MANIFESTS: &[(&str, Ecosystem)] = &[
     ("package.json", Ecosystem::JavaScript),
     ("Cargo.toml", Ecosystem::Rust),
-    ("go.mod", Ecosystem::Go),
+    ("go.mod", Ecosystem::Golang),
     ("pyproject.toml", Ecosystem::Python),
 ];
 
@@ -234,7 +235,7 @@ fn package_name_from_text(text: &str, ecosystem: Ecosystem) -> Option<String> {
             json.get("name")?.as_str().map(str::to_string)
         }
         Ecosystem::Rust => toml_string_value(text, "package", "name"),
-        Ecosystem::Go => go_module_name(text),
+        Ecosystem::Golang => go_module_name(text),
         Ecosystem::Python => toml_string_value(text, "project", "name")
             .or_else(|| toml_string_value(text, "tool.poetry", "name")),
     }

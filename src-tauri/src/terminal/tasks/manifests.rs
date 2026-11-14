@@ -149,7 +149,7 @@ pub(super) const MANIFESTS: &[ManifestDefinition] = &[
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["go.mod"]),
-        kind: TaskKind::Go,
+        kind: TaskKind::Golang,
         extract: go_tasks,
     },
     ManifestDefinition {

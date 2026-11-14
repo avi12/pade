@@ -47,9 +47,9 @@ impl SampleBook {
         let account = self.histories.entry(account_key.clone()).or_default();
         for window in windows {
             let history = account.entry(window.key.clone()).or_default();
-            history.retain(|sample| sample.at >= now - RATE_HISTORY_MS);
+            history.retain(|sample| sample.time >= now - RATE_HISTORY_MS);
             history.push(UsageSample {
-                at: now,
+                time: now,
                 utilization: crate::pacing::usage_pace::utilization_of(window),
                 resets_at: window.resets_at.clone(),
             });
@@ -141,7 +141,7 @@ mod tests {
         });
         let history = &book.histories[&account_key][&window.key];
         assert_eq!(history.len(), 1);
-        assert_eq!(history[0].at, later);
+        assert_eq!(history[0].time, later);
     }
 
     #[test]

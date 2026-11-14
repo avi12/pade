@@ -25,10 +25,10 @@ fn versions_order_the_way_releases_do() {
 
 #[test]
 fn only_an_unpackaged_published_copy_is_told_to_install_the_package() {
-    assert_eq!(Updater::of(true, true), Updater::Windows);
-    assert_eq!(Updater::of(true, false), Updater::Windows);
-    assert_eq!(Updater::of(false, true), Updater::Unpackaged);
-    assert_eq!(Updater::of(false, false), Updater::None);
+    assert_eq!(Updater::from_flags(true, true), Updater::Windows);
+    assert_eq!(Updater::from_flags(true, false), Updater::Windows);
+    assert_eq!(Updater::from_flags(false, true), Updater::Unpackaged);
+    assert_eq!(Updater::from_flags(false, false), Updater::None);
 }
 
 #[test]
