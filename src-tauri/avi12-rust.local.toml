@@ -1,0 +1,35 @@
+# Exemptions of this workspace from the house lint levels (rust-config-avi12), each with its reason
+
+[clippy]
+# Tauri #[command] functions must take owned arguments (String) and State by value: the framework deserializes into them
+needless_pass_by_value = "allow"
+
+[member.contextmenu-handler.rust]
+# The COM context-menu handler is Win32 FFI
+unsafe_code = "allow"
+
+[member.contextmenu-handler.clippy]
+# The #[implement] macro expands to helper impls that trip these two pedantic lints (a reference-to-raw-pointer cast,
+# #[inline(always)]); they are generated, so they cannot be fixed at their source
+ref_as_ptr = "allow"
+inline_always = "allow"
+
+[member.package-identity.rust]
+# Win32 package identity calls
+unsafe_code = "allow"
+
+[member.process-job.rust]
+# Win32 job objects
+unsafe_code = "allow"
+
+[member.process-priority.rust]
+# Win32 process priority calls
+unsafe_code = "allow"
+
+[member.process-snapshot.rust]
+# Win32 toolhelp snapshot
+unsafe_code = "allow"
+
+[member.webview-recovery.rust]
+# WebView2 COM calls
+unsafe_code = "allow"
