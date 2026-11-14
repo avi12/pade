@@ -17,12 +17,6 @@
 //! COM demands `unsafe` (raw vtable pointers, FFI), so - unlike the main crate -
 //! `unsafe_code` is not forbidden here; every other lint stays at the strict bar.
 
-// The `#[implement]` macro expands to helper impls that trip a couple of pedantic
-// lints (a reference-to-raw-pointer cast, `#[inline(always)]`) which we cannot
-// annotate at their source because they are generated. Allow exactly those two;
-// all hand-written code stays under the full pedantic bar.
-#![allow(clippy::ref_as_ptr, clippy::inline_always)]
-
 use core::ffi::c_void;
 use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
@@ -99,6 +93,7 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
     /// The visible label. Explorer frees the returned buffer, so it must be
     /// `CoTaskMemAlloc`'d - `SHStrDupW` copies the literal into COM task memory.
     fn GetTitle(&self, _items: Ref<'_, IShellItemArray>) -> Result<PWSTR> {
+        // SAFETY: the string is a literal; SHStrDupW copies it into COM-allocated memory the shell frees.
         unsafe { SHStrDupW(w!("Open in PADE")) }
     }
 
@@ -108,6 +103,7 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
             return Err(E_NOTIMPL.into());
         };
         let reference = format!("{},0", executable.display());
+        // SAFETY: the pointer addresses a NUL-terminated buffer that outlives the call; the result is a COM copy.
         unsafe { SHStrDupW(windows_core::PCWSTR(to_wide(&reference).as_ptr())) }
     }
 
@@ -138,12 +134,17 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
     fn Invoke(&self, items: Ref<'_, IShellItemArray>, _context: Ref<'_, IBindCtx>) -> Result<()> {
         let executable = locate_pade_executable().ok_or_else(|| Error::from(E_FAIL))?;
         let items = items.ok()?;
+        // SAFETY: `items` is a live IShellItemArray handed in by the shell.
         let count = unsafe { items.GetCount()? };
         for index in 0..count {
+            // SAFETY: `index` is below the count the array reported.
             let item: IShellItem = unsafe { items.GetItemAt(index)? };
+            // SAFETY: `item` is live; the returned string is owned and freed below.
             let wide: PWSTR = unsafe { item.GetDisplayName(SIGDN_FILESYSPATH)? };
             // We own `wide`; convert then free before anything can early-return.
+            // SAFETY: `wide` is a NUL-terminated string the shell just returned.
             let path = unsafe { wide.to_string() };
+            // SAFETY: `wide` came from the shell allocator and is not used again.
             unsafe { CoTaskMemFree(Some(wide.as_ptr().cast::<c_void>())) };
             let Ok(path) = path else { continue };
             // Best-effort, detached - Explorer must never block on us.
@@ -191,11 +192,12 @@ fn current_module_path() -> Option<PathBuf> {
         return None;
     }
     let mut buffer = [0u16; MAXIMUM_MODULE_PATH_UNITS];
+    // SAFETY: `buffer` is writable for its whole length and `module` was found by the caller.
     let length = usize::try_from(unsafe { GetModuleFileNameW(Some(module), &mut buffer) }).ok()?;
     if length == 0 || length >= buffer.len() {
         return None;
     }
-    Some(PathBuf::from(String::from_utf16_lossy(&buffer[..length])))
+    Some(PathBuf::from(String::from_utf16_lossy(buffer.get(..length)?)))
 }
 
 /// UTF-16, NUL-terminated, for passing a Rust string to a `PCWSTR` Win32 arg.
@@ -210,6 +212,7 @@ fn to_wide(value: &str) -> Vec<u16> {
 fn is_context_menu_hidden() -> bool {
     let mut value: u32 = 1;
     let mut size = u32::try_from(size_of::<u32>()).unwrap_or(4);
+    // SAFETY: every pointer refers to a local that lives across the call.
     let status = unsafe {
         RegGetValueW(
             HKEY_CURRENT_USER,
@@ -242,7 +245,7 @@ impl IClassFactory_Impl for OpenInPadeFactory_Impl {
             return Err(CLASS_E_NOAGGREGATION.into());
         }
         let command: IExplorerCommand = OpenInPadeCommand::new().into();
-        // `query` is QueryInterface: checks the IID, AddRefs, writes `object`.
+        // SAFETY: `query` is QueryInterface: checks the IID, AddRefs, writes `object`.
         unsafe { command.query(interface_id, object).ok() }
     }
 
@@ -280,14 +283,17 @@ pub unsafe extern "system" fn DllGetClassObject(
     if object.is_null() {
         return E_POINTER;
     }
+    // SAFETY: the caller passed a valid out-pointer for the object.
     unsafe { *object = null_mut() };
     if class_id.is_null() || interface_id.is_null() {
         return E_POINTER;
     }
+    // SAFETY: the caller passed a valid class-id pointer.
     if unsafe { *class_id } != CLSID_OPEN_IN_PADE {
         return CLASS_E_CLASSNOTAVAILABLE;
     }
     let factory: IClassFactory = OpenInPadeFactory.into();
+    // SAFETY: `object` and `interface_id` are the caller's valid COM pointers.
     unsafe { factory.query(interface_id, object) }
 }
 

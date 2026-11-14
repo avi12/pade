@@ -25,7 +25,9 @@ use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFOR
 /// One running process and the process that started it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProcessEntry {
+    /// The process id.
     pub process_id: u32,
+    /// The id of the process that started it.
     pub parent_process_id: u32,
 }
 
@@ -49,7 +51,7 @@ pub fn processes() -> windows::core::Result<Vec<ProcessEntry>> {
     // closed by `OwnedHandle`.
     let snapshot = OwnedHandle(unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)? });
     let mut entry = PROCESSENTRY32W {
-        dwSize: u32::try_from(size_of::<PROCESSENTRY32W>()).expect("the entry size fits a u32"),
+        dwSize: u32::try_from(size_of::<PROCESSENTRY32W>()).unwrap_or(u32::MAX),
         ..Default::default()
     };
     let mut found = Vec::new();
