@@ -27,7 +27,7 @@ enum PullStatus {
 /// human-readable line for the status toast.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PullOutcome {
+pub(crate) struct PullOutcome {
     status: PullStatus,
     message: String,
 }
@@ -66,7 +66,7 @@ fn is_already_up_to_date(pull_output: &str) -> bool {
 // fetch takes - a synchronous command would run it on the MAIN thread and freeze
 // the window, and a wait that long shouldn't tie up an async worker either.
 #[tauri::command]
-pub async fn vcs_pull(cwd: String) -> Result<PullOutcome, String> {
+pub(crate) async fn vcs_pull(cwd: String) -> Result<PullOutcome, String> {
     tauri::async_runtime::spawn_blocking(move || fast_forward_pull(&cwd))
         .await
         .map_err(|error| error.to_string())?

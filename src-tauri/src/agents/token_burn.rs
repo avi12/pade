@@ -66,7 +66,7 @@ const READ_LIMITS: ReadLimits = ReadLimits {
 /// One model's share of a session's recent spend, by token type.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ModelTokenUsage {
+pub(crate) struct ModelTokenUsage {
     model: String,
     input_tokens: u64,
     output_tokens: u64,
@@ -98,7 +98,7 @@ impl ModelTokenUsage {
 /// without counting it twice in the session's share.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SessionTokenUsage {
+pub(crate) struct SessionTokenUsage {
     own: Vec<ModelTokenUsage>,
     subagents: Vec<SubagentTokenUsage>,
 }
@@ -106,7 +106,7 @@ pub struct SessionTokenUsage {
 /// One subagent's recent spend, under the id the agent's hooks name it by.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SubagentTokenUsage {
+pub(crate) struct SubagentTokenUsage {
     id: String,
     /// The task it was given, as its spawn described it, when recorded.
     description: Option<String>,
@@ -122,7 +122,7 @@ pub struct SubagentTokenUsage {
 /// readable log, or a session with no reply yet. Off the UI thread: it reads
 /// files.
 #[tauri::command]
-pub async fn session_token_usage(
+pub(crate) async fn session_token_usage(
     command: String,
     conversation_id: Option<String>,
     since: u64,

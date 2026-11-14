@@ -76,7 +76,7 @@ pub(super) const FULL_PERCENTAGE: f64 = 100.0;
 /// carry it - turned on server-side, which the CLI itself never notices.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum CreditsState {
+pub(super) enum CreditsState {
     /// Turned off.
     Off,
     /// Turned on, with room left under the monthly cap (or no cap at all).
@@ -119,7 +119,7 @@ pub(super) fn credits_state(response: &serde_json::Value) -> Option<CreditsState
 /// to show.
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct CreditBalance {
+pub(super) struct CreditBalance {
     /// The amount in the currency's major units (dollars, not cents).
     pub(super) amount: f64,
     /// The ISO 4217 currency code (`USD`).
@@ -132,7 +132,7 @@ pub struct CreditBalance {
 /// agent.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
-pub enum BillingAccount {
+pub(super) enum BillingAccount {
     Anthropic,
     Chatgpt,
     Github,
@@ -170,7 +170,7 @@ pub struct AccountUsage {
 /// of a bare dash, and tell the user what to do about it.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum NoReadingReason {
+pub(crate) enum NoReadingReason {
     /// PADE has no usage source it can read for this agent.
     NoSource,
     /// The agent's sign-in isn't on disk.
@@ -205,7 +205,7 @@ impl From<RequestFailure> for NoReadingReason {
 /// problem (`codex`), straight from the agent registry.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct NoReading {
+pub(crate) struct NoReading {
     pub(super) reason: NoReadingReason,
     pub(super) sign_in_command: Option<&'static str>,
 }
@@ -216,7 +216,7 @@ pub struct NoReading {
 /// `no_reading`; a held-over one carries both.
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct AccountReading {
+pub(crate) struct AccountReading {
     pub(super) account: Option<AccountUsage>,
     pub(super) no_reading: Option<NoReading>,
 }

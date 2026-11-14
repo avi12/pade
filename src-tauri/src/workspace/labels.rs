@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 /// it may replace a label the workspace already carries.
 #[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum LabelSource {
+pub(crate) enum LabelSource {
     /// The auto-namer's suggestion: kebab-cased through `naming::sanitize`, and
     /// applied only to a workspace with no label yet, so it never replaces a name
     /// the user chose.
@@ -53,7 +53,7 @@ pub(super) fn apply_label(
 /// auto-name check-and-set happens under the settings lock, so an auto-name that
 /// lands after the user relabelled can't overwrite their choice.
 #[tauri::command]
-pub fn workspace_set_label(
+pub(crate) fn workspace_set_label(
     path: String,
     name: String,
     source: LabelSource,

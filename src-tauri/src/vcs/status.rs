@@ -19,7 +19,7 @@ const PATH_OFFSET: usize = 3;
 /// A single changed path in the working tree.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StatusEntry {
+pub(crate) struct StatusEntry {
     path: String,
     kind: StatusKind,
     /// Staged in the index (agent commits land here after "approve").
@@ -36,7 +36,7 @@ fn classify(index: char, worktree: char) -> (StatusKind, bool) {
 }
 
 #[tauri::command]
-pub async fn vcs_status(cwd: String) -> Result<Vec<StatusEntry>, String> {
+pub(crate) async fn vcs_status(cwd: String) -> Result<Vec<StatusEntry>, String> {
     // NUL-delimited records survive paths with spaces/newlines.
     let raw = run_git(&cwd, &["status", "--porcelain=v1", "-z"])?;
     Ok(parse_status(&raw))
@@ -77,7 +77,7 @@ fn parse_status(raw: &str) -> Vec<StatusEntry> {
 
 /// Raw unified diff for one path (staged or working-tree).
 #[tauri::command]
-pub async fn vcs_diff(cwd: String, path: String, staged: bool) -> Result<String, String> {
+pub(crate) async fn vcs_diff(cwd: String, path: String, staged: bool) -> Result<String, String> {
     let mut arguments = vec!["diff", "--no-color"];
     if staged {
         arguments.push("--staged");

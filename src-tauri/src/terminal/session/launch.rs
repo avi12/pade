@@ -22,7 +22,7 @@ const UNIX_SHELL_VARIABLE: &str = "SHELL";
 /// carried whole to the PTY host. The owner and id travel beside it.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SessionLaunch {
+pub(crate) struct SessionLaunch {
     /// The program to run (the agent's canonical name, e.g. `claude`); `None`
     /// falls back to `ADE_AGENT_CMD`, then the platform shell.
     pub command: Option<String>,

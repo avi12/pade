@@ -22,7 +22,7 @@ pub(super) fn current_branch(cwd: &str) -> Option<String> {
 /// chip. Queries git per path; a path that isn't a git repo or is on a detached
 /// HEAD is omitted, so the frontend shows a chip only where one exists.
 #[tauri::command]
-pub async fn vcs_branch_of(paths: Vec<String>) -> BTreeMap<String, String> {
+pub(crate) async fn vcs_branch_of(paths: Vec<String>) -> BTreeMap<String, String> {
     paths
         .into_iter()
         .filter_map(|path| current_branch(&path).map(|branch| (path, branch)))
@@ -50,7 +50,7 @@ fn local_branches(cwd: &str) -> Result<Vec<String>, String> {
 
 /// Local branches in the current repo (empty/Err when not a git repo).
 #[tauri::command]
-pub async fn vcs_branches(cwd: String) -> Result<Vec<String>, String> {
+pub(crate) async fn vcs_branches(cwd: String) -> Result<Vec<String>, String> {
     local_branches(&cwd)
 }
 
@@ -61,7 +61,7 @@ pub async fn vcs_branches(cwd: String) -> Result<Vec<String>, String> {
 /// slashed branch name (`feat/x`) whole; `HEAD` is the remote's symbolic
 /// default pointer, not a branch of its own.
 #[tauri::command]
-pub async fn vcs_remote_branches(cwd: String) -> Result<Vec<String>, String> {
+pub(crate) async fn vcs_remote_branches(cwd: String) -> Result<Vec<String>, String> {
     let local: BTreeSet<String> = local_branches(&cwd)?.into_iter().collect();
     let remote = branch_names(
         &cwd,
@@ -86,7 +86,7 @@ pub async fn vcs_remote_branches(cwd: String) -> Result<Vec<String>, String> {
 /// already checked out in another worktree; that refusal surfaces verbatim
 /// through `run_git` so the caller can say what stands in the way.
 #[tauri::command]
-pub async fn vcs_switch_branch(cwd: String, branch: String) -> Result<String, String> {
+pub(crate) async fn vcs_switch_branch(cwd: String, branch: String) -> Result<String, String> {
     run_git(&cwd, &["switch", "--end-of-options", &branch])?;
     current_branch(&cwd).ok_or_else(|| format!("switched to {branch} but HEAD is detached"))
 }

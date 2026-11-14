@@ -118,7 +118,7 @@ impl From<std::io::Error> for DiscordError {
 /// the connection and applies presence updates serially off the UI thread; a command
 /// only enqueues a message and returns at once. Started lazily on first use.
 #[derive(Default)]
-pub struct DiscordState {
+pub(crate) struct DiscordState {
     sender: Mutex<Option<Sender<Command>>>,
 }
 
@@ -448,7 +448,7 @@ fn socket_directories() -> Vec<std::path::PathBuf> {
 /// because the activity's own `state` field is a separate argument the frontend
 /// sends. Best-effort: a missing Discord returns an error the frontend ignores.
 #[tauri::command]
-pub fn discord_set_activity(
+pub(crate) fn discord_set_activity(
     presence: State<DiscordState>,
     details: Option<String>,
     state: Option<String>,
@@ -465,7 +465,7 @@ pub fn discord_set_activity(
 
 /// Clear PADE's rich presence, keeping the connection for a later re-enable.
 #[tauri::command]
-pub fn discord_clear_activity(presence: State<DiscordState>) -> Result<(), String> {
+pub(crate) fn discord_clear_activity(presence: State<DiscordState>) -> Result<(), String> {
     presence.dispatch(Command::Clear)
 }
 #[cfg(test)]

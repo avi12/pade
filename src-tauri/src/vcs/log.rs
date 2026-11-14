@@ -9,7 +9,7 @@ use super::{
 /// A recent commit for the Log view.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Commit {
+pub(crate) struct Commit {
     #[serde(flatten)]
     header: CommitHeader,
     /// Lines added across the commit (sum of `--numstat`).
@@ -31,7 +31,7 @@ impl Commit {
 }
 
 #[tauri::command]
-pub async fn vcs_log(cwd: String, limit: u32) -> Result<Vec<Commit>, String> {
+pub(crate) async fn vcs_log(cwd: String, limit: u32) -> Result<Vec<Commit>, String> {
     let raw = run_git(
         &cwd,
         &[

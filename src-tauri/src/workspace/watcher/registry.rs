@@ -198,7 +198,7 @@ pub(super) struct ProjectRootPayload {
 }
 
 #[derive(Default)]
-pub struct WatcherState {
+pub(crate) struct WatcherState {
     /// Each window's Change Feed watches, keyed by window label. Shared behind
     /// an `Arc` so a command can lift its window's watches out under a brief map
     /// lock, then work the fine-grained inner mutexes without holding it.
@@ -239,7 +239,7 @@ pub(super) fn window_watches(state: &WatcherState, label: &str) -> Option<Arc<Wi
 /// inside it. On Windows a recursive watch holds the folder open, so it must go
 /// before the folder can be renamed; the feed re-arms on the new path the next
 /// time its window calls `watch_projects` with it.
-pub fn release_watches_under(app: &AppHandle, folder: &Path) {
+pub(crate) fn release_watches_under(app: &AppHandle, folder: &Path) {
     let Ok(folder) = std::fs::canonicalize(folder) else {
         return;
     };

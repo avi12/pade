@@ -165,7 +165,7 @@ pub(super) fn preference_chain(
 // `async` + `spawn_blocking`: the source census walks the whole project and the
 // installed check probes PATH - far too much filesystem work for the UI thread.
 #[tauri::command]
-pub async fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
+pub(crate) async fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
     tauri::async_runtime::spawn_blocking(move || suggest_for(&cwd))
         .await
         .map_err(|error| error.to_string())?
@@ -214,7 +214,7 @@ pub(super) fn suggest_for(cwd: &str) -> Result<Vec<Ide>, String> {
 /// through [`ide_suggest`], which puts it first. Only a known editor id (a
 /// registry entry or a user-added editor) is persisted.
 #[tauri::command]
-pub fn ide_choose_editor(cwd: String, id: String) -> Result<crate::workspace::Settings, String> {
+pub(crate) fn ide_choose_editor(cwd: String, id: String) -> Result<crate::workspace::Settings, String> {
     let is_known_editor = REGISTRY.iter().any(|editor| editor.id == id)
         || added_editors().iter().any(|editor| editor.id == id);
     if !is_known_editor {

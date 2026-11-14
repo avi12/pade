@@ -16,7 +16,7 @@ use crate::workspace::config::McpFormat;
 /// One parseable state of an MCP config. Existence is separate from names so
 /// creating or deleting an empty config still triggers an agent reload.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct McpSnapshot {
+pub(crate) struct McpSnapshot {
     pub exists: bool,
     pub names: BTreeSet<String>,
     pub content: String,
@@ -29,7 +29,7 @@ pub struct McpSnapshot {
 /// remove. But a file that exists yet doesn't parse (a half-written save caught
 /// mid-flush) is `None`: the caller skips it and waits for the next, complete
 /// write, so a transient partial file never reads as "all servers removed".
-pub fn snapshot(path: &Path, format: McpFormat) -> Option<McpSnapshot> {
+pub(crate) fn snapshot(path: &Path, format: McpFormat) -> Option<McpSnapshot> {
     let Ok(text) = std::fs::read_to_string(path) else {
         return Some(McpSnapshot::default());
     };

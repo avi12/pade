@@ -36,7 +36,7 @@ const SESSION_WINDOW: &str = "five_hour";
 /// Which limits a reset frees up, named as Claude Code names it.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
-pub enum ResetKind {
+pub(crate) enum ResetKind {
     Session,
     Weekly,
     /// Clears the included model's week and gives its use back to the weekly
@@ -48,7 +48,7 @@ pub enum ResetKind {
 /// One kind of reset the account can spend now.
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct LimitReset {
+pub(crate) struct LimitReset {
     /// The grant a claim of this kind spends.
     grant_id: String,
     /// That grant's own description ("New model launch: one Fable reset").
@@ -65,7 +65,7 @@ pub struct LimitReset {
 /// What a claim did, as the server reports it.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all(serialize = "camelCase"))]
-pub struct LimitResetOutcome {
+pub(crate) struct LimitResetOutcome {
     /// Whether the limits were actually reset.
     #[serde(rename = "reset")]
     is_reset: bool,
@@ -116,7 +116,7 @@ fn known_kind<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Reset
 /// The resets the account can spend now, one per kind - empty when it has
 /// none (or Claude isn't signed in, or the endpoint can't be reached).
 #[tauri::command]
-pub async fn limit_reset_offers() -> Vec<LimitReset> {
+pub(crate) async fn limit_reset_offers() -> Vec<LimitReset> {
     tauri::async_runtime::spawn_blocking(fetch_offers)
         .await
         .unwrap_or_default()
@@ -124,7 +124,7 @@ pub async fn limit_reset_offers() -> Vec<LimitReset> {
 
 /// Spend `grant_id` to reset the account's usage limits.
 #[tauri::command]
-pub async fn limit_reset_claim(grant_id: String) -> Result<LimitResetOutcome, String> {
+pub(crate) async fn limit_reset_claim(grant_id: String) -> Result<LimitResetOutcome, String> {
     tauri::async_runtime::spawn_blocking(move || claim(&grant_id))
         .await
         .map_err(|error| error.to_string())?

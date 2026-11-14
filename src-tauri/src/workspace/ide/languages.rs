@@ -17,7 +17,7 @@ pub(super) const PER_MILLE: u64 = 1000;
 /// always fill it.
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct LanguageShare {
+pub(crate) struct LanguageShare {
     /// The Linguist name - the bar's label and colour key.
     pub(super) language: String,
     /// Its family, for a project row's icon.
@@ -30,7 +30,7 @@ pub struct LanguageShare {
 // `async` + `spawn_blocking`: this is the git-tracked source census, once per
 // visible row - real filesystem work, off the UI thread.
 #[tauri::command]
-pub async fn ide_project_languages(paths: Vec<String>) -> BTreeMap<String, Vec<LanguageShare>> {
+pub(crate) async fn ide_project_languages(paths: Vec<String>) -> BTreeMap<String, Vec<LanguageShare>> {
     tauri::async_runtime::spawn_blocking(move || {
         paths
             .into_iter()

@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 ///
 /// Built once per detect (it spawns `reg` on Windows) and passed to [`find_in`],
 /// rather than rebuilt per lookup.
-pub fn search_directories() -> Vec<PathBuf> {
+pub(crate) fn search_directories() -> Vec<PathBuf> {
     let inherited = std::env::var_os("PATH").unwrap_or_default();
     let mut directories: Vec<PathBuf> = std::env::split_paths(&inherited).collect();
     directories.extend(live_path_directories());
@@ -122,7 +122,7 @@ fn windows_package_directories(_home: &Path) -> Vec<PathBuf> {
 /// The first of `names` that exists as an executable in `directories`. Name-major on
 /// purpose: the caller passes its preferred name first and every directory is
 /// tried for it before falling back to an alternate spelling.
-pub fn find_in(directories: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
+pub(crate) fn find_in(directories: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
     let extensions = executable_extensions();
     names.iter().find_map(|name| {
         directories.iter().find_map(|directory| {
@@ -172,7 +172,7 @@ fn is_executable(path: &Path) -> bool {
 /// already carries a path (`C:\…\codex.exe`) is taken as-is; a bare name is looked
 /// up across [`search_directories`]. For a one-off lookup - a caller resolving several
 /// commands should build [`search_directories`] once and call [`find_in`].
-pub fn resolve(command: &str) -> Option<PathBuf> {
+pub(crate) fn resolve(command: &str) -> Option<PathBuf> {
     let given = Path::new(command);
     if given.components().count() > 1 {
         return is_executable(given).then(|| given.to_path_buf());
@@ -182,6 +182,6 @@ pub fn resolve(command: &str) -> Option<PathBuf> {
 
 /// Is `command` runnable on this machine? Sees installs made since ADE launched -
 /// see [`search_directories`].
-pub fn is_on_path(command: &str) -> bool {
+pub(crate) fn is_on_path(command: &str) -> bool {
     resolve(command).is_some()
 }

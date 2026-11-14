@@ -68,7 +68,7 @@ pub(crate) fn emit_exit(app: &AppHandle, owner: &str, id: &str) {
 /// One live PTY session as `pty_list` reports it: what it runs and where.
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct SessionInfo {
+pub(crate) struct SessionInfo {
     id: String,
     command: Option<String>,
     cwd: Option<String>,
@@ -81,9 +81,9 @@ fn to_message(error: HostError) -> String {
 // A PTY spawn is inherently wide (id, command, args, cwd, dimensions) and two of
 // these are Tauri-injected (window, host), not caller-supplied - grouping them
 // would only obscure the IPC shape the frontend sends.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 #[tauri::command]
-pub async fn pty_spawn(
+pub(crate) async fn pty_spawn(
     window: WebviewWindow,
     host: State<'_, HostClient>,
     id: String,
@@ -166,7 +166,7 @@ fn app_environment() -> Vec<(String, String)> {
 /// booting blind (the accidental-reload incident: live PTYs kept running
 /// invisibly with no way back). Sorted by id.
 #[tauri::command]
-pub async fn pty_list(
+pub(crate) async fn pty_list(
     window: WebviewWindow,
     host: State<'_, HostClient>,
 ) -> Result<Vec<SessionInfo>, String> {
@@ -186,7 +186,7 @@ pub async fn pty_list(
 /// was listening while it asked can tell which chunks it caught are duplicates and
 /// which are genuinely new. Empty for an unknown session.
 #[tauri::command]
-pub async fn pty_history(
+pub(crate) async fn pty_history(
     window: WebviewWindow,
     host: State<'_, HostClient>,
     id: String,
@@ -196,12 +196,12 @@ pub async fn pty_history(
 
 /// A session's current transcript, or an empty string if it is unknown. The
 /// context the AI session-namer summarises.
-pub async fn transcript_of(host: &HostClient, owner: &str, id: &str) -> Result<String, String> {
+pub(crate) async fn transcript_of(host: &HostClient, owner: &str, id: &str) -> Result<String, String> {
     host.transcript(owner, id).await.map_err(to_message)
 }
 
 #[tauri::command]
-pub async fn pty_write(
+pub(crate) async fn pty_write(
     window: WebviewWindow,
     host: State<'_, HostClient>,
     id: String,
@@ -212,7 +212,7 @@ pub async fn pty_write(
 
 /// Type `data` into session `id` as if from its keyboard - the one path every
 /// PTY input takes, so the size limit and window ownership hold for all.
-pub async fn write_input(
+pub(crate) async fn write_input(
     host: &HostClient,
     window_label: &str,
     id: &str,
@@ -226,7 +226,7 @@ pub async fn write_input(
 }
 
 #[tauri::command]
-pub async fn pty_resize(
+pub(crate) async fn pty_resize(
     window: WebviewWindow,
     host: State<'_, HostClient>,
     id: String,
@@ -251,7 +251,7 @@ fn are_valid_dimensions(columns: u16, rows: u16) -> bool {
 /// before answering, so by the time this returns the session's cwd is unlocked
 /// and its workspace can be deleted or moved.
 #[tauri::command]
-pub async fn pty_kill(
+pub(crate) async fn pty_kill(
     window: WebviewWindow,
     host: State<'_, HostClient>,
     id: String,
@@ -265,7 +265,7 @@ pub async fn pty_kill(
 /// keys on the OS process tree and the task command, nothing agent-specific.
 /// Returns whether a matching process was found and killed.
 #[tauri::command]
-pub async fn session_task_stop(
+pub(crate) async fn session_task_stop(
     window: WebviewWindow,
     host: State<'_, HostClient>,
     id: String,
@@ -291,7 +291,7 @@ pub async fn session_task_stop(
 /// reflect a task that outlives the agent's turn (a dev server) and drop itself
 /// once the process exits, without PADE ever having owned it.
 #[tauri::command]
-pub async fn session_task_running(
+pub(crate) async fn session_task_running(
     window: WebviewWindow,
     host: State<'_, HostClient>,
     id: String,
@@ -316,7 +316,7 @@ pub async fn session_task_running(
 /// "open this session in a new window" and "merge this window into another".
 /// All or nothing; the processes keep running untouched, and the receiving
 /// window re-attaches through the usual spawn-is-a-no-op plus `pty_history`.
-pub async fn transfer_sessions(
+pub(crate) async fn transfer_sessions(
     host: &HostClient,
     from: &str,
     to: &str,
@@ -327,7 +327,7 @@ pub async fn transfer_sessions(
 
 /// End every session `owner` holds - a window closed for good, so nothing it
 /// ran may keep running unreachable. Returns at once; the host ends them.
-pub fn kill_owned(app: &AppHandle, owner: &str) {
+pub(crate) fn kill_owned(app: &AppHandle, owner: &str) {
     let app = app.clone();
     let owner = owner.to_string();
     tauri::async_runtime::spawn(end_sessions_of_closed_window(app, owner));
@@ -344,7 +344,7 @@ async fn end_sessions_of_closed_window(app: AppHandle, owner: String) {
 /// window is gone and every workspace cwd-lock is freed - and wait for it, since
 /// the process ends right after this returns. A process that is killed instead
 /// never gets here, which is exactly what keeps agents alive across a rebuild.
-pub fn kill_all(host: &HostClient) {
+pub(crate) fn kill_all(host: &HostClient) {
     // The timer is made inside the runtime: tokio's clock exists only there.
     let ended = tauri::async_runtime::block_on(async {
         tokio::time::timeout(EXIT_KILL_TIMEOUT, host.kill_all()).await
@@ -358,7 +358,7 @@ pub fn kill_all(host: &HostClient) {
 
 /// Manage the host client, and connect at once: a restarted app recreates the
 /// windows whose sessions outlived it, so none is left running out of reach.
-pub fn init(app: &AppHandle) {
+pub(crate) fn init(app: &AppHandle) {
     app.manage(HostClient::new(app.clone()));
     tauri::async_runtime::spawn(reattach_at_startup(app.clone()));
 }

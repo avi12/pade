@@ -28,7 +28,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Why the app could not get an answer from the PTY host.
 #[derive(Debug)]
-pub enum HostError {
+pub(crate) enum HostError {
     /// No host could be found or started.
     Unavailable(String),
     /// The connection ended before the reply came - the host exited or crashed.
@@ -70,13 +70,13 @@ impl From<super::protocol::FrameError> for HostError {
 
 /// The app's handle on its PTY host - managed Tauri state. Connects on first
 /// use and again after the host went away.
-pub struct HostClient {
+pub(crate) struct HostClient {
     app: AppHandle,
     slot: tokio::sync::Mutex<Option<Arc<Connection>>>,
 }
 
 impl HostClient {
-    pub fn new(app: AppHandle) -> Self {
+    pub(crate) fn new(app: AppHandle) -> Self {
         Self {
             app,
             slot: tokio::sync::Mutex::new(None),
@@ -118,7 +118,7 @@ impl HostClient {
         }
     }
 
-    pub async fn spawn(
+    pub(crate) async fn spawn(
         &self,
         id: &str,
         owner: &str,
@@ -139,7 +139,7 @@ impl HostClient {
         }
     }
 
-    pub async fn write(&self, owner: &str, id: &str, data: &str) -> Result<(), HostError> {
+    pub(crate) async fn write(&self, owner: &str, id: &str, data: &str) -> Result<(), HostError> {
         self.call_for_done(Request::Write {
             owner: owner.to_string(),
             id: id.to_string(),
@@ -148,7 +148,7 @@ impl HostClient {
         .await
     }
 
-    pub async fn resize(
+    pub(crate) async fn resize(
         &self,
         owner: &str,
         id: &str,
@@ -164,7 +164,7 @@ impl HostClient {
         .await
     }
 
-    pub async fn kill(&self, owner: &str, id: &str) -> Result<(), HostError> {
+    pub(crate) async fn kill(&self, owner: &str, id: &str) -> Result<(), HostError> {
         self.call_for_done(Request::Kill {
             owner: owner.to_string(),
             id: id.to_string(),
@@ -173,7 +173,7 @@ impl HostClient {
     }
 
     /// `owner`'s sessions, or every session the host runs for `None`.
-    pub async fn list(&self, owner: Option<&str>) -> Result<Vec<HostedSession>, HostError> {
+    pub(crate) async fn list(&self, owner: Option<&str>) -> Result<Vec<HostedSession>, HostError> {
         let request = Request::List {
             owner: owner.map(ToString::to_string),
         };
@@ -183,7 +183,7 @@ impl HostClient {
         }
     }
 
-    pub async fn history(&self, owner: &str, id: &str) -> Result<HistorySnapshot, HostError> {
+    pub(crate) async fn history(&self, owner: &str, id: &str) -> Result<HistorySnapshot, HostError> {
         let request = Request::History {
             owner: owner.to_string(),
             id: id.to_string(),
@@ -194,7 +194,7 @@ impl HostClient {
         }
     }
 
-    pub async fn transcript(&self, owner: &str, id: &str) -> Result<String, HostError> {
+    pub(crate) async fn transcript(&self, owner: &str, id: &str) -> Result<String, HostError> {
         let request = Request::Transcript {
             owner: owner.to_string(),
             id: id.to_string(),
@@ -205,7 +205,7 @@ impl HostClient {
         }
     }
 
-    pub async fn root_process_id(&self, owner: &str, id: &str) -> Result<Option<u32>, HostError> {
+    pub(crate) async fn root_process_id(&self, owner: &str, id: &str) -> Result<Option<u32>, HostError> {
         let request = Request::RootProcessId {
             owner: owner.to_string(),
             id: id.to_string(),
@@ -216,7 +216,7 @@ impl HostClient {
         }
     }
 
-    pub async fn transfer(&self, from: &str, to: &str, ids: &[String]) -> Result<(), HostError> {
+    pub(crate) async fn transfer(&self, from: &str, to: &str, ids: &[String]) -> Result<(), HostError> {
         let connection = self.connection().await?;
         let request = Request::Transfer {
             from: from.to_string(),
@@ -236,7 +236,7 @@ impl HostClient {
 
     /// End every session window `owner` holds. Never starts a host: with none
     /// connected, there is nothing of this app's to end.
-    pub async fn kill_owned(&self, owner: &str) -> Result<(), HostError> {
+    pub(crate) async fn kill_owned(&self, owner: &str) -> Result<(), HostError> {
         let Some(connection) = self.current() else {
             return Ok(());
         };
@@ -248,7 +248,7 @@ impl HostClient {
 
     /// End every session and wait for the teardowns - the app is exiting. Never
     /// starts a host.
-    pub async fn kill_all(&self) -> Result<(), HostError> {
+    pub(crate) async fn kill_all(&self) -> Result<(), HostError> {
         let Some(connection) = self.current() else {
             return Ok(());
         };

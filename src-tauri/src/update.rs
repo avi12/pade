@@ -44,7 +44,7 @@ const BUILD_DIRECTORY: &str = "target";
 
 /// The watch's shared state: the newest release found so far.
 #[derive(Default)]
-pub struct UpdateState {
+pub(crate) struct UpdateState {
     newer: Mutex<Option<Offer>>,
 }
 
@@ -105,7 +105,7 @@ struct Newer {
 /// found, and who updates this copy.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UpdateStatus {
+pub(crate) struct UpdateStatus {
     current: String,
     newer: Option<Newer>,
     updater: Updater,
@@ -181,7 +181,7 @@ fn check(state: &UpdateState) -> Result<Option<Offer>, String> {
 }
 
 /// Start the watch: check at start and every few hours while PADE runs.
-pub fn init(app: &AppHandle) {
+pub(crate) fn init(app: &AppHandle) {
     let state = Arc::new(UpdateState::default());
     app.manage(Arc::clone(&state));
     if !is_noticing() {
@@ -217,13 +217,13 @@ fn check_once(app: &AppHandle, state: &UpdateState) -> Duration {
 
 /// The running version and any newer release found.
 #[tauri::command]
-pub fn update_status(state: State<'_, Arc<UpdateState>>) -> UpdateStatus {
+pub(crate) fn update_status(state: State<'_, Arc<UpdateState>>) -> UpdateStatus {
     status(&state)
 }
 
 /// Check for a newer release now.
 #[tauri::command]
-pub async fn update_check(app: AppHandle) -> Result<UpdateStatus, String> {
+pub(crate) async fn update_check(app: AppHandle) -> Result<UpdateStatus, String> {
     let state = Arc::clone(app.state::<Arc<UpdateState>>().inner());
     if !is_noticing() {
         return Ok(status(&state));

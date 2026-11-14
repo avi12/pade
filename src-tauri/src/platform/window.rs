@@ -46,7 +46,7 @@ const DASHBOARD_LABEL: &str = "dashboard";
 const HANDOFF_MODE: &str = "handoff";
 
 /// The frontend event carrying an OS theme flip's authoritative scheme.
-pub const THEME_CHANGED_EVENT: &str = "theme://changed";
+pub(crate) const THEME_CHANGED_EVENT: &str = "theme://changed";
 
 /// What a new app window copies from an existing one so it opens looking
 /// identical: its theme (for the surface paint), size and decorations. Each part
@@ -100,7 +100,7 @@ pub(crate) fn app_window_builder<'app>(
 /// list. The order is session-scoped - window labels are ephemeral per app run, so
 /// persisting it across restarts by label would be meaningless.
 #[derive(Default)]
-pub struct WindowProjects {
+pub(crate) struct WindowProjects {
     /// Which project each window currently has open, keyed by window label. Lets the
     /// picker focus an already-open project's window instead of opening it twice.
     projects: Mutex<HashMap<String, String>>,
@@ -165,7 +165,7 @@ fn mark_left_in_background(path: String) {
 /// close that skipped it (a second X click mid-leave, a webview that died) so
 /// no agent keeps running where no window can reach it. A window being rebuilt
 /// after a webview crash keeps its sessions: its replacement re-attaches them.
-pub fn on_destroyed(window: &Window) {
+pub(crate) fn on_destroyed(window: &Window) {
     let state = window.state::<WindowProjects>();
     let previous = state
         .projects
@@ -202,7 +202,7 @@ fn bring_to_front(window: &WebviewWindow) -> bool {
 
 /// Record the project the calling window now has open.
 #[tauri::command]
-pub fn window_register_project(
+pub(crate) fn window_register_project(
     window: WebviewWindow,
     state: tauri::State<WindowProjects>,
     path: String,
@@ -222,7 +222,7 @@ pub fn window_register_project(
 /// and focused, so the caller can skip opening the project again. Prunes any
 /// stale entry whose window has since closed.
 #[tauri::command]
-pub fn window_focus_project(
+pub(crate) fn window_focus_project(
     app: AppHandle,
     window: WebviewWindow,
     state: tauri::State<WindowProjects>,
@@ -341,7 +341,7 @@ impl<'path> LaunchMode<'path> {
 /// `payload` describing them (`window_handoff`), parked before the window is
 /// built so its boot always finds them - and handed back if the build fails.
 #[tauri::command]
-pub async fn window_create(
+pub(crate) async fn window_create(
     app: AppHandle,
     window: WebviewWindow,
     mode: String,

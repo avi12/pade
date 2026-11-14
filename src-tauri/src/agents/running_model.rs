@@ -36,14 +36,14 @@ mod copilot;
 pub(crate) use copilot::session_root as copilot_session_root;
 mod hook_sink;
 mod opencode;
-pub mod pacing_control;
+pub(crate) mod pacing_control;
 mod sink;
 mod state;
 mod watch;
 
-pub use sink::run_hook_sink_if_requested;
+pub(crate) use sink::run_hook_sink_if_requested;
 pub(crate) use state::reported_transcript;
-pub use watch::init;
+pub(crate) use watch::init;
 
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -75,7 +75,7 @@ const OPENCODE_SESSION_FLAG: &str = "--session";
 /// A session's model and effort as the agent reported them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RunningModel {
+pub(crate) struct RunningModel {
     model: String,
     effort: Option<String>,
 }
@@ -83,7 +83,7 @@ pub struct RunningModel {
 /// One model an agent offers, as its own catalog describes it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ModelOption {
+pub(crate) struct ModelOption {
     id: String,
     /// The agent's own display name ("Opus 5.5"), or the id when it has none.
     name: String,
@@ -97,7 +97,7 @@ pub struct ModelOption {
 /// One effort level a model takes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EffortOption {
+pub(crate) struct EffortOption {
     id: String,
     /// The agent's own label ("Extra" for Claude's `xhigh`), else the id.
     name: String,
@@ -135,7 +135,7 @@ impl ModelChoice {
 /// How a picked model reaches a running session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum SwitchOutcome {
+pub(crate) enum SwitchOutcome {
     /// Switched in place - the process, its draft and its running work kept.
     Applied,
     /// The agent can't switch in place; relaunch it on its conversation with
@@ -146,7 +146,7 @@ pub enum SwitchOutcome {
 /// What a session runs, plus the session-wide mode that rides on its effort.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SessionModel {
+pub(crate) struct SessionModel {
     #[serde(flatten)]
     running: RunningModel,
     /// Claude's Ultracode (multi-agent orchestration) is on for the session.
@@ -157,7 +157,7 @@ pub struct SessionModel {
 /// `None` when the agent has reported nothing PADE can read. Off the UI thread:
 /// it reads files.
 #[tauri::command]
-pub async fn agent_running_model(command: String, conversation_id: String) -> Option<SessionModel> {
+pub(crate) async fn agent_running_model(command: String, conversation_id: String) -> Option<SessionModel> {
     tauri::async_runtime::spawn_blocking(move || {
         let is_claude = command == ID_CLAUDE;
         if is_claude && is_plain_id(&conversation_id) {
@@ -179,7 +179,7 @@ pub async fn agent_running_model(command: String, conversation_id: String) -> Op
 /// catalog. Empty for an agent PADE can't read one for. Off the UI thread: it
 /// reads files.
 #[tauri::command]
-pub async fn agent_model_options(command: String) -> Vec<ModelOption> {
+pub(crate) async fn agent_model_options(command: String) -> Vec<ModelOption> {
     tauri::async_runtime::spawn_blocking(move || match command.as_str() {
         ID_CLAUDE => claude::options(),
         ID_CODEX => codex::options(),
@@ -196,7 +196,7 @@ pub async fn agent_model_options(command: String) -> Vec<ModelOption> {
 /// every other agent answers `NeedsRestart`. Off the UI thread: it types,
 /// waits on a file, and restores the user's saved default.
 #[tauri::command]
-pub async fn agent_apply_model(
+pub(crate) async fn agent_apply_model(
     app: AppHandle,
     window: tauri::WebviewWindow,
     session_id: String,
@@ -234,7 +234,7 @@ pub async fn agent_apply_model(
 /// Prepare a launch of `program` so it reports its model - and, when a model
 /// was picked for this session, runs it: adapter arguments are added to
 /// `arguments`, and the environment to set is returned.
-pub fn attach(
+pub(crate) fn attach(
     program: &str,
     conversation_id: Option<&str>,
     choice: Option<&ModelChoice>,
@@ -270,7 +270,7 @@ pub fn attach(
 /// agent's own session id, as its hooks or plugin reported it - exact, unlike
 /// guessing the newest conversation in the working directory. `None` when the
 /// agent pins sessions by PADE's id already (Claude, Copilot) or never reported.
-pub fn resume_arguments(command: &str, conversation_id: &str) -> Option<Vec<String>> {
+pub(crate) fn resume_arguments(command: &str, conversation_id: &str) -> Option<Vec<String>> {
     let agent_session = read_session_state(conversation_id)?.agent_session?;
     session_resume_arguments(command, agent_session)
 }
@@ -278,7 +278,7 @@ pub fn resume_arguments(command: &str, conversation_id: &str) -> Option<Vec<Stri
 /// The arguments that reopen `command`'s session `agent_session` by the
 /// agent's own id - the one place each agent's resume flag is spelled. `None`
 /// for an agent that doesn't resume that way.
-pub fn session_resume_arguments(command: &str, agent_session: String) -> Option<Vec<String>> {
+pub(crate) fn session_resume_arguments(command: &str, agent_session: String) -> Option<Vec<String>> {
     match command {
         ID_CODEX => Some(vec![CODEX_RESUME_SUBCOMMAND.to_string(), agent_session]),
         ID_OPENCODE => Some(vec![OPENCODE_SESSION_FLAG.to_string(), agent_session]),

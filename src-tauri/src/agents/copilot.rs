@@ -367,7 +367,7 @@ mod tests {
     /// A fake hub on a local port: it answers the handshake, checks the URL and
     /// the `chat` call, and replies the way the real one does, with a hint and
     /// then the answer in a type 2 frame. Returns its address.
-    #[allow(clippy::result_large_err)]
+    #[expect(clippy::result_large_err)]
     fn fake_hub(result: Value) -> String {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
         let address = format!("ws://{}", listener.local_addr().expect("a local address"));

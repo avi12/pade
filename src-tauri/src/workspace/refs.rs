@@ -27,7 +27,7 @@ mod tests;
 use super::RelocateStep;
 use ide_recents::rewrite_ide_recents;
 use package_manager::reconcile_package_manager;
-pub use paths::moved_path;
+pub(crate) use paths::moved_path;
 use paths::rewrite_file_forms;
 use std::path::Path;
 use symlinks::fix_project_symlinks;
@@ -39,7 +39,7 @@ mod agents;
 /// never abort the others or the move itself.
 /// `report` hears each step as it starts, so a move that takes a while on a
 /// large project can say where it is.
-pub fn update_references(old: &str, new: &str, report: &dyn Fn(RelocateStep)) {
+pub(crate) fn update_references(old: &str, new: &str, report: &dyn Fn(RelocateStep)) {
     let new_directory = Path::new(new);
     report(RelocateStep::AgentMemories);
     agents::relocate_memories(old, new);

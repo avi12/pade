@@ -26,7 +26,7 @@ use std::collections::BTreeMap;
 // `async` + `spawn_blocking`: rides the same PATH-probing detection as
 // [`ide_detect`], so it must stay off the UI thread too.
 #[tauri::command]
-pub async fn ide_kind_options() -> BTreeMap<String, Vec<String>> {
+pub(crate) async fn ide_kind_options() -> BTreeMap<String, Vec<String>> {
     tauri::async_runtime::spawn_blocking(kind_options)
         .await
         .unwrap_or_default()
@@ -78,7 +78,7 @@ pub(super) fn kind_options() -> BTreeMap<String, Vec<String>> {
 /// and the marker signals shown under the label.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct KindInfo {
+pub(crate) struct KindInfo {
     pub(super) kind: String,
     pub(super) label: String,
     pub(super) signals: Vec<String>,
@@ -87,7 +87,7 @@ pub struct KindInfo {
 /// Every recognised project kind, in the [`KIND_REGISTRY`]'s priority/render
 /// order. Drives the editor-rules rows in the picker's settings.
 #[tauri::command]
-pub fn ide_kinds() -> Vec<KindInfo> {
+pub(crate) fn ide_kinds() -> Vec<KindInfo> {
     KIND_REGISTRY
         .iter()
         .map(|definition| KindInfo {
@@ -106,7 +106,7 @@ pub fn ide_kinds() -> Vec<KindInfo> {
 // `async` + `spawn_blocking`: one child walk per project for a whole menuful of
 // recents is real filesystem work - off the UI thread.
 #[tauri::command]
-pub async fn ide_project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
+pub(crate) async fn ide_project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
     tauri::async_runtime::spawn_blocking(move || project_kinds(paths))
         .await
         .unwrap_or_default()

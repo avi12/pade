@@ -67,7 +67,7 @@ fn encode_png(image: &tauri::image::Image<'_>, path: &Path) -> Result<(), String
 /// The clipboard read, the PNG encode of a screen-sized bitmap and the file
 /// write all run on the blocking pool, never the main thread or an async worker.
 #[tauri::command]
-pub async fn clipboard_image_save(app: tauri::AppHandle) -> Result<Option<String>, String> {
+pub(crate) async fn clipboard_image_save(app: tauri::AppHandle) -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(move || save_clipboard_image(&app))
         .await
         .map_err(|error| error.to_string())?

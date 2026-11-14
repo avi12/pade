@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::util::{owner_access, OwnerAccess};
 
-pub use self::error::SessionError;
+pub(crate) use self::error::SessionError;
 pub(super) use self::owner::SessionOwner;
 use self::pty_handle::Pty;
 use self::teardown::Teardowns;
@@ -47,7 +47,7 @@ const CHILD_POLL_INTERVAL: Duration = Duration::from_millis(500);
 /// idle, and a second wire-level gauge alongside it could only drift.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct HostedSession {
+pub(crate) struct HostedSession {
     pub id: String,
     pub owner: String,
     pub command: Option<String>,

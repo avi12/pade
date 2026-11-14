@@ -27,7 +27,7 @@ pub(super) fn has_vanished(path: &str) -> bool {
 /// its directory watcher triggers - so a workspace deleted in Explorer, by a
 /// script, or from a terminal leaves the page like one deleted from the menu.
 #[tauri::command]
-pub async fn workspace_prune(app: AppHandle) -> Result<Settings, String> {
+pub(crate) async fn workspace_prune(app: AppHandle) -> Result<Settings, String> {
     delete_unused_temps(&crate::platform::window::open_projects(&app))?;
     update_settings(|settings| {
         settings
@@ -69,7 +69,7 @@ pub(super) fn forget_directory(settings: &mut Settings, path: &str) {
 
 /// Delete an ADE-owned workspace directory and forget it.
 #[tauri::command]
-pub async fn workspace_delete(path: String) -> Result<Settings, String> {
+pub(crate) async fn workspace_delete(path: String) -> Result<Settings, String> {
     require_ade_owned(&load(), &path, "deleted")?;
     delete_directory(&path)?;
     update_settings(|settings| {
@@ -116,7 +116,7 @@ pub(super) fn is_deletable_project(settings: &Settings, path: &str, target: &Pat
 /// confirmation before calling it, and the caller (the relocator) kills the
 /// sessions holding the folder first.
 #[tauri::command]
-pub async fn workspace_delete_directory(path: String) -> Result<Settings, String> {
+pub(crate) async fn workspace_delete_directory(path: String) -> Result<Settings, String> {
     let settings = load();
     let target = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
     if !is_deletable_project(&settings, &path, &target) {

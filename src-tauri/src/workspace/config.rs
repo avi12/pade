@@ -49,7 +49,7 @@ impl ConfigDefinition {
 
 /// How a specific agent config represents its MCP server-name map.
 #[derive(Debug, Clone, Copy)]
-pub enum McpFormat {
+pub(crate) enum McpFormat {
     JsonObject { key: &'static str },
     TomlTables { key: &'static str },
 }
@@ -130,7 +130,7 @@ const KNOWN_CONFIG_FILES: &[ConfigDefinition] = &[
 /// agents whose servers it declares. The single source of truth for "which file
 /// holds a project's MCP servers" - the watcher reads this to know what to watch
 /// for added/removed servers (`mcp.rs`).
-pub struct McpConfig {
+pub(crate) struct McpConfig {
     pub relative_path: &'static str,
     pub agents: &'static [&'static str],
     pub format: McpFormat,
@@ -139,7 +139,7 @@ pub struct McpConfig {
 /// Every known project-level MCP config file (e.g. `.mcp.json` for Claude),
 /// drawn from the same [`KNOWN_CONFIG_FILES`] registry the config panel shows - no second
 /// list to drift.
-pub fn mcp_configs() -> impl Iterator<Item = McpConfig> {
+pub(crate) fn mcp_configs() -> impl Iterator<Item = McpConfig> {
     KNOWN_CONFIG_FILES
         .iter()
         .filter_map(|definition| definition.mcp_format.map(|format| (definition, format)))
@@ -152,7 +152,7 @@ pub fn mcp_configs() -> impl Iterator<Item = McpConfig> {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ConfigFile {
+pub(crate) struct ConfigFile {
     name: String,
     #[serde(rename = "rel")]
     relative_path: String,
@@ -168,7 +168,7 @@ fn project_root(
 }
 
 #[tauri::command]
-pub async fn config_list(
+pub(crate) async fn config_list(
     window: WebviewWindow,
     projects: tauri::State<'_, crate::platform::window::WindowProjects>,
     agent: String,
@@ -190,7 +190,7 @@ pub async fn config_list(
 /// Read one known config file. Guarded to the allowlist so this can never read
 /// arbitrary paths from the frontend.
 #[tauri::command]
-pub async fn config_read(
+pub(crate) async fn config_read(
     window: WebviewWindow,
     projects: tauri::State<'_, crate::platform::window::WindowProjects>,
     rel: String,

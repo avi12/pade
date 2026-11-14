@@ -59,7 +59,7 @@ const REGISTRY: &[DesignDefinition] = &[
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DesignTool {
+pub(crate) struct DesignTool {
     id: String,
     label: String,
     vendor: String,
@@ -72,7 +72,7 @@ pub struct DesignTool {
 /// The curated roster, ranked for the active `agent`: the vendor-matched tool is
 /// pinned first (and flagged), the rest keep registry order.
 #[tauri::command]
-pub fn design_tools(agent: String) -> Vec<DesignTool> {
+pub(crate) fn design_tools(agent: String) -> Vec<DesignTool> {
     let mut tools: Vec<DesignTool> = REGISTRY
         .iter()
         .map(|definition| DesignTool {
@@ -133,7 +133,7 @@ const DESIGN_WINDOW_MINIMUM_SIZE: (f64, f64) = (480.0, 480.0);
 /// Open a registry-selected design tool. The renderer supplies only its opaque id,
 /// so it cannot navigate the application-branded webview to an arbitrary origin.
 #[tauri::command]
-pub async fn design_open(app: AppHandle, id: String) -> Result<(), String> {
+pub(crate) async fn design_open(app: AppHandle, id: String) -> Result<(), String> {
     let definition = REGISTRY
         .iter()
         .find(|definition| definition.id == id)

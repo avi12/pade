@@ -87,7 +87,7 @@ fn data_url(mime: &str, bytes: &[u8]) -> String {
 /// or extra capability.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FeedImage {
+pub(crate) struct FeedImage {
     /// A `data:<mime>;base64,<bytes>` URL - directly usable as an `<img>` source.
     data_url: String,
 }
@@ -111,7 +111,7 @@ impl FeedImage {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum FeedVideo {
+pub(crate) enum FeedVideo {
     /// A short transcoded clip as a `data:` URL - directly usable as a `<video>` source.
     Ready { data_url: String },
     /// `ffmpeg` isn't installed, so no clip can be made.

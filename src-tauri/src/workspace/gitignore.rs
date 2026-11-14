@@ -30,7 +30,7 @@ struct Pattern {
 /// The parsed rules of one `.gitignore`, ready to answer [`Rules::is_ignored`].
 /// An empty file (or none at all) parses to rules that ignore nothing.
 #[derive(Default)]
-pub struct Rules {
+pub(crate) struct Rules {
     patterns: Vec<Pattern>,
 }
 
@@ -39,7 +39,7 @@ impl Rules {
     /// significance) are simply treated literally - this backs a change feed,
     /// not git itself.
     #[must_use]
-    pub fn parse(content: &str) -> Self {
+    pub(crate) fn parse(content: &str) -> Self {
         Self {
             patterns: content.lines().filter_map(Pattern::parse).collect(),
         }
@@ -50,7 +50,7 @@ impl Rules {
     /// ignores the file outright (git allows no re-include below an excluded
     /// directory); otherwise the file's own last matching pattern decides.
     #[must_use]
-    pub fn is_ignored(&self, path: &str) -> bool {
+    pub(crate) fn is_ignored(&self, path: &str) -> bool {
         let segments: Vec<&str> = path
             .split('/')
             .filter(|segment| !segment.is_empty())

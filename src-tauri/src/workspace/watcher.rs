@@ -30,6 +30,6 @@ static CHANGE_EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 /// burst of events per save.
 const SAVE_BURST_DEBOUNCE: Duration = Duration::from_millis(150);
 
-pub fn init(app: &AppHandle) {
+pub(crate) fn init(app: &AppHandle) {
     app.manage(WatcherState::default());
 }

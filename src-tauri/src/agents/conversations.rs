@@ -101,7 +101,7 @@ const MARKDOWN_HEADING_MARK: char = '#';
 /// One recorded conversation, as the sidebar lists and reopens it.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RecordedConversation {
+pub(crate) struct RecordedConversation {
     agent_id: &'static str,
     /// The agent's own id for the conversation.
     conversation_id: String,
@@ -117,7 +117,7 @@ pub struct RecordedConversation {
 // `async` plus `spawn_blocking`: it reads many files, which must stay off the
 // main thread.
 #[tauri::command]
-pub async fn agent_conversations(project: String) -> Vec<RecordedConversation> {
+pub(crate) async fn agent_conversations(project: String) -> Vec<RecordedConversation> {
     remember_listed_project(&project);
     tauri::async_runtime::spawn_blocking(move || project_conversations(&project))
         .await

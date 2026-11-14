@@ -24,7 +24,7 @@ pub(super) const DIRECTORIES_CHANGED_EVENT: &str = "directories://changed";
 /// folder it watches, and a handle on a project would be the very thing stopping
 /// that project from being deleted. Re-arming replaces the previous set.
 #[tauri::command]
-pub async fn watch_dirs(
+pub(crate) async fn watch_dirs(
     app: AppHandle,
     window: WebviewWindow,
     state: State<'_, WatcherState>,

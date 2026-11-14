@@ -119,7 +119,7 @@ pub(super) fn added_editors() -> Vec<Ide> {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Ide {
+pub(crate) struct Ide {
     pub(super) id: String,
     label: String,
     pub(super) command: String,
@@ -135,7 +135,7 @@ pub struct Ide {
 // directory (and `reg` on Windows) - filesystem-and-child-process work that a
 // synchronous command would run on the MAIN thread, freezing the window.
 #[tauri::command]
-pub async fn ide_detect() -> Vec<Ide> {
+pub(crate) async fn ide_detect() -> Vec<Ide> {
     tauri::async_runtime::spawn_blocking(installed_ides)
         .await
         .unwrap_or_default()
@@ -163,7 +163,7 @@ pub(super) fn installed_ides() -> Vec<Ide> {
 /// (e.g. `WinRAR.exe`) is rejected with a message the UI shows inline. On
 /// success the editor is persisted and appears in every editor menu.
 #[tauri::command]
-pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String> {
+pub(crate) fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String> {
     let path = path.trim().to_string();
     if path.is_empty() {
         return Err("Enter the full path to an editor executable".to_string());
@@ -188,6 +188,6 @@ pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String
 /// Auto-detected editors carry no stored entry, so removing one is a no-op. Returns
 /// the refreshed settings so every editor menu drops it at once.
 #[tauri::command]
-pub fn ide_remove_editor(id: String) -> Result<crate::workspace::Settings, String> {
+pub(crate) fn ide_remove_editor(id: String) -> Result<crate::workspace::Settings, String> {
     crate::workspace::remove_editor(&id)
 }

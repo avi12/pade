@@ -15,23 +15,23 @@ mod registry;
 mod tests;
 mod time;
 
-pub use self::encoding::{lowercase_hex, percent_encode};
-pub use self::executables::{find_in, is_on_path, resolve, search_directories};
-pub use self::files::{newest_in_tail, write_if_stale};
+pub(crate) use self::encoding::{lowercase_hex, percent_encode};
+pub(crate) use self::executables::{find_in, is_on_path, resolve, search_directories};
+pub(crate) use self::files::{newest_in_tail, write_if_stale};
 pub(crate) use self::ipc::{
     owner_access, OwnerAccess, MAXIMUM_PATH_BYTES, MAXIMUM_SESSION_ID_BYTES,
 };
 pub(crate) use self::json::json_string_field;
-pub use self::json::{read_json, read_jsonc};
+pub(crate) use self::json::{read_json, read_jsonc};
 pub(crate) use self::paths::{comparable_path, same_path};
-pub use self::paths::{home_directory, is_noise_directory, pade_data_directory};
+pub(crate) use self::paths::{home_directory, is_noise_directory, pade_data_directory};
 pub(crate) use self::process::{capture_within, COMMAND_SHELL, COMMAND_SHELL_RUN_FLAG};
-pub use self::process::{
+pub(crate) use self::process::{
     command, exits_successfully_within, shell_command, spawn_detached, succeeds_within,
 };
-pub use self::project_encoding::encode_project;
+pub(crate) use self::project_encoding::encode_project;
 #[cfg(windows)]
 pub(crate) use self::registry::{registry_query, registry_string};
-pub use self::time::{
+pub(crate) use self::time::{
     days_since_epoch, milliseconds_since_unix_epoch, now_milliseconds, since_unix_epoch,
 };

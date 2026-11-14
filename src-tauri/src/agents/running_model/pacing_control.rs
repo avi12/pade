@@ -86,7 +86,7 @@ const MAXIMUM_REST_HOLD: Duration = Duration::from_secs(MAXIMUM_REST_HOLD_SECOND
 /// the control file keeps it in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct EpochMilliseconds(u64);
+pub(crate) struct EpochMilliseconds(u64);
 
 impl EpochMilliseconds {
     fn now() -> Self {
@@ -120,7 +120,7 @@ static CONTROL_WRITES: Mutex<()> = Mutex::new(());
 /// What pacing caps a session's subagents at, in catalog model ids.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SubagentCapRequest {
+pub(crate) struct SubagentCapRequest {
     /// The model a subagent runs when it asks for nothing the cap allows.
     model: String,
     /// Every model a subagent may keep when it asks for it - the cap's own and
@@ -131,7 +131,7 @@ pub struct SubagentCapRequest {
 /// One running subagent's step, keyed by the agent's own subagent id.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "step", rename_all = "camelCase")]
-pub enum SubagentStep {
+pub(crate) enum SubagentStep {
     /// Held this long before each of its tool calls.
     #[serde(rename_all = "camelCase")]
     Gate { hold_seconds: u64 },
@@ -142,7 +142,7 @@ pub enum SubagentStep {
 /// The account-wide round's part of a session's control.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
-pub struct Throttle {
+pub(crate) struct Throttle {
     is_blocking_spawns: bool,
     subagents: BTreeMap<String, SubagentStep>,
 }
@@ -156,7 +156,7 @@ impl Throttle {
 /// One part of a session's control, replaced whole by the one who owns it.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(tag = "part", content = "value", rename_all = "camelCase")]
-pub enum ControlPart {
+pub(crate) enum ControlPart {
     Cap(Option<SubagentCapRequest>),
     Stop(bool),
     /// Resting until this epoch ms; `None` lifts the rest.
@@ -220,7 +220,7 @@ impl PacingControl {
 /// still lands - the agent just never reads it. Off the UI thread: it writes a
 /// file.
 #[tauri::command]
-pub async fn agent_set_pacing_control(
+pub(crate) async fn agent_set_pacing_control(
     command: String,
     conversation_id: String,
     part: ControlPart,
@@ -365,7 +365,7 @@ pub(super) fn control_file(conversation_id: &str) -> Option<PathBuf> {
 /// pacing's cue to stop the session through its terminal instead. Off the UI
 /// thread: it reads a file.
 #[tauri::command]
-pub async fn agent_pacing_stop_seen(conversation_id: String) -> Option<u64> {
+pub(crate) async fn agent_pacing_stop_seen(conversation_id: String) -> Option<u64> {
     if !is_plain_id(&conversation_id) {
         return None;
     }

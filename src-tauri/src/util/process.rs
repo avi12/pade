@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 /// CLI that decides to wait on stdin (the opencode-db hang class) must see EOF
 /// immediately rather than block forever. The rare caller that feeds a child on
 /// stdin (the usage curl `--config`) overrides this with `Stdio::piped()`.
-pub fn command(program: impl AsRef<OsStr>) -> Command {
+pub(crate) fn command(program: impl AsRef<OsStr>) -> Command {
     let mut command = Command::new(program);
     command.stdin(Stdio::null());
     #[cfg(windows)]
@@ -40,7 +40,7 @@ pub(crate) const COMMAND_SHELL_RUN_FLAG: &str = if cfg!(windows) { "/C" } else {
 /// A windowless [`command`] that runs `command_line` through the platform
 /// shell ([`COMMAND_SHELL`]). The caller decides the streams and working
 /// directory.
-pub fn shell_command(command_line: &str) -> Command {
+pub(crate) fn shell_command(command_line: &str) -> Command {
     let mut process = command(COMMAND_SHELL);
     process.args([COMMAND_SHELL_RUN_FLAG, command_line]);
     process
@@ -56,7 +56,7 @@ const CHILD_WAIT_POLL: Duration = Duration::from_millis(50);
 /// a verdict, not output - and an open stdin is exactly what lets a child wait
 /// forever). On deadline the child is killed and the answer is `false`: a probe
 /// that can hang is never worth a hang.
-pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
+pub(crate) fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
     command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -71,7 +71,7 @@ pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
 /// successfully. On deadline (or a failed wait) the child is killed and reaped
 /// and the answer is `false`. The caller owns the child's streams - one that
 /// reads its output does so on another thread while this waits.
-pub fn exits_successfully_within(child: &mut Child, timeout: Duration) -> bool {
+pub(crate) fn exits_successfully_within(child: &mut Child, timeout: Duration) -> bool {
     exit_within(child, timeout).is_some_and(|status| status.success())
 }
 
@@ -182,7 +182,7 @@ fn drain(
 /// already independent and is re-parented to init when ADE exits, so a plain
 /// spawn suffices.
 #[cfg(windows)]
-pub fn spawn_detached(program: impl AsRef<OsStr>, arguments: &[String]) -> std::io::Result<Child> {
+pub(crate) fn spawn_detached(program: impl AsRef<OsStr>, arguments: &[String]) -> std::io::Result<Child> {
     use std::os::windows::process::CommandExt;
 
     const DETACHED_PROCESS: u32 = 0x0000_0008;

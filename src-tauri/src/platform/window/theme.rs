@@ -36,7 +36,7 @@ pub(super) fn surface_for(theme: Theme) -> Color {
 
 /// Paint `window`'s webview with the themed surface so it shows in-theme before
 /// the frontend renders. Best-effort - a failed theme probe leaves the default.
-pub fn paint_surface(window: &WebviewWindow) {
+pub(crate) fn paint_surface(window: &WebviewWindow) {
     if let Ok(theme) = window.theme() {
         let _ = window.set_background_color(Some(surface_for(theme)));
     }
@@ -53,7 +53,7 @@ pub fn paint_surface(window: &WebviewWindow) {
 /// `theming`). Reading the native theme closes the gap. Pure registry lookup, so
 /// it stays sync.
 #[tauri::command]
-pub fn window_theme(window: Window) -> Scheme {
+pub(crate) fn window_theme(window: Window) -> Scheme {
     window.theme().map_or(Scheme::Light, scheme_for)
 }
 
@@ -64,7 +64,7 @@ pub fn window_theme(window: Window) -> Scheme {
 /// signal. Repaint the surface in-theme and hand the resolved scheme to that
 /// window's frontend, which follows it verbatim (see prefs.svelte). Emitted only
 /// to the window that changed, so each window re-themes from its own OS theme.
-pub fn on_theme_changed(window: &Window, theme: Theme) {
+pub(crate) fn on_theme_changed(window: &Window, theme: Theme) {
     if let Some(webview) = window.get_webview_window(window.label()) {
         let _ = webview.set_background_color(Some(surface_for(theme)));
     }

@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager, WebviewWindow};
 /// names. `pub` because it appears in a `#[tauri::command]` signature.
 #[derive(Deserialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
-pub enum CycleDirection {
+pub(crate) enum CycleDirection {
     Previous,
     Next,
 }
@@ -58,7 +58,7 @@ fn sorted_live_labels(app: &AppHandle, state: &WindowProjects) -> Vec<String> {
 /// for the switcher's order and the `Ctrl+Alt+[`/`]` cycle. Session-scoped: labels
 /// are ephemeral per app run, so there's nothing meaningful to persist to disk.
 #[tauri::command]
-pub fn window_reorder(app: AppHandle, state: tauri::State<WindowProjects>, labels: Vec<String>) {
+pub(crate) fn window_reorder(app: AppHandle, state: tauri::State<WindowProjects>, labels: Vec<String>) {
     if let Ok(mut order) = state.order.lock() {
         *order = labels;
     }
@@ -82,7 +82,7 @@ pub(super) fn cycled_index(current: usize, count: usize, direction: CycleDirecti
 /// the frontend passes only a direction; live windows are re-enumerated each press,
 /// so a closed window simply drops out of the cycle.
 #[tauri::command]
-pub fn window_focus_relative(
+pub(crate) fn window_focus_relative(
     app: AppHandle,
     window: WebviewWindow,
     state: tauri::State<WindowProjects>,
@@ -106,7 +106,7 @@ pub fn window_focus_relative(
 /// frontend focuses by), the project path, and whether it is the calling window.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WindowInfo {
+pub(crate) struct WindowInfo {
     label: String,
     path: String,
     is_current: bool,
@@ -119,7 +119,7 @@ pub struct WindowInfo {
 /// switcher's "Open windows" section, so its order matches the `Ctrl+Alt+[`/`]`
 /// cycle order - both read the one explicit order.
 #[tauri::command]
-pub fn window_list(
+pub(crate) fn window_list(
     app: AppHandle,
     window: WebviewWindow,
     state: tauri::State<WindowProjects>,
@@ -146,7 +146,7 @@ pub fn window_list(
 /// Focus a specific open PADE window by label - the switcher's "Open windows"
 /// rows. Returns true when that window existed and took focus.
 #[tauri::command]
-pub fn window_focus_label(app: AppHandle, label: String) -> bool {
+pub(crate) fn window_focus_label(app: AppHandle, label: String) -> bool {
     app.get_webview_window(&label)
         .is_some_and(|target| bring_to_front(&target))
 }

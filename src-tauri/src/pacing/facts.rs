@@ -120,7 +120,7 @@ pub struct PaceFacts {
 /// own judgement and arrive as facts: only a window can see its screens.
 // A mirror of the TypeScript `SessionFacts`: each flag is one fact the window
 // reports, and folding them into a bit set would hide them from the wire.
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionFacts {

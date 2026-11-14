@@ -74,7 +74,7 @@ pub(super) fn moved_keys<'a>(
 /// Move `from` into `dest_dir` (keeping its folder name). The result is a normal
 /// directory - no longer "temp" - but stays ADE-owned so it's still deletable.
 #[tauri::command]
-pub async fn workspace_move(
+pub(crate) async fn workspace_move(
     app: AppHandle,
     from: String,
     dest_dir: String,
@@ -93,7 +93,7 @@ pub async fn workspace_move(
 /// along. The frontend first stops the sessions working inside it: Windows
 /// refuses to rename a folder a running process stands in.
 #[tauri::command]
-pub async fn workspace_rename_folder(
+pub(crate) async fn workspace_rename_folder(
     app: AppHandle,
     from: String,
     new_name: String,

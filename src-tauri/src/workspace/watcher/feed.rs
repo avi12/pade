@@ -25,7 +25,7 @@ use tauri::WebviewWindow;
 /// mistaken for "nothing is being watched".
 #[derive(Serialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct WatchStatus {
+pub(crate) struct WatchStatus {
     /// The root the watch is armed on; `None` when this window doesn't watch it.
     root: Option<String>,
     /// Epoch ms the watch was armed - the feed holds nothing from before it.
@@ -41,7 +41,7 @@ pub struct WatchStatus {
 /// default, empty status when the window doesn't watch that root. A pure
 /// in-memory registry read, so it stays synchronous.
 #[tauri::command]
-pub fn watch_status(
+pub(crate) fn watch_status(
     window: WebviewWindow,
     state: State<'_, WatcherState>,
     root: String,
@@ -72,7 +72,7 @@ pub(super) fn owning_watch(
 /// the file's current content. The frontend renders the unified diff from these.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FeedDiff {
+pub(crate) struct FeedDiff {
     /// First-touch baseline content (empty for a file created this session).
     before: String,
     /// Current on-disk content (empty when the file is now deleted).
@@ -86,7 +86,7 @@ pub struct FeedDiff {
 /// by construction, so an untracked or ignored file previews like any other, and a
 /// file deleted after being touched shows its baseline as a full removal.
 #[tauri::command]
-pub async fn feed_diff(
+pub(crate) async fn feed_diff(
     window: WebviewWindow,
     state: State<'_, WatcherState>,
     path: String,
@@ -120,7 +120,7 @@ pub async fn feed_diff(
 /// can't be turned into an arbitrary file reader), is gone, or is binary / over
 /// [`MAXIMUM_PREVIEW_BYTES`] - the card then keeps its diff and offers no preview.
 #[tauri::command]
-pub async fn feed_text(
+pub(crate) async fn feed_text(
     window: WebviewWindow,
     state: State<'_, WatcherState>,
     path: String,
@@ -154,7 +154,7 @@ pub(super) fn was_surfaced(watch: &ProjectWatch, path: &Path) -> Result<bool, St
 /// captured baseline like `feed_diff`, so the command can't base64 an arbitrary
 /// file off disk.
 #[tauri::command]
-pub async fn feed_image(
+pub(crate) async fn feed_image(
     window: WebviewWindow,
     state: State<'_, WatcherState>,
     path: String,
@@ -183,7 +183,7 @@ pub async fn feed_image(
 /// surfaced by this window's watch this session, is gone, or ffmpeg couldn't
 /// read it. Gated and root-confined exactly like [`feed_image`].
 #[tauri::command]
-pub async fn feed_video(
+pub(crate) async fn feed_video(
     window: WebviewWindow,
     state: State<'_, WatcherState>,
     path: String,
@@ -208,7 +208,7 @@ pub async fn feed_video(
 /// resurrected, they simply surface again on their next real change). Each
 /// path is judged by the rules of the held project that owns it.
 #[tauri::command]
-pub async fn feed_ignored(
+pub(crate) async fn feed_ignored(
     window: WebviewWindow,
     state: State<'_, WatcherState>,
     paths: Vec<String>,

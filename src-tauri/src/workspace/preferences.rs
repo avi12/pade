@@ -9,7 +9,7 @@ use super::store::Settings;
 /// Master switch: set the default agent for every project and clear per-project
 /// overrides so the whole workspace moves to it at once.
 #[tauri::command]
-pub fn set_default_agent(agent: String) -> Result<Settings, String> {
+pub(crate) fn set_default_agent(agent: String) -> Result<Settings, String> {
     update_settings(|settings| {
         settings.default_agent = Some(agent);
         settings.project_agents.clear();
@@ -19,7 +19,7 @@ pub fn set_default_agent(agent: String) -> Result<Settings, String> {
 
 /// Override the agent for a single project.
 #[tauri::command]
-pub fn set_project_agent(path: String, agent: String) -> Result<Settings, String> {
+pub(crate) fn set_project_agent(path: String, agent: String) -> Result<Settings, String> {
     update_settings(|settings| {
         settings.project_agents.insert(path, agent);
         Ok(())
@@ -28,7 +28,7 @@ pub fn set_project_agent(path: String, agent: String) -> Result<Settings, String
 
 /// Persist a user-added editor, de-duplicated by executable path (re-adding the
 /// same path is a no-op move-to-end). Returns the refreshed settings.
-pub fn add_editor(editor: AddedEditor) -> Result<Settings, String> {
+pub(crate) fn add_editor(editor: AddedEditor) -> Result<Settings, String> {
     update_settings(|settings| {
         settings
             .prefs
@@ -42,7 +42,7 @@ pub fn add_editor(editor: AddedEditor) -> Result<Settings, String> {
 /// Persist the user's explicit editor pick for one project - keyed by the
 /// canonical path so spelling variants of the same folder resolve to one entry.
 /// Returns the refreshed settings.
-pub fn set_project_editor(path: &str, editor_id: &str) -> Result<Settings, String> {
+pub(crate) fn set_project_editor(path: &str, editor_id: &str) -> Result<Settings, String> {
     update_settings(|settings| {
         settings
             .prefs
@@ -54,7 +54,7 @@ pub fn set_project_editor(path: &str, editor_id: &str) -> Result<Settings, Strin
 
 /// Drop a user-added editor by its id. Returns the refreshed settings; removing
 /// an id that isn't present is a no-op.
-pub fn remove_editor(id: &str) -> Result<Settings, String> {
+pub(crate) fn remove_editor(id: &str) -> Result<Settings, String> {
     update_settings(|settings| {
         settings
             .prefs
@@ -88,6 +88,6 @@ pub(super) fn apply_prefs_patch(
 /// Apply only the preference fields the frontend changed. A null value removes
 /// the optional key so its default takes effect again.
 #[tauri::command]
-pub fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Settings, String> {
+pub(crate) fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Settings, String> {
     update_settings(|settings| apply_prefs_patch(&mut settings.prefs, patch))
 }

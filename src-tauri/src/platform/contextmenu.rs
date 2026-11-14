@@ -172,7 +172,7 @@ fn is_legacy_registered() -> bool {
 // takes seconds), so each runs on the blocking pool rather than an async worker.
 #[cfg(windows)]
 #[tauri::command]
-pub async fn context_menu_register() -> Result<(), String> {
+pub(crate) async fn context_menu_register() -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(register_menu)
         .await
         .map_err(|error| error.to_string())?
@@ -235,7 +235,7 @@ fn register_sparse_package() -> Result<(), String> {
 ///   self-hiding handler exists there).
 #[cfg(windows)]
 #[tauri::command]
-pub async fn context_menu_unregister() -> Result<(), String> {
+pub(crate) async fn context_menu_unregister() -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(unregister_menu)
         .await
         .map_err(|error| error.to_string())?
@@ -256,7 +256,7 @@ fn unregister_menu() -> Result<(), String> {
 /// - **Windows 10 and older**: whether the legacy keys exist.
 #[cfg(windows)]
 #[tauri::command]
-pub async fn context_menu_status() -> bool {
+pub(crate) async fn context_menu_status() -> bool {
     // A probe that panicked reports the menu as off, the state it can't prove.
     tauri::async_runtime::spawn_blocking(is_menu_on)
         .await

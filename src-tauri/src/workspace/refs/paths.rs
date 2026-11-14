@@ -53,7 +53,7 @@ pub(super) fn rebase_paths_in(haystack: &str, old: &str, new: &str) -> String {
 
 /// Where `path` lands when the folder `old` becomes `new`: `None` unless it is
 /// that folder or inside it.
-pub fn moved_path(path: &str, old: &str, new: &str) -> Option<String> {
+pub(crate) fn moved_path(path: &str, old: &str, new: &str) -> Option<String> {
     let moved = rebase_paths_in(path, old, new);
     (moved != path).then_some(moved)
 }

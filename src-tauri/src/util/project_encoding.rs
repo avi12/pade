@@ -8,7 +8,7 @@ const MAXIMUM_PROJECT_NAME: usize = 200;
 /// unit, since Claude replaces JavaScript string units), and a name past 200
 /// characters is cut there and suffixed with a hash of the path. Claude stores
 /// each project's transcripts under `~/.claude/projects/<encoded-path>/`.
-pub fn encode_project(path: &str) -> String {
+pub(crate) fn encode_project(path: &str) -> String {
     let mut encoded = String::with_capacity(path.len());
     for character in path.chars() {
         if character.is_ascii_alphanumeric() {

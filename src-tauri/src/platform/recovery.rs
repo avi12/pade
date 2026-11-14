@@ -22,7 +22,7 @@ static PENDING_RECREATES: AtomicUsize = AtomicUsize::new(0);
 
 /// Whether any window is currently between destroy and rebuild, so an
 /// `ExitRequested` fired by that destroy must be vetoed.
-pub fn is_recreate_pending() -> bool {
+pub(crate) fn is_recreate_pending() -> bool {
     PENDING_RECREATES.load(Ordering::Relaxed) > 0
 }
 
@@ -44,7 +44,7 @@ pub fn recovery_arm(_window: WebviewWindow, _url: String) {}
 /// doc for the contract; this is the working half).
 #[cfg(windows)]
 #[tauri::command]
-pub fn recovery_arm(window: WebviewWindow, url: String) {
+pub(crate) fn recovery_arm(window: WebviewWindow, url: String) {
     use tauri::Manager;
 
     let Ok(url) = tauri::Url::parse(&url) else {

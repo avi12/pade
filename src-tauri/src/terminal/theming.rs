@@ -54,7 +54,7 @@ use crate::util::write_if_stale;
 /// ADE's resolved appearance - the frontend's `appearance.scheme`, on the wire.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "lowercase")]
-pub enum Scheme {
+pub(crate) enum Scheme {
     Light,
     Dark,
 }
@@ -83,8 +83,8 @@ impl Scheme {
 // The shared `Spawn` prefix is the point, not noise: every mechanism is
 // spawn-time (read once at launch, next spawn picks up a scheme flip), and the
 // prefix keeps that contract in every variant's name.
-#[allow(clippy::enum_variant_names)]
-pub enum ThemeConfig {
+#[expect(clippy::enum_variant_names)]
+pub(crate) enum ThemeConfig {
     /// Set per-scheme environment when the session spawns - for a CLI whose
     /// theme is env-driven and read once at startup (`pty.rs` applies these;
     /// a scheme flip reaches it on the next spawn). Either side may be empty
@@ -140,7 +140,7 @@ pub enum ThemeConfig {
 /// The per-scheme environment to spawn `command` with (empty for an agent
 /// whose theme is arg-driven, or unknown). `pty.rs` applies it alongside the
 /// static `agents::spawn_environment`.
-pub fn spawn_environment(command: &str, scheme: Scheme) -> &'static [(&'static str, &'static str)] {
+pub(crate) fn spawn_environment(command: &str, scheme: Scheme) -> &'static [(&'static str, &'static str)] {
     match crate::agents::theme_config(command) {
         Some(ThemeConfig::SpawnEnvironment { light, dark }) => scheme.pick(light, dark),
         Some(
@@ -155,7 +155,7 @@ pub fn spawn_environment(command: &str, scheme: Scheme) -> &'static [(&'static s
 /// The per-scheme launch arguments to spawn `command` with (empty for an agent
 /// whose theme is env-driven, or unknown). `pty.rs` appends it to the
 /// interactive session's argv, alongside `agents::session_arguments`.
-pub fn spawn_arguments(command: &str, scheme: Scheme) -> &'static [&'static str] {
+pub(crate) fn spawn_arguments(command: &str, scheme: Scheme) -> &'static [&'static str] {
     match crate::agents::theme_config(command) {
         Some(ThemeConfig::SpawnArguments { light, dark }) => scheme.pick(light, dark),
         // Scheme-independent by design: these args name the definition, and its
@@ -173,7 +173,7 @@ pub fn spawn_arguments(command: &str, scheme: Scheme) -> &'static [&'static str]
 /// describing the current scheme. `write_if_stale` keeps an unchanged scheme
 /// from touching the file - the agent watches it, and a no-op rewrite would
 /// make it re-render for nothing.
-pub fn publish_live_themes(scheme: Scheme) -> std::io::Result<()> {
+pub(crate) fn publish_live_themes(scheme: Scheme) -> std::io::Result<()> {
     let Some(home) = crate::util::home_directory() else {
         return Err(std::io::Error::other("no home directory"));
     };
@@ -200,7 +200,7 @@ pub fn publish_live_themes(scheme: Scheme) -> std::io::Result<()> {
 // `async` so Tauri runs it off the main thread: it writes to disk, and a
 // synchronous command would do that on the Win32 message pump.
 #[tauri::command]
-pub async fn agent_theme_publish(scheme: Scheme) -> Result<(), String> {
+pub(crate) async fn agent_theme_publish(scheme: Scheme) -> Result<(), String> {
     publish_live_themes(scheme).map_err(|error| error.to_string())
 }
 
@@ -257,7 +257,7 @@ const OPENCODE_THEMES_RELATIVE_PATH: &str = ".config/opencode/themes";
 /// I/O: `pty.rs` calls it from `build_command`, before any session lock is
 /// taken. On an I/O failure the override is dropped (the agent falls back to
 /// its own terminal-detected theme) with a diagnostic on stderr.
-pub fn spawn_tui_config_environment(command: &str, scheme: Scheme) -> Vec<(String, String)> {
+pub(crate) fn spawn_tui_config_environment(command: &str, scheme: Scheme) -> Vec<(String, String)> {
     let Some(ThemeConfig::SpawnTuiConfig {
         variable,
         light,

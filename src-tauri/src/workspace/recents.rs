@@ -38,7 +38,7 @@ pub(crate) fn mark_left(path: &str) -> Result<(), String> {
 /// Open a project: point the process (and thus the watcher/VCS/agent) at it and
 /// remember it in the recent history.
 #[tauri::command]
-pub fn workspace_open(path: String) -> Result<(), String> {
+pub(crate) fn workspace_open(path: String) -> Result<(), String> {
     std::env::set_current_dir(&path).map_err(|error| error.to_string())?;
     update_settings(|settings| {
         record_recent(settings, &path);
@@ -49,7 +49,7 @@ pub fn workspace_open(path: String) -> Result<(), String> {
 
 /// Clear the recent-projects history.
 #[tauri::command]
-pub fn workspace_clear_recent() -> Result<Settings, String> {
+pub(crate) fn workspace_clear_recent() -> Result<Settings, String> {
     update_settings(|settings| {
         settings.recent_projects.clear();
         Ok(())
@@ -59,7 +59,7 @@ pub fn workspace_clear_recent() -> Result<Settings, String> {
 /// Pin or unpin a project in the switcher. Pinning moves it to the front of the
 /// pinned list; unpinning drops it. Returns the refreshed settings.
 #[tauri::command]
-pub fn workspace_set_pinned(path: String, pinned: bool) -> Result<Settings, String> {
+pub(crate) fn workspace_set_pinned(path: String, pinned: bool) -> Result<Settings, String> {
     update_settings(|settings| {
         settings
             .pinned_projects
@@ -77,7 +77,7 @@ pub fn workspace_set_pinned(path: String, pinned: bool) -> Result<Settings, Stri
 /// untouched, and its display label is kept so a later re-open keeps the friendly
 /// name. Returns the refreshed settings.
 #[tauri::command]
-pub fn workspace_remove_recent(path: String) -> Result<Settings, String> {
+pub(crate) fn workspace_remove_recent(path: String) -> Result<Settings, String> {
     update_settings(|settings| {
         settings.recent_projects.retain(|entry| entry != &path);
         settings.pinned_projects.retain(|entry| entry != &path);
@@ -91,7 +91,7 @@ pub fn workspace_remove_recent(path: String) -> Result<Settings, String> {
 /// and any current pin the caller omitted is appended in its existing order, so a
 /// list that raced with a toggle in another window can't silently drop a pin.
 #[tauri::command]
-pub fn workspace_set_pinned_order(paths: Vec<String>) -> Result<Settings, String> {
+pub(crate) fn workspace_set_pinned_order(paths: Vec<String>) -> Result<Settings, String> {
     update_settings(|settings| {
         let mut reordered: Vec<String> = paths
             .into_iter()

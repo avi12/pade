@@ -13,7 +13,7 @@ const TAIL_SCAN_BYTES: [u64; 3] = [64 * 1024, 1024 * 1024, 8 * 1024 * 1024];
 /// found by scanning backwards from the end so the answer costs a tail read
 /// rather than a full parse of a file that grows all session long. `find` gets
 /// the tail as text and should search its lines newest first.
-pub fn newest_in_tail<T>(log: &Path, find: impl Fn(&str) -> Option<T>) -> Option<T> {
+pub(crate) fn newest_in_tail<T>(log: &Path, find: impl Fn(&str) -> Option<T>) -> Option<T> {
     let length = std::fs::metadata(log).ok()?.len();
     for scan_bytes in TAIL_SCAN_BYTES {
         let tail = read_tail(log, scan_bytes)?;
@@ -48,7 +48,7 @@ fn read_tail(log: &Path, bytes: u64) -> Option<String> {
 
 /// Write `contents` to `path` only when the file is missing or differs, so a
 /// spawn never churns the disk (or file-watcher events) with identical bytes.
-pub fn write_if_stale(path: &Path, contents: &str) -> std::io::Result<()> {
+pub(crate) fn write_if_stale(path: &Path, contents: &str) -> std::io::Result<()> {
     let is_current = std::fs::read_to_string(path).is_ok_and(|existing| existing == contents);
     if is_current {
         return Ok(());

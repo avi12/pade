@@ -16,7 +16,7 @@ const HOOK_SINK_FLAG: &str = "--agent-hook-sink";
 /// did - the caller must then exit instead of starting the app. A failure goes
 /// to stderr, which the agent shows in its hook log; it never holds a session
 /// up.
-pub fn run_hook_sink_if_requested() -> bool {
+pub(crate) fn run_hook_sink_if_requested() -> bool {
     let is_sink = std::env::args().nth(1).as_deref() == Some(HOOK_SINK_FLAG);
     if !is_sink {
         return false;

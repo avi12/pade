@@ -120,7 +120,7 @@ pub(super) fn build_project_watch(
 /// A root that can't be watched (gone, not a directory) fails on its own: every
 /// other root is still applied, and the error names each failure.
 #[tauri::command]
-pub async fn watch_projects(
+pub(crate) async fn watch_projects(
     app: AppHandle,
     window: WebviewWindow,
     state: State<'_, WatcherState>,

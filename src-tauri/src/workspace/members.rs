@@ -34,7 +34,7 @@ use toml_text::toml_string_value;
 /// The package ecosystems whose manifests confirm a directory as a package.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
-pub enum Ecosystem {
+pub(crate) enum Ecosystem {
     JavaScript,
     Rust,
     Go,
@@ -64,7 +64,7 @@ const GIT_MARKER: &str = ".git";
 /// bucket assignment.
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct Member {
+pub(crate) struct Member {
     /// Repo-relative `/`-joined directory (`""` = the repo root).
     pub path: String,
     /// The package name its manifest declares, when it declares one.
@@ -81,7 +81,7 @@ pub struct Member {
 /// Manifest-confirmed members of the workspace at `root` (the open project),
 /// for the Change Feed's manifest-driven grouping. The root is always first.
 #[tauri::command]
-pub async fn members_list(root: String) -> Result<Vec<Member>, String> {
+pub(crate) async fn members_list(root: String) -> Result<Vec<Member>, String> {
     let root = Path::new(&root);
     if !root.is_dir() {
         return Err(format!("not a directory: {}", root.display()));

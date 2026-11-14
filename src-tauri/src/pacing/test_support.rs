@@ -7,7 +7,7 @@ use crate::pacing::units::{EpochMilliseconds, SpanMilliseconds};
 use crate::usage::{AccountUsage, UsageWindow, UsageWindowKind};
 
 /// 2026-10-15T12:00:00Z, the clock the ported tests run on.
-pub const NOW: EpochMilliseconds = EpochMilliseconds::new(1_792_065_600_000.0);
+pub(super) const NOW: EpochMilliseconds = EpochMilliseconds::new(1_792_065_600_000.0);
 
 /// How far a Rust float may sit from the TypeScript's, relative to its size
 /// (and absolutely below 1). The two run the same IEEE operations in the same
@@ -16,7 +16,7 @@ pub const NOW: EpochMilliseconds = EpochMilliseconds::new(1_792_065_600_000.0);
 const RELATIVE_TOLERANCE: f64 = 1e-9;
 
 /// `time` as the ISO string the usage endpoint would send.
-pub fn iso(time: EpochMilliseconds) -> String {
+pub(super) fn iso(time: EpochMilliseconds) -> String {
     let seconds: i64 = (time.get() / 1_000.0)
         .round()
         .to_string()
@@ -40,7 +40,7 @@ fn window(
     }
 }
 
-pub fn session_window(utilization: f64, resets_in: SpanMilliseconds) -> UsageWindow {
+pub(super) fn session_window(utilization: f64, resets_in: SpanMilliseconds) -> UsageWindow {
     window(
         UsageWindowKind::Session,
         "five_hour",
@@ -49,11 +49,11 @@ pub fn session_window(utilization: f64, resets_in: SpanMilliseconds) -> UsageWin
     )
 }
 
-pub fn weekly_window(utilization: f64, resets_in: SpanMilliseconds) -> UsageWindow {
+pub(super) fn weekly_window(utilization: f64, resets_in: SpanMilliseconds) -> UsageWindow {
     window(UsageWindowKind::Weekly, "seven_day", utilization, resets_in)
 }
 
-pub fn account(windows: Vec<UsageWindow>) -> AccountUsage {
+pub(super) fn account(windows: Vec<UsageWindow>) -> AccountUsage {
     let mut account = AccountUsage::default();
     account.windows.extend(windows);
     account
@@ -61,7 +61,7 @@ pub fn account(windows: Vec<UsageWindow>) -> AccountUsage {
 
 /// Asserts two JSON values are the same shape and agree number by number within
 /// `RELATIVE_TOLERANCE`; `context` names the fixture case in a failure.
-pub fn assert_json_close(actual: &Value, expected: &Value, context: &str) {
+pub(super) fn assert_json_close(actual: &Value, expected: &Value, context: &str) {
     match (actual, expected) {
         (Value::Number(actual), Value::Number(expected)) => {
             let (actual, expected) = (

@@ -57,7 +57,7 @@ pub(super) fn remember_listed_project(project: &str) {
 /// Watch every agent's conversation store and announce changes, throttled.
 /// Best-effort: an agent that isn't installed has no folder to watch, and
 /// without the watch the sidebar still re-reads when its chats change.
-pub fn init(app: &AppHandle) {
+pub(crate) fn init(app: &AppHandle) {
     let stores = watched_stores();
     let routes = stores.clone();
     let (sender, receiver) = mpsc::channel();

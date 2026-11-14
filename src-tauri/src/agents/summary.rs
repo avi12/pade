@@ -35,7 +35,7 @@ const LINE_MARKERS: &[&str] = &["### ", "## ", "# ", "- ", "* "];
 /// conversation, or when no source answers. Only the window that owns the
 /// session may ask.
 #[tauri::command]
-pub async fn session_summarize(
+pub(crate) async fn session_summarize(
     window: tauri::WebviewWindow,
     id: String,
     agent: String,

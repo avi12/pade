@@ -224,7 +224,7 @@ fn opencode_session_id(output: &str) -> Option<String> {
 // The lookup itself is additionally time-bounded; async keeps even the bounded
 // wait off the UI thread.
 #[tauri::command]
-pub async fn agent_resume_args(
+pub(crate) async fn agent_resume_args(
     command: String,
     cwd: String,
     conversation_id: Option<String>,

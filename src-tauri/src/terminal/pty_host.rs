@@ -30,7 +30,7 @@ pub(crate) const PTY_HOST_FLAG: &str = "--pty-host";
 
 /// Run as the PTY host when the process was started as one, and report whether
 /// it was - the caller then returns before anything of the app starts.
-pub fn run_if_requested() -> bool {
+pub(crate) fn run_if_requested() -> bool {
     let arguments: Vec<String> = std::env::args().collect();
     let Some(instance_directory) = instance_directory_argument(&arguments) else {
         return false;

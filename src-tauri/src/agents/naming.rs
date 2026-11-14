@@ -39,7 +39,7 @@ trait Namer {
 /// Read-only; returns `None` when nothing sensible can be derived. Runs the
 /// (possibly slow) CLI call off the UI thread.
 #[tauri::command]
-pub async fn project_autoname(path: String, agent: String) -> Option<String> {
+pub(crate) async fn project_autoname(path: String, agent: String) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || autoname(&path, &agent))
         .await
         .ok()
@@ -51,7 +51,7 @@ pub async fn project_autoname(path: String, agent: String) -> Option<String> {
 /// one-shot. Returns `None` until there is enough conversation to be meaningful.
 /// Reads the transcript from the PTY layer so the caller only passes the id.
 #[tauri::command]
-pub async fn session_generate_name(
+pub(crate) async fn session_generate_name(
     window: tauri::WebviewWindow,
     id: String,
     agent: String,

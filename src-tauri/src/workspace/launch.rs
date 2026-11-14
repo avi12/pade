@@ -80,7 +80,7 @@ pub(crate) fn webview_data_directory() -> Option<PathBuf> {
 }
 
 #[tauri::command]
-pub fn launch_context() -> LaunchContext {
+pub(crate) fn launch_context() -> LaunchContext {
     let launch = launch_directory();
     LaunchContext {
         has_project: launch.explicit || is_project(&launch.path),

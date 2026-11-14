@@ -21,7 +21,7 @@ const VIDEO_EXTENSIONS: &[&str] = &[
 ];
 
 /// The MIME type of every clip [`preview_clip`] produces.
-pub const PREVIEW_CLIP_MIME: &str = "video/mp4";
+pub(crate) const PREVIEW_CLIP_MIME: &str = "video/mp4";
 
 /// The executable transcoding the clip.
 const TRANSCODER: &str = "ffmpeg";
@@ -43,7 +43,7 @@ const TRANSCODE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Why no clip was produced.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ClipError {
+pub(crate) enum ClipError {
     /// `ffmpeg` isn't installed, so nothing can be transcoded.
     NoTranscoder,
     /// ffmpeg ran but produced no usable clip: an unreadable or corrupt source,
@@ -63,7 +63,7 @@ impl std::fmt::Display for ClipError {
 impl std::error::Error for ClipError {}
 
 /// Whether `path`'s extension names a video the feed previews. Case-insensitive.
-pub fn is_video(path: &Path) -> bool {
+pub(crate) fn is_video(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| {
@@ -116,7 +116,7 @@ fn transcode_arguments(source: &Path) -> Vec<&std::ffi::OsStr> {
 
 /// Transcode `source` into a preview clip ([`PREVIEW_CLIP_MIME`] bytes). Blocking
 /// - call it off the async runtime. Kills ffmpeg on [`TRANSCODE_TIMEOUT`].
-pub fn preview_clip(source: &Path) -> Result<Vec<u8>, ClipError> {
+pub(crate) fn preview_clip(source: &Path) -> Result<Vec<u8>, ClipError> {
     let Some(transcoder) = crate::util::resolve(TRANSCODER) else {
         return Err(ClipError::NoTranscoder);
     };

@@ -101,7 +101,7 @@ impl Limits {
 /// One agent's share of the disk.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct AgentStorage {
+pub(crate) struct AgentStorage {
     agent_id: &'static str,
     bytes: u64,
     chat_count: usize,
@@ -110,7 +110,7 @@ pub struct AgentStorage {
 /// One chat over the limits, as the confirmation names it.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct DeletedChat {
+pub(crate) struct DeletedChat {
     /// What the confirmation hands back to delete this chat.
     id: String,
     agent_id: &'static str,
@@ -127,7 +127,7 @@ pub struct DeletedChat {
 /// the ones most worth deleting by name.
 #[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct Cleanup {
+pub(crate) struct Cleanup {
     bytes: u64,
     chat_count: usize,
     chats: Vec<DeletedChat>,
@@ -136,7 +136,7 @@ pub struct Cleanup {
 /// The chats' disk use, and what the given limits would delete from it.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct ChatStorage {
+pub(crate) struct ChatStorage {
     bytes: u64,
     chat_count: usize,
     agents: Vec<AgentStorage>,
@@ -148,7 +148,7 @@ pub struct ChatStorage {
 /// before a limit is saved.
 // `async` plus `spawn_blocking`: it walks tens of thousands of files.
 #[tauri::command]
-pub async fn chat_storage(
+pub(crate) async fn chat_storage(
     size_limit_megabytes: Option<u32>,
     storage_limit_megabytes: Option<u32>,
 ) -> Result<ChatStorage, String> {
@@ -167,7 +167,7 @@ pub async fn chat_storage(
 /// matched against that plan, never taken as a path to delete, so nothing
 /// else on disk is reachable through this command.
 #[tauri::command]
-pub async fn chat_storage_delete(ids: Vec<String>) -> Result<ChatStorage, String> {
+pub(crate) async fn chat_storage_delete(ids: Vec<String>) -> Result<ChatStorage, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let limits = Limits::saved();
         let ticked: HashSet<String> = ids.into_iter().collect();

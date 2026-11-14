@@ -83,7 +83,7 @@ fn configure_webview2_environment() {
 // Mostly the command registry (`generate_handler!`) + builder wiring - one long
 // but flat list, not branching logic, so the line count is expected to grow with
 // each new IPC command.
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Launched by an agent's hook to record a session's model and effort: do that

@@ -21,7 +21,7 @@ use crate::platform::preview::{
 /// One file changed by a commit, with its per-file line counts.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CommitFileEntry {
+pub(crate) struct CommitFileEntry {
     path: String,
     kind: StatusKind,
     additions: u32,
@@ -34,7 +34,7 @@ pub struct CommitFileEntry {
 /// stats. Shares the Log view's header fields through [`CommitHeader`].
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CommitDetail {
+pub(crate) struct CommitDetail {
     #[serde(flatten)]
     header: CommitHeader,
     /// The commit message body (everything after the subject line); empty if none.
@@ -47,7 +47,7 @@ pub struct CommitDetail {
 }
 
 #[tauri::command]
-pub async fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail, String> {
+pub(crate) async fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail, String> {
     let sha = validate_object_id(&sha)?;
     // Header + full body in one shot: subject on its own line, then the body.
     let format = format!("--format={}{FIELD_SEPARATOR}%b", commit_header_format());
@@ -155,7 +155,7 @@ fn status_kinds_by_path(name_status: &str) -> HashMap<&str, StatusKind> {
 
 /// Raw unified diff for one path within a commit.
 #[tauri::command]
-pub async fn vcs_commit_diff(cwd: String, sha: String, path: String) -> Result<String, String> {
+pub(crate) async fn vcs_commit_diff(cwd: String, sha: String, path: String) -> Result<String, String> {
     let sha = validate_object_id(&sha)?;
     run_git(
         &cwd,
@@ -225,7 +225,7 @@ fn write_commit_blob(cwd: &str, sha: &str, path: &str) -> Option<ScratchFile> {
 /// view's counterpart of `feed_image`. `None` when `path` is not a previewable
 /// image, is absent from the commit, or is over [`MAXIMUM_IMAGE_BYTES`].
 #[tauri::command]
-pub async fn vcs_commit_image(
+pub(crate) async fn vcs_commit_image(
     cwd: String,
     sha: String,
     path: String,
@@ -243,7 +243,7 @@ pub async fn vcs_commit_image(
 /// transcoded like a changed file; `None` when it isn't a video, is absent from
 /// the commit, or ffmpeg couldn't read it.
 #[tauri::command]
-pub async fn vcs_commit_video(
+pub(crate) async fn vcs_commit_video(
     cwd: String,
     sha: String,
     path: String,
@@ -266,7 +266,7 @@ pub async fn vcs_commit_video(
 /// rendered Preview - the commit view's counterpart of `feed_text`. `None` when
 /// it is absent from the commit, binary, or over [`MAXIMUM_PREVIEW_BYTES`].
 #[tauri::command]
-pub async fn vcs_commit_text(
+pub(crate) async fn vcs_commit_text(
     cwd: String,
     sha: String,
     path: String,

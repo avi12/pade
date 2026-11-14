@@ -17,7 +17,7 @@ use std::path::PathBuf;
 /// persisting a broken root.
 #[derive(Serialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
-pub enum AddRootOutcome {
+pub(crate) enum AddRootOutcome {
     /// The path is (now) a directory and was added. Boxed so this data-carrying
     /// variant doesn't bloat the empty ones (serializes identically to `Settings`).
     Added { settings: Box<Settings> },
@@ -103,7 +103,7 @@ pub(super) fn push_root(path: String) -> Result<Settings, String> {
 /// created (and then added) when `create` is set, otherwise it reports `Missing`;
 /// a path that exists but is a file reports `NotADirectory`.
 #[tauri::command]
-pub async fn workspace_add_root(path: String, create: bool) -> Result<AddRootOutcome, String> {
+pub(crate) async fn workspace_add_root(path: String, create: bool) -> Result<AddRootOutcome, String> {
     let target = Path::new(&path);
     if target.is_dir() {
         return Ok(AddRootOutcome::Added {
@@ -123,7 +123,7 @@ pub async fn workspace_add_root(path: String, create: bool) -> Result<AddRootOut
 }
 
 #[tauri::command]
-pub fn workspace_remove_root(path: String) -> Result<Settings, String> {
+pub(crate) fn workspace_remove_root(path: String) -> Result<Settings, String> {
     update_settings(|settings| {
         settings.roots.retain(|root| root != &path);
         Ok(())
@@ -135,7 +135,7 @@ pub(super) const UNREADABLE_NAME: &str = "?";
 
 /// Immediate sub-directories of `root` that look like projects.
 #[tauri::command]
-pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
+pub(crate) async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
     let directory = std::fs::read_dir(&root).map_err(|error| error.to_string())?;
     let mut entries: Vec<ProjectEntry> = directory
         .filter_map(Result::ok)
@@ -160,7 +160,7 @@ pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
 /// reject a file), plus the child directories that would complete it.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PathProbe {
+pub(crate) struct PathProbe {
     /// The typed path is an existing directory.
     is_dir: bool,
     /// The typed path exists but names a file, not a directory.
@@ -280,7 +280,7 @@ pub(super) fn next_segment_completion(
 /// Ctrl+Space completion. Pure query (no persistence); a bad or unreadable path
 /// just yields no completions.
 #[tauri::command]
-pub async fn workspace_probe_path(path: String) -> PathProbe {
+pub(crate) async fn workspace_probe_path(path: String) -> PathProbe {
     let trimmed = path.trim();
     let target = Path::new(trimmed);
     let (suggestions, completion) = split_for_completion(trimmed)
@@ -303,7 +303,7 @@ pub async fn workspace_probe_path(path: String) -> PathProbe {
 
 /// Create a new project directory under `root` and open it.
 #[tauri::command]
-pub async fn workspace_create(root: String, name: String) -> Result<String, String> {
+pub(crate) async fn workspace_create(root: String, name: String) -> Result<String, String> {
     let path = validated_child_path(Path::new(&root), &name)?;
     std::fs::create_dir_all(&path).map_err(|error| error.to_string())?;
     let path_string = path.to_string_lossy().into_owned();

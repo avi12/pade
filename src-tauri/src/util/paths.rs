@@ -24,7 +24,7 @@ const SKIPPED_DIRECTORIES: &[&str] = &[
 
 /// Whether a directory name is one a project walk skips: build output, a
 /// dependency tree, or any hidden directory.
-pub fn is_noise_directory(name: &str) -> bool {
+pub(crate) fn is_noise_directory(name: &str) -> bool {
     name.starts_with('.') || SKIPPED_DIRECTORIES.contains(&name)
 }
 
@@ -53,7 +53,7 @@ pub(crate) fn same_path(left: &str, right: &str) -> bool {
 
 /// PADE's own per-user data folder: `%LOCALAPPDATA%\pade` on Windows,
 /// `~/.pade` elsewhere. The one place every PADE-owned folder hangs off.
-pub fn pade_data_directory() -> Option<PathBuf> {
+pub(crate) fn pade_data_directory() -> Option<PathBuf> {
     if cfg!(windows) {
         return std::env::var_os("LOCALAPPDATA").map(|base| PathBuf::from(base).join("pade"));
     }
@@ -62,7 +62,7 @@ pub fn pade_data_directory() -> Option<PathBuf> {
 
 /// The user's home directory, cross-platform, without pulling in a dependency
 /// (`USERPROFILE` on Windows, `HOME` elsewhere).
-pub fn home_directory() -> Option<PathBuf> {
+pub(crate) fn home_directory() -> Option<PathBuf> {
     let variable = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
     std::env::var_os(variable).map(PathBuf::from)
 }

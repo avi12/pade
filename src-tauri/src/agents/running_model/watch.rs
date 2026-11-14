@@ -25,7 +25,7 @@ const STATE_RETENTION: Duration = Duration::from_hours(14 * 24);
 /// Watch every place a session's model or effort is written, telling the
 /// windows the moment one may have moved. Best-effort: without the watch a tab
 /// still catches up when its session next goes idle.
-pub fn init(app: &AppHandle) {
+pub(crate) fn init(app: &AppHandle) {
     std::thread::spawn(hook_sink::refresh);
     let Some(states) = state_directory() else {
         return;

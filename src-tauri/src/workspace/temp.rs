@@ -70,7 +70,7 @@ pub(super) fn require_ade_owned(
 
 /// Public ownership check for the naming module: is this an ADE-owned workspace
 /// (so it's safe to scan and label)?
-pub fn is_owned(path: &str) -> bool {
+pub(crate) fn is_owned(path: &str) -> bool {
     is_ade_owned(&load(), path)
 }
 
@@ -162,7 +162,7 @@ pub(super) fn delete_unused_temps(open_projects: &[String]) -> Result<(), String
 /// Create a throwaway workspace so the user can start coding immediately without
 /// choosing a project, then switch to a real one whenever they like.
 #[tauri::command]
-pub async fn workspace_temp() -> Result<String, String> {
+pub(crate) async fn workspace_temp() -> Result<String, String> {
     let directory =
         workspaces_directory()?.join(format!("{TEMP_WORKSPACE_PREFIX}{}", now_milliseconds()));
     std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;

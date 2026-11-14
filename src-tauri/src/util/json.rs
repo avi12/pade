@@ -6,7 +6,7 @@ use std::path::Path;
 /// or isn't valid JSON. The single home for the read-then-parse pair every local
 /// credential / auth probe repeats (DRY) - an expected miss (no file, bad JSON)
 /// is a plain `None`, never an error to handle.
-pub fn read_json(path: &Path) -> Option<serde_json::Value> {
+pub(crate) fn read_json(path: &Path) -> Option<serde_json::Value> {
     let raw = std::fs::read_to_string(path).ok()?;
     serde_json::from_str(&raw).ok()
 }
@@ -28,7 +28,7 @@ pub(crate) fn json_string_field(json: &str, key: &str) -> Option<String> {
 /// bracket are all legal. `read_json` is the right reader for strict JSON; this
 /// one is for a file a *human* edits, where the comments the vendor's own
 /// template ships with would otherwise make the file unreadable.
-pub fn read_jsonc(path: &Path) -> Option<serde_json::Value> {
+pub(crate) fn read_jsonc(path: &Path) -> Option<serde_json::Value> {
     let raw = std::fs::read_to_string(path).ok()?;
     serde_json::from_str(&strip_jsonc_sugar(&raw)).ok()
 }

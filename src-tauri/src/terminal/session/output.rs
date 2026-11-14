@@ -60,7 +60,7 @@ impl History {
 /// `pty_history` reply shape - and, unchanged, what the PTY host sends the app.
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct HistorySnapshot {
+pub(crate) struct HistorySnapshot {
     data: String,
     #[serde(rename = "seq")]
     sequence: u64,

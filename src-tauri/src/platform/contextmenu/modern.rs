@@ -61,7 +61,7 @@ const ASSETS: &[(&str, &[u8])] = &[
 /// Register the sparse package so the modern menu appears - the only menu PADE uses
 /// on Windows 11. A failure here (typically Developer Mode off) is returned with a
 /// clear, user-facing message.
-pub fn register() -> Result<(), String> {
+pub(super) fn register() -> Result<(), String> {
     let location = external_location()?;
     let handler = location.join(HANDLER_DLL);
     if !handler.is_file() {
@@ -95,7 +95,7 @@ fn write_embedded_handler(handler: &Path) -> Result<(), String> {
 }
 
 #[cfg(not(embedded_context_menu_handler))]
-#[allow(clippy::unnecessary_wraps)] // the embedded twin above can fail; callers treat both alike
+#[expect(clippy::unnecessary_wraps)] // the embedded twin above can fail; callers treat both alike
 fn write_embedded_handler(_handler: &Path) -> Result<(), String> {
     Ok(())
 }
@@ -107,8 +107,8 @@ fn write_embedded_handler(_handler: &Path) -> Result<(), String> {
 /// handler via its show/hide flag (the package stays registered, à la `PowerToys`), so
 /// nothing calls this yet - but full removal still belongs here for when PADE gains an
 /// uninstaller.
-#[allow(dead_code)]
-pub fn unregister() -> Result<(), String> {
+#[expect(dead_code)]
+pub(super) fn unregister() -> Result<(), String> {
     let script =
         format!("Get-AppxPackage -Name '{PACKAGE_NAME}' | Remove-AppxPackage -ErrorAction Stop");
     let result = interpret(&powershell(&script)?);
@@ -120,7 +120,7 @@ pub fn unregister() -> Result<(), String> {
 }
 
 /// Whether the sparse package is currently registered for this user.
-pub fn is_registered() -> bool {
+pub(super) fn is_registered() -> bool {
     let script =
         format!("if (Get-AppxPackage -Name '{PACKAGE_NAME}') {{ exit 0 }} else {{ exit 1 }}");
     powershell(&script).is_ok_and(|output| output.status.success())

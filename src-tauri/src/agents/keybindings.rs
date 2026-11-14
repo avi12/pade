@@ -13,7 +13,7 @@ const CLAUDE_KEYBINDINGS_FILE: &str = "keybindings.json";
 /// The user's Claude Code keybindings as written, or `None` when there are
 /// none (or they don't parse). Off the UI thread: it reads a file.
 #[tauri::command]
-pub async fn claude_keybindings() -> Option<serde_json::Value> {
+pub(crate) async fn claude_keybindings() -> Option<serde_json::Value> {
     tauri::async_runtime::spawn_blocking(|| {
         let path = super::claude_directory()?.join(CLAUDE_KEYBINDINGS_FILE);
         crate::util::read_jsonc(&path)

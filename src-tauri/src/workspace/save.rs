@@ -48,7 +48,7 @@ pub(super) fn resolve_save_root(
 /// it (it must be one of `settings.roots`); omitted, the primary root
 /// (`roots[0]`) is used.
 #[tauri::command]
-pub async fn workspace_rename(
+pub(crate) async fn workspace_rename(
     app: AppHandle,
     from: String,
     new_name: String,
@@ -66,7 +66,7 @@ pub async fn workspace_rename(
 /// copy skipped (or `null` when nothing needs reinstalling).
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SaveMigration {
+pub(crate) struct SaveMigration {
     /// The new project's absolute path.
     path: String,
     /// The install command to restore skipped dependencies in a task pane, or
@@ -113,7 +113,7 @@ pub(super) fn copy_tree_skipping_dependencies(from: &Path, to: &Path) -> std::io
 /// destination becomes a plain real project (not marked owned/temp); the temp is
 /// left in place for the frontend to delete separately after it opens the copy.
 #[tauri::command]
-pub async fn workspace_save_migrate(
+pub(crate) async fn workspace_save_migrate(
     from: String,
     new_name: String,
     root: Option<String>,

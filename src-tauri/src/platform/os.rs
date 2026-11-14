@@ -10,7 +10,7 @@ use tauri_plugin_opener::OpenerExt;
 /// Restart the process so launch-only preferences, including `WebView2` browser
 /// arguments, take effect. The normal exit event still tears down child PTYs.
 #[tauri::command]
-pub fn restart(app: AppHandle) {
+pub(crate) fn restart(app: AppHandle) {
     app.request_restart();
 }
 
@@ -24,7 +24,7 @@ pub fn restart(app: AppHandle) {
 /// has several (`?code=true&client_id=…`) - split it into commands, so the browser
 /// only ever received the URL up to the first `&`.
 #[tauri::command]
-pub async fn open_url(app: AppHandle, url: String) -> Result<(), String> {
+pub(crate) async fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     let is_web_url = WEB_URL_SCHEMES.iter().any(|scheme| url.starts_with(scheme));
     if !is_web_url {
         return Err("only http(s) URLs may be opened".into());
@@ -49,7 +49,7 @@ const FILE_MANAGER: &str = if cfg!(windows) {
 
 /// Open `path` in the platform file manager.
 #[tauri::command]
-pub async fn open_in_explorer(path: String) -> Result<(), String> {
+pub(crate) async fn open_in_explorer(path: String) -> Result<(), String> {
     Command::new(FILE_MANAGER)
         .arg(&path)
         .spawn()
@@ -60,7 +60,7 @@ pub async fn open_in_explorer(path: String) -> Result<(), String> {
 /// Show `path` selected in the platform file manager without opening it - the
 /// safe way to surface a binary, since an `.exe` handed to Explorer would run.
 #[tauri::command]
-pub async fn reveal_in_explorer(path: String) -> Result<(), String> {
+pub(crate) async fn reveal_in_explorer(path: String) -> Result<(), String> {
     let target = Path::new(&path);
     if !target.exists() {
         return Err(format!("{path} no longer exists"));
@@ -101,7 +101,7 @@ fn reveal_command(target: &Path) -> Command {
 /// Open a terminal rooted at `path`. Prefers Windows Terminal, falling back to
 /// the classic console; Terminal.app on macOS; `x-terminal-emulator` on Linux.
 #[tauri::command]
-pub async fn open_in_terminal(path: String) -> Result<(), String> {
+pub(crate) async fn open_in_terminal(path: String) -> Result<(), String> {
     let directory = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
     if !directory.is_dir() {
         return Err("terminal path must be an existing directory".into());

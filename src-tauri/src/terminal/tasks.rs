@@ -24,7 +24,7 @@ use crate::util::is_noise_directory;
 /// One runnable task: a display `name` and the shell `command` that runs it.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Task {
+pub(crate) struct Task {
     name: String,
     command: String,
 }
@@ -32,7 +32,7 @@ pub struct Task {
 /// The tasks extracted from one manifest.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TaskGroup {
+pub(crate) struct TaskGroup {
     /// Manifest path relative to the project root (`/`-joined).
     manifest: String,
     /// Absolute directory the tasks run in.
@@ -73,7 +73,7 @@ enum TaskKind {
 /// below remains the sole authority for both.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(tag = "match", rename_all = "camelCase")]
-pub enum TaskManifestDescriptor {
+pub(crate) enum TaskManifestDescriptor {
     /// An exact file name: `package.json`.
     Name { value: &'static str },
     /// A file extension, dot included: `.csproj`.
@@ -85,7 +85,7 @@ pub enum TaskManifestDescriptor {
 /// The tree walk and manifest reads run on the blocking pool, off the async
 /// workers.
 #[tauri::command]
-pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
+pub(crate) async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
     tauri::async_runtime::spawn_blocking(move || list_tasks(&PathBuf::from(cwd)))
         .await
         .map_err(|error| error.to_string())?
@@ -110,7 +110,7 @@ fn list_tasks(root: &Path) -> Result<Vec<TaskGroup>, String> {
 /// by both the .NET and the MSVC extractor - and the frontend wants the tokens,
 /// not the registry rows.
 #[tauri::command]
-pub fn tasks_descriptors() -> Vec<TaskManifestDescriptor> {
+pub(crate) fn tasks_descriptors() -> Vec<TaskManifestDescriptor> {
     let mut descriptors: Vec<TaskManifestDescriptor> = Vec::new();
     for definition in MANIFESTS {
         for descriptor in definition.matcher.descriptors() {

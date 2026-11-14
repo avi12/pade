@@ -37,7 +37,7 @@ const CURATED_SCHEMES: &str = include_str!("../../assets/curated-terminal-scheme
 /// One colour scheme in PADE's vocabulary.
 #[derive(Serialize, Clone, PartialEq, Eq, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct TerminalScheme {
+pub(crate) struct TerminalScheme {
     pub name: String,
     pub background: String,
     pub foreground: String,
@@ -201,7 +201,7 @@ fn catalogue(settings_paths: &[PathBuf]) -> Vec<TerminalScheme> {
 // `async` so Tauri runs it off the main thread: it reads files, and a
 // synchronous command would do that on the Win32 message pump.
 #[tauri::command]
-pub async fn terminal_schemes() -> Vec<TerminalScheme> {
+pub(crate) async fn terminal_schemes() -> Vec<TerminalScheme> {
     catalogue(&user_settings_paths())
 }
 

@@ -29,7 +29,7 @@ fn remote_default_branch(cwd: &str) -> Option<String> {
 /// The checked-out branch's configured remote URL, falling back to `origin`,
 /// normalized to a browsable `https://host/owner/repo` form.
 #[tauri::command]
-pub async fn vcs_remote_url(cwd: String) -> Option<String> {
+pub(crate) async fn vcs_remote_url(cwd: String) -> Option<String> {
     let remote = branch_remote_name(&cwd);
     let raw = run_git(&cwd, &["remote", "get-url", &remote]).ok()?;
     let url = raw.trim();
@@ -42,7 +42,7 @@ pub async fn vcs_remote_url(cwd: String) -> Option<String> {
 /// The branch selected by the configured remote's local HEAD tracking ref.
 /// This is network-free; `None` lets the frontend use conventional fallbacks.
 #[tauri::command]
-pub async fn vcs_default_branch(cwd: String) -> Option<String> {
+pub(crate) async fn vcs_default_branch(cwd: String) -> Option<String> {
     remote_default_branch(&cwd)
 }
 

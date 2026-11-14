@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum SessionError {
+pub(crate) enum SessionError {
     /// The session belongs to another window.
     Foreign,
     /// The calling window already holds its maximum number of sessions.

@@ -9,7 +9,7 @@ use crate::util::since_unix_epoch;
 /// header fields plus a relevance `score`.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RestoreCandidate {
+pub(crate) struct RestoreCandidate {
     #[serde(flatten)]
     header: CommitHeader,
     score: f32,
@@ -106,7 +106,7 @@ fn parse_days_ago(query: &str) -> Option<u64> {
 /// of its subject, plus a time-hint boost (e.g. "yesterday", "3 days ago").
 /// Returns all candidates, best score first, ties keeping git-log recency order.
 #[tauri::command]
-pub async fn vcs_restore_candidates(
+pub(crate) async fn vcs_restore_candidates(
     cwd: String,
     query: String,
     limit: Option<u32>,
@@ -161,7 +161,7 @@ fn subject_match_ratio(subject: &str, query_tokens: &[String]) -> f32 {
         .count();
     // Token counts are tiny (a short query vs a commit subject), so the
     // usize to f32 conversion can't actually lose precision here.
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(clippy::cast_precision_loss)]
     let ratio = matched as f32 / query_tokens.len() as f32;
     ratio
 }
@@ -171,7 +171,7 @@ fn subject_match_ratio(subject: &str, query_tokens: &[String]) -> f32 {
 /// Creates (or re-enters) `pade/restore-<shortsha>` pointing at `sha` - never
 /// touches the working tree with `reset --hard`. Returns the branch name.
 #[tauri::command]
-pub async fn vcs_restore_checkout(cwd: String, sha: String) -> Result<String, String> {
+pub(crate) async fn vcs_restore_checkout(cwd: String, sha: String) -> Result<String, String> {
     let sha = validate_object_id(&sha)?;
     let short = run_git(&cwd, &["rev-parse", "--short", "--end-of-options", sha])?
         .trim()

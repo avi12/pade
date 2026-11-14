@@ -36,16 +36,16 @@ use definitions::{AgentDefinition, REGISTRY};
 /// (`session.agent.id`). The REGISTRY entries below read from these, as do the
 /// other modules that must name an agent (`usage`, `config`), so the vocabulary
 /// has a single home and can never drift between them.
-pub const ID_CLAUDE: &str = "claude";
-pub const ID_CODEX: &str = "codex";
-pub const ID_OPENCODE: &str = "opencode";
-pub const ID_COPILOT: &str = "copilot";
-pub const ID_GROK: &str = "grok";
-pub const ID_ANTIGRAVITY: &str = "antigravity";
-pub const ID_CURSOR: &str = "cursor";
-pub const ID_AIDER: &str = "aider";
-pub const ID_MUSE: &str = "muse";
-pub const ID_QWEN: &str = "qwen";
+pub(crate) const ID_CLAUDE: &str = "claude";
+pub(crate) const ID_CODEX: &str = "codex";
+pub(crate) const ID_OPENCODE: &str = "opencode";
+pub(crate) const ID_COPILOT: &str = "copilot";
+pub(crate) const ID_GROK: &str = "grok";
+pub(crate) const ID_ANTIGRAVITY: &str = "antigravity";
+pub(crate) const ID_CURSOR: &str = "cursor";
+pub(crate) const ID_AIDER: &str = "aider";
+pub(crate) const ID_MUSE: &str = "muse";
+pub(crate) const ID_QWEN: &str = "qwen";
 
 /// The variable that relocates Codex's whole home (config, sessions, auth).
 const CODEX_HOME_VARIABLE: &str = "CODEX_HOME";
@@ -85,7 +85,7 @@ fn resolve_codex_home(
 
 /// How a CLI takes the conversation id it should pin a session to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SessionIdFlag {
+pub(crate) enum SessionIdFlag {
     /// The flag and id joined with `=`: `--resume=<id>` - for a flag whose value
     /// is optional, where a separate id would be read as a prompt.
     Joined(&'static str),
@@ -102,14 +102,14 @@ pub enum SessionIdFlag {
 /// Whether the agent has already recorded the conversation a session is
 /// pinned to - it decides between creating and resuming it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ConversationRecord {
+pub(crate) enum ConversationRecord {
     Unrecorded,
     Recorded,
 }
 
 impl SessionIdFlag {
     /// The arguments that pin a session to `conversation_id`.
-    pub fn arguments(self, conversation_id: &str, record: ConversationRecord) -> Vec<String> {
+    pub(crate) fn arguments(self, conversation_id: &str, record: ConversationRecord) -> Vec<String> {
         match self {
             Self::Joined(flag) => vec![format!("{flag}={conversation_id}")],
             Self::CreateOrResume { create, resume } => {
@@ -169,13 +169,13 @@ fn installed_names(command: &str) -> Vec<&str> {
 /// same rules, and an install ADE can *see* is always one it can *run*. Resolving
 /// to an absolute path (rather than handing a bare name to the child process) is
 /// what lets a session start from a directory that only the live PATH knows about.
-pub fn program(command: &str) -> Option<PathBuf> {
+pub(crate) fn program(command: &str) -> Option<PathBuf> {
     find_in(&search_directories(), &installed_names(command))
 }
 
 /// How to invoke `command` headlessly for a one-shot prompt (auto-naming), if we
 /// know a way. Keeps the registry the single source of truth (DRY).
-pub fn oneshot_invocation(command: &str) -> Option<&'static [&'static str]> {
+pub(crate) fn oneshot_invocation(command: &str) -> Option<&'static [&'static str]> {
     definition(command).and_then(|agent| agent.oneshot)
 }
 
@@ -183,7 +183,7 @@ pub fn oneshot_invocation(command: &str) -> Option<&'static [&'static str]> {
 /// then the rest in registry order - the chain a Copilot failure falls back
 /// along, so a session whose own CLI has no headless mode (Copilot CLI, Cursor)
 /// still gets an answer from another installed LLM.
-pub fn headless_agents(preferred: &str) -> impl Iterator<Item = &'static str> + '_ {
+pub(crate) fn headless_agents(preferred: &str) -> impl Iterator<Item = &'static str> + '_ {
     let headless = || {
         REGISTRY
             .iter()
@@ -197,7 +197,7 @@ pub fn headless_agents(preferred: &str) -> impl Iterator<Item = &'static str> + 
 
 /// Environment variables to set when spawning `command` in a PTY. Empty for an
 /// unknown command or a plain shell, so `pty.rs` stays agent-agnostic.
-pub fn spawn_environment(command: &str) -> &'static [(&'static str, &'static str)] {
+pub(crate) fn spawn_environment(command: &str) -> &'static [(&'static str, &'static str)] {
     definition(command).map_or(&[], |agent| agent.environment)
 }
 
@@ -205,7 +205,7 @@ pub fn spawn_environment(command: &str) -> &'static [(&'static str, &'static str
 /// skip-every-permission ("yolo") flag(s), so ADE runs it autonomously. Empty for
 /// an unknown command or a plain shell (which has nothing to bypass), so `pty.rs`
 /// stays agent-agnostic.
-pub fn session_arguments(command: &str) -> &'static [&'static str] {
+pub(crate) fn session_arguments(command: &str) -> &'static [&'static str] {
     definition(command).map_or(&[], |agent| agent.session_arguments)
 }
 
@@ -214,14 +214,14 @@ pub fn session_arguments(command: &str) -> &'static [&'static str] {
 /// e.g. `--session-id` for Claude. `None` for a CLI with no equivalent, in which
 /// case ADE can't target a specific conversation and won't try. See
 /// `session_id_flag` on the registry entry.
-pub fn session_id_flag(command: &str) -> Option<SessionIdFlag> {
+pub(crate) fn session_id_flag(command: &str) -> Option<SessionIdFlag> {
     definition(command).and_then(|agent| agent.session_id_flag)
 }
 
 /// The arguments that pin `command`'s session to `conversation_id`, creating
 /// the conversation or resuming the one already recorded under it. `None` for
 /// a CLI with no session-id flag.
-pub fn session_id_arguments(command: &str, conversation_id: &str) -> Option<Vec<String>> {
+pub(crate) fn session_id_arguments(command: &str, conversation_id: &str) -> Option<Vec<String>> {
     let flag = session_id_flag(command)?;
     let is_resumable = matches!(flag, SessionIdFlag::CreateOrResume { .. });
     let record = if is_resumable && is_claude_conversation_recorded(conversation_id) {
@@ -251,13 +251,13 @@ fn is_claude_conversation_recorded(conversation_id: &str) -> bool {
 /// How `command`'s own UI theme is forced to ADE's scheme, if the registry
 /// knows a mechanism (`theming.rs` interprets it). `None` for an unknown
 /// command or a CLI with no theme setting.
-pub fn theme_config(command: &str) -> Option<&'static ThemeConfig> {
+pub(crate) fn theme_config(command: &str) -> Option<&'static ThemeConfig> {
     definition(command).and_then(|agent| agent.theme_config.as_ref())
 }
 
 /// Every registered agent's command, in registry order - so a cross-agent sweep
 /// (theming's live-theme publish) walks the registry instead of naming agents.
-pub fn commands() -> impl Iterator<Item = &'static str> {
+pub(crate) fn commands() -> impl Iterator<Item = &'static str> {
     REGISTRY.iter().map(|agent| agent.command)
 }
 
@@ -266,13 +266,13 @@ pub fn commands() -> impl Iterator<Item = &'static str> {
 /// light-console workaround. `pty.rs` gates the `cmd /c color F0 & …` prefix on
 /// this plus `cfg!(windows)` and a light scheme. `false` for an unknown command
 /// or a CLI that themes its box some other way.
-pub fn needs_light_console_fix(command: &str) -> bool {
+pub(crate) fn needs_light_console_fix(command: &str) -> bool {
     definition(command).is_some_and(|agent| agent.needs_light_console_fix)
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Agent {
+pub(crate) struct Agent {
     id: String,
     label: String,
     command: String,
@@ -290,7 +290,7 @@ pub struct Agent {
 /// Tauri's main thread - and the main thread also drives Windows' window move loop,
 /// so a sync detect fired on window-focus stalls dragging. Off-thread it can't.
 #[tauri::command]
-pub async fn agents_detect() -> Vec<Agent> {
+pub(crate) async fn agents_detect() -> Vec<Agent> {
     tauri::async_runtime::spawn_blocking(detect_installed)
         .await
         .unwrap_or_default()

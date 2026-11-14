@@ -151,14 +151,14 @@ impl TokenUsage {
 /// while the used count is still good.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SessionContext {
+pub(crate) struct SessionContext {
     used_tokens: Option<u64>,
     window_tokens: Option<u64>,
 }
 
 /// What a turn ran on, as the log records it.
 #[derive(Debug, PartialEq, Eq)]
-pub struct TurnProfile {
+pub(crate) struct TurnProfile {
     pub model: String,
     pub effort: Option<String>,
 }
@@ -166,7 +166,7 @@ pub struct TurnProfile {
 /// The session's context fill, or `None` when the agent keeps no readable log
 /// for it. Off the UI thread: it reads a file and may make a network call.
 #[tauri::command]
-pub async fn agent_session_context(
+pub(crate) async fn agent_session_context(
     command: String,
     conversation_id: Option<String>,
 ) -> Option<SessionContext> {
@@ -185,7 +185,7 @@ pub async fn agent_session_context(
 /// The model and effort Claude's own log says the newest real turn of
 /// `conversation_id` ran on - the fallback for a session launched before PADE
 /// attached its hooks (see `running_model`).
-pub fn logged_claude_turn(conversation_id: &str) -> Option<TurnProfile> {
+pub(crate) fn logged_claude_turn(conversation_id: &str) -> Option<TurnProfile> {
     let log = claude_session_log(ID_CLAUDE, Some(conversation_id))?;
     newest_in_tail(&log, newest_turn_in)
 }
@@ -347,7 +347,7 @@ fn addresses_in(text: &str) -> Vec<&str> {
 }
 
 /// Where Claude keeps `conversation_id`'s transcript, when it has one yet.
-pub fn claude_transcript(conversation_id: &str) -> Option<PathBuf> {
+pub(crate) fn claude_transcript(conversation_id: &str) -> Option<PathBuf> {
     claude_session_log(ID_CLAUDE, Some(conversation_id))
 }
 

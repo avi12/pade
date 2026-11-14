@@ -96,7 +96,7 @@ const ECOSYSTEMS: &[Ecosystem] = &[
 /// are the directories the save-copy skips - large, machine-specific, and
 /// restored by [`detect_install`]. Matched case-insensitively so a `Node_Modules`
 /// on a case-preserving Windows volume is still recognised.
-pub fn is_dependency_directory(name: &str) -> bool {
+pub(crate) fn is_dependency_directory(name: &str) -> bool {
     ECOSYSTEMS.iter().any(|ecosystem| {
         ecosystem
             .dependency_directories
@@ -109,7 +109,7 @@ pub fn is_dependency_directory(name: &str) -> bool {
 /// no ecosystem is recognised (nothing to reinstall - the copy carried
 /// everything). The first ecosystem with a marker file present wins, so the exact
 /// package manager is chosen from its lockfile.
-pub fn detect_install(directory: &Path) -> Option<String> {
+pub(crate) fn detect_install(directory: &Path) -> Option<String> {
     ECOSYSTEMS
         .iter()
         .find(|ecosystem| {

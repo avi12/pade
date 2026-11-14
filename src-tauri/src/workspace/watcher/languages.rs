@@ -319,7 +319,7 @@ pub(super) fn rearm_language_watch(
 /// by the same ignore rules. The census itself runs only when the frontend asks.
 /// Re-arming replaces the set; an empty list drops the watch.
 #[tauri::command]
-pub async fn watch_languages(
+pub(crate) async fn watch_languages(
     app: AppHandle,
     window: WebviewWindow,
     state: State<'_, WatcherState>,

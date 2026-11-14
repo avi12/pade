@@ -34,7 +34,7 @@ pub(super) static APP: OnceLock<AppHandle> = OnceLock::new();
 
 /// Hand this module the app handle it broadcasts settings changes through, and
 /// start passing on the settings writes other PADE processes make.
-pub fn init(app: &AppHandle) {
+pub(crate) fn init(app: &AppHandle) {
     let _ = APP.set(app.clone());
     let watched = settings_path().and_then(|path| {
         settings_sync::watch(&path, broadcast_settings_changed).map_err(|error| error.to_string())
@@ -80,7 +80,7 @@ pub(super) const PROJECT_MARKERS: &[&str] = &[
 /// PATH-detected ones. `command` for launching is the absolute `path`.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct AddedEditor {
+pub(crate) struct AddedEditor {
     /// Stable, unique id in the merged editor list (e.g. `added-code`).
     pub id: String,
     /// Human label ("VS Code").
@@ -96,7 +96,7 @@ pub struct AddedEditor {
 /// this struct, and Rust never duplicates a type the frontend already owns.
 #[derive(Serialize, Deserialize, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct Prefs {
+pub(crate) struct Prefs {
     /// Editor-rules engine: project-kind → IDE id. When a project's primary kind
     /// matches a key here, that IDE is suggested first (if installed).
     #[serde(default)]
@@ -134,7 +134,7 @@ pub struct Prefs {
 
 #[derive(Serialize, Deserialize, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct Settings {
+pub(crate) struct Settings {
     /// Root directories the user has added to browse for projects.
     pub roots: Vec<String>,
     /// Master agent applied to every project without an explicit override.
@@ -170,7 +170,7 @@ pub struct Settings {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LaunchContext {
+pub(crate) struct LaunchContext {
     /// True when the launch directory already looks like a project.
     pub(super) has_project: bool,
     pub(super) cwd: String,
@@ -178,7 +178,7 @@ pub struct LaunchContext {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ProjectEntry {
+pub(crate) struct ProjectEntry {
     pub(super) name: String,
     pub(super) path: String,
     pub(super) is_git: bool,
@@ -205,7 +205,7 @@ pub(crate) fn ensure_config_directory() -> Result<PathBuf, String> {
 /// One-time migration from the old `ade` config dir to `pade`: move the whole
 /// directory (settings, workspaces, worktrees) and rewrite absolute paths stored
 /// in the history so recents/temp workspaces keep working. Idempotent.
-pub fn migrate_from_ade() {
+pub(crate) fn migrate_from_ade() {
     let Ok(base) = config_base() else { return };
     let old = base.join(LEGACY_CONFIG_DIRECTORY);
     let new = base.join(CONFIG_DIRECTORY);
@@ -355,6 +355,6 @@ pub(super) fn update_settings(
 }
 
 #[tauri::command]
-pub fn settings_get() -> Settings {
+pub(crate) fn settings_get() -> Settings {
     load()
 }

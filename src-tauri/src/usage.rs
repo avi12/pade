@@ -39,7 +39,7 @@ use self::codex::{codex_tier_label_usage, fetch_codex_account_usage};
 use self::copilot::fetch_copilot_account_usage;
 use self::cursor::fetch_cursor_account_usage;
 use self::muse::fetch_muse_account_usage;
-pub use self::readings::{
+pub(crate) use self::readings::{
     AccountReading, AccountUsage, NoReading, NoReadingReason, UsageWindow, UsageWindowKind,
 };
 use crate::agents::{
@@ -147,7 +147,7 @@ impl UsageAgent {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Usage {
+pub(crate) struct Usage {
     /// Percent of quota consumed, 0..100, when a precise number is known.
     #[serde(rename = "usedPct")]
     pub used_percentage: Option<f64>,
@@ -167,7 +167,7 @@ pub struct Usage {
 // stop the window pumping messages ("Not Responding"). The blocking pool keeps
 // even several concurrent per-agent fetches off the async workers too.
 #[tauri::command]
-pub async fn usage_get(agent: String) -> Option<Usage> {
+pub(crate) async fn usage_get(agent: String) -> Option<Usage> {
     tauri::async_runtime::spawn_blocking(move || usage_for(&agent))
         .await
         .ok()
@@ -284,7 +284,7 @@ impl AccountUsageRequest {
 // `async` + `spawn_blocking` for the same reason as [`usage_get`]: a cache miss
 // is a bounded-but-slow curl request that must never run on the UI thread.
 #[tauri::command]
-pub async fn usage_account_agent(agent: String, force_refresh: bool) -> AccountReading {
+pub(crate) async fn usage_account_agent(agent: String, force_refresh: bool) -> AccountReading {
     tauri::async_runtime::spawn_blocking(move || {
         let Some(agent) = UsageAgent::from_id(&agent) else {
             return AccountReading::no_source();

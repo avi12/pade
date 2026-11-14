@@ -101,11 +101,11 @@ fn runner_start_access(
 }
 
 /// All live runners, keyed by task id.
-pub struct RunnerState(pub Mutex<HashMap<String, Runner>>);
+pub(crate) struct RunnerState(pub Mutex<HashMap<String, Runner>>);
 
 /// A live runner: the spawned child (shared so the exit-waiter thread can reap it
 /// while `runner_stop` can still kill it) plus its metadata.
-pub struct Runner {
+pub(crate) struct Runner {
     /// The window allowed to inspect and stop this runner.
     owner: String,
     /// The child process, shared with its exit-waiter thread. `runner_stop` locks
@@ -117,7 +117,7 @@ pub struct Runner {
 /// Metadata describing a runner, surfaced to the UI (dock rows, restart, etc.).
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct RunnerInfo {
+pub(crate) struct RunnerInfo {
     id: String,
     command: String,
     cwd: Option<String>,
@@ -238,7 +238,7 @@ fn pump_stream<R: BufRead + Send + 'static>(
 // `async`: spawning a process is blocking OS work - a synchronous command runs
 // it on the MAIN thread, stalling the message pump.
 #[tauri::command]
-pub async fn runner_start(
+pub(crate) async fn runner_start(
     app: AppHandle,
     window: WebviewWindow,
     state: State<'_, RunnerState>,
@@ -372,7 +372,7 @@ fn stop_process_tree(child: &mut Child) {
 // blocking `taskkill` wait on Windows) - only the removed runner's own child
 // lock is held while it dies, so other runners stay reachable meanwhile.
 #[tauri::command]
-pub async fn runner_stop(
+pub(crate) async fn runner_stop(
     window: WebviewWindow,
     state: State<'_, RunnerState>,
     id: String,
@@ -402,7 +402,7 @@ pub async fn runner_stop(
 
 /// List every live runner's metadata (id, command, cwd, start time) for the dock.
 #[tauri::command]
-pub fn runner_list(
+pub(crate) fn runner_list(
     window: WebviewWindow,
     state: State<RunnerState>,
 ) -> Result<Vec<RunnerInfo>, String> {
@@ -414,7 +414,7 @@ pub fn runner_list(
         .collect())
 }
 
-pub fn init(app: &AppHandle) {
+pub(crate) fn init(app: &AppHandle) {
     app.manage(RunnerState(Mutex::new(HashMap::new())));
 }
 

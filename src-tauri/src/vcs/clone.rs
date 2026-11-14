@@ -20,7 +20,7 @@ use super::DEFAULT_REMOTE_NAME;
 /// Is the `git` CLI available? Gates the picker's Clone tab - without git the
 /// tab shows an install prompt instead of a clone form.
 #[tauri::command]
-pub async fn vcs_git_installed() -> bool {
+pub(crate) async fn vcs_git_installed() -> bool {
     is_on_path("git")
 }
 
@@ -31,7 +31,7 @@ const SSH_KEY_NAMES: &[&str] = &["id_ed25519", "id_ecdsa", "id_rsa", "id_dsa"];
 /// Does the user have an SSH private key? An `ssh://`/`git@` clone URL without
 /// one can't authenticate, so the picker offers HTTPS credentials instead.
 #[tauri::command]
-pub async fn vcs_has_ssh_key() -> bool {
+pub(crate) async fn vcs_has_ssh_key() -> bool {
     let Some(home) = home_directory() else {
         return false;
     };
@@ -55,7 +55,7 @@ const PROBE_REMOTE_TIMEOUT: Duration = Duration::from_secs(10);
 // `async` + `spawn_blocking`: a network round-trip (bounded, but seconds) that
 // must never run synchronously on the MAIN thread.
 #[tauri::command]
-pub async fn vcs_probe_remote(url: String) -> bool {
+pub(crate) async fn vcs_probe_remote(url: String) -> bool {
     if !is_valid_clone_url(&url) {
         return false;
     }
@@ -182,7 +182,7 @@ impl Drop for AskPass {
 // `async` + `spawn_blocking`: a clone runs for as long as the network transfer
 // takes - never on the MAIN thread, and too long for an async worker.
 #[tauri::command]
-pub async fn vcs_clone(
+pub(crate) async fn vcs_clone(
     url: String,
     root: String,
     name: String,

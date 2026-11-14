@@ -29,12 +29,12 @@ const MAXIMUM_PARKED_HANDOFFS: usize = 16;
 
 /// Hand-off payloads waiting for their receiving window, keyed by its label.
 #[derive(Default, Debug)]
-pub struct WindowHandoffs(Mutex<HashMap<String, Vec<String>>>);
+pub(crate) struct WindowHandoffs(Mutex<HashMap<String, Vec<String>>>);
 
 /// Move `sessions` from window `from` to window `to` and park `payload` for
 /// `to`. The PTYs move first: when they cannot (one is gone, or `to` is full),
 /// nothing is parked and the sending window keeps everything.
-pub async fn hand_off(
+pub(crate) async fn hand_off(
     app: &AppHandle,
     from: &str,
     to: &str,
@@ -68,7 +68,7 @@ fn park(app: &AppHandle, to: &str, payload: String) -> Result<bool, String> {
 
 /// Give back sessions a hand-off moved to a window that never came to be, so
 /// the sending window still owns them.
-pub async fn undo_hand_off(app: &AppHandle, from: &str, to: &str, sessions: &[String]) {
+pub(crate) async fn undo_hand_off(app: &AppHandle, from: &str, to: &str, sessions: &[String]) {
     let host = app.state::<HostClient>();
     if let Err(error) = transfer_sessions(&host, to, from, sessions).await {
         eprintln!("[pade] could not return sessions after a failed hand-off: {error}");
@@ -80,7 +80,7 @@ pub async fn undo_hand_off(app: &AppHandle, from: &str, to: &str, sessions: &[St
 /// tell it to take them. False when `to` is not an open window. Async: moving
 /// the sessions is a round trip to the PTY host.
 #[tauri::command]
-pub async fn window_hand_off(
+pub(crate) async fn window_hand_off(
     app: AppHandle,
     window: WebviewWindow,
     to: String,
@@ -102,7 +102,7 @@ pub async fn window_hand_off(
 
 /// The hand-offs parked for the calling window, removed as they are taken.
 #[tauri::command]
-pub fn window_take_handoffs(window: WebviewWindow, state: State<WindowHandoffs>) -> Vec<String> {
+pub(crate) fn window_take_handoffs(window: WebviewWindow, state: State<WindowHandoffs>) -> Vec<String> {
     state
         .0
         .lock()
@@ -112,12 +112,12 @@ pub fn window_take_handoffs(window: WebviewWindow, state: State<WindowHandoffs>)
 }
 
 /// Drop whatever still waits for a window that closed.
-pub fn forget(app: &AppHandle, label: &str) {
+pub(crate) fn forget(app: &AppHandle, label: &str) {
     if let Ok(mut parked) = app.state::<WindowHandoffs>().0.lock() {
         parked.remove(label);
     }
 }
 
-pub fn init(app: &AppHandle) {
+pub(crate) fn init(app: &AppHandle) {
     app.manage(WindowHandoffs::default());
 }

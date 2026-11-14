@@ -118,7 +118,7 @@ pub(super) fn spawn_launcher(command: &str, arguments: &[String]) -> Result<(), 
 /// directory when omitted (topbar); a `line` (only meaningful with a file path)
 /// jumps the editor to that line, phrased per the launcher's own CLI.
 #[tauri::command]
-pub async fn ide_open(
+pub(crate) async fn ide_open(
     command: String,
     path: Option<String>,
     line: Option<u32>,
@@ -145,7 +145,7 @@ pub async fn ide_open(
 /// own window. A family with no such form (Visual Studio, Notepad++, …)
 /// receives the file alone, as before.
 #[tauri::command]
-pub async fn ide_open_file(
+pub(crate) async fn ide_open_file(
     command: String,
     project: String,
     file: String,
