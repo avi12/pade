@@ -37,3 +37,17 @@ unsafe_code = "allow"
 [member.pade.rust]
 # An application crate: nothing in it is public API outside this workspace, so item docs would only restate names
 missing_docs = "allow"
+
+[member.pade.clippy]
+# Tauri #[command] functions take the injected app, window and state handles plus the frontend's arguments flat; the IPC shape is the signature
+too_many_arguments = "allow"
+# run() is dominated by the generate_handler! command registry, one flat list that cannot be split across functions
+too_many_lines = "allow"
+# SessionFacts mirrors the TypeScript wire type, one boolean per reported fact
+struct_excessive_bools = "allow"
+# ThemeConfig variants share the Spawn prefix because the prefix names the spawn-time contract
+enum_variant_names = "allow"
+# The non-embedded twin of write_embedded_handler must keep the fallible signature of the embedded one
+unnecessary_wraps = "allow"
+# The tungstenite handshake callback fixes its large Err type; it appears in the fake hub of a test
+result_large_err = "allow"
