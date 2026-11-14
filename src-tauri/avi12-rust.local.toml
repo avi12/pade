@@ -33,3 +33,7 @@ unsafe_code = "allow"
 [member.webview-recovery.rust]
 # WebView2 COM calls
 unsafe_code = "allow"
+
+[member.pade.rust]
+# An application crate: nothing in it is public API outside this workspace, so item docs would only restate names
+missing_docs = "allow"
