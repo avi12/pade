@@ -58,7 +58,11 @@ fn sorted_live_labels(app: &AppHandle, state: &WindowProjects) -> Vec<String> {
 /// for the switcher's order and the `Ctrl+Alt+[`/`]` cycle. Session-scoped: labels
 /// are ephemeral per app run, so there's nothing meaningful to persist to disk.
 #[tauri::command]
-pub(crate) fn window_reorder(app: AppHandle, state: tauri::State<WindowProjects>, labels: Vec<String>) {
+pub(crate) fn window_reorder(
+    app: AppHandle,
+    state: tauri::State<WindowProjects>,
+    labels: Vec<String>,
+) {
     if let Ok(mut order) = state.order.lock() {
         *order = labels;
     }
@@ -97,7 +101,9 @@ pub(crate) fn window_focus_relative(
         return false;
     }
 
-    let target_label = &labels[cycled_index(current, labels.len(), direction)];
+    let Some(target_label) = labels.get(cycled_index(current, labels.len(), direction)) else {
+        return false;
+    };
     app.get_webview_window(target_label)
         .is_some_and(|target| bring_to_front(&target))
 }

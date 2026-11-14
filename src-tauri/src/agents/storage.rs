@@ -173,8 +173,11 @@ pub(crate) async fn chat_storage_delete(ids: Vec<String>) -> Result<ChatStorage,
         let ticked: HashSet<String> = ids.into_iter().collect();
         let chats = recorded_chats();
         for index in chats_to_delete(&chats, limits, now_milliseconds()) {
-            if ticked.contains(&chats[index].id()) {
-                delete_chat(&chats[index]);
+            let Some(chat) = chats.get(index) else {
+                continue;
+            };
+            if ticked.contains(&chat.id()) {
+                delete_chat(chat);
             }
         }
         measure(limits)
@@ -228,11 +231,21 @@ fn storage_of(chats: &[Chat], deleted: &[usize], now: u64) -> ChatStorage {
         chat_count: chats.len(),
         agents,
         cleanup: Cleanup {
-            bytes: deleted.iter().map(|&index| chats[index].bytes).sum(),
+            bytes: deleted.iter().map(|&index| chat_bytes(chats, index)).sum(),
             chat_count: deleted.len(),
             chats: named_chats(chats, deleted, now),
         },
     }
+}
+
+/// The size of the chat at `index`, or zero for an index outside `chats`.
+fn chat_bytes(chats: &[Chat], index: usize) -> u64 {
+    chats.get(index).map_or(0, |chat| chat.bytes)
+}
+
+/// When the chat at `index` was last used, or zero for an index outside `chats`.
+fn chat_updated_at(chats: &[Chat], index: usize) -> u64 {
+    chats.get(index).map_or(0, |chat| chat.updated_at)
 }
 
 /// How much a chat is worth deleting: its size times how long it has sat
@@ -246,7 +259,10 @@ fn deletion_weight(chat: &Chat, now: u64) -> u128 {
 /// reading each one's title and folder off its files, so only the
 /// [`LISTED_CHATS`] shown are read.
 fn named_chats(chats: &[Chat], deleted: &[usize], now: u64) -> Vec<DeletedChat> {
-    let mut largest: Vec<&Chat> = deleted.iter().map(|&index| &chats[index]).collect();
+    let mut largest: Vec<&Chat> = deleted
+        .iter()
+        .filter_map(|&index| chats.get(index))
+        .collect();
     largest.sort_by_key(|chat| std::cmp::Reverse(deletion_weight(chat, now)));
     largest.truncate(LISTED_CHATS);
     let codex_titles = codex_home()
@@ -325,9 +341,9 @@ fn chats_to_delete(chats: &[Chat], limits: Limits, now: u64) -> Vec<usize> {
     let deletable: Vec<Vec<usize>> = by_project
         .into_values()
         .map(|mut indices| {
-            indices.sort_by_key(|&index| chats[index].updated_at);
+            indices.sort_by_key(|&index| chat_updated_at(chats, index));
             indices.pop();
-            indices.retain(|&index| chats[index].updated_at < protected_since);
+            indices.retain(|&index| chat_updated_at(chats, index) < protected_since);
             indices
         })
         .collect();
@@ -339,9 +355,9 @@ fn chats_to_delete(chats: &[Chat], limits: Limits, now: u64) -> Vec<usize> {
             .iter()
             .flatten()
             .copied()
-            .filter(|&index| chats[index].bytes > per_chat)
+            .filter(|&index| chat_bytes(chats, index) > per_chat)
             .collect();
-        oversized.sort_by_key(|&index| chats[index].updated_at);
+        oversized.sort_by_key(|&index| chat_updated_at(chats, index));
         is_chosen.extend(oversized.iter().copied());
         chosen.extend(oversized);
     }
@@ -350,7 +366,10 @@ fn chats_to_delete(chats: &[Chat], limits: Limits, now: u64) -> Vec<usize> {
         return chosen;
     };
     let mut remaining: u64 = chats.iter().map(|chat| chat.bytes).sum::<u64>()
-        - chosen.iter().map(|&index| chats[index].bytes).sum::<u64>();
+        - chosen
+            .iter()
+            .map(|&index| chat_bytes(chats, index))
+            .sum::<u64>();
     let queues: Vec<Vec<usize>> = deletable
         .into_iter()
         .map(|indices| {
@@ -366,12 +385,12 @@ fn chats_to_delete(chats: &[Chat], limits: Limits, now: u64) -> Vec<usize> {
             .iter()
             .filter_map(|queue| queue.get(round).copied())
             .collect();
-        this_round.sort_by_key(|&index| chats[index].updated_at);
+        this_round.sort_by_key(|&index| chat_updated_at(chats, index));
         for index in this_round {
             if remaining <= total {
                 return chosen;
             }
-            remaining -= chats[index].bytes;
+            remaining -= chat_bytes(chats, index);
             chosen.push(index);
         }
     }

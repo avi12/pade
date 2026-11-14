@@ -83,7 +83,6 @@ impl Scheme {
 // The shared `Spawn` prefix is the point, not noise: every mechanism is
 // spawn-time (read once at launch, next spawn picks up a scheme flip), and the
 // prefix keeps that contract in every variant's name.
-#[expect(clippy::enum_variant_names)]
 pub(crate) enum ThemeConfig {
     /// Set per-scheme environment when the session spawns - for a CLI whose
     /// theme is env-driven and read once at startup (`pty.rs` applies these;
@@ -140,7 +139,10 @@ pub(crate) enum ThemeConfig {
 /// The per-scheme environment to spawn `command` with (empty for an agent
 /// whose theme is arg-driven, or unknown). `pty.rs` applies it alongside the
 /// static `agents::spawn_environment`.
-pub(crate) fn spawn_environment(command: &str, scheme: Scheme) -> &'static [(&'static str, &'static str)] {
+pub(crate) fn spawn_environment(
+    command: &str,
+    scheme: Scheme,
+) -> &'static [(&'static str, &'static str)] {
     match crate::agents::theme_config(command) {
         Some(ThemeConfig::SpawnEnvironment { light, dark }) => scheme.pick(light, dark),
         Some(

@@ -109,7 +109,11 @@ pub(crate) enum ConversationRecord {
 
 impl SessionIdFlag {
     /// The arguments that pin a session to `conversation_id`.
-    pub(crate) fn arguments(self, conversation_id: &str, record: ConversationRecord) -> Vec<String> {
+    pub(crate) fn arguments(
+        self,
+        conversation_id: &str,
+        record: ConversationRecord,
+    ) -> Vec<String> {
         match self {
             Self::Joined(flag) => vec![format!("{flag}={conversation_id}")],
             Self::CreateOrResume { create, resume } => {

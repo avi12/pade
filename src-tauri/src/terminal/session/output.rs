@@ -240,7 +240,9 @@ fn drain_decoded(pending: &mut Vec<u8>) -> String {
             }
             Err(error) => {
                 let valid_end = error.valid_up_to();
-                output.push_str(&String::from_utf8_lossy(&pending[..valid_end]));
+                output.push_str(&String::from_utf8_lossy(
+                    pending.get(..valid_end).unwrap_or_default(),
+                ));
                 match error.error_len() {
                     // The chunk ends mid-character: keep the partial bytes for
                     // the next read to complete.
@@ -281,7 +283,7 @@ pub(super) fn spawn_output_pump(
         loop {
             match reader.read(&mut buffer) {
                 Ok(bytes_read) if bytes_read > 0 => {
-                    pending.extend_from_slice(&buffer[..bytes_read]);
+                    pending.extend_from_slice(buffer.get(..bytes_read).unwrap_or_default());
                     let data = drain_decoded(&mut pending);
                     if data.is_empty() {
                         continue;
@@ -441,6 +443,6 @@ mod tests {
         append_transcript(&transcript, &multibyte);
         let tail = transcript.lock().expect("transcript lock").clone();
         assert!(tail.len() <= TRANSCRIPT_CAPACITY);
-        assert!(tail.chars().all(|ch| ch == '日'));
+        assert!(tail.chars().all(|character| character == '日'));
     }
 }

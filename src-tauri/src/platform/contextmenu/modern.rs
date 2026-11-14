@@ -95,28 +95,8 @@ fn write_embedded_handler(handler: &Path) -> Result<(), String> {
 }
 
 #[cfg(not(embedded_context_menu_handler))]
-#[expect(clippy::unnecessary_wraps)] // the embedded twin above can fail; callers treat both alike
 fn write_embedded_handler(_handler: &Path) -> Result<(), String> {
     Ok(())
-}
-
-/// Remove the sparse package and clean up the files we wrote. Idempotent - removing
-/// a package that was never registered is a no-op success.
-///
-/// Reserved for a future uninstall/cleanup path: the toggle-off flow now only hides the
-/// handler via its show/hide flag (the package stays registered, à la `PowerToys`), so
-/// nothing calls this yet - but full removal still belongs here for when PADE gains an
-/// uninstaller.
-#[expect(dead_code)]
-pub(super) fn unregister() -> Result<(), String> {
-    let script =
-        format!("Get-AppxPackage -Name '{PACKAGE_NAME}' | Remove-AppxPackage -ErrorAction Stop");
-    let result = interpret(&powershell(&script)?);
-    if let Ok(location) = external_location() {
-        let _ = std::fs::remove_file(location.join(MANIFEST_FILE));
-        let _ = std::fs::remove_dir_all(location.join(ASSETS_DIRECTORY));
-    }
-    result
 }
 
 /// Whether the sparse package is currently registered for this user.

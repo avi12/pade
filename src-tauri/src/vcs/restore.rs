@@ -159,11 +159,10 @@ fn subject_match_ratio(subject: &str, query_tokens: &[String]) -> f32 {
         .iter()
         .filter(|token| subject.contains(token.as_str()))
         .count();
-    // Token counts are tiny (a short query vs a commit subject), so the
-    // usize to f32 conversion can't actually lose precision here.
-    #[expect(clippy::cast_precision_loss)]
-    let ratio = matched as f32 / query_tokens.len() as f32;
-    ratio
+    // Token counts are tiny (a short query vs a commit subject), far below u16::MAX.
+    let matched = f32::from(u16::try_from(matched).unwrap_or(u16::MAX));
+    let total = f32::from(u16::try_from(query_tokens.len()).unwrap_or(u16::MAX));
+    matched / total
 }
 
 /// Restore a commit non-destructively by switching to a dedicated branch.

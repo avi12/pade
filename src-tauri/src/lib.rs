@@ -83,7 +83,6 @@ fn configure_webview2_environment() {
 // Mostly the command registry (`generate_handler!`) + builder wiring - one long
 // but flat list, not branching logic, so the line count is expected to grow with
 // each new IPC command.
-#[expect(clippy::too_many_lines)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Launched by an agent's hook to record a session's model and effort: do that
@@ -175,11 +174,11 @@ pub fn run() {
             workspace::ide::open::ide_open,
             workspace::ide::open::ide_open_file,
             workspace::members::members_list,
-            platform::os::open_in_explorer,
-            platform::os::reveal_in_explorer,
-            platform::os::open_in_terminal,
-            platform::os::open_url,
-            platform::os::restart,
+            platform::desktop::open_in_explorer,
+            platform::desktop::reveal_in_explorer,
+            platform::desktop::open_in_terminal,
+            platform::desktop::open_url,
+            platform::desktop::restart,
             platform::window::window_create,
             platform::window::window_register_project,
             platform::window::window_focus_project,
@@ -289,7 +288,10 @@ pub fn run() {
             update::update_check,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building ADE")
+        .unwrap_or_else(|error| {
+            eprintln!("error while building ADE: {error}");
+            std::process::exit(1)
+        })
         .run(|handle, event| {
             // As the app exits, terminate every agent PTY so no child lingers
             // and the workspace cwd-lock is released - letting the user reopen

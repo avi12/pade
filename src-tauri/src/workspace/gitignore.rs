@@ -57,7 +57,10 @@ impl Rules {
             .collect();
         (1..=segments.len()).any(|prefix_length| {
             let is_directory = prefix_length < segments.len();
-            self.last_match(&segments[..prefix_length], is_directory) == Some(Verdict::Ignored)
+            self.last_match(
+                segments.get(..prefix_length).unwrap_or_default(),
+                is_directory,
+            ) == Some(Verdict::Ignored)
         })
     }
 
@@ -118,9 +121,11 @@ impl Pattern {
             return segments_match(&self.segments, target);
         }
         // A floating pattern matches the basename at any depth.
-        target
-            .last()
-            .is_some_and(|name| segment_matches(&self.segments[0], name))
+        target.last().is_some_and(|name| {
+            self.segments
+                .first()
+                .is_some_and(|segment| segment_matches(segment, name))
+        })
     }
 }
 

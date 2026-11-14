@@ -81,7 +81,6 @@ fn to_message(error: HostError) -> String {
 // A PTY spawn is inherently wide (id, command, args, cwd, dimensions) and two of
 // these are Tauri-injected (window, host), not caller-supplied - grouping them
 // would only obscure the IPC shape the frontend sends.
-#[expect(clippy::too_many_arguments)]
 #[tauri::command]
 pub(crate) async fn pty_spawn(
     window: WebviewWindow,
@@ -196,7 +195,11 @@ pub(crate) async fn pty_history(
 
 /// A session's current transcript, or an empty string if it is unknown. The
 /// context the AI session-namer summarises.
-pub(crate) async fn transcript_of(host: &HostClient, owner: &str, id: &str) -> Result<String, String> {
+pub(crate) async fn transcript_of(
+    host: &HostClient,
+    owner: &str,
+    id: &str,
+) -> Result<String, String> {
     host.transcript(owner, id).await.map_err(to_message)
 }
 

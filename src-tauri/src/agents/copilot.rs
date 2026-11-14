@@ -185,7 +185,9 @@ fn encode_command(script: &str) -> String {
         });
         for sextet in 0..=chunk.len() {
             let index = usize::try_from((group >> (18 - 6 * sextet)) & 0x3f).unwrap_or(0);
-            encoded.push(char::from(BASE64_ALPHABET[index]));
+            encoded.push(char::from(
+                BASE64_ALPHABET.get(index).copied().unwrap_or(b'='),
+            ));
         }
         for _ in chunk.len()..3 {
             encoded.push('=');
@@ -349,7 +351,7 @@ fn converse(socket: &mut Socket, id: &str, prompt: &str) -> Result<String, ChatE
                     .map_err(|_| ChatError::Failed)?;
                 continue;
             }
-            match frame["type"].as_u64() {
+            match frame.get("type").and_then(Value::as_u64) {
                 Some(SIGNALR_RESULT) => return reply_of(&frame),
                 Some(SIGNALR_COMPLETION | SIGNALR_CLOSE) => return Err(ChatError::Failed),
                 _ => {}
@@ -367,7 +369,6 @@ mod tests {
     /// A fake hub on a local port: it answers the handshake, checks the URL and
     /// the `chat` call, and replies the way the real one does, with a hint and
     /// then the answer in a type 2 frame. Returns its address.
-    #[expect(clippy::result_large_err)]
     fn fake_hub(result: Value) -> String {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
         let address = format!("ws://{}", listener.local_addr().expect("a local address"));

@@ -182,7 +182,10 @@ fn drain(
 /// already independent and is re-parented to init when ADE exits, so a plain
 /// spawn suffices.
 #[cfg(windows)]
-pub(crate) fn spawn_detached(program: impl AsRef<OsStr>, arguments: &[String]) -> std::io::Result<Child> {
+pub(crate) fn spawn_detached(
+    program: impl AsRef<OsStr>,
+    arguments: &[String],
+) -> std::io::Result<Child> {
     use std::os::windows::process::CommandExt;
 
     const DETACHED_PROCESS: u32 = 0x0000_0008;

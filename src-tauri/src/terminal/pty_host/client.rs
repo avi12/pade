@@ -183,7 +183,11 @@ impl HostClient {
         }
     }
 
-    pub(crate) async fn history(&self, owner: &str, id: &str) -> Result<HistorySnapshot, HostError> {
+    pub(crate) async fn history(
+        &self,
+        owner: &str,
+        id: &str,
+    ) -> Result<HistorySnapshot, HostError> {
         let request = Request::History {
             owner: owner.to_string(),
             id: id.to_string(),
@@ -205,7 +209,11 @@ impl HostClient {
         }
     }
 
-    pub(crate) async fn root_process_id(&self, owner: &str, id: &str) -> Result<Option<u32>, HostError> {
+    pub(crate) async fn root_process_id(
+        &self,
+        owner: &str,
+        id: &str,
+    ) -> Result<Option<u32>, HostError> {
         let request = Request::RootProcessId {
             owner: owner.to_string(),
             id: id.to_string(),
@@ -216,7 +224,12 @@ impl HostClient {
         }
     }
 
-    pub(crate) async fn transfer(&self, from: &str, to: &str, ids: &[String]) -> Result<(), HostError> {
+    pub(crate) async fn transfer(
+        &self,
+        from: &str,
+        to: &str,
+        ids: &[String],
+    ) -> Result<(), HostError> {
         let connection = self.connection().await?;
         let request = Request::Transfer {
             from: from.to_string(),

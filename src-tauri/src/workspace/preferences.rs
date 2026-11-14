@@ -88,6 +88,8 @@ pub(super) fn apply_prefs_patch(
 /// Apply only the preference fields the frontend changed. A null value removes
 /// the optional key so its default takes effect again.
 #[tauri::command]
-pub(crate) fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Settings, String> {
+pub(crate) fn set_prefs(
+    patch: serde_json::Map<String, serde_json::Value>,
+) -> Result<Settings, String> {
     update_settings(|settings| apply_prefs_patch(&mut settings.prefs, patch))
 }

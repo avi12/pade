@@ -76,7 +76,10 @@ pub(super) fn attach(arguments: &mut Vec<String>) {
         arguments.push(serde_json::Value::Object(hooks).to_string());
         return;
     };
-    arguments[index] = merge_settings(&arguments[index], hooks);
+    let Some(current) = arguments.get_mut(index) else {
+        return;
+    };
+    *current = merge_settings(current, hooks);
 }
 
 /// The session's model from its hook reports, and its effort as the newest of
@@ -140,11 +143,13 @@ impl<'a> Session<'a> {
             .as_deref()
             .map(|effort| (effort, state.effort_at));
         let typed = self.typed_effort();
-        let typed = typed.as_ref().map(|(effort, at)| (effort.as_str(), *at));
+        let typed = typed
+            .as_ref()
+            .map(|(effort, time)| (effort.as_str(), *time));
         let session_effort = [reported, typed]
             .into_iter()
             .flatten()
-            .max_by_key(|(_, at)| *at);
+            .max_by_key(|(_, time)| *time);
         let saved = saved_effort(model);
         Some(RunningModel {
             effort: newer(session_effort, saved.as_ref(), state.model_at),

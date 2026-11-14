@@ -13,7 +13,8 @@ pub(crate) fn segments_match<Segment: AsRef<str>>(pattern: &[Segment], path: &[&
         return path.is_empty();
     };
     if head.as_ref() == ANY_DEPTH_SEGMENT {
-        return (0..=path.len()).any(|skip| segments_match(rest, &path[skip..]));
+        return (0..=path.len())
+            .any(|skip| segments_match(rest, path.get(skip..).unwrap_or_default()));
     }
     path.split_first().is_some_and(|(first, tail)| {
         segment_matches(head.as_ref(), first) && segments_match(rest, tail)

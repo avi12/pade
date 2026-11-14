@@ -103,7 +103,10 @@ pub(super) fn push_root(path: String) -> Result<Settings, String> {
 /// created (and then added) when `create` is set, otherwise it reports `Missing`;
 /// a path that exists but is a file reports `NotADirectory`.
 #[tauri::command]
-pub(crate) async fn workspace_add_root(path: String, create: bool) -> Result<AddRootOutcome, String> {
+pub(crate) async fn workspace_add_root(
+    path: String,
+    create: bool,
+) -> Result<AddRootOutcome, String> {
     let target = Path::new(&path);
     if target.is_dir() {
         return Ok(AddRootOutcome::Added {

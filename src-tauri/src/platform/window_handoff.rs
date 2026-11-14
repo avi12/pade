@@ -102,7 +102,10 @@ pub(crate) async fn window_hand_off(
 
 /// The hand-offs parked for the calling window, removed as they are taken.
 #[tauri::command]
-pub(crate) fn window_take_handoffs(window: WebviewWindow, state: State<WindowHandoffs>) -> Vec<String> {
+pub(crate) fn window_take_handoffs(
+    window: WebviewWindow,
+    state: State<WindowHandoffs>,
+) -> Vec<String> {
     state
         .0
         .lock()

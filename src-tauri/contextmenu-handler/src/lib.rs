@@ -197,7 +197,9 @@ fn current_module_path() -> Option<PathBuf> {
     if length == 0 || length >= buffer.len() {
         return None;
     }
-    Some(PathBuf::from(String::from_utf16_lossy(buffer.get(..length)?)))
+    Some(PathBuf::from(String::from_utf16_lossy(
+        buffer.get(..length)?,
+    )))
 }
 
 /// UTF-16, NUL-terminated, for passing a Rust string to a `PCWSTR` Win32 arg.

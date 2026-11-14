@@ -157,7 +157,10 @@ pub(crate) struct SessionModel {
 /// `None` when the agent has reported nothing PADE can read. Off the UI thread:
 /// it reads files.
 #[tauri::command]
-pub(crate) async fn agent_running_model(command: String, conversation_id: String) -> Option<SessionModel> {
+pub(crate) async fn agent_running_model(
+    command: String,
+    conversation_id: String,
+) -> Option<SessionModel> {
     tauri::async_runtime::spawn_blocking(move || {
         let is_claude = command == ID_CLAUDE;
         if is_claude && is_plain_id(&conversation_id) {
@@ -278,7 +281,10 @@ pub(crate) fn resume_arguments(command: &str, conversation_id: &str) -> Option<V
 /// The arguments that reopen `command`'s session `agent_session` by the
 /// agent's own id - the one place each agent's resume flag is spelled. `None`
 /// for an agent that doesn't resume that way.
-pub(crate) fn session_resume_arguments(command: &str, agent_session: String) -> Option<Vec<String>> {
+pub(crate) fn session_resume_arguments(
+    command: &str,
+    agent_session: String,
+) -> Option<Vec<String>> {
     match command {
         ID_CODEX => Some(vec![CODEX_RESUME_SUBCOMMAND.to_string(), agent_session]),
         ID_OPENCODE => Some(vec![OPENCODE_SESSION_FLAG.to_string(), agent_session]),

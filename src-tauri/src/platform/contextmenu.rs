@@ -157,7 +157,9 @@ fn unregister_legacy() -> Result<(), String> {
 /// Whether the legacy registry entry exists.
 #[cfg(windows)]
 fn is_legacy_registered() -> bool {
-    crate::util::registry_query(&[LEGACY_ROOTS[0]]).is_some()
+    LEGACY_ROOTS
+        .first()
+        .is_some_and(|root| crate::util::registry_query(&[*root]).is_some())
 }
 
 /// Turn "Open in PADE" on for the one menu that fits this Windows version.
@@ -230,7 +232,7 @@ fn register_sparse_package() -> Result<(), String> {
 ///   package stays registered, so the handler self-hides on the next menu build with no
 ///   Explorer restart and no redeploy - exactly how `PowerToys`' File Locksmith /
 ///   `PowerRename` keep their handler registered and just hide it. Fully removing the
-///   package is reserved for a future uninstall path (`modern::unregister`).
+///   package is left for a future uninstall path.
 /// - **Windows 10 and older**: remove the legacy registry keys outright (no
 ///   self-hiding handler exists there).
 #[cfg(windows)]

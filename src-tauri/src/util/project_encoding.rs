@@ -47,7 +47,12 @@ fn base36(mut value: u32) -> String {
     const DIGITS: &[u8; 36] = b"0123456789abcdefghijklmnopqrstuvwxyz";
     let mut digits = Vec::new();
     loop {
-        digits.push(DIGITS[usize::try_from(value % 36).unwrap_or_default()]);
+        digits.push(
+            DIGITS
+                .get(usize::try_from(value % 36).unwrap_or_default())
+                .copied()
+                .unwrap_or(b'0'),
+        );
         value /= 36;
         if value == 0 {
             break;

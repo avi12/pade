@@ -226,8 +226,9 @@ async fn serve(paths: &HostPaths, log: &Arc<HostLog>) {
         }
     };
     let events = Arc::new(HostEvents::default());
+    let session_events: Arc<dyn SessionEvents> = events.clone();
     let host = Arc::new(Host {
-        registry: SessionRegistry::new(Arc::clone(&events) as Arc<dyn SessionEvents>),
+        registry: SessionRegistry::new(session_events),
         events,
         token: uuid::Uuid::new_v4().simple().to_string(),
         executable_fingerprint: own_fingerprint(),

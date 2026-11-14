@@ -76,7 +76,8 @@ mod tests {
 ///    process tree (`taskkill /F /T`) while it waits.
 /// 2. `cargo test … smoke_phase_two -- --ignored`: reconnects, finds the
 ///    session and its history still there, then retires the host.
-#[cfg(all(test, windows))]
+#[cfg(test)]
+#[cfg(windows)]
 mod smoke {
     use std::path::PathBuf;
     use std::time::Duration;

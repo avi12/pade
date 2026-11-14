@@ -409,7 +409,8 @@ fn connect() -> Option<Box<dyn DuplexStream>> {
             .write(true)
             .open(format!(r"\\.\pipe\{name}"))
             .ok()?;
-        Some(Box::new(pipe) as Box<dyn DuplexStream>)
+        let stream: Box<dyn DuplexStream> = Box::new(pipe);
+        Some(stream)
     })
 }
 

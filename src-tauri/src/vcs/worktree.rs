@@ -15,7 +15,11 @@ const FALLBACK_REPOSITORY_NAME: &str = "repo";
 /// return the worktree path. Reuses an existing worktree if already created.
 /// `create` makes a new branch (`git worktree add -b`) off the current HEAD.
 #[tauri::command]
-pub(crate) async fn vcs_worktree_add(cwd: String, branch: String, create: bool) -> Result<String, String> {
+pub(crate) async fn vcs_worktree_add(
+    cwd: String,
+    branch: String,
+    create: bool,
+) -> Result<String, String> {
     let toplevel = run_git(&cwd, &["rev-parse", "--show-toplevel"])?;
     let repository_name = Path::new(toplevel.trim())
         .file_name()
