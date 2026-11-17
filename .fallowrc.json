@@ -15,6 +15,7 @@
   "ignoreDependencies": [
     "postcss-html",
     "tsrs",
+    "svelte-check",
     "avi12-lint",
     "eslint-config-avi12",
     "fallow-config-avi12",
