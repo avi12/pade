@@ -1,3 +1,9 @@
 {
-  "extends": ["stylelint-config-avi12"]
+  "extends": ["stylelint-config-avi12"],
+  "overrides": [
+    {
+      "files": ["src/lib/session/SessionTabs.svelte"],
+      "rules": { "keyframes-name-pattern": null }
+    }
+  ]
 }

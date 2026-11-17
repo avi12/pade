@@ -394,7 +394,6 @@
      answer (see isAwaitingChoice) - a ring pulses out from the indicator. Global
      so the strip's parts (glyph, dot, "+N") share the one ripple. Held still (a
      steady red ring instead) under reduced motion, at each usage. */
-  /* stylelint-disable-next-line keyframes-name-pattern -- Svelte's `-global-` prefix */
   @keyframes -global-choice-flash {
     0% {
       box-shadow: 0 0 0 0 color-mix(in oklab, var(--critical) 60%, transparent);
