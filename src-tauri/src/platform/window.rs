@@ -125,10 +125,7 @@ impl WindowProjects {
 
     /// A copy of the explicit switcher order, so sorting never holds the lock.
     fn order_snapshot(&self) -> Vec<String> {
-        self.order
-            .lock()
-            .map(|guard| guard.clone())
-            .unwrap_or_default()
+        self.order.lock().map_or_default(|guard| guard.clone())
     }
 }
 

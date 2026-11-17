@@ -68,8 +68,7 @@ impl Chat {
     fn id(&self) -> String {
         self.paths
             .first()
-            .map(|path| path.to_string_lossy().into_owned())
-            .unwrap_or_default()
+            .map_or_default(|path| path.to_string_lossy().into_owned())
     }
 }
 
@@ -265,9 +264,8 @@ fn named_chats(chats: &[Chat], deleted: &[usize], now: u64) -> Vec<DeletedChat> 
         .collect();
     largest.sort_by_key(|chat| std::cmp::Reverse(deletion_weight(chat, now)));
     largest.truncate(LISTED_CHATS);
-    let codex_titles = codex_home()
-        .map(|home| codex_titles(&home.join(CODEX_SESSION_INDEX)))
-        .unwrap_or_default();
+    let codex_titles =
+        codex_home().map_or_default(|home| codex_titles(&home.join(CODEX_SESSION_INDEX)));
 
     largest
         .into_iter()
@@ -275,8 +273,7 @@ fn named_chats(chats: &[Chat], deleted: &[usize], now: u64) -> Vec<DeletedChat> 
             let (title, project) = chat
                 .paths
                 .first()
-                .map(|path| title_and_project(chat.agent_id, path, &codex_titles))
-                .unwrap_or_default();
+                .map_or_default(|path| title_and_project(chat.agent_id, path, &codex_titles));
             DeletedChat {
                 id: chat.id(),
                 agent_id: chat.agent_id,

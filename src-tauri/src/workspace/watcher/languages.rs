@@ -225,8 +225,7 @@ pub(super) fn rearm_language_watch(
     requested: Vec<String>,
 ) -> Result<(), String> {
     let feed_roots: HashSet<String> = window_watches(state, label)
-        .map(|watches| watches.snapshot())
-        .unwrap_or_default()
+        .map_or_default(|watches| watches.snapshot())
         .iter()
         .map(|project| crate::workspace::ide::project_key(&project.root))
         .collect();

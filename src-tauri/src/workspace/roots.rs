@@ -269,8 +269,7 @@ pub(super) fn next_segment_completion(
 
     let leaf = |path: &PathBuf| {
         path.file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default()
+            .map_or_default(|name| name.to_string_lossy().into_owned())
     };
     parent
         .join(shared_leaf_prefix(&leaf(first), &leaf(last)))
@@ -286,15 +285,14 @@ pub(super) fn next_segment_completion(
 pub(crate) async fn workspace_probe_path(path: String) -> PathProbe {
     let trimmed = path.trim();
     let target = Path::new(trimmed);
-    let (suggestions, completion) = split_for_completion(trimmed)
-        .map(|(parent, prefix)| {
+    let (suggestions, completion) =
+        split_for_completion(trimmed).map_or_default(|(parent, prefix)| {
             let matches = matching_directories(&parent, &prefix);
             (
                 directory_completions(&matches),
                 next_segment_completion(&parent, &matches),
             )
-        })
-        .unwrap_or_default();
+        });
     PathProbe {
         is_dir: target.is_dir(),
         is_file: target.is_file(),

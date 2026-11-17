@@ -29,8 +29,7 @@ pub(super) fn model_option(model: &serde_json::Value) -> Option<ModelOption> {
     let effort_options = model
         .pointer("/thinking/effort_options")
         .and_then(serde_json::Value::as_array)
-        .map(Vec::as_slice)
-        .unwrap_or_default();
+        .map_or_default(Vec::as_slice);
     let recommended_effort = effort_options
         .iter()
         .find(|option| is_recommended(option))

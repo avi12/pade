@@ -255,7 +255,7 @@ fn describe(id: &str, catalog: Option<&serde_json::Value>) -> ModelOption {
             .and_then(|entry| entry.get("name")?.as_str())
             .unwrap_or(id)
             .to_string(),
-        efforts: entry.map(effort_levels).unwrap_or_default(),
+        efforts: entry.map_or_default(effort_levels),
         recommended_effort: None,
     }
 }

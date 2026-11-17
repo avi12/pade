@@ -138,8 +138,7 @@ pub(crate) fn executable_fingerprint(executable: &Path) -> io::Result<String> {
     let metadata = std::fs::metadata(executable)?;
     let written = metadata
         .modified()
-        .map(crate::util::milliseconds_since_unix_epoch)
-        .unwrap_or_default();
+        .map_or_default(crate::util::milliseconds_since_unix_epoch);
     let identity = format!("{}:{written}", metadata.len());
     Ok(short_digest(identity.as_bytes()))
 }

@@ -130,11 +130,7 @@ pub(crate) fn window_list(
     window: WebviewWindow,
     state: tauri::State<WindowProjects>,
 ) -> Vec<WindowInfo> {
-    let projects = state
-        .projects
-        .lock()
-        .map(|guard| guard.clone())
-        .unwrap_or_default();
+    let projects = state.projects.lock().map_or_default(|guard| guard.clone());
     sorted_live_labels(&app, &state)
         .into_iter()
         .filter_map(|label| {

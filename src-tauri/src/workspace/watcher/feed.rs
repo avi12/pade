@@ -213,9 +213,8 @@ pub(crate) async fn feed_ignored(
     state: State<'_, WatcherState>,
     paths: Vec<String>,
 ) -> Result<Vec<String>, String> {
-    let projects = window_watches(&state, window.label())
-        .map(|watches| watches.snapshot())
-        .unwrap_or_default();
+    let projects =
+        window_watches(&state, window.label()).map_or_default(|watches| watches.snapshot());
     Ok(paths
         .into_iter()
         .filter(|candidate| {

@@ -220,8 +220,7 @@ impl SessionRegistry {
         Ok(pty
             .history
             .lock()
-            .map(|buffer| buffer.snapshot())
-            .unwrap_or_default())
+            .map_or_default(|buffer| buffer.snapshot()))
     }
 
     /// A session's current plain-text transcript, empty if it is unknown.
@@ -232,8 +231,7 @@ impl SessionRegistry {
         Ok(pty
             .transcript
             .lock()
-            .map(|buffer| buffer.clone())
-            .unwrap_or_default())
+            .map_or_default(|buffer| buffer.clone()))
     }
 
     /// The session's root process id, owner-checked. `None` when the session is

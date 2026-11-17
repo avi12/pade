@@ -19,7 +19,7 @@ impl SessionOwner {
     /// The owning window's label - empty when the lock is poisoned, which no
     /// window label matches, so a poisoned owner reads as foreign to everyone.
     pub(in crate::terminal::session) fn label(&self) -> String {
-        self.0.read().map(|label| label.clone()).unwrap_or_default()
+        self.0.read().map_or_default(|label| label.clone())
     }
 
     pub(super) fn matches_label(&self, label: &str) -> bool {

@@ -51,8 +51,7 @@ impl Registry {
         let mut waiting = self
             .windows
             .remove(&window_label)
-            .map(|stored| stored.observed)
-            .unwrap_or_default();
+            .map_or_default(|stored| stored.observed);
         waiting.extend(observed);
         let overflow = waiting.len().saturating_sub(OBSERVED_LIMIT);
         waiting.drain(..overflow);

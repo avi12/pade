@@ -121,8 +121,7 @@ impl Connection {
         }
         self.known_sessions
             .lock()
-            .map(|mut known| std::mem::take(&mut *known))
-            .unwrap_or_default()
+            .map_or_default(|mut known| std::mem::take(&mut *known))
     }
 }
 

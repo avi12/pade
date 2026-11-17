@@ -314,8 +314,7 @@ async fn run_ticks(app: AppHandle) {
 /// tick. Shadow only.
 pub fn init(app: &AppHandle) {
     let samples = pade_data_directory()
-        .map(|directory| SampleBook::load(&directory.join(SAMPLES_FILE_NAME)))
-        .unwrap_or_default();
+        .map_or_default(|directory| SampleBook::load(&directory.join(SAMPLES_FILE_NAME)));
     app.manage(PacingEngine::with_samples(samples));
     tauri::async_runtime::spawn(run_ticks(app.clone()));
 }

@@ -105,8 +105,7 @@ impl WindowWatches {
     pub(super) fn snapshot(&self) -> Vec<Arc<ProjectWatch>> {
         self.projects
             .lock()
-            .map(|projects| projects.values().cloned().collect())
-            .unwrap_or_default()
+            .map_or_default(|projects| projects.values().cloned().collect())
     }
 
     /// The watch on `root`: the one keyed by that exact spelling, else the one

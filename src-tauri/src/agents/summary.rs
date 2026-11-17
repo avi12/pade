@@ -44,10 +44,7 @@ pub(crate) async fn session_summarize(
 ) -> Result<Option<String>, String> {
     let transcript = crate::terminal::pty::transcript_of(&host, window.label(), &id).await?;
     Ok(tauri::async_runtime::spawn_blocking(move || {
-        let links = conversation_id
-            .as_deref()
-            .map(session_links)
-            .unwrap_or_default();
+        let links = conversation_id.as_deref().map_or_default(session_links);
         session_summary(&transcript, &agent, &links)
     })
     .await

@@ -39,16 +39,14 @@ pub(crate) fn snapshot(path: &Path, format: McpFormat) -> Option<McpSnapshot> {
             document
                 .get(key)
                 .and_then(serde_json::Value::as_object)
-                .map(|servers| servers.keys().cloned().collect())
-                .unwrap_or_default()
+                .map_or_default(|servers| servers.keys().cloned().collect())
         }
         McpFormat::TomlTables { key } => {
             let document: toml::Value = toml::from_str(&text).ok()?;
             document
                 .get(key)
                 .and_then(toml::Value::as_table)
-                .map(|servers| servers.keys().cloned().collect())
-                .unwrap_or_default()
+                .map_or_default(|servers| servers.keys().cloned().collect())
         }
     };
     Some(McpSnapshot {

@@ -148,7 +148,7 @@ fn fetch_offers() -> Vec<LimitReset> {
     }
 
     let Ok(offers) = request_offers() else {
-        return cached.map(|(_, offers)| offers).unwrap_or_default();
+        return cached.map_or_default(|(_, offers)| offers);
     };
     if let Ok(mut guard) = OFFER_CACHE.lock() {
         *guard = Some((Instant::now(), offers.clone()));
@@ -187,8 +187,7 @@ fn request_offers() -> Result<Vec<LimitReset>, OfferUnanswered> {
     Ok(response
         .get(RESET_PROGRAM)
         .and_then(|status| ResetStatus::deserialize(status).ok())
-        .map(offered_resets)
-        .unwrap_or_default())
+        .map_or_default(offered_resets))
 }
 
 fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {

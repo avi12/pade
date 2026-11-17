@@ -256,8 +256,7 @@ pub(super) fn compute_ignore_policy(root: &Path) -> IgnorePolicy {
         };
     }
     let rules = std::fs::read_to_string(root.join(GITIGNORE_FILE_NAME))
-        .map(|content| crate::workspace::gitignore::Rules::parse(&content))
-        .unwrap_or_default();
+        .map_or_default(|content| crate::workspace::gitignore::Rules::parse(&content));
     IgnorePolicy::Static {
         root: root.to_path_buf(),
         directories: static_ignore_directories(root),

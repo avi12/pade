@@ -129,8 +129,7 @@ pub(crate) async fn session_token_usage(
 ) -> Result<SessionTokenUsage, String> {
     tauri::async_runtime::spawn_blocking(move || {
         claude_session_log(&command, conversation_id.as_deref())
-            .map(|log| session_usage(&log, since))
-            .unwrap_or_default()
+            .map_or_default(|log| session_usage(&log, since))
     })
     .await
     .map_err(|error| error.to_string())
@@ -206,9 +205,7 @@ fn is_written_since(transcript: &Path, since: u64) -> bool {
 /// The replies one transcript logged since `since`; none for a transcript gone
 /// between listing and opening.
 fn transcript_replies(transcript: &Path, since: u64) -> Vec<Reply> {
-    File::open(transcript)
-        .map(|file| replies_since(file, since, READ_LIMITS))
-        .unwrap_or_default()
+    File::open(transcript).map_or_default(|file| replies_since(file, since, READ_LIMITS))
 }
 
 /// Counts replies once however many lines repeat them - across transcripts
