@@ -87,6 +87,8 @@ export type SubagentSteps = z.infer<typeof SubagentSteps>;
  *  names it by. */
 const ThrottledSession = z.object({
   sessionId: z.string(),
+  /** The window that holds the session, for bringing it forward. */
+  windowLabel: z.string(),
   name: z.string(),
   isBlockingSpawns: z.boolean(),
   subagents: z.array(
@@ -358,8 +360,10 @@ export function planRound({
   now: number;
 }) {
   const byAccount = new Map<string, SessionReport[]>();
+  const windowLabelBySession = new Map<string, string>();
   for (const report of reports) {
     for (const session of report.sessions) {
+      windowLabelBySession.set(session.id, report.label);
       byAccount.set(session.accountKey, [...(byAccount.get(session.accountKey) ?? []), session]);
     }
   }
@@ -393,6 +397,7 @@ export function planRound({
     for (const session of sessions) {
       plan.throttles.push({
         sessionId: session.id,
+        windowLabel: windowLabelBySession.get(session.id) ?? "",
         name: session.name,
         isBlockingSpawns: account.isBlockingSpawns,
         subagents: session.subagents.flatMap(subagent => {

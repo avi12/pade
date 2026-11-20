@@ -86,16 +86,21 @@ export function createBoardWindows({
     },
     post,
     /** Bring a window forward on the session the user picked. */
-    async focus({ label, sessionId }: { label: string; sessionId?: string }) {
-      if (sessionId !== undefined) {
-        post({
-          kind: BoardMessageKind.enum.focus,
-          label,
-          sessionId
-        });
-      }
-
-      await sendMessage(Command.WINDOW_FOCUS_LABEL, { label });
-    }
+    focus: focusWindowSession
   };
+}
+
+/** Bring a window forward, on one of its sessions when given. */
+export async function focusWindowSession({ label, sessionId }: { label: string; sessionId?: string }) {
+  if (sessionId !== undefined) {
+    const channel = new BroadcastChannel(BOARD_CHANNEL);
+    channel.postMessage({
+      kind: BoardMessageKind.enum.focus,
+      label,
+      sessionId
+    } satisfies BoardMessage);
+    channel.close();
+  }
+
+  await sendMessage(Command.WINDOW_FOCUS_LABEL, { label });
 }

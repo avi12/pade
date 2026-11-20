@@ -2,6 +2,7 @@
   // One session in the usage panel's list of paced subagents: its name, whether
   // it may start new subagents, and each running subagent's step.
 
+  import { focusWindowSession } from "@/lib/dashboard/boardWindows.svelte";
   import { SubagentStepKind } from "@/lib/types/pacing";
   import type { SubagentStep } from "@/lib/types/pacing";
   import { truncationTooltip } from "@/lib/ui/tooltip/truncation-tooltip";
@@ -27,6 +28,13 @@
     return `held ${SECONDS.format(step.holdSeconds)}`;
   }
 
+  async function focusSession() {
+    await focusWindowSession({
+      label: session.windowLabel,
+      sessionId: session.sessionId
+    });
+  }
+
   const rows = $derived(
     session.subagents.map(subagent => ({
       id: subagent.id,
@@ -38,17 +46,19 @@
 </script>
 
 <li>
-  <div class="field-row">
+  <button class="field-row focus" onclick={async () => await focusSession()} type="button">
     <span class="name" {@attach truncationTooltip({ tooltip: session.name })}>{session.name}</span>
     {#if session.isBlockingSpawns}
       <span class="step">spawns blocked</span>
     {/if}
-  </div>
+  </button>
   <ul class="subagents">
     {#each rows as row (row.id)}
-      <li class="field-row">
-        <span class="field-hint description" {@attach truncationTooltip({ tooltip: row.fullLabel })}>{row.label}</span>
-        <span class="step">{row.step}</span>
+      <li>
+        <button class="field-row focus" onclick={async () => await focusSession()} type="button">
+          <span class="field-hint description" {@attach truncationTooltip({ tooltip: row.fullLabel })}>{row.label}</span>
+          <span class="step">{row.step}</span>
+        </button>
       </li>
     {/each}
   </ul>
@@ -65,6 +75,17 @@
     list-style: none;
   }
 
+  .focus {
+    inline-size: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+
   .name {
     overflow: hidden;
     color: var(--on-surface);
@@ -77,6 +98,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .focus:hover {
+    .name,
+    .description {
+      color: var(--primary);
+    }
   }
 
   .step {
