@@ -26,14 +26,58 @@ pub(crate) fn is_recreate_pending() -> bool {
     PENDING_RECREATES.load(Ordering::Relaxed) > 0
 }
 
+/// The address each armed window reopens at, keyed by window label: one entry
+/// per live webview. The entry is the whole contract - a window is watched
+/// exactly while it has one, so arming again only moves the address, and the
+/// crash that takes the entry is the only one that rebuilds the window.
+#[cfg(windows)]
+struct ArmedAddresses(std::collections::BTreeMap<String, tauri::Url>);
+
+#[cfg(windows)]
+impl ArmedAddresses {
+    /// Point `label` at `url`. True when the label had no entry, so its
+    /// webview still needs its one `ProcessFailed` subscription.
+    fn arm(&mut self, label: &str, url: tauri::Url) -> bool {
+        self.0.insert(label.to_string(), url).is_none()
+    }
+
+    /// Hand over `label`'s address and stop tracking it. `None` when a
+    /// rebuild already took it, or the window closed.
+    fn take(&mut self, label: &str) -> Option<tauri::Url> {
+        self.0.remove(label)
+    }
+}
+
+#[cfg(windows)]
+static ARMED_ADDRESSES: std::sync::Mutex<ArmedAddresses> =
+    std::sync::Mutex::new(ArmedAddresses(std::collections::BTreeMap::new()));
+
+#[cfg(windows)]
+fn take_armed_address(label: &str) -> Option<tauri::Url> {
+    ARMED_ADDRESSES.lock().ok()?.take(label)
+}
+
+/// Forget a window that is gone, so a later window under the same label
+/// subscribes its own webview.
+#[cfg(not(windows))]
+pub(crate) fn disarm(_label: &str) {}
+
+/// Forget a window that is gone, so a later window under the same label
+/// subscribes its own webview.
+#[cfg(windows)]
+pub(crate) fn disarm(label: &str) {
+    drop(take_armed_address(label));
+}
+
 /// Arm crash auto-recovery for the calling window. The FRONTEND invokes this
-/// on every boot with its live `location.href`: the frontend is the one party
-/// that always knows the window's real URL - a backend capture at window
-/// creation raced navigation and once rebuilt a crashed window onto
-/// `about:blank` - and a rebuilt window's fresh boot re-arms its replacement
-/// webview by the same route. Re-invocations on the same webview (an HMR
-/// full reload) stack duplicate handlers, which is harmless: a second
-/// recreate finds the label already gone, a second `Reload()` is idempotent.
+/// on every boot, and again whenever its address moves, with its live
+/// `location.href`: the frontend is the one party that always knows the
+/// window's real URL - a backend capture at window creation raced navigation
+/// and once rebuilt a crashed window onto `about:blank` - and a rebuilt
+/// window's fresh boot arms its replacement webview by the same route.
+/// A webview is subscribed once: arming it again (a reload, a project switch)
+/// only updates the address it would reopen at. Stacked subscriptions once
+/// rebuilt a crashed window as many times as it had been armed.
 /// Best-effort: a window that fails to arm just keeps the black-void-until-
 /// manual-restart behavior.
 #[cfg(not(windows))]
@@ -47,30 +91,41 @@ pub fn recovery_arm(_window: WebviewWindow, _url: String) {}
 pub(crate) fn recovery_arm(window: WebviewWindow, url: String) {
     use tauri::Manager;
 
+    let label = window.label().to_string();
     let Ok(url) = tauri::Url::parse(&url) else {
-        eprintln!(
-            "webview crash recovery: unparseable url from {}",
-            window.label()
-        );
+        eprintln!("webview crash recovery: unparseable url from {label}");
         return;
     };
+    let Ok(mut armed_addresses) = ARMED_ADDRESSES.lock() else {
+        eprintln!("webview crash recovery not armed for {label}: its registry is poisoned");
+        return;
+    };
+    let is_first_arm = armed_addresses.arm(&label, url);
+    drop(armed_addresses);
+    if !is_first_arm {
+        return;
+    }
 
     let app = window.app_handle().clone();
-    let label = window.label().to_string();
-    let armed = window.with_webview({
+    let subscribed = window.with_webview({
         let label = label.clone();
         move |platform_webview| {
             let watched = webview_recovery::watch_process_failed(
                 &platform_webview.controller(),
-                Box::new(move || recreate(&app, &label, &url)),
+                Box::new({
+                    let label = label.clone();
+                    move || recreate(&app, &label)
+                }),
             );
             if let Err(error) = watched {
                 eprintln!("webview crash recovery not armed: {error}");
+                disarm(&label);
             }
         }
     });
-    if let Err(error) = armed {
+    if let Err(error) = subscribed {
         eprintln!("webview crash recovery not armed for {label}: {error}");
+        disarm(&label);
     }
 }
 
@@ -86,11 +141,15 @@ struct Placement {
 /// Replace `label`'s window after its browser process died. Runs inside the
 /// COM callback on the event-loop thread: capture placement, destroy, then
 /// hand the rebuild to a worker thread (building a webview window on the
-/// event-loop thread deadlocks - see `window_create`).
+/// event-loop thread deadlocks - see `window_create`). Taking the armed
+/// address is what keeps this to one rebuild per crash.
 #[cfg(windows)]
-fn recreate(app: &tauri::AppHandle, label: &str, url: &tauri::Url) {
+fn recreate(app: &tauri::AppHandle, label: &str) {
     use tauri::Manager;
 
+    let Some(url) = take_armed_address(label) else {
+        return;
+    };
     let Some(crashed) = app.get_webview_window(label) else {
         return;
     };
@@ -108,7 +167,6 @@ fn recreate(app: &tauri::AppHandle, label: &str, url: &tauri::Url) {
     }
     let app = app.clone();
     let label = label.to_string();
-    let url = url.clone();
     std::thread::spawn(move || {
         rebuild(&app, &label, &url, &placement);
         PENDING_RECREATES.fetch_sub(1, Ordering::Relaxed);
@@ -158,5 +216,51 @@ fn rebuild(app: &tauri::AppHandle, label: &str, url: &tauri::Url, placement: &Pl
     };
     if placement.is_maximized {
         let _ = window.maximize();
+    }
+}
+
+#[cfg(test)]
+#[cfg(windows)]
+mod tests {
+    use super::ArmedAddresses;
+
+    fn address(query: &str) -> tauri::Url {
+        tauri::Url::parse(&format!("http://localhost:1430/?{query}")).expect("a valid test url")
+    }
+
+    fn empty() -> ArmedAddresses {
+        ArmedAddresses(std::collections::BTreeMap::new())
+    }
+
+    #[test]
+    fn only_the_first_arm_of_a_window_asks_for_a_subscription() {
+        let mut armed = empty();
+        assert!(armed.arm("w-1", address("w=empty")));
+        assert!(!armed.arm("w-1", address("w=empty")));
+        assert!(armed.arm("w-2", address("w=empty")));
+    }
+
+    #[test]
+    fn arming_again_moves_the_address_a_rebuild_reopens() {
+        let mut armed = empty();
+        armed.arm("w-1", address("w=empty"));
+        armed.arm("w-1", address("w=temp"));
+        assert_eq!(armed.take("w-1"), Some(address("w=temp")));
+    }
+
+    #[test]
+    fn a_crash_is_taken_once_however_many_handlers_report_it() {
+        let mut armed = empty();
+        armed.arm("w-1", address("w=empty"));
+        assert!(armed.take("w-1").is_some());
+        assert!(armed.take("w-1").is_none());
+    }
+
+    #[test]
+    fn a_rebuilt_window_subscribes_its_new_webview() {
+        let mut armed = empty();
+        armed.arm("w-1", address("w=empty"));
+        armed.take("w-1");
+        assert!(armed.arm("w-1", address("w=empty")));
     }
 }

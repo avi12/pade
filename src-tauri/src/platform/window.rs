@@ -172,6 +172,7 @@ pub(crate) fn on_destroyed(window: &Window) {
     if let Some(previous) = previous {
         mark_left_in_background(previous);
     }
+    crate::platform::recovery::disarm(window.label());
     if !crate::platform::recovery::is_recreate_pending() {
         crate::terminal::pty::kill_owned(window.app_handle(), window.label());
         crate::platform::window_handoff::forget(window.app_handle(), window.label());

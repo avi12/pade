@@ -51,7 +51,7 @@ export function syncWindowAddress({
   // telling the truth - the project on screen, else the picker - so even a
   // snapshot-less reload (all sessions had exited) lands on the right screen.
   // A crash rebuild reopens the address it was armed with, so the arming
-  // follows the address (duplicate arms on one webview are harmless).
+  // follows the address (arming again only moves the address it reopens).
   $effect(() => {
     if (!isBooted()) {
       return;
