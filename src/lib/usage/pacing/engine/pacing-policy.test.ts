@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { PacedWindowKind } from "@/lib/types/pacing";
 import { CreditsState, UsageWindowKind } from "@/lib/types/usage";
 import {
   isPacingOn,
@@ -11,7 +10,7 @@ import {
   pacingWhen,
   spokenTime
 } from "@/lib/usage/pacing/engine/pacing-policy";
-import { paceForecasts, RESET_GRACE_MS } from "@/lib/usage/pacing/engine/usage-pace";
+import { paceForecasts } from "@/lib/usage/pacing/engine/usage-pace";
 import type { PaceForecast } from "@/lib/usage/pacing/engine/usage-pace";
 
 const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();
@@ -22,11 +21,13 @@ const DAY_MS = 24 * HOUR_MS;
 function forecast({
   utilization,
   runsOutIn,
-  resetsIn
+  resetsIn,
+  keep = 1
 }: {
   utilization: number;
   runsOutIn: number | null;
   resetsIn: number;
+  keep?: number | null;
 }) {
   return {
     window: {
@@ -39,8 +40,7 @@ function forecast({
     resetAt: NOW + resetsIn,
     runOutAt: runsOutIn === null ? null : NOW + runsOutIn,
     isMeasured: true,
-    onPaceAt: runsOutIn === null ? null : NOW + resetsIn - RESET_GRACE_MS - runsOutIn,
-    evenPercentage: null
+    keep
   } satisfies PaceForecast;
 }
 
@@ -51,7 +51,6 @@ function sessionPreview({
   slowedCount?: number;
 }) {
   return pacingPreview({
-    kind: PacedWindowKind.enum.session,
     forecast: forecast(shape),
     slowedCount,
     now: NOW
@@ -67,10 +66,9 @@ describe("isPacingOn", () => {
 });
 
 describe("pacingPreview", () => {
-  it("slows the week once it spends well ahead of an even week", () => {
+  it("slows the week once it spends faster than what is left lasts", () => {
     const resetsIn = 3 * DAY_MS;
     const preview = pacingPreview({
-      kind: PacedWindowKind.enum.weekly,
       forecast:
         paceForecasts({
           account: {
@@ -88,7 +86,7 @@ describe("pacingPreview", () => {
             credits: CreditsState.enum.off
           },
           now: NOW,
-          rateOf: () => null
+          rateOf: () => 2 / HOUR_MS
         }).weekly ?? null,
       slowedCount: 0,
       now: NOW
@@ -108,12 +106,13 @@ describe("pacingPreview", () => {
     expect(preview?.action).toBe("Slowing 2 sessions so it lasts");
   });
 
-  it("still acts close to the reset, when the built-in slack is longer than the time left", () => {
+  it("slows the next working session once the window keeps less than its spend", () => {
     expect(
       sessionPreview({
         utilization: 99,
         runsOutIn: 2 * MINUTE_MS,
-        resetsIn: 16 * MINUTE_MS
+        resetsIn: 16 * MINUTE_MS,
+        keep: 0.4
       })?.action
     ).toBe("Slowing down the next working session");
   });
@@ -122,14 +121,14 @@ describe("pacingPreview", () => {
     const preview = sessionPreview({
       utilization: 80,
       runsOutIn: 3 * HOUR_MS - 20 * MINUTE_MS,
-      resetsIn: 3 * HOUR_MS
+      resetsIn: 3 * HOUR_MS,
+      keep: 0.97
     });
     expect(preview?.action).toBe("On pace - nothing to slow");
   });
 
   it("tells a pace still being measured from one that lasts", () => {
     const measuring = pacingPreview({
-      kind: PacedWindowKind.enum.session,
       forecast: {
         ...forecast({
           utilization: 50,
@@ -154,7 +153,6 @@ describe("pacingPreview", () => {
   it("shows nothing for a limit not read yet", () => {
     expect(
       pacingPreview({
-        kind: PacedWindowKind.enum.session,
         forecast: null,
         slowedCount: 0,
         now: NOW
@@ -175,7 +173,6 @@ describe("pacingFacts", () => {
         verdict: {
           windowKind: UsageWindowKind.enum.session,
           utilization: 85,
-          runOutAt: NOW + HOUR_MS,
           readyAt: NOW + HOUR_MS
         },
         choice: {
@@ -186,7 +183,7 @@ describe("pacingFacts", () => {
       })
     ).toEqual([
       {
-        text: "session window at 85% - runs out before its reset",
+        text: "session window at 85% - spending faster than it lasts, back on pace",
         time: NOW + HOUR_MS
       },
       {
@@ -200,12 +197,11 @@ describe("pacingFacts", () => {
     ]);
   });
 
-  it("says a weekly window is ahead of an even spend, and when it is back on pace", () => {
+  it("says when a weekly window is back on pace", () => {
     const [verdict] = pacingFacts({
       verdict: {
         windowKind: UsageWindowKind.enum.weekly,
         utilization: 80,
-        runOutAt: NOW,
         readyAt: NOW + DAY_MS
       },
       choice: null,
@@ -216,7 +212,7 @@ describe("pacingFacts", () => {
       })
     });
     expect(verdict).toEqual({
-      text: "weekly window at 80% - ahead of an even spend, back on pace",
+      text: "weekly window at 80% - spending faster than it lasts, back on pace",
       time: NOW + DAY_MS
     });
   });

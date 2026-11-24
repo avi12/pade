@@ -374,6 +374,7 @@ mod tests {
             session: session.clone(),
             throttle: ThrottledSession {
                 session_id: "s".to_string(),
+                window_label: "main".to_string(),
                 name: "n".to_string(),
                 is_blocking_spawns: true,
                 subagents: Vec::new(),

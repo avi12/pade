@@ -353,6 +353,7 @@ fn a_well_formed_plan_crosses_the_wire_and_a_malformed_one_is_refused() {
 fn writes_a_throttle_as_the_control_file_holds_it() {
     let throttle = ThrottledSession {
         session_id: "s".to_string(),
+        window_label: "main".to_string(),
         name: "s".to_string(),
         is_blocking_spawns: false,
         subagents: vec![ThrottledSubagent {

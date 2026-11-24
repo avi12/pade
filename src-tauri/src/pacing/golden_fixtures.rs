@@ -18,20 +18,18 @@ use crate::pacing::account_round::{
 };
 use crate::pacing::load_shedding::{
     cost_weight, plan_shedding, shed_fraction, CostWeightParams, Load, PlanSheddingParams,
-    ShedCandidate, ShedFractionParams,
+    ShedCandidate,
 };
-use crate::pacing::policy::pacing_margin;
 use crate::pacing::subagent_steps::{
     eased_subagent_step, hold_for_saving, next_subagent_step, NextStepParams, SubagentStep,
 };
-use crate::pacing::test_support::{account, assert_json_close, session_window, NOW};
-use crate::pacing::units::{BurnRate, EpochMilliseconds, Fraction, SpanMilliseconds};
+use crate::pacing::test_support::{account, assert_json_close, NOW};
+use crate::pacing::units::{BurnRate, EpochMilliseconds, Fraction};
 use crate::pacing::usage_pace::{
-    assess_pace, burn_rate, even_spend_reached_at, has_room_to_spare, is_forecast_over_pace,
-    is_rest_enough, pace_forecasts, slow_rest_until, work_rhythm, working_runway, AssessPaceParams,
-    BindingWindow, ForecastOverPaceParams, HasRoomParams, PaceForecast, PaceForecastsParams,
-    PacedWindowKind, RestEnoughParams, SlowRestParams, UsageSample, WorkRhythmParams,
-    WorkingRunwayParams,
+    assess_pace, burn_rate, has_room_to_spare, is_forecast_over_pace, pace_forecasts,
+    projected_rate, slow_rest_until, work_rhythm, AssessPaceParams, BindingWindow, HasRoomParams,
+    PaceForecast, PaceForecastsParams, PacedWindowKind, ProjectedRateParams, SlowRestParams,
+    UsageSample,
 };
 use crate::usage::UsageWindow;
 
@@ -69,7 +67,6 @@ impl<Number: Copy> PerKind<Number> {
 struct PaceInputs {
     windows: Vec<UsageWindow>,
     rates: PerKind<f64>,
-    margins: PerKind<f64>,
     is_paused: bool,
 }
 
@@ -78,10 +75,6 @@ impl PaceInputs {
         PacedWindowKind::from_window_kind(window.kind)
             .and_then(|kind| self.rates.for_kind(kind))
             .map(BurnRate::new)
-    }
-
-    fn margin_of(&self, kind: PacedWindowKind) -> Option<SpanMilliseconds> {
-        self.margins.for_kind(kind).map(SpanMilliseconds::new)
     }
 }
 
@@ -103,7 +96,6 @@ struct ForecastCase {
 #[derive(Deserialize)]
 struct ForecastOverPaceCase {
     forecast: PaceForecast,
-    margin: f64,
     expected: bool,
 }
 
@@ -114,44 +106,27 @@ struct BurnRateCase {
 }
 
 #[derive(Deserialize)]
-struct EvenSpendCase {
-    window: UsageWindow,
-    expected: f64,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct WorkingRunwayCase {
-    window: UsageWindow,
-    rate: f64,
-    ready_at: f64,
-    continue_at: f64,
-    expected: f64,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct WorkRhythmCase {
-    runway: f64,
-    time_left: f64,
+    duty: f64,
     expected: Value,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SlowRestCase {
-    runway: f64,
+    keep: f64,
     ready_at: f64,
-    continue_at: f64,
     now: f64,
-    expected_rest_until: f64,
-    expected_is_rest_enough: bool,
+    expected: f64,
 }
 
 #[derive(Deserialize)]
-struct MarginCase {
-    kind: PacedWindowKind,
-    expected: f64,
+#[serde(rename_all = "camelCase")]
+struct ProjectedRateCase {
+    measured: Option<f64>,
+    rate_per_load: Option<f64>,
+    load: f64,
+    expected: Option<f64>,
 }
 
 #[derive(Deserialize)]
@@ -162,11 +137,9 @@ struct UsagePaceFixture {
     pace_forecasts: Vec<ForecastCase>,
     is_forecast_over_pace: Vec<ForecastOverPaceCase>,
     burn_rate: Vec<BurnRateCase>,
-    even_spend_reached_at: Vec<EvenSpendCase>,
-    working_runway: Vec<WorkingRunwayCase>,
     work_rhythm: Vec<WorkRhythmCase>,
     slow_rest: Vec<SlowRestCase>,
-    pacing_margin: Vec<MarginCase>,
+    projected_rate: Vec<ProjectedRateCase>,
 }
 
 fn usage_pace_fixture() -> UsagePaceFixture {
@@ -182,10 +155,6 @@ fn epoch(milliseconds: f64) -> EpochMilliseconds {
     EpochMilliseconds::new(milliseconds)
 }
 
-fn span(milliseconds: f64) -> SpanMilliseconds {
-    SpanMilliseconds::new(milliseconds)
-}
-
 /// What the TypeScript reports of the binding window: everything but the window
 /// it echoes.
 fn binding_json(binding: Option<&BindingWindow>) -> Value {
@@ -196,6 +165,7 @@ fn binding_json(binding: Option<&BindingWindow>) -> Value {
     json!({
         "kind": binding.kind,
         "rate": binding.rate,
+        "keep": binding.keep,
         "readyAt": binding.ready_at,
         "continueAt": binding.continue_at,
     })
@@ -206,13 +176,11 @@ fn assess_pace_and_room_to_spare_agree_with_the_typescript_over_the_grid_and_the
     for (i, case) in usage_pace_fixture().pace_cases.iter().enumerate() {
         let inputs = &case.inputs;
         let usage = account(inputs.windows.clone());
-        let margin_of = |kind| inputs.margin_of(kind);
         let rate_of = |window: &UsageWindow| inputs.rate_of(window);
         let binding = assess_pace(AssessPaceParams {
             account: Some(&usage),
             now: NOW,
             is_paused: inputs.is_paused,
-            margin_of: &margin_of,
             rate_of: &rate_of,
         });
         assert_json_close(
@@ -224,7 +192,6 @@ fn assess_pace_and_room_to_spare_agree_with_the_typescript_over_the_grid_and_the
         let has_room = has_room_to_spare(HasRoomParams {
             account: Some(&usage),
             now: NOW,
-            margin_of: &margin_of,
             rate_of: &rate_of,
         });
         assert_eq!(has_room, case.has_room_to_spare, "hasRoomToSpare case {i}");
@@ -257,11 +224,7 @@ fn forecast_over_pace_agrees_with_the_typescript() {
         .iter()
         .enumerate()
     {
-        let is_over = is_forecast_over_pace(ForecastOverPaceParams {
-            forecast: &case.forecast,
-            margin: span(case.margin),
-            now: NOW,
-        });
+        let is_over = is_forecast_over_pace(&case.forecast);
         assert_eq!(is_over, case.expected, "isForecastOverPace case {i}");
     }
 }
@@ -279,45 +242,9 @@ fn burn_rate_agrees_with_the_typescript() {
 }
 
 #[test]
-fn even_spend_agrees_with_the_typescript() {
-    for (i, case) in usage_pace_fixture()
-        .even_spend_reached_at
-        .iter()
-        .enumerate()
-    {
-        let reached = even_spend_reached_at(&case.window).map(EpochMilliseconds::get);
-        assert_json_close(
-            &json!(reached),
-            &json!(case.expected),
-            &format!("evenSpendReachedAt case {i}"),
-        );
-    }
-}
-
-#[test]
-fn working_runway_agrees_with_the_typescript() {
-    for (i, case) in usage_pace_fixture().working_runway.iter().enumerate() {
-        let runway = working_runway(WorkingRunwayParams {
-            window: &case.window,
-            rate: BurnRate::new(case.rate),
-            ready_at: epoch(case.ready_at),
-            continue_at: epoch(case.continue_at),
-        });
-        assert_json_close(
-            &json!(runway.get()),
-            &json!(case.expected),
-            &format!("workingRunway case {i}"),
-        );
-    }
-}
-
-#[test]
 fn work_rhythm_agrees_with_the_typescript() {
     for (i, case) in usage_pace_fixture().work_rhythm.iter().enumerate() {
-        let rhythm = work_rhythm(WorkRhythmParams {
-            runway: span(case.runway),
-            time_left: span(case.time_left),
-        });
+        let rhythm = work_rhythm(Fraction::new(case.duty));
         assert_json_close(
             &to_json(&rhythm),
             &case.expected,
@@ -327,38 +254,33 @@ fn work_rhythm_agrees_with_the_typescript() {
 }
 
 #[test]
-fn slow_rest_and_rest_enough_agree_with_the_typescript() {
+fn slow_rest_agrees_with_the_typescript() {
     for (i, case) in usage_pace_fixture().slow_rest.iter().enumerate() {
         let rest_until = slow_rest_until(SlowRestParams {
-            runway: span(case.runway),
+            keep: Fraction::new(case.keep),
             ready_at: epoch(case.ready_at),
-            continue_at: epoch(case.continue_at),
             now: epoch(case.now),
         });
         assert_json_close(
             &json!(rest_until.get()),
-            &json!(case.expected_rest_until),
+            &json!(case.expected),
             &format!("slowRestUntil case {i}"),
-        );
-        let is_enough = is_rest_enough(RestEnoughParams {
-            runway: span(case.runway),
-            continue_at: epoch(case.continue_at),
-            now: epoch(case.now),
-        });
-        assert_eq!(
-            is_enough, case.expected_is_rest_enough,
-            "isRestEnough case {i}"
         );
     }
 }
 
 #[test]
-fn pacing_margins_agree_with_the_typescript() {
-    for case in &usage_pace_fixture().pacing_margin {
+fn projected_rate_agrees_with_the_typescript() {
+    for (i, case) in usage_pace_fixture().projected_rate.iter().enumerate() {
+        let rate = projected_rate(ProjectedRateParams {
+            measured: case.measured.map(BurnRate::new),
+            rate_per_load: case.rate_per_load.map(BurnRate::new),
+            load: Load::new(case.load),
+        });
         assert_json_close(
-            &json!(pacing_margin(case.kind).get()),
+            &json!(rate.map(BurnRate::get)),
             &json!(case.expected),
-            &format!("pacingMargin {:?}", case.kind),
+            &format!("projectedRate case {i}"),
         );
     }
 }
@@ -372,19 +294,18 @@ struct CostWeightCase {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct ShedFractionCase {
-    utilization: f64,
-    time_left: f64,
-    rate: Option<f64>,
+    keep: f64,
     expected: Option<f64>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PlanCandidate {
     id: String,
     load: f64,
     saving: f64,
+    fan_out: u32,
 }
 
 #[derive(Deserialize)]
@@ -423,13 +344,7 @@ fn load_shedding_agrees_with_the_typescript() {
     }
 
     for (i, case) in fixture.shed_fraction.iter().enumerate() {
-        let window = session_window(case.utilization, span(case.time_left));
-        let shed = shed_fraction(ShedFractionParams {
-            window: &window,
-            rate: case.rate.map(BurnRate::new),
-            free_at: NOW + span(case.time_left),
-            now: NOW,
-        });
+        let shed = shed_fraction(Fraction::new(case.keep));
         assert_json_close(
             &json!(shed.map(Fraction::get)),
             &json!(case.expected),
@@ -445,6 +360,7 @@ fn load_shedding_agrees_with_the_typescript() {
                 id: candidate.id.clone(),
                 load: Load::new(candidate.load),
                 saving: Fraction::new(candidate.saving),
+                fan_out: candidate.fan_out,
             })
             .collect();
         let chosen = plan_shedding(PlanSheddingParams {

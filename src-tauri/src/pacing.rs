@@ -7,7 +7,8 @@
 //!   (regenerate them with `scripts/pacing-fixtures.ts`). Its submodules, one
 //!   concern each: `units` (the typed numbers the formula computes in),
 //!   `reset_time` (a window's reset string as a point in time), `usage_pace`
-//!   (the pace formula), `policy` (its margins), `load_shedding` (sharing an
+//!   (the pace formula: the share of its spend each window lets an account
+//!   keep), `policy` (the steps pacing climbs), `load_shedding` (sharing an
 //!   account's slowdown among its sessions), `subagent_steps` (the holds on a
 //!   running subagent), `account_round` (one round over every session on every
 //!   account), and the model reads they price by - `model_label`, `model_cost`
@@ -388,9 +389,9 @@ mod tests {
 
     #[test]
     fn a_stop_both_sides_took_is_an_agreement() {
-        let engine = engine_that_measured(80.0);
+        let engine = engine_that_measured(95.0);
         engine.submit(report(&stop_observed(NOW)));
-        let writes = pass(&engine, NOW, 80.0);
+        let writes = pass(&engine, NOW, 95.0);
 
         let summary = engine.summary();
         assert_eq!(summary.counts[&ObservedKind::Stop].agree, 1);
@@ -401,16 +402,16 @@ mod tests {
 
     #[test]
     fn a_stop_the_window_never_reports_becomes_a_disagreement_a_tick_later() {
-        let engine = engine_that_measured(80.0);
+        let engine = engine_that_measured(95.0);
         engine.submit(report(&serde_json::json!([])));
-        let first = pass(&engine, NOW, 80.0);
+        let first = pass(&engine, NOW, 95.0);
         assert_eq!(first.log_line, None);
 
         let later = NOW + SpanMilliseconds::from_minutes(1.0);
         let mut next = report(&serde_json::json!([]));
         next.time = later;
         engine.submit(next);
-        pass(&engine, later, 80.0);
+        pass(&engine, later, 95.0);
         let summary = engine.summary();
         assert_eq!(summary.counts[&ObservedKind::Stop].disagree, 1);
         assert_eq!(summary.last_disagreements[0].observed, None);

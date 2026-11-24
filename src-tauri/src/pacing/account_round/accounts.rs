@@ -22,19 +22,32 @@ enum ShedTarget {
     Subagent(String),
 }
 
-/// Every running subagent of an account's sessions, under its round key.
-fn subagents_of(sessions: &[&SessionReport]) -> Vec<(String, Load)> {
+/// How many ways a session fans its work out: itself and each subagent it runs.
+fn fan_out_of(session: &SessionReport) -> u32 {
+    u32::try_from(session.subagents.len())
+        .unwrap_or(u32::MAX)
+        .saturating_add(1)
+}
+
+/// A running subagent under its round key, with its session's fan-out.
+struct RunningSubagent {
+    key: String,
+    load: Load,
+    fan_out: u32,
+}
+
+/// Every running subagent of an account's sessions.
+fn subagents_of(sessions: &[&SessionReport]) -> Vec<RunningSubagent> {
     sessions
         .iter()
         .flat_map(|session| {
-            session.subagents.iter().map(|subagent| {
-                (
-                    subagent_key(SubagentKeyParts {
-                        session_id: &session.id,
-                        subagent_id: &subagent.id,
-                    }),
-                    subagent.load,
-                )
+            session.subagents.iter().map(|subagent| RunningSubagent {
+                key: subagent_key(SubagentKeyParts {
+                    session_id: &session.id,
+                    subagent_id: &subagent.id,
+                }),
+                load: subagent.load,
+                fan_out: fan_out_of(session),
             })
         })
         .collect()
@@ -80,7 +93,7 @@ fn ease_account(inputs: AccountInputs<'_>) -> AccountPlan {
     } = inputs;
     let has_room = sessions.iter().all(|session| session.has_room);
     let mut next_steps = SubagentSteps::new();
-    for (key, _) in subagents_of(sessions) {
+    for RunningSubagent { key, .. } in subagents_of(sessions) {
         let held = steps.get(&key).copied();
         let kept = match held {
             Some(current) if has_room => eased_subagent_step(current),
@@ -139,22 +152,24 @@ fn shed_candidates(
                 id: ShedTarget::Session(session.id.clone()),
                 load: session.load,
                 saving: over_pace.saving,
+                fan_out: fan_out_of(session),
             });
         }
     }
 
     let mut moves = HashMap::new();
-    for (key, load) in subagents_of(sessions) {
+    for subagent in subagents_of(sessions) {
         let next = next_subagent_step(NextStepParams {
-            current: steps.get(&key).copied(),
+            current: steps.get(&subagent.key).copied(),
             shed,
         });
         if let Some(next) = next {
-            moves.insert(key.clone(), next.step);
+            moves.insert(subagent.key.clone(), next.step);
             candidates.push(ShedCandidate {
-                id: ShedTarget::Subagent(key),
-                load,
+                id: ShedTarget::Subagent(subagent.key),
+                load: subagent.load,
                 saving: next.saving,
+                fan_out: subagent.fan_out,
             });
         }
     }
@@ -173,7 +188,7 @@ fn shed_account(inputs: AccountInputs<'_>) -> AccountPlan {
     let total_load: Load = sessions
         .iter()
         .map(|session| session.load)
-        .chain(subagents.iter().map(|(_, load)| *load))
+        .chain(subagents.iter().map(|subagent| subagent.load))
         .sum();
     let (candidates, moves) = shed_candidates(inputs, shed);
     let chosen = plan_shedding(PlanSheddingParams {
@@ -182,7 +197,7 @@ fn shed_account(inputs: AccountInputs<'_>) -> AccountPlan {
         fraction: shed,
     });
     let mut next_steps = SubagentSteps::new();
-    for (key, _) in &subagents {
+    for RunningSubagent { key, .. } in &subagents {
         let is_chosen = chosen.contains(&ShedTarget::Subagent(key.clone()));
         let kept = if is_chosen {
             moves.get(key).copied()

@@ -12,7 +12,9 @@
 //   * over pace, every candidate - each session by its own share (its running
 //     subagents excluded), each running subagent by its own - offers its next
 //     step and what it saves, and the steps go to the biggest share of the
-//     account saved first until they cover what the account must shed
+//     account saved, weighted by the session's fan-out (1 + its subagents, so
+//     a session fanning work out is slowed before a lone one), first until
+//     they cover what the account must shed
 //     (`planShedding`). A session's step goes back to its own window to take;
 //     a subagent's step (lib/usage/pacing/engine/subagent-steps) is applied by the
 //     leader straight to the session's pacing control file, which the agent's
@@ -172,7 +174,13 @@ const REPORT_LIFETIME_POLLS = 2.5;
 const SESSION_CANDIDATE = "session:";
 const SUBAGENT_CANDIDATE = "subagent:";
 
-/** Every running subagent of an account's sessions, under its round key. */
+/** How many ways a session fans its work out: itself and each subagent it runs. */
+function fanOutOf(session: SessionReport) {
+  return 1 + session.subagents.length;
+}
+
+/** Every running subagent of an account's sessions, under its round key, with
+ *  its session's fan-out. */
 function subagentsOf(sessions: readonly SessionReport[]) {
   return sessions.flatMap(session =>
     session.subagents.map(subagent => ({
@@ -180,7 +188,8 @@ function subagentsOf(sessions: readonly SessionReport[]) {
         sessionId: session.id,
         subagentId: subagent.id
       }),
-      load: subagent.load
+      load: subagent.load,
+      fanOut: fanOutOf(session)
     }))
   );
 }
@@ -243,7 +252,8 @@ function shedCandidates({
       candidates.push({
         id: `${SESSION_CANDIDATE}${session.id}`,
         load: session.load,
-        saving: session.overPace.saving
+        saving: session.overPace.saving,
+        fanOut: fanOutOf(session)
       });
     }
   }
@@ -259,7 +269,8 @@ function shedCandidates({
       candidates.push({
         id: `${SUBAGENT_CANDIDATE}${subagent.key}`,
         load: subagent.load,
-        saving: next.saving
+        saving: next.saving,
+        fanOut: subagent.fanOut
       });
     }
   }

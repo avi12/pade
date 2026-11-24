@@ -1,15 +1,14 @@
 //! A paced window's live forecast for the Config panel: when it runs out at its
-//! pace, when it would be back on pace, and whether that is over pace now, by the
-//! same rule the pacing loop acts on.
+//! pace, the share of its spend the account may keep, and whether that is over
+//! pace now, by the same rule the pacing loop acts on.
 
 use serde::{Deserialize, Serialize};
 
 use super::{
-    even_spend_percentage, is_too_far_ahead, on_pace_time, reset_time_of, runway_of,
-    utilization_of, OnPaceParams, PacedWindowKind, RateOf, TooFarAheadParams, MINIMUM_RATE_SPAN_MS,
-    PACE_FLOOR_PERCENTAGE, RESET_GRACE_MS, WEEKLY_WINDOW_MS,
+    paced_window, reset_time_of, utilization_of, PaceCheck, PacedWindowKind, RateOf,
+    MINIMUM_RATE_SPAN_MS, SLOW_DOWN_KEEP, WEEKLY_WINDOW_MS,
 };
-use crate::pacing::units::{EpochMilliseconds, Percentage, SpanMilliseconds};
+use crate::pacing::units::{EpochMilliseconds, Fraction, Percentage};
 use crate::usage::{AccountUsage, UsageWindow};
 
 /// One paced window's live line for the Config panel (`pace_forecasts`).
@@ -23,41 +22,16 @@ pub struct PaceForecast {
     pub run_out_at: Option<EpochMilliseconds>,
     /// Whether enough working time is behind the pace to judge it.
     pub is_measured: bool,
-    /// When it would be back on pace if its agents stopped now.
-    pub on_pace_at: Option<EpochMilliseconds>,
-    /// A weekly window's even spend by now - `None` for a session.
-    pub even_percentage: Option<Percentage>,
-}
-
-#[derive(Clone, Copy)]
-pub struct ForecastOverPaceParams<'a> {
-    pub forecast: &'a PaceForecast,
-    pub margin: SpanMilliseconds,
-    pub now: EpochMilliseconds,
+    /// The share of its spend the account may keep (`usage_pace`), `None` while
+    /// its pace isn't measured or the window is about to reset.
+    pub keep: Option<Fraction>,
 }
 
 /// Whether a forecast is over pace now - what the Config panel's live line asks,
 /// by the same rule the pacing loop acts on.
 #[must_use]
-pub fn is_forecast_over_pace(params: ForecastOverPaceParams<'_>) -> bool {
-    let ForecastOverPaceParams {
-        forecast,
-        margin,
-        now,
-    } = params;
-    let free_at = forecast.reset_at - RESET_GRACE_MS;
-    let is_paced_now = utilization_of(&forecast.window) >= PACE_FLOOR_PERCENTAGE && free_at > now;
-    let Some(on_pace_at) = forecast.on_pace_at else {
-        return false;
-    };
-
-    is_paced_now
-        && is_too_far_ahead(TooFarAheadParams {
-            on_pace_at,
-            free_at,
-            margin,
-            now,
-        })
+pub fn is_forecast_over_pace(forecast: &PaceForecast) -> bool {
+    forecast.keep.is_some_and(|keep| keep < SLOW_DOWN_KEEP)
 }
 
 /// Every paced window's forecast, by kind.
@@ -132,6 +106,8 @@ struct ForecastParams<'a> {
     rate_of: RateOf<'a>,
 }
 
+/// A session window runs out at its measured burn; a weekly window at its
+/// average spend since it started, nights and breaks included.
 fn forecast_of(params: ForecastParams<'_>) -> PaceForecast {
     let ForecastParams {
         kind,
@@ -140,31 +116,30 @@ fn forecast_of(params: ForecastParams<'_>) -> PaceForecast {
         now,
         rate_of,
     } = params;
-    let free_at = reset_at - RESET_GRACE_MS;
-    let rate = match kind {
+    let rate = rate_of(window);
+    let run_out_rate = match kind {
         PacedWindowKind::Weekly => {
             let elapsed = (now - (reset_at - WEEKLY_WINDOW_MS)).longer(MINIMUM_RATE_SPAN_MS);
             Some(utilization_of(window) / elapsed)
         }
-        PacedWindowKind::Session => rate_of(window),
+        PacedWindowKind::Session => rate,
     };
-    let even_percentage = match kind {
-        PacedWindowKind::Weekly => Some(even_spend_percentage(reset_at, now)),
-        PacedWindowKind::Session => None,
-    };
+    let keep = paced_window(window, now).zip(rate).map(|(paced, rate)| {
+        PaceCheck {
+            paced,
+            window,
+            rate,
+            now,
+        }
+        .keep()
+    });
     PaceForecast {
         window: window.clone(),
         reset_at,
-        run_out_at: rate
+        run_out_at: run_out_rate
             .filter(|rate| rate.is_positive())
-            .map(|rate| now + runway_of(window, rate)),
+            .map(|rate| now + (Percentage::FULL - utilization_of(window)) / rate),
         is_measured: rate.is_some(),
-        on_pace_at: on_pace_time(OnPaceParams {
-            kind,
-            window,
-            free_at,
-            rate,
-        }),
-        even_percentage,
+        keep,
     }
 }

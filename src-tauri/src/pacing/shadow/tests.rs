@@ -146,6 +146,7 @@ fn the_throttle_and_the_restore_are_not_compared() {
             session: SessionId::new("a"),
             throttle: ThrottledSession {
                 session_id: "a".to_string(),
+                window_label: "main".to_string(),
                 name: "a".to_string(),
                 is_blocking_spawns: true,
                 subagents: Vec::new(),

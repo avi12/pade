@@ -15,10 +15,18 @@
 // with the model's price the same list-price ratio the measured tokens are
 // priced by (Haiku 1, Sonnet 4, Opus 8, Fable 20), and the estimate rescaled
 // onto the measured sessions' scale (`measuredPerEstimated`) so both kinds of
-// load share one account. The account must shed the fraction its burn runs over the pace that lasts
-// to the reset:
+// load share one account. The account must shed what its window doesn't let it
+// keep (lib/usage/pacing/engine/usage-pace):
 //
-//     shed = 1 - target rate / measured rate,  target = left / time to reset
+//     shed = 1 - keep share
+//
+// The biggest saving goes first, so a session on a dear model - Fable, whose
+// step down to Opus saves more than half of a large load - is the first slowed.
+// A session fanning work out to subagents multiplies its spend, so its steps
+// and its subagents' rank by their saving times its fan-out (1 + the subagents
+// it runs): a session running three subagents gives way about four times
+// sooner than a lone one spending as much, and a lone session is slowed only
+// when the fanned-out ones can't cover the shed.
 //
 // Every candidate session offers its next step and what that step would save
 // (a fraction of its own load). The steps are taken in order of the share of
@@ -28,7 +36,6 @@
 
 import { effortStep } from "@/lib/model/model-label";
 import type { ModelChoice } from "@/lib/types/agent";
-import type { UsageWindow } from "@/lib/types/usage";
 import { priceRatio } from "@/lib/usage/pacing/engine/token-price";
 
 /** An effort ladder spans these weights, lowest level to highest - more effort
@@ -37,7 +44,6 @@ const LOWEST_EFFORT_WEIGHT = 0.5;
 const HIGHEST_EFFORT_WEIGHT = 1.5;
 /** A model with no effort, or a level no ladder knows, sits at the middle. */
 const MIDDLE_EFFORT_WEIGHT = 1;
-const FULL_PERCENTAGE = 100;
 
 /** What a choice costs per working minute, relative to the others. */
 export function costWeight({
@@ -99,28 +105,11 @@ export function measuredPerEstimated(
   return isComparable ? measured / estimated : 1;
 }
 
-/** The fraction of its spend an account must shed to last until `freeAt` -
- *  null while its burn isn't measured, or when it is already on pace. */
-export function shedFraction({
-  window,
-  rate,
-  freeAt,
-  now
-}: {
-  window: UsageWindow;
-  rate: number | null;
-  freeAt: number;
-  now: number;
-}) {
-  const timeLeft = freeAt - now;
-  const isNoRunOut = rate === null || rate <= 0 || timeLeft <= 0;
-  if (isNoRunOut) {
-    return null;
-  }
-
-  const target = (FULL_PERCENTAGE - window.utilization) / timeLeft;
-  const fraction = 1 - target / rate;
-  return fraction > 0 ? fraction : null;
+/** The fraction of its spend an account must shed to keep the share its window
+ *  allows (lib/usage/pacing/engine/usage-pace) - null when it is on pace. */
+export function shedFraction(keep: number) {
+  const fraction = 1 - keep;
+  return fraction > 0 ? Math.min(1, fraction) : null;
 }
 
 /** One session that could take a step, and what that step would save. */
@@ -129,12 +118,14 @@ export interface ShedCandidate {
   load: number;
   /** The fraction of its own load its next step saves, 0 to 1. */
   saving: number;
+  /** Its session's fan-out: 1 plus the subagents that session runs. */
+  fanOut: number;
 }
 
-/** Which candidates step this round: biggest share of the account saved first,
- *  until the savings cover `fraction` of `totalLoad`. With the shed unknown
- *  (`fraction` null - no burn measured yet) only the one biggest saving steps,
- *  the gentlest move that still acts. */
+/** Which candidates step this round: the biggest share of the account saved,
+ *  weighted by fan-out, first, until the savings cover `fraction` of
+ *  `totalLoad`. With the shed unknown (`fraction` null - no burn measured yet)
+ *  only the first ranked steps, the gentlest move that still acts. */
 export function planShedding({
   candidates,
   totalLoad,
@@ -149,9 +140,10 @@ export function planShedding({
     .filter(candidate => candidate.saving > 0)
     .map(candidate => ({
       id: candidate.id,
-      saved: candidate.load * candidate.saving
+      saved: candidate.load * candidate.saving,
+      priority: candidate.load * candidate.saving * candidate.fanOut
     }))
-    .toSorted((first, second) => second.saved - first.saved);
+    .toSorted((first, second) => second.priority - first.priority);
   if (fraction === null) {
     return ranked.slice(0, 1).map(candidate => candidate.id);
   }

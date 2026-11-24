@@ -252,24 +252,36 @@ writes.
   has room, the **auto-handoff flow** takes over when it doesn't. The API-error
   auto-retry never claims a usage-limit stop, even one worded as an API error.
   Opt-out via `prefs.autoResume` (default on).
-- R1.6a.5 ✅ **Usage pacing** (`lib/stores/usage/usagePacing.svelte.ts`) - a
-  working agent on track to run out of a usage window well before it resets is
-  held back, so the account isn't locked out for hours at the end of the window.
-  The two paced windows are each judged by how far ahead of pace they spend
-  (`lib/usage/pacing/engine/usage-pace.ts`). The **session** window is judged without
-  assuming its length - a vendor can shorten it any day - from when it resets
-  and how fast it is spent while its agents work (the burn rate, from the
-  account readings each minute): runway = what's left / burn rate; it is over
-  pace when on track to run out more than the chosen margin (**Act when on
-  track to run out** 15 min / 30 min / 1 h / 2 h **early**) before 10 minutes
-  ahead of its reset. The **weekly** window is spread over days with nights and
-  breaks, so a working burn rate would always look too fast; it is judged
-  against an even spend from its start to its reset instead, and is over pace
-  when more than the chosen margin (**Act when ahead of an even spend by** 6 h
-  / 12 h (default) / 1 d / 2 d) ahead of it. Either way nothing is paced under
-  60% used. Usage credits don't turn pacing off - going over costs real money.
+- R1.6a.5 ✅ **Usage pacing** (`lib/stores/usage/usagePacing.svelte.ts`) - an
+  account spending faster than what is left of a usage window lasts is slowed
+  steadily, a little at a time, so it never sits locked out for hours at the end
+  of the window and never needs long breaks to catch up. There is no usage level
+  below which pacing looks away. Each paced window (the 5-hour **session** and
+  the **weekly** one) answers one question, from the first percent on: what
+  share of its current spend can the account keep
+  (`lib/usage/pacing/engine/usage-pace.ts`)? The **affordable pace** is what is
+  left over the time left until the reset. On top of it sits a **burst
+  allowance** of 10% of the window: the room left between what is used and an
+  even spend so far, within 0 to 10%. Nights and breaks refill it, and every
+  rise in usage - from any session on the account - drains it, paid out over 8
+  hours of a week (a quarter of an hour of a session window). The **keep share**
+  is (affordable pace + allowance / payout time) / the account's pace. One
+  session's half-day burst fits in the allowance and slows nothing; several
+  sessions bursting at once drain it within hours and the keep share slides
+  toward what lasts. The account's pace is its measured burn while its agents
+  work (its usage deltas over the last working time, from the readings each
+  minute), raised to what its sessions run now when that is more: the burn per
+  unit of load is calibrated as it is measured, so a session starting on, or
+  switching to, a dear model such as Fable counts the moment it does, not ten
+  minutes of readings later. Under a keep share of 0.95 the window is over pace.
+  Usage credits don't turn pacing off - going over costs real money.
   An account's burn is shared by every session on it and their subagents, so
-  the slowdown goes to the sessions spending the most of it: a Claude session's
+  the slowdown goes to the sessions spending the most of it, and a session
+  fanning work out to subagents goes first: every step ranks by the share of
+  the account it saves times its session's fan-out (1 + the subagents it runs),
+  so a lone session is slowed only when the fanned-out ones can't cover the
+  shed. A stepped-down session's new subagents spawn on its paced model (the
+  spawn cap below). A Claude session's
   share is **measured** from its own transcripts (the tokens it and its
   subagents spent in the last 20 minutes, priced by list-price ratio,
   `lib/usage/pacing/engine/token-price.ts`), any other agent's is estimated from its
@@ -331,56 +343,52 @@ writes.
   switch (`prefs.usagePacing`, on unless turned off) in the **Usage pacing**
   card of the top-bar usage panel (`lib/usage/pacing/settings/`, shown even
   with no agent running). It is account-wide: no presets, no per-step
-  choices, no per-project overrides. While an account is on track to run out
-  early - the 5-hour window by its burn, the week ahead of an even spend, each
-  past a small built-in slack (30 minutes, 6 hours; `pacing-policy.ts`) - PADE
-  climbs the same steps one at a time, mildest first: **lower effort** (a
-  level at a time, to the bottom of its ladder), **cheaper model**
+  choices, no per-project overrides. While a window keeps less than its
+  spend, PADE climbs the same steps one at a time, mildest first, and the
+  account sheds 1 − keep share of its spend: **lower effort** (a level at a
+  time, to the bottom of its ladder), **cheaper model**
   (`lib/model/model-cost.ts`, via the same switch a tab's model pick uses),
-  **rests between work** (sized so work and rest average out to a lasting pace
-  - the account can afford a duty of runway / time left, where the runway is
-    how long what is left lasts at the measured working burn, for the weekly
-    window too, not the round-the-clock even spend. A cycle of work then rest =
-    work × (1 / duty − 1) does the same total work whatever its length, so the
-    shortest waits come from the shortest useful work stretch, 5 minutes; a rest
-    under 5 minutes is all interruption, so a high duty lengthens the stretch
-    instead. Waits get long only when the account can afford little work, which
-    no rest length changes - while that needs no more rest than work; after a rest it works at least 5
-    minutes before the next, so a "continue" is never cut off at once), and
-    **stop until there's room**, after which the agent continues on its own. The
-    5-hour window stops when a rest would outlast the work; the weekly window
-    never stops, because a stop until it is back on an even spend can last half
-    a day - it keeps resting in bursts instead. Only as many sessions step as the account
-    needs, biggest saving first. A pause types nothing: running work is
-    interrupted (Esc, and stop-all while subagents run) and the PreToolUse hook
-    refuses every further tool call, and "continue" is typed only into work
-    pacing stopped. A rest instead holds the tool calls until it ends, so nothing
-    is interrupted and nothing is continued. A tab's SLOWED / PAUSED badge says, in its hint and its
-    details, when the session is back to normal - each time in the details
-    reads "at 2:49 PM" or, clicked, "in 6h 59m". A live line per limit shows the active agent's spend,
-    when it resets, when it runs out at this pace, and how many sessions pacing
-    slows. Every step undoes itself as room comes back (a cheaper effort or
-    model steps back up once a session runway reaches 1.5 times the time left,
-    or the week is back on its even spend), and everything reverts as the window
-    is about to reset; a choice the user makes in between is theirs to keep.
-    While pacing holds an agent its tab shows **SLOWED** (**PAUSED** while it is
-    stopped); the badge opens why, what it runs now, when it reverts and what
-    pacing did, with **Ease one step**, **Skip this window** and, when stopped or
-    resting, **Resume now**. A stopped agent also shows the note with
-    **Continue anyway**. Pauses and steps are remembered per window across a
-    reload. A prompt sent to an agent pacing holds back - the user pressing
-    Enter, or PADE's own handoff request - takes it over at once: that turn keeps
-    the slower model and effort, but a pause lifts, the hook lets every tool call
-    through (its subagents' included, and new subagents may start), and pacing
-    leaves the run alone until the agent goes quiet - background agents it
-    launched included, not just its main turn - then paces it again. The
-    fresh agent a handoff starts is left alone while it reads the handoff doc -
-    its first two minutes of work, or its first turn if that ends sooner - so
-    pacing can stop it mid-task, but never before it knows what it continues.
-    **Shadow phase of the backend engine:** each scan also reports the window's
-    sessions and the decisions the loop took to the backend, which computes what
-    it would decide and logs how often that agrees; it changes nothing yet. The
-    loop stays the one that decides until the engine is switched on.
+  **rests between work** (sized so work and rest average out to the keep
+  share: a cycle of work then rest = work × (1 / keep − 1) does the same total
+  work whatever its length, so the shortest waits come from the shortest
+  useful work stretch, 15 minutes; a rest under 5 minutes is all interruption,
+  so a high keep share lengthens the stretch instead; after a rest it works a
+  full stretch before the next, so a "continue" is never cut off at once), and,
+  only with next to nothing left to spend (a keep share of 0.05 or less),
+  **stop until there's room**, after which the agent continues on its own.
+  After a step the account's pace is measured again (10 minutes of work) before
+  the next one. Only as many sessions step as the account needs, biggest
+  saving (weighted by fan-out) first. A pause types nothing: running work is
+  interrupted (Esc, and stop-all while subagents run) and the PreToolUse hook
+  refuses every further tool call, and "continue" is typed only into work
+  pacing stopped. A rest instead holds the tool calls until it ends, so nothing
+  is interrupted and nothing is continued. A tab's SLOWED / PAUSED badge says, in its hint and its
+  details, when the session is back to normal - each time in the details
+  reads "at 2:49 PM" or, clicked, "in 6h 59m". A live line per limit shows the active agent's spend,
+  when it resets, when it runs out at this pace, and how many sessions pacing
+  slows. Every step undoes itself as room comes back (a cheaper effort or
+  model steps back up once every paced window keeps 1.3 times the account's
+  spend, clear of what one step saves so it doesn't see-saw; a paused session
+  goes on once its keep share is back to 1), and everything reverts as the window
+  is about to reset; a choice the user makes in between is theirs to keep.
+  While pacing holds an agent its tab shows **SLOWED** (**PAUSED** while it is
+  stopped); the badge opens why, what it runs now, when it reverts and what
+  pacing did, with **Ease one step**, **Skip this window** and, when stopped or
+  resting, **Resume now**. A stopped agent also shows the note with
+  **Continue anyway**. Pauses and steps are remembered per window across a
+  reload. A prompt sent to an agent pacing holds back - the user pressing
+  Enter, or PADE's own handoff request - takes it over at once: that turn keeps
+  the slower model and effort, but a pause lifts, the hook lets every tool call
+  through (its subagents' included, and new subagents may start), and pacing
+  leaves the run alone until the agent goes quiet - background agents it
+  launched included, not just its main turn - then paces it again. The
+  fresh agent a handoff starts is left alone while it reads the handoff doc -
+  its first two minutes of work, or its first turn if that ends sooner - so
+  pacing can stop it mid-task, but never before it knows what it continues.
+  **Shadow phase of the backend engine:** each scan also reports the window's
+  sessions and the decisions the loop took to the backend, which computes what
+  it would decide and logs how often that agrees; it changes nothing yet. The
+  loop stays the one that decides until the engine is switched on.
 
 - R1.6a.5b 🚧 **Pacing engine, shadow phase** (`docs/pacing-engine.md`) - the
   pacing decisions are being moved from each window's TypeScript into one Rust

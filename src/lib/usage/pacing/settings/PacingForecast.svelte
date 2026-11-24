@@ -14,7 +14,6 @@
 
   const preview = $derived(
     pacingPreview({
-      kind,
       forecast: agentForecast({
         agentId: agent,
         kind

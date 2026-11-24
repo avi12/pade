@@ -10,12 +10,11 @@ use crate::pacing::account_round::{
     is_throttling, plan_round, OverPace, PlanRoundParams, SessionReport, WindowReport,
 };
 use crate::pacing::facts::{Decision, SessionFacts, SessionId};
-use crate::pacing::load_shedding::{lightest_to_restore, shed_fraction, ShedFractionParams};
+use crate::pacing::load_shedding::{lightest_to_restore, shed_fraction};
 use crate::pacing::policy::PacingStep;
 use crate::pacing::units::EpochMilliseconds;
 use crate::pacing::usage_pace::{
-    is_rest_enough, slow_rest_until, work_rhythm, working_runway, BindingWindow, PacedWindowKind,
-    RestEnoughParams, SlowRestParams, WorkRhythmParams, WorkingRunwayParams,
+    slow_rest_until, work_rhythm, BindingWindow, SlowRestParams, STOP_KEEP,
 };
 
 #[derive(Clone, Copy)]
@@ -37,7 +36,7 @@ impl<'a> Pass<'a> {
             sessions: self
                 .assessments
                 .iter()
-                .map(|each| self.report_of(each))
+                .map(|each| Self::report_of(each))
                 .collect(),
         };
         let outcome = plan_round(PlanRoundParams {
@@ -76,16 +75,11 @@ impl<'a> Pass<'a> {
     /// A working session as the round sees it: its own share of the account (its
     /// running subagents apart, each with its own), and - over pace - what the
     /// account must shed and what its next step would save.
-    pub(super) fn report_of(&self, assessment: &Assessment<'_>) -> SessionReport {
+    fn report_of(assessment: &Assessment<'_>) -> SessionReport {
         let live = assessment.live;
         let session = &live.facts;
         let over_pace = assessment.binding.as_ref().map(|binding| OverPace {
-            shed: shed_fraction(ShedFractionParams {
-                window: &binding.window,
-                rate: Some(binding.rate),
-                free_at: binding.continue_at,
-                now: self.inputs.now,
-            }),
+            shed: shed_fraction(binding.keep),
             saving: next_step_saving(session.choice.as_ref()),
         });
         SessionReport {
@@ -110,8 +104,8 @@ impl<'a> Pass<'a> {
     }
 
     /// Take a session's next allowed step: effort and model step down a notch
-    /// at a time; resting gives way to a stop once it would need more rest than
-    /// work - or stays, when a stop isn't allowed.
+    /// at a time; resting gives way to a stop once the account has next to
+    /// nothing left to spend (`STOP_KEEP`).
     pub(super) fn climb(&mut self, id: &str) {
         if let Some(decision) = self.climb_decision(id) {
             self.decisions.push(decision);
@@ -164,25 +158,9 @@ impl<'a> Pass<'a> {
             binding,
         } = params;
         let now = self.inputs.now;
-        let runway = working_runway(WorkingRunwayParams {
-            window: &binding.window,
-            rate: binding.rate,
-            ready_at: binding.ready_at,
-            continue_at: binding.continue_at,
-        });
-        let is_weekly_window = binding.kind == PacedWindowKind::Weekly;
-        let is_rest_still_enough = is_rest_enough(RestEnoughParams {
-            runway,
-            continue_at: binding.continue_at,
-            now,
-        });
-        let is_resting = step == PacingStep::Rest && (is_weekly_window || is_rest_still_enough);
+        let is_resting = step == PacingStep::Rest && binding.keep > STOP_KEEP;
         let worked_for = now - session.working_since.unwrap_or(now);
-        let stretch = work_rhythm(WorkRhythmParams {
-            runway,
-            time_left: binding.continue_at - now,
-        })
-        .stretch;
+        let stretch = work_rhythm(binding.keep).stretch;
         let is_between_rests = is_resting && worked_for < stretch;
         if is_between_rests {
             return PauseStep::BetweenRests;
@@ -192,9 +170,8 @@ impl<'a> Pass<'a> {
             return PauseStep::Take(Decision::Rest {
                 session: session.id.clone(),
                 until: slow_rest_until(SlowRestParams {
-                    runway,
+                    keep: binding.keep,
                     ready_at: binding.ready_at,
-                    continue_at: binding.continue_at,
                     now,
                 }),
             });

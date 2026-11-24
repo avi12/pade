@@ -146,338 +146,308 @@
     { "model": "mystery-model", "effort": "turbo", "ladder": ["low", "high"], "expected": 4 }
   ],
   "shedFraction": [
-    { "utilization": 60, "timeLeft": 600000, "rate": null, "expected": null },
-    { "utilization": 60, "timeLeft": 600000, "rate": 0, "expected": null },
-    { "utilization": 60, "timeLeft": 600000, "rate": 2.7777777777777776e-7, "expected": null },
-    { "utilization": 60, "timeLeft": 600000, "rate": 0.000002777777777777778, "expected": null },
-    { "utilization": 60, "timeLeft": 600000, "rate": 0.000016666666666666667, "expected": null },
-    { "utilization": 60, "timeLeft": 6000000, "rate": null, "expected": null },
-    { "utilization": 60, "timeLeft": 6000000, "rate": 0, "expected": null },
-    { "utilization": 60, "timeLeft": 6000000, "rate": 2.7777777777777776e-7, "expected": null },
-    { "utilization": 60, "timeLeft": 6000000, "rate": 0.000002777777777777778, "expected": null },
-    { "utilization": 60, "timeLeft": 6000000, "rate": 0.000016666666666666667, "expected": 0.6000000000000001 },
-    { "utilization": 60, "timeLeft": 18000000, "rate": null, "expected": null },
-    { "utilization": 60, "timeLeft": 18000000, "rate": 0, "expected": null },
-    { "utilization": 60, "timeLeft": 18000000, "rate": 2.7777777777777776e-7, "expected": null },
-    { "utilization": 60, "timeLeft": 18000000, "rate": 0.000002777777777777778, "expected": 0.20000000000000007 },
-    { "utilization": 60, "timeLeft": 18000000, "rate": 0.000016666666666666667, "expected": 0.8666666666666667 },
-    { "utilization": 80, "timeLeft": 600000, "rate": null, "expected": null },
-    { "utilization": 80, "timeLeft": 600000, "rate": 0, "expected": null },
-    { "utilization": 80, "timeLeft": 600000, "rate": 2.7777777777777776e-7, "expected": null },
-    { "utilization": 80, "timeLeft": 600000, "rate": 0.000002777777777777778, "expected": null },
-    { "utilization": 80, "timeLeft": 600000, "rate": 0.000016666666666666667, "expected": null },
-    { "utilization": 80, "timeLeft": 6000000, "rate": null, "expected": null },
-    { "utilization": 80, "timeLeft": 6000000, "rate": 0, "expected": null },
-    { "utilization": 80, "timeLeft": 6000000, "rate": 2.7777777777777776e-7, "expected": null },
-    { "utilization": 80, "timeLeft": 6000000, "rate": 0.000002777777777777778, "expected": null },
-    { "utilization": 80, "timeLeft": 6000000, "rate": 0.000016666666666666667, "expected": 0.8 },
-    { "utilization": 80, "timeLeft": 18000000, "rate": null, "expected": null },
-    { "utilization": 80, "timeLeft": 18000000, "rate": 0, "expected": null },
-    { "utilization": 80, "timeLeft": 18000000, "rate": 2.7777777777777776e-7, "expected": null },
-    { "utilization": 80, "timeLeft": 18000000, "rate": 0.000002777777777777778, "expected": 0.6000000000000001 },
-    { "utilization": 80, "timeLeft": 18000000, "rate": 0.000016666666666666667, "expected": 0.9333333333333333 },
-    { "utilization": 95, "timeLeft": 600000, "rate": null, "expected": null },
-    { "utilization": 95, "timeLeft": 600000, "rate": 0, "expected": null },
-    { "utilization": 95, "timeLeft": 600000, "rate": 2.7777777777777776e-7, "expected": null },
-    { "utilization": 95, "timeLeft": 600000, "rate": 0.000002777777777777778, "expected": null },
-    { "utilization": 95, "timeLeft": 600000, "rate": 0.000016666666666666667, "expected": 0.5 },
-    { "utilization": 95, "timeLeft": 6000000, "rate": null, "expected": null },
-    { "utilization": 95, "timeLeft": 6000000, "rate": 0, "expected": null },
-    { "utilization": 95, "timeLeft": 6000000, "rate": 2.7777777777777776e-7, "expected": null },
-    { "utilization": 95, "timeLeft": 6000000, "rate": 0.000002777777777777778, "expected": 0.7 },
-    { "utilization": 95, "timeLeft": 6000000, "rate": 0.000016666666666666667, "expected": 0.95 },
-    { "utilization": 95, "timeLeft": 18000000, "rate": null, "expected": null },
-    { "utilization": 95, "timeLeft": 18000000, "rate": 0, "expected": null },
-    { "utilization": 95, "timeLeft": 18000000, "rate": 2.7777777777777776e-7, "expected": null },
-    { "utilization": 95, "timeLeft": 18000000, "rate": 0.000002777777777777778, "expected": 0.9 },
-    { "utilization": 95, "timeLeft": 18000000, "rate": 0.000016666666666666667, "expected": 0.9833333333333333 }
+    { "keep": -0.5, "expected": 1 },
+    { "keep": 0, "expected": 1 },
+    { "keep": 0.05, "expected": 0.95 },
+    { "keep": 0.3, "expected": 0.7 },
+    { "keep": 0.6, "expected": 0.4 },
+    { "keep": 0.95, "expected": 0.050000000000000044 },
+    { "keep": 1, "expected": null },
+    { "keep": 1.7, "expected": null }
   ],
   "planShedding": [
     {
       "candidates": [
-        { "id": "candidate-0", "load": 56.5, "saving": 0.5 },
-        { "id": "candidate-1", "load": 37.5, "saving": 0.5 }
+        { "id": "candidate-0", "load": 24.5, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-1", "load": 25, "saving": 0.4, "fanOut": 4 },
+        { "id": "candidate-2", "load": 15.5, "saving": 0.5, "fanOut": 1 },
+        { "id": "candidate-3", "load": 44, "saving": 0.2, "fanOut": 1 }
       ],
-      "totalLoad": 101,
+      "totalLoad": 132,
+      "fraction": null,
+      "expected": ["candidate-1"]
+    },
+    {
+      "candidates": [{ "id": "candidate-0", "load": 23, "saving": 1, "fanOut": 1 }],
+      "totalLoad": 23,
+      "fraction": 0.95,
+      "expected": ["candidate-0"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 14.5, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-1", "load": 25, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-2", "load": 27, "saving": 0.4, "fanOut": 1 }
+      ],
+      "totalLoad": 95.5,
+      "fraction": 0.6,
+      "expected": ["candidate-2", "candidate-1", "candidate-0"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 30, "saving": 1, "fanOut": 1 },
+        { "id": "candidate-1", "load": 7.5, "saving": 0.2, "fanOut": 4 },
+        { "id": "candidate-2", "load": 44, "saving": 0.5, "fanOut": 1 },
+        { "id": "candidate-3", "load": 44, "saving": 0, "fanOut": 2 }
+      ],
+      "totalLoad": 141.5,
+      "fraction": 0.35,
+      "expected": ["candidate-0", "candidate-2"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 29.5, "saving": 0, "fanOut": 2 },
+        { "id": "candidate-1", "load": 3.5, "saving": 0, "fanOut": 2 },
+        { "id": "candidate-2", "load": 8, "saving": 1, "fanOut": 1 },
+        { "id": "candidate-3", "load": 45.5, "saving": 0, "fanOut": 2 }
+      ],
+      "totalLoad": 90.5,
+      "fraction": 0.1,
+      "expected": ["candidate-2"]
+    },
+    {
+      "candidates": [{ "id": "candidate-0", "load": 44.5, "saving": 0.4, "fanOut": 4 }],
+      "totalLoad": 72.5,
+      "fraction": 0.6,
+      "expected": ["candidate-0"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 7, "saving": 1, "fanOut": 4 },
+        { "id": "candidate-1", "load": 27.5, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-2", "load": 40, "saving": 0.5, "fanOut": 1 },
+        { "id": "candidate-3", "load": 45.5, "saving": 0, "fanOut": 1 }
+      ],
+      "totalLoad": 132,
+      "fraction": 0.95,
+      "expected": ["candidate-0", "candidate-2", "candidate-1"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 39.5, "saving": 0, "fanOut": 1 },
+        { "id": "candidate-1", "load": 32.5, "saving": 0.2, "fanOut": 2 }
+      ],
+      "totalLoad": 73,
+      "fraction": 0.1,
+      "expected": ["candidate-1"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 6.5, "saving": 0.4, "fanOut": 2 },
+        { "id": "candidate-1", "load": 56.5, "saving": 0.2, "fanOut": 1 },
+        { "id": "candidate-2", "load": 13.5, "saving": 0.4, "fanOut": 2 },
+        { "id": "candidate-3", "load": 23, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-4", "load": 36.5, "saving": 1, "fanOut": 1 }
+      ],
+      "totalLoad": 149,
+      "fraction": 0.1,
+      "expected": ["candidate-4"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 31, "saving": 0, "fanOut": 1 },
+        { "id": "candidate-1", "load": 31, "saving": 0.2, "fanOut": 2 },
+        { "id": "candidate-2", "load": 42.5, "saving": 0.2, "fanOut": 2 },
+        { "id": "candidate-3", "load": 34.5, "saving": 0.5, "fanOut": 4 }
+      ],
+      "totalLoad": 155,
+      "fraction": 0.35,
+      "expected": ["candidate-3", "candidate-2", "candidate-1"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 11, "saving": 0, "fanOut": 4 },
+        { "id": "candidate-1", "load": 32.5, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-2", "load": 3.5, "saving": 0, "fanOut": 4 },
+        { "id": "candidate-3", "load": 25.5, "saving": 1, "fanOut": 4 }
+      ],
+      "totalLoad": 84.5,
+      "fraction": 0.1,
+      "expected": ["candidate-3"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 22.5, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-1", "load": 22, "saving": 0.4, "fanOut": 1 }
+      ],
+      "totalLoad": 58.5,
       "fraction": 0.6,
       "expected": ["candidate-0", "candidate-1"]
     },
     {
-      "candidates": [{ "id": "candidate-0", "load": 4, "saving": 1 }],
-      "totalLoad": 15,
+      "candidates": [
+        { "id": "candidate-0", "load": 38.5, "saving": 0.4, "fanOut": 4 },
+        { "id": "candidate-1", "load": 42.5, "saving": 0.4, "fanOut": 4 },
+        { "id": "candidate-2", "load": 50.5, "saving": 0, "fanOut": 1 },
+        { "id": "candidate-3", "load": 58.5, "saving": 0.5, "fanOut": 1 },
+        { "id": "candidate-4", "load": 17, "saving": 0.4, "fanOut": 4 }
+      ],
+      "totalLoad": 224,
       "fraction": 0.95,
-      "expected": ["candidate-0"]
+      "expected": ["candidate-1", "candidate-0", "candidate-3", "candidate-4"]
     },
     {
-      "candidates": [{ "id": "candidate-0", "load": 29, "saving": 0.2 }],
-      "totalLoad": 36,
-      "fraction": null,
-      "expected": ["candidate-0"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 24.5, "saving": 0.2 },
-        { "id": "candidate-1", "load": 54.5, "saving": 0 }
-      ],
-      "totalLoad": 108,
-      "fraction": null,
+      "candidates": [{ "id": "candidate-0", "load": 52.5, "saving": 0.4, "fanOut": 1 }],
+      "totalLoad": 71.5,
+      "fraction": 0.6,
       "expected": ["candidate-0"]
     },
     {
       "candidates": [
-        { "id": "candidate-0", "load": 46.5, "saving": 0.2 },
-        { "id": "candidate-1", "load": 10, "saving": 0 },
-        { "id": "candidate-2", "load": 40, "saving": 0.2 },
-        { "id": "candidate-3", "load": 50, "saving": 0.2 },
-        { "id": "candidate-4", "load": 32.5, "saving": 0.4 }
+        { "id": "candidate-0", "load": 45, "saving": 0.2, "fanOut": 1 },
+        { "id": "candidate-1", "load": 57, "saving": 0.5, "fanOut": 2 }
       ],
-      "totalLoad": 193,
-      "fraction": 0.1,
-      "expected": ["candidate-4", "candidate-3"]
-    },
-    {
-      "candidates": [{ "id": "candidate-0", "load": 34, "saving": 0.5 }],
-      "totalLoad": 56,
-      "fraction": null,
-      "expected": ["candidate-0"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 59, "saving": 0.5 },
-        { "id": "candidate-1", "load": 31.5, "saving": 0.2 }
-      ],
-      "totalLoad": 120.5,
-      "fraction": 0.95,
-      "expected": ["candidate-0", "candidate-1"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 54, "saving": 0 },
-        { "id": "candidate-1", "load": 46.5, "saving": 0 },
-        { "id": "candidate-2", "load": 16, "saving": 1 },
-        { "id": "candidate-3", "load": 12.5, "saving": 0.2 },
-        { "id": "candidate-4", "load": 38, "saving": 0 }
-      ],
-      "totalLoad": 181,
-      "fraction": 0.35,
-      "expected": ["candidate-2", "candidate-3"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 52, "saving": 0.5 },
-        { "id": "candidate-1", "load": 4.5, "saving": 1 },
-        { "id": "candidate-2", "load": 26.5, "saving": 1 },
-        { "id": "candidate-3", "load": 37.5, "saving": 0.4 }
-      ],
-      "totalLoad": 133.5,
-      "fraction": 0.95,
-      "expected": ["candidate-2", "candidate-0", "candidate-3", "candidate-1"]
-    },
-    {
-      "candidates": [{ "id": "candidate-0", "load": 5.5, "saving": 0.5 }],
-      "totalLoad": 15.5,
-      "fraction": null,
-      "expected": ["candidate-0"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 33.5, "saving": 0.5 },
-        { "id": "candidate-1", "load": 23, "saving": 1 }
-      ],
-      "totalLoad": 63.5,
-      "fraction": 0.35,
-      "expected": ["candidate-1"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 2, "saving": 0.2 },
-        { "id": "candidate-1", "load": 52, "saving": 0.5 },
-        { "id": "candidate-2", "load": 21, "saving": 0.2 }
-      ],
-      "totalLoad": 103,
+      "totalLoad": 126,
       "fraction": null,
       "expected": ["candidate-1"]
     },
     {
       "candidates": [
-        { "id": "candidate-0", "load": 23, "saving": 0 },
-        { "id": "candidate-1", "load": 48.5, "saving": 0 },
-        { "id": "candidate-2", "load": 14, "saving": 0.4 },
-        { "id": "candidate-3", "load": 50, "saving": 1 },
-        { "id": "candidate-4", "load": 57, "saving": 0.2 }
-      ],
-      "totalLoad": 199.5,
-      "fraction": 0.95,
-      "expected": ["candidate-3", "candidate-4", "candidate-2"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 29.5, "saving": 1 },
-        { "id": "candidate-1", "load": 59.5, "saving": 0.5 },
-        { "id": "candidate-2", "load": 25.5, "saving": 0.2 }
+        { "id": "candidate-0", "load": 47, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-1", "load": 43.5, "saving": 1, "fanOut": 1 },
+        { "id": "candidate-2", "load": 19, "saving": 0.2, "fanOut": 4 }
       ],
       "totalLoad": 117.5,
-      "fraction": 0.35,
-      "expected": ["candidate-1", "candidate-0"]
+      "fraction": 0.6,
+      "expected": ["candidate-1", "candidate-0", "candidate-2"]
     },
     {
       "candidates": [
-        { "id": "candidate-0", "load": 52, "saving": 0.4 },
-        { "id": "candidate-1", "load": 39.5, "saving": 0.4 },
-        { "id": "candidate-2", "load": 35.5, "saving": 0 },
-        { "id": "candidate-3", "load": 23.5, "saving": 1 }
+        { "id": "candidate-0", "load": 17.5, "saving": 0.5, "fanOut": 1 },
+        { "id": "candidate-1", "load": 11.5, "saving": 0.5, "fanOut": 2 },
+        { "id": "candidate-2", "load": 5.5, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-3", "load": 12.5, "saving": 1, "fanOut": 1 }
       ],
-      "totalLoad": 153.5,
+      "totalLoad": 69,
+      "fraction": 0.6,
+      "expected": ["candidate-3", "candidate-1", "candidate-0", "candidate-2"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 33.5, "saving": 0, "fanOut": 1 },
+        { "id": "candidate-1", "load": 17.5, "saving": 0.2, "fanOut": 4 },
+        { "id": "candidate-2", "load": 22, "saving": 0.2, "fanOut": 2 },
+        { "id": "candidate-3", "load": 53, "saving": 0, "fanOut": 4 }
+      ],
+      "totalLoad": 147,
+      "fraction": 0.6,
+      "expected": ["candidate-1", "candidate-2"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 4, "saving": 0.5, "fanOut": 1 },
+        { "id": "candidate-1", "load": 48.5, "saving": 0.5, "fanOut": 4 },
+        { "id": "candidate-2", "load": 24, "saving": 0.4, "fanOut": 1 }
+      ],
+      "totalLoad": 88.5,
+      "fraction": 0.1,
+      "expected": ["candidate-1"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 56.5, "saving": 0.5, "fanOut": 2 },
+        { "id": "candidate-1", "load": 40, "saving": 0.2, "fanOut": 2 }
+      ],
+      "totalLoad": 101.5,
+      "fraction": null,
+      "expected": ["candidate-0"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 23, "saving": 1, "fanOut": 1 },
+        { "id": "candidate-1", "load": 29, "saving": 0.2, "fanOut": 1 },
+        { "id": "candidate-2", "load": 9.5, "saving": 0.2, "fanOut": 1 },
+        { "id": "candidate-3", "load": 18, "saving": 1, "fanOut": 1 },
+        { "id": "candidate-4", "load": 58, "saving": 0, "fanOut": 4 }
+      ],
+      "totalLoad": 160.5,
+      "fraction": 0.1,
+      "expected": ["candidate-0"]
+    },
+    {
+      "candidates": [{ "id": "candidate-0", "load": 6, "saving": 0.5, "fanOut": 1 }],
+      "totalLoad": 31,
+      "fraction": 0.1,
+      "expected": ["candidate-0"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 26.5, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-1", "load": 8, "saving": 0.4, "fanOut": 2 },
+        { "id": "candidate-2", "load": 45, "saving": 0, "fanOut": 1 }
+      ],
+      "totalLoad": 108.5,
+      "fraction": 0.6,
+      "expected": ["candidate-0", "candidate-1"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 14, "saving": 1, "fanOut": 4 },
+        { "id": "candidate-1", "load": 58, "saving": 1, "fanOut": 1 },
+        { "id": "candidate-2", "load": 46.5, "saving": 0, "fanOut": 1 }
+      ],
+      "totalLoad": 145.5,
+      "fraction": null,
+      "expected": ["candidate-1"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 38, "saving": 0, "fanOut": 1 },
+        { "id": "candidate-1", "load": 29.5, "saving": 0.5, "fanOut": 4 }
+      ],
+      "totalLoad": 87.5,
+      "fraction": null,
+      "expected": ["candidate-1"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 26.5, "saving": 1, "fanOut": 2 },
+        { "id": "candidate-1", "load": 30.5, "saving": 0.4, "fanOut": 4 },
+        { "id": "candidate-2", "load": 2, "saving": 0, "fanOut": 2 },
+        { "id": "candidate-3", "load": 21, "saving": 0, "fanOut": 1 },
+        { "id": "candidate-4", "load": 33.5, "saving": 0.5, "fanOut": 1 }
+      ],
+      "totalLoad": 140.5,
+      "fraction": 0.1,
+      "expected": ["candidate-0"]
+    },
+    {
+      "candidates": [
+        { "id": "candidate-0", "load": 33, "saving": 0, "fanOut": 1 },
+        { "id": "candidate-1", "load": 52, "saving": 0.5, "fanOut": 1 },
+        { "id": "candidate-2", "load": 17.5, "saving": 1, "fanOut": 1 }
+      ],
+      "totalLoad": 128.5,
+      "fraction": 0.1,
+      "expected": ["candidate-1"]
+    },
+    {
+      "candidates": [{ "id": "candidate-0", "load": 48.5, "saving": 0, "fanOut": 1 }],
+      "totalLoad": 60.5,
       "fraction": 0.95,
-      "expected": ["candidate-3", "candidate-0", "candidate-1"]
+      "expected": []
     },
     {
       "candidates": [
-        { "id": "candidate-0", "load": 58.5, "saving": 0.5 },
-        { "id": "candidate-1", "load": 11, "saving": 0 },
-        { "id": "candidate-2", "load": 12.5, "saving": 1 },
-        { "id": "candidate-3", "load": 36, "saving": 0.2 }
+        { "id": "candidate-0", "load": 57, "saving": 0.2, "fanOut": 1 },
+        { "id": "candidate-1", "load": 58.5, "saving": 0.4, "fanOut": 1 },
+        { "id": "candidate-2", "load": 52, "saving": 1, "fanOut": 2 },
+        { "id": "candidate-3", "load": 25.5, "saving": 0.2, "fanOut": 1 },
+        { "id": "candidate-4", "load": 25.5, "saving": 0.5, "fanOut": 4 }
       ],
-      "totalLoad": 122,
-      "fraction": null,
-      "expected": ["candidate-0"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 47, "saving": 0.4 },
-        { "id": "candidate-1", "load": 2.5, "saving": 0.2 },
-        { "id": "candidate-2", "load": 6.5, "saving": 0 },
-        { "id": "candidate-3", "load": 8, "saving": 0.2 },
-        { "id": "candidate-4", "load": 57, "saving": 0.4 }
-      ],
-      "totalLoad": 122,
-      "fraction": null,
-      "expected": ["candidate-4"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 54, "saving": 0.2 },
-        { "id": "candidate-1", "load": 26.5, "saving": 0 },
-        { "id": "candidate-2", "load": 48, "saving": 0 },
-        { "id": "candidate-3", "load": 16.5, "saving": 0.4 }
-      ],
-      "totalLoad": 165,
+      "totalLoad": 235.5,
       "fraction": 0.6,
-      "expected": ["candidate-0", "candidate-3"]
-    },
-    {
-      "candidates": [{ "id": "candidate-0", "load": 17, "saving": 0.5 }],
-      "totalLoad": 23,
-      "fraction": 0.1,
-      "expected": ["candidate-0"]
+      "expected": ["candidate-2", "candidate-4", "candidate-1", "candidate-0", "candidate-3"]
     },
     {
       "candidates": [
-        { "id": "candidate-0", "load": 13, "saving": 1 },
-        { "id": "candidate-1", "load": 19, "saving": 0.2 },
-        { "id": "candidate-2", "load": 34, "saving": 0.2 },
-        { "id": "candidate-3", "load": 30, "saving": 0 }
+        { "id": "candidate-0", "load": 35.5, "saving": 0, "fanOut": 1 },
+        { "id": "candidate-1", "load": 49.5, "saving": 0, "fanOut": 4 },
+        { "id": "candidate-2", "load": 46, "saving": 1, "fanOut": 4 }
       ],
-      "totalLoad": 98,
+      "totalLoad": 136,
       "fraction": null,
-      "expected": ["candidate-0"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 3.5, "saving": 0.4 },
-        { "id": "candidate-1", "load": 6, "saving": 0.4 }
-      ],
-      "totalLoad": 37.5,
-      "fraction": null,
-      "expected": ["candidate-1"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 34.5, "saving": 0.5 },
-        { "id": "candidate-1", "load": 46, "saving": 1 }
-      ],
-      "totalLoad": 107.5,
-      "fraction": 0.6,
-      "expected": ["candidate-1", "candidate-0"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 56, "saving": 0.5 },
-        { "id": "candidate-1", "load": 44, "saving": 0 },
-        { "id": "candidate-2", "load": 16.5, "saving": 0.5 }
-      ],
-      "totalLoad": 134.5,
-      "fraction": 0.1,
-      "expected": ["candidate-0"]
-    },
-    {
-      "candidates": [{ "id": "candidate-0", "load": 51.5, "saving": 0.5 }],
-      "totalLoad": 54.5,
-      "fraction": 0.35,
-      "expected": ["candidate-0"]
-    },
-    {
-      "candidates": [{ "id": "candidate-0", "load": 13.5, "saving": 0.2 }],
-      "totalLoad": 21.5,
-      "fraction": 0.1,
-      "expected": ["candidate-0"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 27.5, "saving": 0.2 },
-        { "id": "candidate-1", "load": 22.5, "saving": 1 },
-        { "id": "candidate-2", "load": 60, "saving": 0.5 },
-        { "id": "candidate-3", "load": 15.5, "saving": 0 },
-        { "id": "candidate-4", "load": 18.5, "saving": 0.2 }
-      ],
-      "totalLoad": 165,
-      "fraction": 0.95,
-      "expected": ["candidate-2", "candidate-1", "candidate-0", "candidate-4"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 1.5, "saving": 0.4 },
-        { "id": "candidate-1", "load": 34, "saving": 0.5 },
-        { "id": "candidate-2", "load": 54, "saving": 1 },
-        { "id": "candidate-3", "load": 33, "saving": 1 }
-      ],
-      "totalLoad": 137.5,
-      "fraction": 0.6,
-      "expected": ["candidate-2", "candidate-3"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 7, "saving": 0.4 },
-        { "id": "candidate-1", "load": 38, "saving": 0.2 },
-        { "id": "candidate-2", "load": 13.5, "saving": 0.2 },
-        { "id": "candidate-3", "load": 5.5, "saving": 0 }
-      ],
-      "totalLoad": 71,
-      "fraction": null,
-      "expected": ["candidate-1"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 52, "saving": 0.2 },
-        { "id": "candidate-1", "load": 52, "saving": 0.2 },
-        { "id": "candidate-2", "load": 21.5, "saving": 0.2 },
-        { "id": "candidate-3", "load": 2.5, "saving": 0.5 },
-        { "id": "candidate-4", "load": 15, "saving": 1 }
-      ],
-      "totalLoad": 166,
-      "fraction": null,
-      "expected": ["candidate-4"]
-    },
-    {
-      "candidates": [
-        { "id": "candidate-0", "load": 5, "saving": 0 },
-        { "id": "candidate-1", "load": 23, "saving": 0.2 },
-        { "id": "candidate-2", "load": 20.5, "saving": 0 },
-        { "id": "candidate-3", "load": 13.5, "saving": 0 }
-      ],
-      "totalLoad": 85,
-      "fraction": 0.6,
-      "expected": ["candidate-1"]
+      "expected": ["candidate-2"]
     }
   ]
 }

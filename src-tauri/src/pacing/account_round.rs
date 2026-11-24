@@ -13,7 +13,9 @@
 //! * over pace, every candidate - each session by its own share (its running
 //!   subagents excluded), each running subagent by its own - offers its next step
 //!   and what it saves, and the steps go to the biggest share of the account
-//!   saved first until they cover what the account must shed (`plan_shedding`);
+//!   saved, weighted by the session's fan-out (1 + its subagents, so a session
+//!   fanning work out is slowed before a lone one), first until they cover what
+//!   the account must shed (`plan_shedding`);
 //! * while the account sheds past `NO_SPAWN_SHED`, no session on it may start a
 //!   subagent;
 //! * with room again on every session of the account, the lightest stepped-down
@@ -109,6 +111,8 @@ pub struct ThrottledSubagent {
 #[serde(rename_all = "camelCase")]
 pub struct ThrottledSession {
     pub session_id: String,
+    /// The window that holds the session, for bringing it forward.
+    pub window_label: String,
     pub name: String,
     pub is_blocking_spawns: bool,
     pub subagents: Vec<ThrottledSubagent>,
@@ -223,9 +227,36 @@ fn sessions_by_account<'a>(reports: &[&'a WindowReport]) -> Vec<(&'a str, Vec<&'
     by_account
 }
 
-fn throttle_of(session: &SessionReport, account: &AccountPlan) -> ThrottledSession {
+/// The window that last reported a session - empty when none did.
+fn window_label_of(reports: &[&WindowReport], session_id: &str) -> String {
+    reports
+        .iter()
+        .rev()
+        .find(|report| {
+            report
+                .sessions
+                .iter()
+                .any(|session| session.id == session_id)
+        })
+        .map_or_else(String::new, |report| report.label.clone())
+}
+
+#[derive(Clone, Copy)]
+struct ThrottleParams<'a> {
+    session: &'a SessionReport,
+    account: &'a AccountPlan,
+    reports: &'a [&'a WindowReport],
+}
+
+fn throttle_of(params: ThrottleParams<'_>) -> ThrottledSession {
+    let ThrottleParams {
+        session,
+        account,
+        reports,
+    } = params;
     ThrottledSession {
         session_id: session.id.clone(),
+        window_label: window_label_of(reports, &session.id),
         name: session.name.clone(),
         is_blocking_spawns: account.is_blocking_spawns,
         subagents: session
@@ -279,11 +310,13 @@ pub fn plan_round(params: PlanRoundParams<'_>) -> RoundOutcome {
             plan.stepped_accounts.push(account_key.to_string());
         }
 
-        plan.throttles.extend(
-            sessions
-                .iter()
-                .map(|session| throttle_of(session, &account)),
-        );
+        plan.throttles.extend(sessions.iter().map(|session| {
+            throttle_of(ThrottleParams {
+                session,
+                account: &account,
+                reports,
+            })
+        }));
     }
 
     RoundOutcome {

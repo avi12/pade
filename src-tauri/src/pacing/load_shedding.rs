@@ -11,13 +11,15 @@
 //!
 //! The estimate is rescaled onto the measured sessions' scale
 //! (`measured_per_estimated`) so both kinds of load share one account. The
-//! account must shed the fraction its burn runs over the pace that lasts to the
-//! reset: `shed = 1 - target rate / measured rate`, `target = left / time to reset`.
+//! account must shed what its binding window doesn't let it keep:
+//! `shed = 1 - keep` (`usage_pace`).
 //!
 //! Every candidate session offers its next step and what that step would save (a
 //! fraction of its own load). The steps are taken in order of the share of the
-//! account they save - the biggest saving first - until together they cover the
-//! shed. A session takes at most one step per round.
+//! account they save, weighted by their session's fan-out (1 + the subagents it
+//! runs, so a session fanning work out is slowed before a lone one) - the
+//! biggest first - until together they cover the shed. A session takes at most
+//! one step per round.
 
 use std::cmp::Ordering;
 use std::iter::Sum;
@@ -28,9 +30,7 @@ use serde::{Deserialize, Serialize};
 use crate::agents::running_model::ModelChoice;
 use crate::pacing::model_label::{effort_step, EffortQuery};
 use crate::pacing::token_price::price_ratio;
-use crate::pacing::units::{BurnRate, EpochMilliseconds, Fraction, Percentage};
-use crate::pacing::usage_pace::utilization_of;
-use crate::usage::UsageWindow;
+use crate::pacing::units::Fraction;
 
 /// An effort ladder spans these weights, lowest level to highest - more effort
 /// means more thinking tokens on the same model.
@@ -191,33 +191,13 @@ pub fn measured_per_estimated(sessions: &[LoadPair]) -> f64 {
     1.0
 }
 
-#[derive(Clone, Copy)]
-pub struct ShedFractionParams<'a> {
-    pub window: &'a UsageWindow,
-    pub rate: Option<BurnRate>,
-    pub free_at: EpochMilliseconds,
-    pub now: EpochMilliseconds,
-}
-
-/// The fraction of its spend an account must shed to last until `free_at` -
-/// `None` while its burn isn't measured, or when it is already on pace.
+/// The fraction of its spend an account must shed: what its binding window
+/// doesn't let it keep (`usage_pace`), at most all of it - `None` when it is
+/// already on pace.
 #[must_use]
-pub fn shed_fraction(params: ShedFractionParams<'_>) -> Option<Fraction> {
-    let ShedFractionParams {
-        window,
-        rate,
-        free_at,
-        now,
-    } = params;
-    let time_left = free_at - now;
-    let rate = rate.filter(|rate| rate.is_positive())?;
-    if time_left.get() <= 0.0 {
-        return None;
-    }
-
-    let target = (Percentage::FULL - utilization_of(window)) / time_left;
-    let fraction = 1.0 - target / rate;
-    (fraction > 0.0).then_some(Fraction::new(fraction))
+pub fn shed_fraction(keep: Fraction) -> Option<Fraction> {
+    let fraction = 1.0 - keep.get();
+    (fraction > 0.0).then(|| Fraction::new(fraction.min(1.0)))
 }
 
 /// One session that could take a step, and what that step would save. `Id` says
@@ -228,6 +208,8 @@ pub struct ShedCandidate<Id> {
     pub load: Load,
     /// The fraction of its own load its next step saves, 0 to 1.
     pub saving: Fraction,
+    /// Its session's fan-out: 1 plus the subagents that session runs.
+    pub fan_out: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -240,8 +222,17 @@ pub struct PlanSheddingParams<'a, Id> {
     pub fraction: Option<Fraction>,
 }
 
-/// Which candidates step this round: biggest share of the account saved first,
-/// until the savings cover `fraction` of `total_load`.
+/// A candidate as `plan_shedding` ranks it: what its step saves of the account,
+/// and that saving weighted by its fan-out.
+struct RankedCandidate<'a, Id> {
+    id: &'a Id,
+    saved: Load,
+    priority: f64,
+}
+
+/// Which candidates step this round: the biggest share of the account saved,
+/// weighted by fan-out, first, until the savings - unweighted - cover
+/// `fraction` of `total_load`.
 #[must_use]
 pub fn plan_shedding<Id: Clone>(params: PlanSheddingParams<'_, Id>) -> Vec<Id> {
     let PlanSheddingParams {
@@ -249,30 +240,42 @@ pub fn plan_shedding<Id: Clone>(params: PlanSheddingParams<'_, Id>) -> Vec<Id> {
         total_load,
         fraction,
     } = params;
-    let mut ranked: Vec<(&Id, Load)> = candidates
+    let mut ranked: Vec<RankedCandidate<'_, Id>> = candidates
         .iter()
         .filter(|candidate| candidate.saving > Fraction::NONE)
-        .map(|candidate| (&candidate.id, candidate.load * candidate.saving))
+        .map(|candidate| {
+            let saved = candidate.load * candidate.saving;
+            RankedCandidate {
+                id: &candidate.id,
+                saved,
+                priority: saved.get() * f64::from(candidate.fan_out),
+            }
+        })
         .collect();
-    ranked.sort_by(|(_, first), (_, second)| second.partial_cmp(first).unwrap_or(Ordering::Equal));
+    ranked.sort_by(|first, second| {
+        second
+            .priority
+            .partial_cmp(&first.priority)
+            .unwrap_or(Ordering::Equal)
+    });
     let Some(fraction) = fraction else {
         return ranked
             .into_iter()
             .take(1)
-            .map(|(id, _)| id.clone())
+            .map(|candidate| candidate.id.clone())
             .collect();
     };
 
     let needed = fraction * total_load;
     let mut chosen = Vec::new();
     let mut saved = Load::ZERO;
-    for (id, saving) in ranked {
+    for candidate in ranked {
         if saved >= needed {
             break;
         }
 
-        chosen.push(id.clone());
-        saved = saved + saving;
+        chosen.push(candidate.id.clone());
+        saved = saved + candidate.saved;
     }
 
     chosen
@@ -302,11 +305,6 @@ pub fn lightest_to_restore<Id: Clone>(candidates: &[RestoreCandidate<Id>]) -> Op
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pacing::test_support::session_window;
-    use crate::pacing::units::SpanMilliseconds;
-
-    const MINUTE: SpanMilliseconds = SpanMilliseconds::from_minutes(1.0);
-    const NOW: EpochMilliseconds = EpochMilliseconds::new(1_793_361_600_000.0);
 
     fn weight(model: &str, effort: Option<&str>) -> CostWeight {
         cost_weight(CostWeightParams {
@@ -395,27 +393,17 @@ mod tests {
         assert_eq!(load, Load::new(1.0));
     }
 
-    fn shed(rate: Option<BurnRate>) -> Option<Fraction> {
-        let window = session_window(80.0, SpanMilliseconds::ZERO);
-        shed_fraction(ShedFractionParams {
-            window: &window,
-            rate,
-            free_at: NOW + MINUTE * 100.0,
-            now: NOW,
-        })
-    }
-
     #[test]
-    fn a_shed_asks_for_the_share_the_burn_runs_over_the_pace_that_lasts() {
-        // 20% left over 100 minutes lasts at 0.2%/min; burning 0.8%/min is 4x over.
-        let fraction = shed(Some(BurnRate::new(0.8 / MINUTE.get()))).expect("over pace");
+    fn a_shed_asks_for_what_the_account_may_not_keep() {
+        let fraction = shed_fraction(Fraction::new(0.25)).expect("over pace");
         assert!((fraction.get() - 0.75).abs() < 1e-9);
     }
 
     #[test]
-    fn a_shed_asks_for_nothing_on_pace_or_while_the_burn_is_unmeasured() {
-        assert_eq!(shed(Some(BurnRate::new(0.1 / MINUTE.get()))), None);
-        assert_eq!(shed(None), None);
+    fn a_shed_asks_for_at_most_everything_and_nothing_on_pace() {
+        assert_eq!(shed_fraction(Fraction::new(-0.5)), Some(Fraction::WHOLE));
+        assert_eq!(shed_fraction(Fraction::WHOLE), None);
+        assert_eq!(shed_fraction(Fraction::new(1.7)), None);
     }
 
     fn candidate(id: &'static str, load: f64, saving: f64) -> ShedCandidate<&'static str> {
@@ -423,7 +411,30 @@ mod tests {
             id,
             load: Load::new(load),
             saving: Fraction::new(saving),
+            fan_out: 1,
         }
+    }
+
+    fn fanned_out() -> ShedCandidate<&'static str> {
+        ShedCandidate {
+            fan_out: 4,
+            ..candidate("opus-with-three-subagents", 12.0, 0.4)
+        }
+    }
+
+    #[test]
+    fn slows_a_session_fanning_work_out_before_a_lone_one_spending_as_much() {
+        let both = [candidate("opus-alone", 20.0, 0.4), fanned_out()];
+        assert_eq!(plan(&both, 32.0, Some(0.1)), ["opus-with-three-subagents"]);
+    }
+
+    #[test]
+    fn still_slows_the_lone_session_when_the_fanned_out_one_cant_cover_the_shed() {
+        let both = [candidate("opus-alone", 20.0, 0.4), fanned_out()];
+        assert_eq!(
+            plan(&both, 32.0, Some(0.3)),
+            ["opus-with-three-subagents", "opus-alone"]
+        );
     }
 
     fn plan(

@@ -8,7 +8,7 @@ use crate::pacing::account_round::SubagentReport;
 use crate::pacing::facts::{CanStepDown, ModelChoiceFacts, ObservedKind, WindowLabel};
 use crate::pacing::facts::{PaceFacts, PacePhase};
 use crate::pacing::samples::RecordParams;
-use crate::pacing::test_support::{account, session_window, weekly_window, NOW};
+use crate::pacing::test_support::{account, session_window, NOW};
 use crate::pacing::units::BurnRate;
 use crate::pacing::usage_pace::PacedWindowKind;
 use crate::test_support::assert_empty;
@@ -235,8 +235,8 @@ fn only(id: &str, kind: ObservedKind) -> Steps {
 fn a_session_far_over_pace_with_no_cheaper_choice_is_stopped() {
     let outcome = run(
         vec![session("a")],
-        &session_account(80.0),
-        &measured(80.0, 1.0),
+        &session_account(95.0),
+        &measured(95.0, 1.0),
     );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Stop));
 }
@@ -270,9 +270,12 @@ fn a_session_that_rested_just_now_works_its_stretch_before_resting_again() {
 }
 
 #[test]
-fn a_weekly_window_rests_in_short_bursts_where_a_session_window_would_stop() {
-    let accounts = accounts_of(vec![weekly_window(70.0, SpanMilliseconds::from_days(5.0))]);
-    let outcome = run(vec![session("a")], &accounts, &SampleBook::default());
+fn a_session_with_room_left_to_spend_rests_rather_than_stops() {
+    let outcome = run(
+        vec![session("a")],
+        &session_account(80.0),
+        &measured(80.0, 1.0),
+    );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Rest));
 }
 
@@ -296,7 +299,7 @@ fn the_model_steps_down_once_effort_has_nowhere_to_go() {
 fn a_bottomed_out_choice_goes_on_to_the_stop() {
     let mut bottomed = session("a");
     bottomed.choice = Some(choice(false, false));
-    let outcome = run(vec![bottomed], &session_account(80.0), &measured(80.0, 1.0));
+    let outcome = run(vec![bottomed], &session_account(95.0), &measured(95.0, 1.0));
     assert_eq!(steps(&outcome), only("a", ObservedKind::Stop));
 }
 

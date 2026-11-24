@@ -2,63 +2,77 @@
 //! pure so every rule is tested on its own and against the TypeScript's own
 //! output (`fixtures/usage_pace.json`).
 //!
-//! Each paced window is judged by one question: if its agents stopped now, when
-//! would it be back on pace (`on_pace_at`)? How far ahead of now that lies is
-//! how far ahead of pace the window is spending. The two windows answer it their
-//! own way, because they are spent differently:
+//! Pacing spreads what is left of a window over the time left until it resets,
+//! and slows an account only as much as that takes, from the first percent on -
+//! there is no usage level below which it looks away. Each paced window answers
+//! one question: what share of its current spend can the account keep?
 //!
-//! * session - worked through in one sitting, so it is judged by its burn rate
-//!   while its agents work, with no window length assumed:
-//!   `runway = (100% - used) / burn rate`, `on_pace_at = reset - RESET_GRACE_MS - runway`
-//! * weekly - spread over days with nights and breaks between, so it is judged
-//!   against an even spend from its start to its reset:
-//!   `on_pace_at = start + used * WEEKLY_WINDOW_MS`
+//! * `affordable = (100% - used) / time left`
+//! * `allowance = min(ALLOWANCE, max(0, ALLOWANCE - (used - even spend so far)))`
+//! * `may spend = affordable + allowance / payout time`
+//! * `keep = may spend / pace`
 //!
-//! Past `PACE_FLOOR_PERCENTAGE` used, a window more than the user's chosen margin
-//! ahead of pace is over pace; a paused session is ready once it is back on pace;
-//! a stepped-down one can afford its dearer choice again once it is well behind.
-//! Near a reset a window paces no one - it is about to come back anyway.
+//! The allowance is the room for bursts. An even spend climbs through nights and
+//! breaks while nothing is spent, so idle hours refill it (up to `ALLOWANCE`),
+//! and every rise in usage drains it. One session's burst fits in it and slows
+//! nothing; several sessions bursting at once drain it within hours, and the
+//! keep share slides down toward what lasts to the reset.
+//!
+//! Below `SLOW_DOWN_KEEP` a window is over pace; a paused session is ready once
+//! its keep share reaches 1; a stepped-down one can afford its dearer choice
+//! again once the keep share is well above it (`STEP_UP_KEEP`). Near a reset a
+//! window paces no one - it is about to come back anyway.
 
 mod forecast;
 mod rhythm;
 
 pub use forecast::{
-    is_forecast_over_pace, pace_forecasts, ForecastOverPaceParams, PaceForecast, PaceForecasts,
-    PaceForecastsParams,
+    is_forecast_over_pace, pace_forecasts, PaceForecast, PaceForecasts, PaceForecastsParams,
 };
-pub use rhythm::{
-    has_room_to_spare, is_rest_enough, slow_rest_until, work_rhythm, working_runway, HasRoomParams,
-    RestEnoughParams, SlowRestParams, WorkRhythm, WorkRhythmParams, WorkingRunwayParams,
-};
+pub use rhythm::{slow_rest_until, work_rhythm, SlowRestParams, WorkRhythm};
 
 use serde::{Deserialize, Serialize};
 
+use crate::pacing::load_shedding::Load;
 use crate::pacing::reset_time::usage_reset_time;
-use crate::pacing::units::{BurnRate, EpochMilliseconds, Percentage, SpanMilliseconds};
+use crate::pacing::units::{BurnRate, EpochMilliseconds, Fraction, Percentage, SpanMilliseconds};
 use crate::usage::{AccountUsage, UsageWindow, UsageWindowKind};
 
-/// Below this much of a window spent, no one is paced however fast it burns.
-pub const PACE_FLOOR_PERCENTAGE: Percentage = Percentage::new(60.0);
 /// This close to its reset a window paces no one, and a session it paused
 /// continues on its own.
 pub const RESET_GRACE_MS: SpanMilliseconds = SpanMilliseconds::from_minutes(10.0);
 /// A vendor re-stamps a window's reset a little differently on each read
 /// (sub-second jitter in the same window); a new window moves it by hours.
 pub const RESET_JITTER_MS: SpanMilliseconds = SpanMilliseconds::from_minutes(1.0);
-/// A stepped-down session steps back up only once its runway reaches this far
-/// past the reset - well clear of where it stepped down, so it doesn't see-saw.
-const SPARE_RUNWAY_FRACTION: f64 = 1.5;
-/// The chosen margin never asks for more than this share of the time left.
-const MAXIMUM_MARGIN_SHARE: f64 = 0.5;
 /// Two readings further apart than this span idle time, not burn - skipped.
 const MAXIMUM_SAMPLE_GAP_MS: SpanMilliseconds = SpanMilliseconds::from_minutes(5.0);
 /// A burn rate needs at least this much working time behind it...
 pub const MINIMUM_RATE_SPAN_MS: SpanMilliseconds = SpanMilliseconds::from_minutes(10.0);
 /// ...and only this much recent working time counts toward it.
 pub const RATE_HISTORY_MS: SpanMilliseconds = SpanMilliseconds::from_minutes(45.0);
-/// How long a weekly window runs, start to reset - the length its even spend is
-/// drawn over.
+/// How long a weekly window runs, start to reset.
 pub const WEEKLY_WINDOW_MS: SpanMilliseconds = SpanMilliseconds::from_days(7.0);
+/// How long a session window runs, start to reset.
+const SESSION_WINDOW_MS: SpanMilliseconds = SpanMilliseconds::from_hours(5.0);
+/// The burst allowance: how far ahead of an even spend a window may run, in
+/// percent of the window, before the overspend has to be paid back.
+const ALLOWANCE_PERCENTAGE: Percentage = Percentage::new(10.0);
+/// The allowance is paid out over this share of the window - eight hours of a
+/// week, a quarter of an hour of a session window.
+const PAYOUT_SHARE: f64 = 8.0 / (7.0 * 24.0);
+/// Under this keep share a window is over pace - a little slack, so the jitter
+/// of whole-percent readings doesn't slow anything.
+pub const SLOW_DOWN_KEEP: Fraction = Fraction::new(0.95);
+/// A stepped-down session steps back up only once its account could keep this
+/// much more than it spends - clear of what one step saves, so it doesn't
+/// see-saw.
+const STEP_UP_KEEP: Fraction = Fraction::new(1.3);
+/// At or under this keep share there is next to nothing to spend: a rest would
+/// be all rest, so the session stops until there is room.
+pub const STOP_KEEP: Fraction = Fraction::new(0.05);
+/// Halvings that find when a paused session is back on pace - a week down to
+/// well under a second.
+const READY_SEARCH_STEPS: u32 = 40;
 
 /// The windows pacing watches. A window of another kind (a per-model cap, extra
 /// usage) is never paced.
@@ -82,13 +96,20 @@ impl PacedWindowKind {
             UsageWindowKind::Model | UsageWindowKind::Credits | UsageWindowKind::Opaque => None,
         }
     }
+
+    /// How long a window of this kind runs, start to reset - the length its even
+    /// spend and its allowance's payout are drawn over.
+    #[must_use]
+    pub const fn window_length(self) -> SpanMilliseconds {
+        match self {
+            Self::Session => SESSION_WINDOW_MS,
+            Self::Weekly => WEEKLY_WINDOW_MS,
+        }
+    }
 }
 
-/// How far ahead of pace each paced window may run before pacing acts, or
-/// `None` for a window whose pacing is off.
-pub type MarginOf<'a> = &'a dyn Fn(PacedWindowKind) -> Option<SpanMilliseconds>;
-
-/// A session window's measured burn rate, or `None` while it isn't measured.
+/// The pace each window's account is measured at, or `None` while it isn't
+/// measured yet.
 pub type RateOf<'a> = &'a dyn Fn(&UsageWindow) -> Option<BurnRate>;
 
 /// A window's spent share, as the formula reads it.
@@ -179,162 +200,132 @@ pub fn burn_rate(samples: &[UsageSample]) -> Option<BurnRate> {
     (span >= MINIMUM_RATE_SPAN_MS).then(|| spent / span)
 }
 
-/// A paced window being watched now: its kind, when it runs free
-/// (`RESET_GRACE_MS` before its reset) and the user's margin for it.
 #[derive(Debug, Clone, Copy)]
-struct WatchedWindow {
-    kind: PacedWindowKind,
-    free_at: EpochMilliseconds,
-    margin: SpanMilliseconds,
+pub struct ProjectedRateParams {
+    pub measured: Option<BurnRate>,
+    /// The account's burn per unit of load, measured last.
+    pub rate_per_load: Option<BurnRate>,
+    /// The account's working load now (`load_shedding`).
+    pub load: Load,
 }
 
-#[derive(Clone, Copy)]
-struct WatchParams<'a> {
-    window: &'a UsageWindow,
-    now: EpochMilliseconds,
-    margin_of: MarginOf<'a>,
-}
-
-/// The watch on a window, or `None` when it isn't paced now - an unpaced or
-/// switched-off kind, an unknown or near reset, or usage under the floor.
-fn watched_window(params: WatchParams<'_>) -> Option<WatchedWindow> {
-    let WatchParams {
-        window,
-        now,
-        margin_of,
+/// An account's pace as its agents run now: the measured burn, raised to what
+/// the sessions working now would spend at the burn per unit of load measured
+/// last - so a session starting on, or switching to, a dear model counts at
+/// once. Either alone when the other is unknown; `None` when both are.
+#[must_use]
+pub fn projected_rate(params: ProjectedRateParams) -> Option<BurnRate> {
+    let ProjectedRateParams {
+        measured,
+        rate_per_load,
+        load,
     } = params;
+    let forecast = rate_per_load.map(|rate| BurnRate::new(rate.get() * load.get()));
+    match (measured, forecast) {
+        (Some(measured), Some(forecast)) => Some(BurnRate::new(measured.get().max(forecast.get()))),
+        (measured, forecast) => measured.or(forecast),
+    }
+}
+
+/// A paced window while it still paces: its kind, its reset and when it runs
+/// free (`RESET_GRACE_MS` before it).
+#[derive(Debug, Clone, Copy)]
+struct PacedWindow {
+    kind: PacedWindowKind,
+    reset_at: EpochMilliseconds,
+    free_at: EpochMilliseconds,
+}
+
+/// The paced window, or `None` for an unpaced kind or an unknown or near reset.
+fn paced_window(window: &UsageWindow, now: EpochMilliseconds) -> Option<PacedWindow> {
     let kind = PacedWindowKind::from_window_kind(window.kind)?;
-    let margin = margin_of(kind)?;
-    let free_at = reset_time_of(window)? - RESET_GRACE_MS;
-    let is_paced_now = free_at > now && utilization_of(window) >= PACE_FLOOR_PERCENTAGE;
-    is_paced_now.then_some(WatchedWindow {
+    let reset_at = reset_time_of(window)?;
+    let free_at = reset_at - RESET_GRACE_MS;
+    (free_at > now).then_some(PacedWindow {
         kind,
+        reset_at,
         free_at,
-        margin,
     })
 }
 
-/// What is left of a window at a burn rate lasts this long; with nothing being
-/// spent, forever.
-fn runway_of(window: &UsageWindow, rate: BurnRate) -> SpanMilliseconds {
-    if rate.is_positive() {
-        return (Percentage::FULL - utilization_of(window)) / rate;
+impl PacedWindow {
+    /// What the window lets its account spend at `moment`, with `used` spent by then
+    /// (see the top of this file).
+    fn may_spend_at(self, used: Percentage, moment: EpochMilliseconds) -> BurnRate {
+        let length = self.kind.window_length();
+        let elapsed = (moment - (self.reset_at - length))
+            .longer(SpanMilliseconds::ZERO)
+            .shorter(length);
+        let even = Percentage::from_ratio(elapsed / length);
+        let allowance = ALLOWANCE_PERCENTAGE
+            .get()
+            .min((ALLOWANCE_PERCENTAGE - (used - even)).get().max(0.0));
+        let affordable = (Percentage::FULL - used) / (self.free_at - moment);
+        let payout = Percentage::new(allowance) / (length * PAYOUT_SHARE);
+        BurnRate::new((affordable.get() + payout.get()).max(0.0))
     }
-
-    SpanMilliseconds::new(f64::INFINITY)
 }
 
-/// When an even spend over a weekly window starting `WEEKLY_WINDOW_MS` before
-/// `reset_at` reaches `utilization`.
-fn even_spend_reaches(reset_at: EpochMilliseconds, utilization: Percentage) -> EpochMilliseconds {
-    (reset_at - WEEKLY_WINDOW_MS) + utilization.share_of(WEEKLY_WINDOW_MS)
-}
-
-/// When an even spend over a weekly window reaches what it has used - when it is
-/// back on pace if its agents stopped now. `None` while its reset is unknown
-/// (the TypeScript answers NaN).
-#[must_use]
-pub fn even_spend_reached_at(window: &UsageWindow) -> Option<EpochMilliseconds> {
-    Some(even_spend_reaches(
-        reset_time_of(window)?,
-        utilization_of(window),
-    ))
-}
-
-/// Where a weekly window would stand with an even spend from its start to its
-/// reset, by `now`.
-fn even_spend_percentage(reset_at: EpochMilliseconds, now: EpochMilliseconds) -> Percentage {
-    let elapsed = now - (reset_at - WEEKLY_WINDOW_MS);
-    Percentage::from_ratio(elapsed / WEEKLY_WINDOW_MS)
-}
-
+/// A paced window weighed against the pace its account is measured at, now.
 #[derive(Clone, Copy)]
-struct OnPaceParams<'a> {
-    kind: PacedWindowKind,
+struct PaceCheck<'a> {
+    paced: PacedWindow,
     window: &'a UsageWindow,
-    free_at: EpochMilliseconds,
-    rate: Option<BurnRate>,
-}
-
-/// When a window would be back on pace if its agents stopped now, by its own
-/// measure (see the top of this file) - `None` while a session window's burn
-/// rate isn't measured yet.
-fn on_pace_time(params: OnPaceParams<'_>) -> Option<EpochMilliseconds> {
-    let OnPaceParams {
-        kind,
-        window,
-        free_at,
-        rate,
-    } = params;
-    match kind {
-        PacedWindowKind::Weekly => even_spend_reached_at(window),
-        PacedWindowKind::Session => rate.map(|rate| free_at - runway_of(window, rate)),
-    }
-}
-
-/// When a weekly window, spent at its measured working burn, would still reach
-/// its reset with nothing left over - the latest it can go on working. After
-/// it, the window runs dry before it resets, however close its even spend says
-/// it is. `None` for a session window (its own measure already is this) or
-/// while the burn isn't measured.
-fn dry_time(params: OnPaceParams<'_>) -> Option<EpochMilliseconds> {
-    let OnPaceParams {
-        kind,
-        window,
-        free_at,
-        rate,
-    } = params;
-    let rate = rate.filter(|rate| rate.is_positive())?;
-    (kind == PacedWindowKind::Weekly).then(|| free_at - runway_of(window, rate))
-}
-
-#[derive(Clone, Copy)]
-struct TooFarAheadParams {
-    on_pace_at: EpochMilliseconds,
-    free_at: EpochMilliseconds,
-    margin: SpanMilliseconds,
+    rate: BurnRate,
     now: EpochMilliseconds,
 }
 
-/// The trigger: a window more than `margin` ahead of pace. A margin longer than
-/// the time left can never be met - "2 h early" with 16 minutes to go would
-/// leave the window unpaced right when it runs dry - so it shrinks to at most a
-/// share of the time left.
-fn is_too_far_ahead(params: TooFarAheadParams) -> bool {
-    let TooFarAheadParams {
-        on_pace_at,
-        free_at,
-        margin,
-        now,
-    } = params;
-    let reachable = margin.shorter((free_at - now) * MAXIMUM_MARGIN_SHARE);
-    on_pace_at - now > reachable
-}
+impl PaceCheck<'_> {
+    /// The share of its spend the window lets its account keep now: 1 is exactly
+    /// on pace, under it the account must shed the rest, over it there is room
+    /// to spare. Infinite while nothing is spent.
+    fn keep(self) -> Fraction {
+        if !self.rate.is_positive() {
+            return Fraction::new(f64::INFINITY);
+        }
 
-/// How far behind pace a window has to fall before a stepped-down session may
-/// climb back: a session window, well clear of where it stepped down so it
-/// doesn't see-saw; a weekly window, back on its even spend - the margin it
-/// stepped down at is band enough over days.
-fn spare_ms(
-    kind: PacedWindowKind,
-    free_at: EpochMilliseconds,
-    now: EpochMilliseconds,
-) -> SpanMilliseconds {
-    match kind {
-        PacedWindowKind::Weekly => SpanMilliseconds::ZERO,
-        PacedWindowKind::Session => (free_at - now) * (SPARE_RUNWAY_FRACTION - 1.0),
+        let may_spend = self
+            .paced
+            .may_spend_at(utilization_of(self.window), self.now);
+        Fraction::new(may_spend / self.rate)
+    }
+
+    /// When the window would let its account spend at its pace again if its
+    /// agents stopped now - its even spend climbing back toward what is used.
+    /// Its free time when that never comes first.
+    fn ready_time(self) -> EpochMilliseconds {
+        let used = utilization_of(self.window);
+        let is_ready_at = |moment| self.paced.may_spend_at(used, moment) >= self.rate;
+        if is_ready_at(self.now) {
+            return self.now;
+        }
+
+        let mut early = self.now;
+        let mut late = self.paced.free_at;
+        for _ in 0..READY_SEARCH_STEPS {
+            let middle = EpochMilliseconds::new(early.get().midpoint(late.get()));
+            if is_ready_at(middle) {
+                late = middle;
+            } else {
+                early = middle;
+            }
+        }
+
+        late
     }
 }
 
-/// The window that holds a session longest.
+/// The window that keeps an account's spend the least.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BindingWindow {
     pub kind: PacedWindowKind,
     pub window: UsageWindow,
-    /// Zero while the window's burn rate isn't measured.
+    /// The pace the account is measured at.
     pub rate: BurnRate,
-    /// When the session may go on: once it is back on pace.
+    /// The share of that pace the window lets the account keep.
+    pub keep: Fraction,
+    /// When the session may go on: once the window lets it spend at its pace.
     pub ready_at: EpochMilliseconds,
     /// When the reset is close enough for the session to continue on its own.
     pub continue_at: EpochMilliseconds,
@@ -344,81 +335,95 @@ pub struct BindingWindow {
 pub struct AssessPaceParams<'a> {
     pub account: Option<&'a AccountUsage>,
     pub now: EpochMilliseconds,
-    /// A paused session is held until it is back on pace, with no margin.
+    /// A paused session is held until its keep share is back to 1.
     pub is_paused: bool,
-    pub margin_of: MarginOf<'a>,
     pub rate_of: RateOf<'a>,
 }
 
-/// Judge an account's pace, each window by its own measure. A window is over
-/// pace once it runs more than its margin ahead. The window that holds the
-/// session longest is the one reported: when it may go on (`ready_at`, once it
-/// is back on pace) and when its reset is close enough to continue on its own
-/// (`continue_at`). `None` when no window holds it.
+/// Judge an account's pace, each paced window by its keep share at its pace
+/// (`rate_of`). A window is over pace under `SLOW_DOWN_KEEP` - or, for a paused
+/// session, until it is back to 1. The window that keeps the least is the one
+/// reported: its keep share, when the session may go on (`ready_at`) and when
+/// the reset is close enough to continue on its own (`continue_at`). `None` when
+/// no window holds it - or none is measured yet.
 #[must_use]
 pub fn assess_pace(params: AssessPaceParams<'_>) -> Option<BindingWindow> {
     let AssessPaceParams {
         account,
         now,
         is_paused,
-        margin_of,
         rate_of,
     } = params;
+    let threshold = if is_paused {
+        Fraction::WHOLE
+    } else {
+        SLOW_DOWN_KEEP
+    };
     let mut binding: Option<BindingWindow> = None;
     for window in &account?.windows {
-        let Some(watched) = watched_window(WatchParams {
+        let (Some(paced), Some(rate)) = (paced_window(window, now), rate_of(window)) else {
+            continue;
+        };
+
+        let check = PaceCheck {
+            paced,
             window,
+            rate,
             now,
-            margin_of,
-        }) else {
-            continue;
         };
-
-        let rate = rate_of(window);
-        let Some(on_pace_at) = on_pace_time(OnPaceParams {
-            kind: watched.kind,
-            window,
-            free_at: watched.free_at,
-            rate,
-        }) else {
-            continue;
-        };
-
-        let margin = if is_paused {
-            SpanMilliseconds::ZERO
-        } else {
-            watched.margin
-        };
-        let dry_at = dry_time(OnPaceParams {
-            kind: watched.kind,
-            window,
-            free_at: watched.free_at,
-            rate,
-        });
-        let is_running_dry = dry_at.is_some_and(|dry_at| dry_at > now);
-        let is_over_pace = is_running_dry
-            || is_too_far_ahead(TooFarAheadParams {
-                on_pace_at,
-                free_at: watched.free_at,
-                margin,
-                now,
-            });
-        let ready_at = now.later(on_pace_at).later(dry_at.unwrap_or(now));
-        let outlasts_binding = binding
-            .as_ref()
-            .is_none_or(|holding| ready_at > holding.ready_at);
-        if is_over_pace && outlasts_binding {
+        let keep = check.keep();
+        let keeps_least = binding.as_ref().is_none_or(|holding| keep < holding.keep);
+        if keep < threshold && keeps_least {
             binding = Some(BindingWindow {
-                kind: watched.kind,
+                kind: paced.kind,
                 window: window.clone(),
-                rate: rate.unwrap_or(BurnRate::ZERO),
-                ready_at,
-                continue_at: watched.free_at,
+                rate,
+                keep,
+                ready_at: check.ready_time(),
+                continue_at: paced.free_at,
             });
         }
     }
 
     binding
+}
+
+#[derive(Clone, Copy)]
+pub struct HasRoomParams<'a> {
+    pub account: Option<&'a AccountUsage>,
+    pub now: EpochMilliseconds,
+    pub rate_of: RateOf<'a>,
+}
+
+/// Whether an account could afford a dearer effort or model again: every paced
+/// window keeps well above its spend (`STEP_UP_KEEP`). A window with no measured
+/// pace yet can't vouch for it.
+#[must_use]
+pub fn has_room_to_spare(params: HasRoomParams<'_>) -> bool {
+    let HasRoomParams {
+        account,
+        now,
+        rate_of,
+    } = params;
+    let Some(account) = account else {
+        return false;
+    };
+
+    account.windows.iter().all(|window| {
+        let Some(paced) = paced_window(window, now) else {
+            return true;
+        };
+
+        rate_of(window).is_some_and(|rate| {
+            let check = PaceCheck {
+                paced,
+                window,
+                rate,
+                now,
+            };
+            check.keep() >= STEP_UP_KEEP
+        })
+    })
 }
 
 #[cfg(test)]

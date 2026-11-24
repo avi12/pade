@@ -1,11 +1,9 @@
 // The load-shedding fixture: cost weights, shed fractions and shedding plans.
 
-import { UsageWindowKind } from "@/lib/types/usage";
 import { costWeight, planShedding, shedFraction } from "@/lib/usage/pacing/engine/load-shedding";
 import type { ShedCandidate } from "@/lib/usage/pacing/engine/load-shedding";
 
-import { between, HOUR, MINUTE, NOW, perHour, pick, random } from "./fixture-primitives";
-import { windowOf } from "./usage-pace-fixture";
+import { between, pick, random } from "./fixture-primitives";
 
 const MODELS = [
   "claude-haiku-5-5",
@@ -39,32 +37,16 @@ function costWeightCases() {
   );
 }
 
-const SHED_UTILIZATIONS = [60, 80, 95];
-
 const PLAN_CASE_COUNT = 30;
 
+/** Keep shares from past empty to room to spare. */
+const KEEP_SHARES = [-0.5, 0, 0.05, 0.3, 0.6, 0.95, 1, 1.7];
+
 function shedFractionCases() {
-  const rates = [null, 0, perHour(1), perHour(10), perHour(60)];
-  const timesLeft = [10 * MINUTE, 100 * MINUTE, 5 * HOUR];
-  return SHED_UTILIZATIONS.flatMap(utilization =>
-    timesLeft.flatMap(timeLeft =>
-      rates.map(rate => ({
-        utilization,
-        timeLeft,
-        rate,
-        expected: shedFraction({
-          window: windowOf({
-            kind: UsageWindowKind.enum.session,
-            utilization,
-            resetsIn: timeLeft
-          }),
-          rate,
-          freeAt: NOW + timeLeft,
-          now: NOW
-        })
-      }))
-    )
-  );
+  return KEEP_SHARES.map(keep => ({
+    keep,
+    expected: shedFraction(keep)
+  }));
 }
 
 function planSheddingCases() {
@@ -76,7 +58,8 @@ function planSheddingCases() {
         high: 60,
         step: 0.5
       }),
-      saving: pick([0, 0.2, 0.4, 0.5, 1])
+      saving: pick([0, 0.2, 0.4, 0.5, 1]),
+      fanOut: pick([1, 1, 2, 4])
     }));
     const totalLoad =
       candidates.reduce((sum, candidate) => sum + candidate.load, 0) +

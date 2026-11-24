@@ -6,11 +6,8 @@ use super::{
 };
 use crate::pacing::facts::{Decision, PaceFacts, PacePhase, SessionFacts};
 use crate::pacing::load_shedding::RestoreCandidate;
-use crate::pacing::policy::pacing_margin;
 use crate::pacing::registry::LiveSession;
-use crate::pacing::usage_pace::{
-    assess_pace, has_room_to_spare, AssessPaceParams, HasRoomParams, PacedWindowKind,
-};
+use crate::pacing::usage_pace::{assess_pace, has_room_to_spare, AssessPaceParams, HasRoomParams};
 use crate::usage::UsageWindow;
 
 impl<'a> Pass<'a> {
@@ -107,7 +104,6 @@ impl<'a> Pass<'a> {
             return;
         };
 
-        let margin_of = |kind: PacedWindowKind| Some(pacing_margin(kind));
         let rate_of = |window: &UsageWindow| {
             pace.rates
                 .get(&window.key)
@@ -118,7 +114,6 @@ impl<'a> Pass<'a> {
             account: Some(usage),
             now,
             is_paused: true,
-            margin_of: &margin_of,
             rate_of: &rate_of,
         });
         let is_still_over_pace = binding.is_some();
@@ -162,20 +157,17 @@ impl<'a> Pass<'a> {
         let session = &live.facts;
         let now = self.inputs.now;
         let account = account_of(self.inputs, &session.agent_id);
-        let margin_of = |kind: PacedWindowKind| Some(pacing_margin(kind));
         let rate_of = |window: &UsageWindow| self.inputs.samples.rate_of(&account.key, window);
         let binding = assess_pace(AssessPaceParams {
             account: account.usage,
             now,
             is_paused: false,
-            margin_of: &margin_of,
             rate_of: &rate_of,
         });
         let has_room = binding.is_none()
             && has_room_to_spare(HasRoomParams {
                 account: account.usage,
                 now,
-                margin_of: &margin_of,
                 rate_of: &rate_of,
             });
         let can_step_up =

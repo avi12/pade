@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { UsageWindowKind } from "@/lib/types/usage";
 import {
   costWeight,
   lightestToRestore,
@@ -9,9 +8,6 @@ import {
   sessionLoad,
   shedFraction
 } from "@/lib/usage/pacing/engine/load-shedding";
-
-const MINUTE_MS = 60_000;
-const NOW = Date.UTC(2026, 9, 30, 12);
 
 describe("costWeight", () => {
   it("prices a dearer tier above a cheaper one at the same effort", () => {
@@ -133,61 +129,35 @@ describe("sessionLoad", () => {
 });
 
 describe("shedFraction", () => {
-  const window = {
-    key: "five_hour",
-    kind: UsageWindowKind.enum.session,
-    label: "Five hour",
-    utilization: 80,
-    resetsAt: null
-  };
-
-  it("asks for the share the burn runs over the pace that lasts", () => {
-    // 20% left over 100 minutes lasts at 0.2%/min; burning 0.8%/min is 4x over.
-    expect(
-      shedFraction({
-        window,
-        rate: 0.8 / MINUTE_MS,
-        freeAt: NOW + 100 * MINUTE_MS,
-        now: NOW
-      })
-    ).toBeCloseTo(0.75);
+  it("asks for the share of the spend the window doesn't let the account keep", () => {
+    expect(shedFraction(0.25)).toBeCloseTo(0.75);
   });
 
-  it("asks for nothing on pace or while the burn is unmeasured", () => {
-    expect(
-      shedFraction({
-        window,
-        rate: 0.1 / MINUTE_MS,
-        freeAt: NOW + 100 * MINUTE_MS,
-        now: NOW
-      })
-    ).toBeNull();
-    expect(
-      shedFraction({
-        window,
-        rate: null,
-        freeAt: NOW + 100 * MINUTE_MS,
-        now: NOW
-      })
-    ).toBeNull();
+  it("asks for everything at most, and nothing on pace", () => {
+    expect(shedFraction(-0.5)).toBe(1);
+    expect(shedFraction(1)).toBeNull();
+    expect(shedFraction(1.7)).toBeNull();
   });
 });
 
 describe("planShedding", () => {
   const heavy = {
-    id: "opus-with-subagents",
+    id: "opus-alone",
     load: 20,
-    saving: 0.4
+    saving: 0.4,
+    fanOut: 1
   };
   const light = {
     id: "sonnet-alone",
     load: 3,
-    saving: 0.4
+    saving: 0.4,
+    fanOut: 1
   };
   const resting = {
     id: "haiku-resting",
     load: 1,
-    saving: 1
+    saving: 1,
+    fanOut: 1
   };
 
   it("steps the biggest saving first and stops once the shed is covered", () => {
@@ -218,6 +188,38 @@ describe("planShedding", () => {
         fraction: null
       })
     ).toEqual([heavy.id]);
+  });
+
+  it("slows a session fanning work out to subagents before a lone one spending as much", () => {
+    const fannedOut = {
+      id: "opus-with-three-subagents",
+      load: 12,
+      saving: 0.4,
+      fanOut: 4
+    };
+    expect(
+      planShedding({
+        candidates: [heavy, fannedOut],
+        totalLoad: 32,
+        fraction: 0.1
+      })
+    ).toEqual([fannedOut.id]);
+  });
+
+  it("still slows the lone session when the fanned-out ones can't cover the shed", () => {
+    const fannedOut = {
+      id: "opus-with-three-subagents",
+      load: 12,
+      saving: 0.4,
+      fanOut: 4
+    };
+    expect(
+      planShedding({
+        candidates: [heavy, fannedOut],
+        totalLoad: 32,
+        fraction: 0.3
+      })
+    ).toEqual([fannedOut.id, heavy.id]);
   });
 
   it("never picks a session with no step left", () => {

@@ -1,20 +1,20 @@
-// Usage pacing: an agent on track to run out of its usage window well before the
-// window resets is held back, so the account doesn't sit locked out for hours at
-// the end of it. The formula - how far ahead of pace each window spends, the
-// session by its burn, the week against an even spend - is lib/usage/pacing/engine/usage-pace;
-// the one switch and the built-in way of pacing are lib/usage/pacing/engine/pacing-policy.
-// This module measures each account's burn rate from its readings while its
-// agents work, and climbs the steps one at a time while an agent stays too
-// fast, each agent against its own account:
+// Usage pacing: an account spending faster than what is left of its window lasts
+// is slowed - steadily, a little at a time, so it never sits locked out for hours
+// at the end of the window. The formula - the share of its spend each window
+// lets the account keep, with a burst allowance that usage deltas drain - is
+// lib/usage/pacing/engine/usage-pace; the one switch and the built-in way of
+// pacing are lib/usage/pacing/engine/pacing-policy. This module measures each
+// account's burn rate from its readings while its agents work, projects it onto
+// what the sessions run now, and climbs the steps one at a time while an agent
+// stays too fast, each agent against its own account:
 //
 //   effort - one effort level down (lib/stores/usage/usageAdapt), repeated to the
 //            bottom of its ladder before the next step;
 //   model  - a cheaper model;
-//   rest   - a short rest, sized so stretches of work and rest average out to a
-//            pace that lasts, then "continue" - while that needs no more rest
-//            than work;
-//   stop   - stop at its next safe point until its runway reaches the reset,
-//            then continue on its own.
+//   rest   - a short rest, sized so stretches of work and rest average out to the
+//            account's keep share, then "continue";
+//   stop   - with next to nothing left to spend, stop at its next safe point
+//            until there is room, then continue on its own.
 //
 // A stop or rest costs no turn when the agent is already idle: the pause
 // request is typed only into running work, and "continue" only into work that
@@ -91,25 +91,19 @@ import {
   sessionLoad,
   shedFraction
 } from "@/lib/usage/pacing/engine/load-shedding";
-import {
-  MILLISECONDS_PER_MINUTE,
-  PACING_STEP_ORDER,
-  pacingMargin,
-  spokenTime
-} from "@/lib/usage/pacing/engine/pacing-policy";
+import { MILLISECONDS_PER_MINUTE, PACING_STEP_ORDER, spokenTime } from "@/lib/usage/pacing/engine/pacing-policy";
 import {
   assessPace,
   burnRate,
   CONTINUE_REQUEST,
-  evenSpendReachedAt,
   hasRoomToSpare,
-  isRestEnough,
   MINIMUM_RATE_SPAN_MS,
   paceForecasts,
+  projectedRate,
   RATE_HISTORY_MS,
   slowRestUntil,
+  STOP_KEEP,
   windowName,
-  workingRunway,
   workRhythm
 } from "@/lib/usage/pacing/engine/usage-pace";
 import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/engine/usage-pace";
@@ -125,9 +119,10 @@ import { formatPercent } from "@/lib/util/format";
 /** How often working and paused sessions are checked against their account. The
  *  backend caches that read for ~3 minutes, so the endpoint is never hit faster. */
 const POLL_MS = 60_000;
-/** How far one scan moves a session's working share toward whether it works
- *  now - a moving average spanning about the burn rate's own history. */
-const WORKING_SHARE_SMOOTHING = POLL_MS / RATE_HISTORY_MS;
+/** How far one scan moves a running average toward its newest value - a
+ *  session's working share, an account's burn per unit of load - so the
+ *  average spans about the burn rate's own history. */
+const RECENT_SMOOTHING = POLL_MS / RATE_HISTORY_MS;
 /** How long an account waits after letting one paused session go before the
  *  next - long enough for its usage to show what the first one spends. */
 const RELEASE_SPACING_MS = MINIMUM_RATE_SPAN_MS;
@@ -148,18 +143,11 @@ const MODEL_STEPS: ReadonlySet<PacingStep> = new Set([PacingStep.enum.effort, Pa
 
 type PaceBinding = NonNullable<ReturnType<typeof assessPace>>;
 
-/** Whether a rest is the step to take: the rest step, while resting needs no
- *  more rest than work - past that, a stop takes over. A weekly window never
- *  stops: a stop until it is back on an even spend can last half a day, so it
- *  rests in short bursts instead (`workRhythm`). */
+/** Whether a rest is the step to take: the rest step, while the account still
+ *  has something to spend - short rests between stretches of work
+ *  (`workRhythm`). With next to nothing left (STOP_KEEP), a stop takes over. */
 function shouldRest({ step, binding }: { step: PacingStep; binding: PaceBinding }) {
-  const isWeeklyWindow = binding.kind === PacedWindowKind.enum.weekly;
-  const isRestStillEnough = isRestEnough({
-    runway: workingRunway(binding),
-    continueAt: binding.continueAt,
-    now: Date.now()
-  });
-  return step === PacingStep.enum.rest && (isWeeklyWindow || isRestStillEnough);
+  return step === PacingStep.enum.rest && binding.keep > STOP_KEEP;
 }
 
 /** How a session's history names an effort or model step. */
@@ -217,7 +205,6 @@ const verdicts = new SvelteMap<
     windowKind: PacedWindowKind;
     windowKey: string;
     agentId: string;
-    runOutAt: number;
     readyAt: number;
     resetAt: number;
   }
@@ -553,11 +540,9 @@ function liveVerdict(id: string) {
     return null;
   }
 
-  const isWeekly = verdict.windowKind === PacedWindowKind.enum.weekly;
   return {
     ...verdict,
-    utilization: window.utilization,
-    readyAt: isWeekly ? Math.max(Date.now(), evenSpendReachedAt(window)) : verdict.readyAt
+    utilization: window.utilization
   };
 }
 
@@ -674,6 +659,77 @@ export function createUsagePacing(host: PacingHost) {
   /** What one unit of estimated load measures as this scan
    *  (`measuredPerEstimated`). */
   let estimateScale = 1;
+  /** Each account window's measured burn per unit of its working load, a
+   *  running average - what turns the load sessions run now into a pace
+   *  (`projectedRate`). */
+  const ratesPerLoad = new SvelteMap<string, number>();
+  /** When each account last took a step - its pace is measured again before
+   *  the next one. */
+  const steppedAt = new SvelteMap<string, number>();
+
+  // What this window's working sessions on an account spend now, by load.
+  function accountLoad(accountKey: string) {
+    let load = 0;
+    for (const session of host.sessions()) {
+      const isWorkingOnAccount = accountKeys.get(session.id) === accountKey && isWorking(session.id);
+      if (isWorkingOnAccount) {
+        load += loadOf(session);
+      }
+    }
+
+    return load;
+  }
+
+  // Fold an account window's measured burn into its burn per unit of load, once
+  // per scan - a running average, so a session that just started on a dear
+  // model raises the projected pace at once without lowering the calibration.
+  function calibrate({ accountKey, account }: { accountKey: string; account: AccountUsage }) {
+    const load = accountLoad(accountKey);
+    for (const window of account.windows) {
+      const measured = liveRate({
+        accountKey,
+        window
+      });
+      const isCalibratable = measured !== null && load > 0;
+      if (!isCalibratable) {
+        continue;
+      }
+
+      const key = sampleKey({
+        accountKey,
+        window
+      });
+      const sample = measured / load;
+      const previous = ratesPerLoad.get(key) ?? sample;
+      ratesPerLoad.set(key, previous + RECENT_SMOOTHING * (sample - previous));
+    }
+  }
+
+  // An account window's pace: its measured burn, raised to what its working
+  // sessions run now (`projectedRate`). Right after a step only the measured
+  // burn counts, so the step shows in the readings before the next one.
+  function paceOf({ accountKey, window }: { accountKey: string; window: UsageWindow }) {
+    const measured = liveRate({
+      accountKey,
+      window
+    });
+    const isSettling = Date.now() - (steppedAt.get(accountKey) ?? 0) < MINIMUM_RATE_SPAN_MS;
+    if (isSettling) {
+      return measured;
+    }
+
+    return projectedRate({
+      measured,
+      ratePerLoad:
+        ratesPerLoad.get(
+          sampleKey({
+            accountKey,
+            window
+          })
+        ) ?? null,
+      load: accountLoad(accountKey)
+    });
+  }
 
   for (const [id, state] of Object.entries(
     readStoredJson({
@@ -722,6 +778,7 @@ export function createUsagePacing(host: PacingHost) {
     kind,
     window,
     rate,
+    keep,
     readyAt,
     continueAt,
     isResting
@@ -730,6 +787,7 @@ export function createUsagePacing(host: PacingHost) {
     kind: PacedWindowKind;
     window: UsageWindow;
     rate: number;
+    keep: number;
     readyAt: number;
     continueAt: number;
     isResting: boolean;
@@ -737,14 +795,8 @@ export function createUsagePacing(host: PacingHost) {
     const now = Date.now();
     const restUntil = isResting
       ? slowRestUntil({
-          runway: workingRunway({
-            window,
-            rate,
-            readyAt,
-            continueAt
-          }),
+          keep,
           readyAt,
-          continueAt,
           now
         })
       : null;
@@ -1121,10 +1173,7 @@ export function createUsagePacing(host: PacingHost) {
       // cut off the first thing it started - so the session works its rhythm's
       // stretch (`workRhythm`) before it rests again.
       const workedFor = Date.now() - (workingSince.get(session.id) ?? Date.now());
-      const { stretch } = workRhythm({
-        runway: workingRunway(binding),
-        timeLeft: binding.continueAt - Date.now()
-      });
+      const { stretch } = workRhythm(binding.keep);
       const isBetweenRests = isResting && workedFor < stretch;
       if (isBetweenRests) {
         return;
@@ -1156,7 +1205,7 @@ export function createUsagePacing(host: PacingHost) {
   }) {
     const now = Date.now();
     function rateOf(window: UsageWindow) {
-      return liveRate({
+      return paceOf({
         accountKey,
         window
       });
@@ -1166,7 +1215,6 @@ export function createUsagePacing(host: PacingHost) {
       account,
       now,
       isPaused: false,
-      marginOf: pacingMargin,
       rateOf
     });
     if (binding === null) {
@@ -1176,7 +1224,6 @@ export function createUsagePacing(host: PacingHost) {
         windowKind: binding.kind,
         windowKey: binding.window.key,
         agentId: session.agent.id,
-        runOutAt: now + (binding.continueAt - binding.readyAt),
         readyAt: binding.readyAt,
         resetAt: binding.continueAt
       });
@@ -1187,7 +1234,6 @@ export function createUsagePacing(host: PacingHost) {
       hasRoomToSpare({
         account,
         now,
-        marginOf: pacingMargin,
         rateOf
       });
     return {
@@ -1336,6 +1382,7 @@ export function createUsagePacing(host: PacingHost) {
     assessed.clear();
     for (const accountKey of plan.steppedAccounts) {
       forgetSamples(accountKey);
+      steppedAt.set(accountKey, Date.now());
     }
   }
 
@@ -1409,17 +1456,11 @@ export function createUsagePacing(host: PacingHost) {
   }
 
   // What the account must shed: the most any of its holding windows asks for -
-  // null while none of them has a measured burn.
+  // null while none of them is over pace.
   function largestShed(bindings: readonly PaceBinding[]) {
-    const now = Date.now();
     let fraction: number | null = null;
     for (const binding of bindings) {
-      const shed = shedFraction({
-        window: binding.window,
-        rate: binding.rate > 0 ? binding.rate : null,
-        freeAt: binding.continueAt,
-        now
-      });
+      const shed = shedFraction(binding.keep);
       const isLargestShed = shed !== null && (fraction === null || shed > fraction);
       if (isLargestShed) {
         fraction = shed;
@@ -1484,7 +1525,6 @@ export function createUsagePacing(host: PacingHost) {
       account,
       now,
       isPaused: true,
-      marginOf: pacingMargin,
       rateOf: window =>
         state.rates[window.key] ??
         liveRate({
@@ -1652,13 +1692,17 @@ export function createUsagePacing(host: PacingHost) {
       account,
       now
     });
+    calibrate({
+      accountKey,
+      account
+    });
     forecasts.set(
       session.agent.id,
       paceForecasts({
         account,
         now,
         rateOf: window =>
-          liveRate({
+          paceOf({
             accountKey,
             window
           })
@@ -1685,7 +1729,7 @@ export function createUsagePacing(host: PacingHost) {
 
       const sample = isWorkingNow ? 1 : 0;
       const previous = workingShares.get(session.id) ?? sample;
-      workingShares.set(session.id, previous + WORKING_SHARE_SMOOTHING * (sample - previous));
+      workingShares.set(session.id, previous + RECENT_SMOOTHING * (sample - previous));
     }
   }
 
