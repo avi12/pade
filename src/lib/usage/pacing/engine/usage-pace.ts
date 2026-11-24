@@ -161,11 +161,18 @@ export function burnRate(samples: readonly UsageSample[]) {
   return span >= MINIMUM_RATE_SPAN_MS ? spent / span : null;
 }
 
+/** How far the load forecast may lift a measured burn. Load and burn are only
+ *  loosely tied - a scan can catch the load near zero, or count a burst the
+ *  readings never show - and an unbounded forecast once read 1,363% an hour,
+ *  which stopped sessions until the weekly reset. A dear model joining still
+ *  counts at once, up to this many times what the account measures. */
+const MAXIMUM_PROJECTED_RISE = 3;
+
 /** An account's pace as its agents run now: the measured burn, raised to what
  *  the sessions working now would spend at the burn per unit of load measured
- *  last (`ratePerLoad`) - so a session starting on, or switching to, a dear
- *  model counts at once. Either alone when the other is unknown; null when
- *  both are. */
+ *  last (`ratePerLoad`), at most `MAXIMUM_PROJECTED_RISE` times the measured
+ *  burn - so a session starting on, or switching to, a dear model counts at
+ *  once. Either alone when the other is unknown; null when both are. */
 export function projectedRate({
   measured,
   ratePerLoad,
@@ -181,7 +188,7 @@ export function projectedRate({
     return forecast;
   }
 
-  return forecast === null ? measured : Math.max(measured, forecast);
+  return forecast === null ? measured : Math.min(Math.max(measured, forecast), measured * MAXIMUM_PROJECTED_RISE);
 }
 
 /** The pace each window's account is measured at, in percent per millisecond -

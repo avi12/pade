@@ -272,6 +272,11 @@ fn projects_the_pace_onto_the_load_running_now_when_that_is_more() {
 }
 
 #[test]
+fn lifts_the_measured_pace_at_most_threefold() {
+    assert_near(project(Some(per_hour(1.0)), Some(per_hour(10.0)), 40.0), 3.0);
+}
+
+#[test]
 fn projects_from_either_side_alone_and_from_neither_names_no_pace() {
     assert_near(project(None, Some(per_hour(0.5)), 2.0), 1.0);
     assert_near(project(Some(per_hour(3.0)), None, 2.0), 3.0);

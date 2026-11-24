@@ -659,10 +659,18 @@ export function createUsagePacing(host: PacingHost) {
   /** What one unit of estimated load measures as this scan
    *  (`measuredPerEstimated`). */
   let estimateScale = 1;
-  /** Each account window's measured burn per unit of its working load, a
-   *  running average - what turns the load sessions run now into a pace
-   *  (`projectedRate`). */
-  const ratesPerLoad = new SvelteMap<string, number>();
+  /** Each account window's measured burn and working load, both running
+   *  averages - their ratio turns the load sessions run now into a pace
+   *  (`projectedRate`). Averaged apart, not as one ratio per scan: a scan that
+   *  catches the load near zero would make that ratio explode, and the running
+   *  average would carry the spike for hours. */
+  const calibrations = new SvelteMap<
+    string,
+    {
+      burn: number;
+      load: number;
+    }
+  >();
   /** When each account last took a step - its pace is measured again before
    *  the next one. */
   const steppedAt = new SvelteMap<string, number>();
@@ -680,9 +688,9 @@ export function createUsagePacing(host: PacingHost) {
     return load;
   }
 
-  // Fold an account window's measured burn into its burn per unit of load, once
-  // per scan - a running average, so a session that just started on a dear
-  // model raises the projected pace at once without lowering the calibration.
+  // Fold an account window's measured burn and load into their running
+  // averages, once per scan, so a session that just started on a dear model
+  // raises the projected pace at once without lowering the calibration.
   function calibrate({ accountKey, account }: { accountKey: string; account: AccountUsage }) {
     const load = accountLoad(accountKey);
     for (const window of account.windows) {
@@ -699,10 +707,22 @@ export function createUsagePacing(host: PacingHost) {
         accountKey,
         window
       });
-      const sample = measured / load;
-      const previous = ratesPerLoad.get(key) ?? sample;
-      ratesPerLoad.set(key, previous + RECENT_SMOOTHING * (sample - previous));
+      const previous = calibrations.get(key) ?? {
+        burn: measured,
+        load
+      };
+      calibrations.set(key, {
+        burn: previous.burn + RECENT_SMOOTHING * (measured - previous.burn),
+        load: previous.load + RECENT_SMOOTHING * (load - previous.load)
+      });
     }
+  }
+
+  // An account window's measured burn per unit of its working load - null
+  // until it has been calibrated.
+  function ratePerLoadOf(key: string) {
+    const calibration = calibrations.get(key);
+    return calibration === undefined ? null : calibration.burn / calibration.load;
   }
 
   // An account window's pace: its measured burn, raised to what its working
@@ -720,13 +740,12 @@ export function createUsagePacing(host: PacingHost) {
 
     return projectedRate({
       measured,
-      ratePerLoad:
-        ratesPerLoad.get(
-          sampleKey({
-            accountKey,
-            window
-          })
-        ) ?? null,
+      ratePerLoad: ratePerLoadOf(
+        sampleKey({
+          accountKey,
+          window
+        })
+      ),
       load: accountLoad(accountKey)
     });
   }

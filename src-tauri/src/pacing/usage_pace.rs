@@ -209,10 +209,16 @@ pub struct ProjectedRateParams {
     pub load: Load,
 }
 
+/// How far the load forecast may lift a measured burn - load and burn are only
+/// loosely tied, and an unbounded forecast once stopped sessions until the
+/// weekly reset.
+const MAXIMUM_PROJECTED_RISE: f64 = 3.0;
+
 /// An account's pace as its agents run now: the measured burn, raised to what
 /// the sessions working now would spend at the burn per unit of load measured
-/// last - so a session starting on, or switching to, a dear model counts at
-/// once. Either alone when the other is unknown; `None` when both are.
+/// last, at most `MAXIMUM_PROJECTED_RISE` times the measured burn - so a
+/// session starting on, or switching to, a dear model counts at once. Either
+/// alone when the other is unknown; `None` when both are.
 #[must_use]
 pub fn projected_rate(params: ProjectedRateParams) -> Option<BurnRate> {
     let ProjectedRateParams {
@@ -222,7 +228,12 @@ pub fn projected_rate(params: ProjectedRateParams) -> Option<BurnRate> {
     } = params;
     let forecast = rate_per_load.map(|rate| BurnRate::new(rate.get() * load.get()));
     match (measured, forecast) {
-        (Some(measured), Some(forecast)) => Some(BurnRate::new(measured.get().max(forecast.get()))),
+        (Some(measured), Some(forecast)) => Some(BurnRate::new(
+            measured
+                .get()
+                .max(forecast.get())
+                .min(measured.get() * MAXIMUM_PROJECTED_RISE),
+        )),
         (measured, forecast) => measured.or(forecast),
     }
 }

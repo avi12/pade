@@ -443,6 +443,16 @@ describe("projectedRate", () => {
     ).toBeCloseTo(perHour(4));
   });
 
+  it("lifts the measured burn at most threefold, however far the load forecast runs", () => {
+    expect(
+      projectedRate({
+        measured: perHour(1),
+        ratePerLoad: perHour(10),
+        load: 40
+      })
+    ).toBeCloseTo(perHour(3));
+  });
+
   it("uses whichever is known, and nothing when neither is", () => {
     expect(
       projectedRate({
