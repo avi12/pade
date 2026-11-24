@@ -97,12 +97,12 @@ import {
   burnRate,
   CONTINUE_REQUEST,
   hasRoomToSpare,
+  isNearlySpent,
   MINIMUM_RATE_SPAN_MS,
   paceForecasts,
   projectedRate,
   RATE_HISTORY_MS,
   slowRestUntil,
-  STOP_KEEP,
   windowName,
   workRhythm
 } from "@/lib/usage/pacing/engine/usage-pace";
@@ -145,9 +145,10 @@ type PaceBinding = NonNullable<ReturnType<typeof assessPace>>;
 
 /** Whether a rest is the step to take: the rest step, while the account still
  *  has something to spend - short rests between stretches of work
- *  (`workRhythm`). With next to nothing left (STOP_KEEP), a stop takes over. */
+ *  (`workRhythm`). With next to nothing left in the window (`isNearlySpent`),
+ *  a stop takes over. */
 function shouldRest({ step, binding }: { step: PacingStep; binding: PaceBinding }) {
-  return step === PacingStep.enum.rest && binding.keep > STOP_KEEP;
+  return step === PacingStep.enum.rest && !isNearlySpent(binding.window);
 }
 
 /** How a session's history names an effort or model step. */
@@ -1551,7 +1552,11 @@ export function createUsagePacing(host: PacingHost) {
           window
         })
     });
-    if (binding === null) {
+    // A stop is only for a window with next to nothing left; one that has room
+    // - a stop taken before rests were capped, say - goes back to work and is
+    // judged afresh, resting at most `workRhythm`'s longest rest.
+    const isStopWithRoom = binding !== null && state.restMs === null && !isNearlySpent(binding.window);
+    if (binding === null || isStopWithRoom) {
       await release({
         session,
         accountKey,

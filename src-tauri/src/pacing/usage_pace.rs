@@ -67,9 +67,17 @@ pub const SLOW_DOWN_KEEP: Fraction = Fraction::new(0.95);
 /// much more than it spends - clear of what one step saves, so it doesn't
 /// see-saw.
 const STEP_UP_KEEP: Fraction = Fraction::new(1.3);
-/// At or under this keep share there is next to nothing to spend: a rest would
-/// be all rest, so the session stops until there is room.
-pub const STOP_KEEP: Fraction = Fraction::new(0.05);
+/// With this little of a window left there is next to nothing to spend, so a
+/// session stops until there is room instead of resting. A pace far over -
+/// however far - only ever rests.
+const STOP_REMAINING: Percentage = Percentage::new(2.0);
+
+/// Whether a window has next to nothing left - the one case a session stops
+/// until there is room rather than resting.
+#[must_use]
+pub fn is_nearly_spent(window: &UsageWindow) -> bool {
+    Percentage::FULL - utilization_of(window) <= STOP_REMAINING
+}
 /// Halvings that find when a paused session is back on pace - a week down to
 /// well under a second.
 const READY_SEARCH_STEPS: u32 = 40;

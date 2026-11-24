@@ -389,9 +389,9 @@ mod tests {
 
     #[test]
     fn a_stop_both_sides_took_is_an_agreement() {
-        let engine = engine_that_measured(95.0);
+        let engine = engine_that_measured(98.5);
         engine.submit(report(&stop_observed(NOW)));
-        let writes = pass(&engine, NOW, 95.0);
+        let writes = pass(&engine, NOW, 98.5);
 
         let summary = engine.summary();
         assert_eq!(summary.counts[&ObservedKind::Stop].agree, 1);
@@ -402,16 +402,16 @@ mod tests {
 
     #[test]
     fn a_stop_the_window_never_reports_becomes_a_disagreement_a_tick_later() {
-        let engine = engine_that_measured(95.0);
+        let engine = engine_that_measured(98.5);
         engine.submit(report(&serde_json::json!([])));
-        let first = pass(&engine, NOW, 95.0);
+        let first = pass(&engine, NOW, 98.5);
         assert_eq!(first.log_line, None);
 
         let later = NOW + SpanMilliseconds::from_minutes(1.0);
         let mut next = report(&serde_json::json!([]));
         next.time = later;
         engine.submit(next);
-        pass(&engine, later, 95.0);
+        pass(&engine, later, 98.5);
         let summary = engine.summary();
         assert_eq!(summary.counts[&ObservedKind::Stop].disagree, 1);
         assert_eq!(summary.last_disagreements[0].observed, None);

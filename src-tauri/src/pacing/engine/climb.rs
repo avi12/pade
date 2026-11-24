@@ -14,7 +14,7 @@ use crate::pacing::load_shedding::{lightest_to_restore, shed_fraction};
 use crate::pacing::policy::PacingStep;
 use crate::pacing::units::EpochMilliseconds;
 use crate::pacing::usage_pace::{
-    slow_rest_until, work_rhythm, BindingWindow, SlowRestParams, STOP_KEEP,
+    is_nearly_spent, slow_rest_until, work_rhythm, BindingWindow, SlowRestParams,
 };
 
 #[derive(Clone, Copy)]
@@ -104,8 +104,8 @@ impl<'a> Pass<'a> {
     }
 
     /// Take a session's next allowed step: effort and model step down a notch
-    /// at a time; resting gives way to a stop once the account has next to
-    /// nothing left to spend (`STOP_KEEP`).
+    /// at a time; resting gives way to a stop once the window has next to
+    /// nothing left (`is_nearly_spent`).
     pub(super) fn climb(&mut self, id: &str) {
         if let Some(decision) = self.climb_decision(id) {
             self.decisions.push(decision);
@@ -158,7 +158,7 @@ impl<'a> Pass<'a> {
             binding,
         } = params;
         let now = self.inputs.now;
-        let is_resting = step == PacingStep::Rest && binding.keep > STOP_KEEP;
+        let is_resting = step == PacingStep::Rest && !is_nearly_spent(&binding.window);
         let worked_for = now - session.working_since.unwrap_or(now);
         let stretch = work_rhythm(binding.keep).stretch;
         let is_between_rests = is_resting && worked_for < stretch;

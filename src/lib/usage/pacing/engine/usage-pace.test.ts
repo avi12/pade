@@ -8,12 +8,12 @@ import {
   burnRate,
   hasRoomToSpare,
   isForecastOverPace,
+  isNearlySpent,
   paceForecasts,
   projectedRate,
   reportedPacedKinds,
   RESET_GRACE_MS,
   slowRestUntil,
-  STOP_KEEP,
   workRhythm
 } from "@/lib/usage/pacing/engine/usage-pace";
 import type { UsageSample } from "@/lib/usage/pacing/engine/usage-pace";
@@ -244,7 +244,22 @@ describe("assessPace", () => {
       rate: perHour(1)
     });
     expect(pace?.keep).toBeCloseTo(40 / (84 - 1 / 6), 4);
-    expect(pace?.keep).toBeGreaterThan(STOP_KEEP);
+    expect(pace?.window.utilization).toBe(60);
+  });
+
+  it("stops only with next to nothing left in the window, however far over the pace", () => {
+    function isNearlySpentAt(utilization: number) {
+      return isNearlySpent(
+        weeklyWindow({
+          utilization,
+          resetsIn: 3 * DAY_MS
+        })
+      );
+    }
+
+    expect(isNearlySpentAt(66)).toBe(false);
+    expect(isNearlySpentAt(97)).toBe(false);
+    expect(isNearlySpentAt(98)).toBe(true);
   });
 
   it("scales the allowance's payout to a session window", () => {
@@ -491,10 +506,18 @@ describe("workRhythm", () => {
   });
 
   it("does the same total work whatever the stretch: work over cycle length stays the keep share", () => {
-    for (const keep of [0.1, 0.3, 0.6, 0.9]) {
+    for (const keep of [0.12, 0.3, 0.6, 0.9]) {
       const { stretch, rest } = workRhythm(keep);
       expect(stretch / (stretch + rest)).toBeCloseTo(keep);
     }
+  });
+
+  it("rests two hours at most, so a slow keep share still measures the pace again", () => {
+    expect(workRhythm(0.02)).toEqual({
+      stretch: 15 * MINUTE_MS,
+      rest: 120 * MINUTE_MS
+    });
+    expect(workRhythm(0).rest).toBe(120 * MINUTE_MS);
   });
 
   it("works longer, not rests less, when the keep share is high", () => {

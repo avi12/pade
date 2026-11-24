@@ -352,10 +352,13 @@ writes.
   share: a cycle of work then rest = work × (1 / keep − 1) does the same total
   work whatever its length, so the shortest waits come from the shortest
   useful work stretch, 15 minutes; a rest under 5 minutes is all interruption,
-  so a high keep share lengthens the stretch instead; after a rest it works a
-  full stretch before the next, so a "continue" is never cut off at once), and,
-  only with next to nothing left to spend (a keep share of 0.05 or less),
-  **stop until there's room**, after which the agent continues on its own.
+  so a high keep share lengthens the stretch instead; no rest runs past 2
+  hours, so a slow keep share still works a stretch that measures the pace
+  again; after a rest it works a full stretch before the next, so a "continue"
+  is never cut off at once), and, only with next to nothing left in the window
+  (2% or less) - never for a pace however far over - **stop until there's
+  room**, after which the agent continues on its own. A stop taken while the
+  window still has room goes back to work at the next scan.
   After a step the account's pace is measured again (10 minutes of work) before
   the next one. Only as many sessions step as the account needs, biggest
   saving (weighted by fan-out) first. A pause types nothing: running work is

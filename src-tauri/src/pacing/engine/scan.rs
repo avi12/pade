@@ -7,7 +7,9 @@ use super::{
 use crate::pacing::facts::{Decision, PaceFacts, PacePhase, SessionFacts};
 use crate::pacing::load_shedding::RestoreCandidate;
 use crate::pacing::registry::LiveSession;
-use crate::pacing::usage_pace::{assess_pace, has_room_to_spare, AssessPaceParams, HasRoomParams};
+use crate::pacing::usage_pace::{
+    assess_pace, has_room_to_spare, is_nearly_spent, AssessPaceParams, HasRoomParams,
+};
 use crate::usage::UsageWindow;
 
 impl<'a> Pass<'a> {
@@ -116,7 +118,11 @@ impl<'a> Pass<'a> {
             is_paused: true,
             rate_of: &rate_of,
         });
-        let is_still_over_pace = binding.is_some();
+        // A stop is only for a window with next to nothing left; one with room
+        // goes back to work and is judged afresh.
+        let is_stop = pace.rest_until.is_none();
+        let is_still_over_pace = binding
+            .is_some_and(|binding| !is_stop || is_nearly_spent(&binding.window));
         if is_still_over_pace || is_still_stopping {
             return;
         }

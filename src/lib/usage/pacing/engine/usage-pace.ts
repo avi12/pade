@@ -74,9 +74,15 @@ const SLOW_DOWN_KEEP = 0.95;
  *  much more than it spends - clear of what one step saves, so it doesn't
  *  see-saw. */
 const STEP_UP_KEEP = 1.3;
-/** At or under this keep share there is next to nothing to spend: a rest would
- *  be all rest, so the session stops until there is room. */
-export const STOP_KEEP = 0.05;
+/** With this little of a window left there is next to nothing to spend, so a
+ *  session stops until there is room instead of resting. A pace far over -
+ *  however far - only ever rests: a stop judged on a forecast once held
+ *  sessions from Tuesday to Saturday's reset. */
+const STOP_REMAINING_PERCENTAGE = 2;
+/** The longest a slowed session rests before it works a stretch again, so the
+ *  pace is measured afresh rather than trusted for days - the slower the keep
+ *  share, the more of each cycle is rest, up to this. */
+const MAXIMUM_REST_MS = 2 * 60 * 60_000;
 /** Halvings that find when a paused session is back on pace - a week down to
  *  well under a second. */
 const READY_SEARCH_STEPS = 40;
@@ -440,13 +446,16 @@ export function paceForecasts({ account, now, rateOf }: { account: AccountUsage 
  *  for any stretch - so the waits are shortest with the shortest stretch worth
  *  working (MINIMUM_WORK_STRETCH_MS). A rest under MINIMUM_REST_MS is all
  *  interruption and no saving, so with a high duty the stretch grows instead,
- *  keeping the rest at its minimum and the duty intact. */
+ *  keeping the rest at its minimum and the duty intact. No rest runs past
+ *  MAXIMUM_REST_MS: under the duty that takes, the next stretch measures the
+ *  pace again. */
 export function workRhythm(duty: number) {
   const boundedDuty = Math.min(1, Math.max(0, duty));
-  if (boundedDuty === 0) {
+  const isLongestRest = boundedDuty <= MINIMUM_WORK_STRETCH_MS / (MINIMUM_WORK_STRETCH_MS + MAXIMUM_REST_MS);
+  if (isLongestRest) {
     return {
       stretch: MINIMUM_WORK_STRETCH_MS,
-      rest: Number.POSITIVE_INFINITY
+      rest: MAXIMUM_REST_MS
     };
   }
 
@@ -463,6 +472,12 @@ export function workRhythm(duty: number) {
     stretch,
     rest: stretch * restPerWork
   };
+}
+
+/** Whether a window has next to nothing left - the one case a session stops
+ *  until there is room rather than resting. */
+export function isNearlySpent(window: UsageWindow) {
+  return FULL_PERCENTAGE - window.utilization <= STOP_REMAINING_PERCENTAGE;
 }
 
 /** When a slowed session's rest ends: its rhythm's rest from now, never past the

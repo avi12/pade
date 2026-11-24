@@ -232,11 +232,11 @@ fn only(id: &str, kind: ObservedKind) -> Steps {
 // --- a working session over pace climbs the ladder ---
 
 #[test]
-fn a_session_far_over_pace_with_no_cheaper_choice_is_stopped() {
+fn a_session_with_next_to_nothing_left_and_no_cheaper_choice_is_stopped() {
     let outcome = run(
         vec![session("a")],
-        &session_account(95.0),
-        &measured(95.0, 1.0),
+        &session_account(98.5),
+        &measured(98.5, 1.0),
     );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Stop));
 }
@@ -299,7 +299,7 @@ fn the_model_steps_down_once_effort_has_nowhere_to_go() {
 fn a_bottomed_out_choice_goes_on_to_the_stop() {
     let mut bottomed = session("a");
     bottomed.choice = Some(choice(false, false));
-    let outcome = run(vec![bottomed], &session_account(95.0), &measured(95.0, 1.0));
+    let outcome = run(vec![bottomed], &session_account(98.5), &measured(98.5, 1.0));
     assert_eq!(steps(&outcome), only("a", ObservedKind::Stop));
 }
 
@@ -572,9 +572,24 @@ fn a_rest_not_yet_begun_is_not_over() {
 }
 
 #[test]
-fn a_pause_still_over_pace_stays_held() {
+fn a_stop_with_next_to_nothing_left_stays_held() {
     let held = paused_with_rate("a", PacePhase::Paused, 1.0);
-    let outcome = run(vec![held], &session_account(80.0), &SampleBook::default());
+    let outcome = run(vec![held], &session_account(98.5), &SampleBook::default());
+    assert_empty(&outcome.decisions);
+}
+
+#[test]
+fn a_stop_with_room_left_goes_back_to_work_however_far_over_pace() {
+    let stopped = paused_with_rate("a", PacePhase::Paused, 1.0);
+    let outcome = run(vec![stopped], &session_account(80.0), &SampleBook::default());
+    assert_eq!(steps(&outcome), only("a", ObservedKind::Resume));
+}
+
+#[test]
+fn a_rest_still_over_pace_stays_held() {
+    let mut resting = paused_with_rate("a", PacePhase::Paused, 1.0);
+    resting.pace.as_mut().expect("a pause").rest_until = Some(NOW + minutes(30.0));
+    let outcome = run(vec![resting], &session_account(80.0), &SampleBook::default());
     assert_empty(&outcome.decisions);
 }
 

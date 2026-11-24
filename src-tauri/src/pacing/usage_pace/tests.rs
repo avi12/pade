@@ -376,9 +376,9 @@ fn works_the_shortest_stretch_and_rests_what_keeps_the_keep_share() {
     let half = work_rhythm(Fraction::new(0.5));
     assert_eq!(half.stretch, MINUTE * 15.0);
     assert_eq!(half.rest, MINUTE * 15.0);
-    let tenth = work_rhythm(Fraction::new(0.1));
-    assert_eq!(tenth.stretch, MINUTE * 15.0);
-    assert_close(tenth.rest / MINUTE, 135.0);
+    let quarter = work_rhythm(Fraction::new(0.25));
+    assert_eq!(quarter.stretch, MINUTE * 15.0);
+    assert_close(quarter.rest / MINUTE, 45.0);
 }
 
 #[test]
@@ -389,11 +389,20 @@ fn works_longer_not_rests_less_when_the_keep_share_is_high() {
 }
 
 #[test]
-fn rests_the_minimum_on_pace_and_without_end_with_nothing_to_keep() {
+fn rests_the_minimum_on_pace_and_at_most_two_hours_with_nothing_to_keep() {
     assert_eq!(work_rhythm(Fraction::WHOLE).rest, MINUTE * 5.0);
     assert_eq!(work_rhythm(Fraction::new(1.4)).rest, MINUTE * 5.0);
-    assert!(work_rhythm(Fraction::NONE).rest.get().is_infinite());
-    assert!(work_rhythm(Fraction::new(-0.2)).rest.get().is_infinite());
+    assert_close(work_rhythm(Fraction::new(0.02)).rest / MINUTE, 120.0);
+    assert_close(work_rhythm(Fraction::NONE).rest / MINUTE, 120.0);
+    assert_close(work_rhythm(Fraction::new(-0.2)).rest / MINUTE, 120.0);
+}
+
+#[test]
+fn stops_only_with_next_to_nothing_left_in_the_window() {
+    let window_at = |utilization: f64| weekly_window(utilization, SpanMilliseconds::from_days(3.0));
+    assert!(!is_nearly_spent(&window_at(66.0)));
+    assert!(!is_nearly_spent(&window_at(97.0)));
+    assert!(is_nearly_spent(&window_at(98.0)));
 }
 
 fn rest_until(keep: f64, ready_at: EpochMilliseconds) -> EpochMilliseconds {
@@ -408,5 +417,5 @@ fn rest_until(keep: f64, ready_at: EpochMilliseconds) -> EpochMilliseconds {
 fn ends_the_rest_where_the_rhythm_says_never_past_ready() {
     assert_eq!(rest_until(0.5, NOW + HOUR * 12.0), NOW + MINUTE * 15.0);
     assert_eq!(rest_until(0.5, NOW + MINUTE * 8.0), NOW + MINUTE * 8.0);
-    assert_eq!(rest_until(0.0, NOW + HOUR * 12.0), NOW + HOUR * 12.0);
+    assert_eq!(rest_until(0.0, NOW + HOUR * 12.0), NOW + HOUR * 2.0);
 }
