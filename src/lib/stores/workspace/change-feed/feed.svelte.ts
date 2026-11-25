@@ -11,15 +11,12 @@
 
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
+import { cappedFeed } from "@/lib/feed/watch/feed-cap";
 import { eventsForLiveWatch, readFeedSnapshot, saveFeedSnapshot } from "@/lib/feed/watch/feed-snapshot";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { frontProject } from "@/lib/stores/workspace/active-project/frontProject.svelte";
 import type { ChangeEvent } from "@/lib/types/feed";
 import { baseName } from "@/lib/util/paths";
-
-// Newest first, per project. Capped so a busy agent session can't grow this
-// unbounded.
-const MAXIMUM_FEED_EVENTS = 300;
 
 // Editor/tool scratch files that churn during an atomic save (write to a temp
 // name, then rename over the target) - noise, not real changes. Match the shapes
@@ -110,7 +107,7 @@ async function adoptLiveWatch(root: string) {
   const current = feedsByProject.get(root) ?? NO_EVENTS;
   const arrivedSince = new Set(current.map(event => event.id));
   const earlier = restored.filter(event => !arrivedSince.has(event.id));
-  feedsByProject.set(root, [...current, ...earlier].slice(0, MAXIMUM_FEED_EVENTS));
+  feedsByProject.set(root, cappedFeed([...current, ...earlier]));
 }
 
 // Hand every held project's feed to the reloaded page. `pagehide` is the last
@@ -139,7 +136,7 @@ function fileChange(event: ChangeEvent) {
     return;
   }
 
-  feedsByProject.set(event.root, [event, ...events].slice(0, MAXIMUM_FEED_EVENTS));
+  feedsByProject.set(event.root, cappedFeed([event, ...events]));
 
   // An event proves the watch is armed, so an identity missed when the project
   // was first held can be learned now.
