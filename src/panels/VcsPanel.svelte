@@ -2,6 +2,8 @@
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import type { Commit, StatusEntry } from "@/lib/types/vcs";
+  import { settledValue } from "@/lib/util/async/settled";
+  import { pullWorkspace } from "@/lib/vcs/pull-workspace";
   import ChangesSection from "@/panels/vcs/ChangesSection.svelte";
   import "@/panels/vcs/chrome.css";
   import CommitLog from "@/panels/vcs/CommitLog.svelte";
@@ -96,11 +98,31 @@
     refresh();
   });
 
+  // The header's refresh pulls first: a repo with a remote fast-forwards from
+  // it (its toast says how that went), then status and log are read again.
+  let isPulling = false;
+
   // Publish the refresh action to the shared side-panel header.
   $effect(() => {
     setPanelHeader({
       count: null,
-      refresh
+      async refresh() {
+        if (isPulling || !project) {
+          return;
+        }
+
+        isPulling = true;
+        const remote = await settledValue<string | null>({
+          promise: sendMessage(Command.VCS_REMOTE_URL, { cwd: project }),
+          fallback: null
+        });
+        if (remote !== null) {
+          await pullWorkspace(project);
+        }
+
+        await refresh();
+        isPulling = false;
+      }
     });
   });
 </script>

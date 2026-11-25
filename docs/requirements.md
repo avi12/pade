@@ -154,6 +154,10 @@ writes.
 - R1.4.1 Behind a git seam (MVP: `git` CLI; `git2`/`gix`/jj later 🔭).
 - R1.4.2 ✅ Working-tree status grouped: unstaged = "unreviewed", staged separate.
 - R1.4.3 ✅ Recent commits (log) with author, message, relative time.
+- R1.4.3d ✅ **The panel's refresh pulls** - with a remote it fast-forwards the
+  repo from it first (`git pull --ff-only`, the same pull as the feed's Sync
+  all, refused with uncommitted changes), says how that went in a toast, then
+  reads status and log again; without one it only reads them again.
 - R1.4.3a ✅ Ctrl/Cmd-clicking the top-left project button opens the repository
   root in the system browser, while a plain click still opens its window menu.
   A missing remote or opener failure is surfaced instead of silently doing

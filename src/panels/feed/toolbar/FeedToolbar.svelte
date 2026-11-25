@@ -2,9 +2,7 @@
   import type { ExtensionCount } from "@/lib/feed/filter/type-filter";
   import { typeFilterLabel } from "@/lib/feed/filter/type-filter";
   import Icon from "@/lib/Icon.svelte";
-  import { Command, sendMessage } from "@/lib/ipc/messaging";
-  import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import { errorHeadline } from "@/lib/util/errors/error-text";
+  import { pullWorkspace } from "@/lib/vcs/pull-workspace";
   import TypeFilterMenu from "@/panels/feed/toolbar/TypeFilterMenu.svelte";
   import type { SvelteSet } from "svelte/reactivity";
 
@@ -47,19 +45,8 @@
       disabled={isSyncing}
       onclick={async () => {
         isSyncing = true;
-        try {
-          const outcome = await sendMessage(Command.VCS_PULL, { cwd: project });
-          showToast(outcome.message);
-        } catch (error) {
-          showToast(
-            errorHeadline({
-              error,
-              fallback: "Sync failed"
-            })
-          );
-        } finally {
-          isSyncing = false;
-        }
+        await pullWorkspace(project);
+        isSyncing = false;
       }}
     >
       <span class="icon" class:spin={isSyncing}><Icon name="refresh" size={14} /></span>
