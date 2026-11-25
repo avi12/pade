@@ -82,25 +82,27 @@ pub(super) fn handle_event(app: &AppHandle, watch: &ProjectWatch, event: Event) 
             refresh_ignore_policy(app, watch);
         }
 
-        // Skip whatever the project itself would ignore: git's own ignore rules in
-        // a repo, or the tech-inferred ignore directories when there is no git. The
-        // baseline `ignored` pre-filter above already dropped the giant dirs, so a
-        // repo never shells git for node_modules/target and each surviving path is
-        // git-checked at most once (memoized).
-        if watch.ignore_rules.excludes(&path) {
+        // Mark whatever the project itself would ignore: git's own ignore rules in
+        // a repo, or the tech-inferred ignore directories when there is no git.
+        // It still surfaces, flagged, so the feed's "hide ignored" switch decides
+        // whether it shows. The baseline `ignored` pre-filter above already
+        // dropped the giant dirs, so a repo never shells git for
+        // node_modules/target and each surviving path is git-checked at most
+        // once (memoized).
+        let is_ignored = watch.ignore_rules.excludes(&path);
+        if is_ignored {
             watch.ignored.fetch_add(1, Ordering::Relaxed);
-            continue;
+        } else {
+            // The language watch leaves this project's working tree to the feed
+            // (see `planned_language_routes`), so a change the project keeps is
+            // news for its language bar too.
+            report_language_news(
+                app,
+                label,
+                &watch.root.to_string_lossy(),
+                LanguageNews::WorkingTree,
+            );
         }
-
-        // The language watch leaves this project's working tree to the feed
-        // (see `planned_language_routes`), so a change the feed keeps is news
-        // for its language bar too.
-        report_language_news(
-            app,
-            label,
-            &watch.root.to_string_lossy(),
-            LanguageNews::WorkingTree,
-        );
 
         // Debounce: editors emit bursts per save.
         {
@@ -165,8 +167,11 @@ pub(super) fn handle_event(app: &AppHandle, watch: &ProjectWatch, event: Event) 
             added,
             removed,
             timestamp: now_milliseconds(),
+            is_ignored,
         };
-        watch.surfaced.fetch_add(1, Ordering::Relaxed);
+        if !is_ignored {
+            watch.surfaced.fetch_add(1, Ordering::Relaxed);
+        }
         let _ = app.emit_to(label, FEED_CHANGE_EVENT, event);
     }
 }

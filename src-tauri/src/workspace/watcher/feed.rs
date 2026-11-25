@@ -4,6 +4,7 @@ use super::change::authorize_path;
 use super::change::read_authorized_file;
 use super::change::read_preview_text;
 use super::ignore::is_always_ignored;
+use super::ignore::GITIGNORE_FILE_NAME;
 use super::registry::owning_project;
 use super::registry::window_watches;
 use super::registry::ProjectWatch;
@@ -32,9 +33,13 @@ pub(crate) struct WatchStatus {
     armed_at: Option<u64>,
     /// Changes surfaced to this window since arming.
     surfaced: u64,
-    /// Changes the ignore rules dropped since arming. A climbing count under an
-    /// empty feed says the watch is alive and the rules are eating everything.
+    /// Changes the ignore rules marked as ignored since arming. A climbing count
+    /// under an empty feed says the watch is alive and the rules hide everything.
     ignored: u64,
+    /// Whether the watched root has a `.gitignore` - the feed offers its "hide
+    /// ignored" switch only then. Re-read after `feed://ignore-changed`, which
+    /// fires when one is created, edited or deleted.
+    has_gitignore: bool,
 }
 
 /// The live watch state of `root` in this window (see [`WatchStatus`]); the
@@ -56,6 +61,7 @@ pub(crate) fn watch_status(
         armed_at: Some(watch.armed_at),
         surfaced: watch.surfaced.load(Ordering::Relaxed),
         ignored: watch.ignored.load(Ordering::Relaxed),
+        has_gitignore: watch.root.join(GITIGNORE_FILE_NAME).is_file(),
     }
 }
 
@@ -203,10 +209,10 @@ pub(crate) async fn feed_video(
 }
 
 /// The subset of `paths` the current ignore policy excludes - how the frontend
-/// re-filters the Change Feed it already rendered after `feed://ignore-changed`
-/// (events for now-ignored paths are dropped; never-recorded ones can't be
-/// resurrected, they simply surface again on their next real change). Each
-/// path is judged by the rules of the held project that owns it.
+/// re-marks the Change Feed it already holds after `feed://ignore-changed`:
+/// each held event's ignored flag follows the new rules, so a path the project
+/// starts or stops ignoring hides or reappears at once. Each path is judged by
+/// the rules of the held project that owns it.
 #[tauri::command]
 pub(crate) async fn feed_ignored(
     window: WebviewWindow,

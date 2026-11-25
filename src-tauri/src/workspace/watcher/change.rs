@@ -47,6 +47,9 @@ pub(super) struct ChangeEvent {
     /// When the change surfaced, in epoch milliseconds.
     #[serde(rename = "ts")]
     pub(super) timestamp: u64,
+    /// Whether the project ignores the path (its `.gitignore`, or the inferred
+    /// ignore set without git) - the feed hides it unless told to show ignored.
+    pub(super) is_ignored: bool,
 }
 
 /// Whether a change is worth surfacing, given whether its file still exists.
