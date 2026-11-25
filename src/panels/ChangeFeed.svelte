@@ -288,7 +288,7 @@
       {extensionCounts}
       hasGitignore={feedStore.hasGitignore}
       {hasRemote}
-      hiddenCount={feedStore.events.length - shownEvents.length}
+      ignoredCount={feedStore.events.filter(event => event.isIgnored).length}
       {isHiding}
       {project}
       {selectedExtensions}

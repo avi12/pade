@@ -12,7 +12,7 @@
   // current selection and drops a native popover of per-extension checkboxes),
   // the "Hide ignored" switch where the project has a .gitignore, and "Sync
   // all", which fast-forwards the workspace from its remote.
-  const { project, extensionCounts, selectedExtensions, hasRemote, hasGitignore, isHiding, hiddenCount }: {
+  const { project, extensionCounts, selectedExtensions, hasRemote, hasGitignore, isHiding, ignoredCount }: {
     project: string;
     extensionCounts: ExtensionCount[];
     selectedExtensions: SvelteSet<string>;
@@ -22,8 +22,9 @@
     hasGitignore: boolean;
     /** The feed hides what the .gitignore ignores (on by default). */
     isHiding: boolean;
-    /** How many held changes that hides right now. */
-    hiddenCount: number;
+    /** How many held changes the .gitignore ignores, hidden or not - one
+     *  number in both states, so switching never resizes the pill. */
+    ignoredCount: number;
   } = $props();
 
   // "Sync all" in-flight guard - disables the button and spins its icon so a
@@ -52,14 +53,16 @@
       class="ignored"
       aria-pressed={isHiding}
       data-tooltip={isHiding
-        ? `Hiding changes the .gitignore ignores (${formatCount(hiddenCount)}) - click to show them`
+        ? `Hiding changes the .gitignore ignores (${formatCount(ignoredCount)}) - click to show them`
         : "Showing changes the .gitignore ignores - click to hide them"}
       onclick={async () => await updatePrefs({ hideIgnoredChanges: !isHiding })}
     >
       <Icon name="git" size={14} />
       Hide ignored
-      {#if isHiding && hiddenCount > 0}
-        <span class="hidden-count">{formatCount(hiddenCount)}</span>
+      <!-- The count keeps its room while showing too, so switching never
+           resizes the pill and nudges the toolbar. -->
+      {#if ignoredCount > 0}
+        <span class="hidden-count" class:is-idle={!isHiding}>{formatCount(ignoredCount)}</span>
       {/if}
     </button>
   {/if}
@@ -147,6 +150,10 @@
     .hidden-count {
       font-weight: 600;
       opacity: 0.8;
+
+      &.is-idle {
+        visibility: hidden;
+      }
     }
   }
 
