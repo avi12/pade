@@ -9,6 +9,9 @@
 
   const count = $derived(panelCount());
   const refresh = $derived(panelRefresh());
+  // A refresh still running (a pull from the remote takes a while) - the icon
+  // spins and a second click waits for it.
+  let isRefreshing = $state(false);
 </script>
 
 <header class="panel-head">
@@ -23,9 +26,18 @@
       class="panel-refresh"
       aria-label="Refresh"
       data-tooltip="Refresh"
-      onclick={() => refresh()}
+      disabled={isRefreshing}
+      onclick={async () => {
+        if (isRefreshing) {
+          return;
+        }
+
+        isRefreshing = true;
+        await refresh();
+        isRefreshing = false;
+      }}
     >
-      <Icon name="refresh" />
+      <span class="refresh-icon" class:spin={isRefreshing}><Icon name="refresh" /></span>
     </button>
   {/if}
 </header>
@@ -100,9 +112,24 @@
     cursor: pointer;
     transition: color 140ms var(--ease), background 140ms var(--ease);
 
-    &:hover {
+    &:disabled {
+      cursor: default;
+    }
+
+    &:hover:not(:disabled) {
       background: var(--surface-3);
       color: var(--on-surface);
+    }
+
+    .refresh-icon {
+      display: inline-flex;
+    }
+
+    /* The global `spin` keyframe (theme.css); the global reduced-motion reset
+       stops it for those who ask. */
+    .spin {
+      color: var(--primary);
+      animation: spin 900ms linear infinite;
     }
   }
 </style>

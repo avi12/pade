@@ -100,18 +100,15 @@
 
   // The header's refresh pulls first: a repo with a remote fast-forwards from
   // it (its toast says how that went), then status and log are read again.
-  let isPulling = false;
-
-  // Publish the refresh action to the shared side-panel header.
+  // The header spins its icon and holds further clicks until this settles.
   $effect(() => {
     setPanelHeader({
       count: null,
       async refresh() {
-        if (isPulling || !project) {
+        if (!project) {
           return;
         }
 
-        isPulling = true;
         const remote = await settledValue<string | null>({
           promise: sendMessage(Command.VCS_REMOTE_URL, { cwd: project }),
           fallback: null
@@ -121,7 +118,6 @@
         }
 
         await refresh();
-        isPulling = false;
       }
     });
   });

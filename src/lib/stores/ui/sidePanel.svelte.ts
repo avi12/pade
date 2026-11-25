@@ -5,7 +5,8 @@
 
 interface PanelHeader {
   count: number | null;
-  refresh: (() => void) | null;
+  /** The header's icon spins until a refresh that returns a promise settles. */
+  refresh: (() => Promise<void> | void) | null;
 }
 
 const header = $state<PanelHeader>({

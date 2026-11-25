@@ -51,6 +51,20 @@
 
   onDestroy(() => unlistenGitState?.());
 
+  // Commits that just arrived (a pull, or a commit landing while the panel is
+  // open) pop in; the first read of a repository and a switch to another one
+  // show their log as it is.
+  let incomingIds = $state.raw<ReadonlySet<string>>(new Set());
+  let shownIds = new Set<string>();
+  let shownProject = "";
+  $effect.pre(() => {
+    const ids = commits.map(commit => commit.id);
+    const isSameLog = project === shownProject && shownIds.size > 0;
+    incomingIds = isSameLog ? new Set(ids.filter(id => !shownIds.has(id))) : new Set();
+    shownIds = new Set(ids);
+    shownProject = project;
+  });
+
   // This component stays mounted while the parent panel retargets. The commit
   // detail and remote from the old repository must not bleed into the next one.
   $effect(() => {
@@ -86,7 +100,7 @@
   <h3>Recent commits</h3>
   <ul bind:this={elLog} class="log-list">
     {#each commits as commit, index (commit.id)}
-      <li>
+      <li class:incoming={incomingIds.has(commit.id)}>
         <button
           class="commit"
           aria-label="Commit {commit.short}: {commit.summary}, by {commit.author} {commit.when}"
@@ -156,6 +170,27 @@
     margin: 0;
     padding: 0;
     list-style: none;
+
+    /* A just-arrived commit pops in (the shared `pop-in`, motion.css) and
+       holds an accent wash for a moment so the eye finds it; the global
+       reduced-motion reset leaves it still. */
+    .incoming {
+      border-radius: var(--radius-small);
+      animation:
+        pop-in 320ms var(--ease-settle) both,
+        incoming-wash 2400ms var(--ease) both;
+    }
+  }
+
+  @keyframes incoming-wash {
+    0%,
+    40% {
+      background: color-mix(in sRGB, var(--primary) 18%, transparent);
+    }
+
+    100% {
+      background: transparent;
+    }
   }
 
   .commit {
