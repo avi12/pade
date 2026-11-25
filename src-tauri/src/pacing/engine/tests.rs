@@ -581,7 +581,11 @@ fn a_stop_with_next_to_nothing_left_stays_held() {
 #[test]
 fn a_stop_with_room_left_goes_back_to_work_however_far_over_pace() {
     let stopped = paused_with_rate("a", PacePhase::Paused, 1.0);
-    let outcome = run(vec![stopped], &session_account(80.0), &SampleBook::default());
+    let outcome = run(
+        vec![stopped],
+        &session_account(80.0),
+        &SampleBook::default(),
+    );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Resume));
 }
 
@@ -589,7 +593,11 @@ fn a_stop_with_room_left_goes_back_to_work_however_far_over_pace() {
 fn a_rest_still_over_pace_stays_held() {
     let mut resting = paused_with_rate("a", PacePhase::Paused, 1.0);
     resting.pace.as_mut().expect("a pause").rest_until = Some(NOW + minutes(30.0));
-    let outcome = run(vec![resting], &session_account(80.0), &SampleBook::default());
+    let outcome = run(
+        vec![resting],
+        &session_account(80.0),
+        &SampleBook::default(),
+    );
     assert_empty(&outcome.decisions);
 }
 

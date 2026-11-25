@@ -121,8 +121,8 @@ impl<'a> Pass<'a> {
         // A stop is only for a window with next to nothing left; one with room
         // goes back to work and is judged afresh.
         let is_stop = pace.rest_until.is_none();
-        let is_still_over_pace = binding
-            .is_some_and(|binding| !is_stop || is_nearly_spent(&binding.window));
+        let is_still_over_pace =
+            binding.is_some_and(|binding| !is_stop || is_nearly_spent(&binding.window));
         if is_still_over_pace || is_still_stopping {
             return;
         }
