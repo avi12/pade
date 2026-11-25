@@ -86,7 +86,8 @@ describe("pacingPreview", () => {
             credits: CreditsState.enum.off
           },
           now: NOW,
-          rateOf: () => 2 / HOUR_MS
+          rateOf: () => 2 / HOUR_MS,
+          dailyRateOf: () => null
         }).weekly ?? null,
       slowedCount: 0,
       now: NOW

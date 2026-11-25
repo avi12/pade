@@ -304,8 +304,18 @@ function assessmentOf(inputs: PaceInputs) {
   };
 }
 
-function forecastsOf(inputs: PaceInputs) {
-  return paceForecasts(paceParameters(inputs));
+/** Every other forecast case has a day of readings behind its weekly window. */
+const DAILY_RATE = perHour(0.41);
+
+function dailyRateOfCase(index: number) {
+  return index % 2 === 0 ? null : DAILY_RATE;
+}
+
+function forecastsOf({ inputs, dailyRate }: { inputs: PaceInputs; dailyRate: number | null }) {
+  return paceForecasts({
+    ...paceParameters(inputs),
+    dailyRateOf: () => dailyRate
+  });
 }
 
 const BURN_RESETS = [
@@ -349,10 +359,18 @@ const FORECAST_CASE_COUNT = 40;
 const OVER_PACE_SOURCE_COUNT = 12;
 
 function forecastFixtures(grid: PaceInputs[]) {
-  const cases = grid.slice(-FORECAST_CASE_COUNT).map(inputs => ({
-    index: grid.indexOf(inputs),
-    forecasts: forecastsOf(inputs)
-  }));
+  const cases = grid.slice(-FORECAST_CASE_COUNT).map(inputs => {
+    const index = grid.indexOf(inputs);
+    const dailyRate = dailyRateOfCase(index);
+    return {
+      index,
+      dailyRate,
+      forecasts: forecastsOf({
+        inputs,
+        dailyRate
+      })
+    };
+  });
   const overPace = cases
     .slice(0, OVER_PACE_SOURCE_COUNT)
     .flatMap(({ forecasts: byKind }) => [byKind.session, byKind.weekly])

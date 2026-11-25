@@ -53,8 +53,15 @@ const MINIMUM_REST_MS = 5 * 60_000;
 /** The shortest stretch a slowed session works between two rests - long enough
  *  to get something done, so rests come as short, regular breaks. */
 const MINIMUM_WORK_STRETCH_MS = 15 * 60_000;
+/** A window's daily readings reach back this far… */
+const DAILY_SPAN_MS = 24 * 60 * 60_000;
+/** …one kept per this much time, the newest always current… */
+const DAILY_READING_SPACING_MS = 60 * 60_000;
+/** …and a daily rate needs this much time behind it, or it says more about
+ *  the last hour than the day. */
+const MINIMUM_DAILY_SPAN_MS = 6 * 60 * 60_000;
 /** How long a weekly window runs, start to reset. */
-const WEEKLY_WINDOW_MS = 7 * 24 * 60 * 60_000;
+const WEEKLY_WINDOW_MS = 7 * DAILY_SPAN_MS;
 /** How long a session window runs, start to reset. */
 const SESSION_WINDOW_MS = 5 * 60 * 60_000;
 const WINDOW_MS: Record<PacedWindowKind, number> = {
@@ -167,6 +174,38 @@ export function burnRate(samples: readonly UsageSample[]) {
   return span >= MINIMUM_RATE_SPAN_MS ? spent / span : null;
 }
 
+/** A window's daily readings with a new one added: one an hour over the last
+ *  day of the same window, the newest replaced by the latest. Unlike the burn
+ *  readings, these are never restarted by a pacing step. */
+export function withDailyReading({ readings, reading }: { readings: readonly UsageSample[]; reading: UsageSample }) {
+  const kept = readings.filter(
+    each =>
+      each.at > reading.at - DAILY_SPAN_MS &&
+      isSameReset({
+        previous: each,
+        current: reading
+      })
+  );
+  const lastKept = kept.at(-2);
+  const isNewestReplaced = lastKept !== undefined && reading.at - lastKept.at < DAILY_READING_SPACING_MS;
+  return [...(isNewestReplaced ? kept.slice(0, -1) : kept), reading];
+}
+
+/** How fast a window was spent over about the last day, nights and breaks
+ *  included, in percent per millisecond: the rise from its oldest daily
+ *  reading to its newest, over the time between. Null with less than
+ *  `MINIMUM_DAILY_SPAN_MS` behind it. */
+export function dailyRate(readings: readonly UsageSample[]) {
+  const oldest = readings.at(0);
+  const newest = readings.at(-1);
+  if (oldest === undefined || newest === undefined) {
+    return null;
+  }
+
+  const span = newest.at - oldest.at;
+  return span >= MINIMUM_DAILY_SPAN_MS ? Math.max(0, newest.utilization - oldest.utilization) / span : null;
+}
+
 /** How far the load forecast may lift a measured burn. Load and burn are only
  *  loosely tied - a scan can catch the load near zero, or count a burst the
  *  readings never show - and an unbounded forecast once read 1,363% an hour,
@@ -246,7 +285,17 @@ function keepAt({ paced, window, rate, now }: { paced: PacedWindow; window: Usag
 /** When a window would let its account spend at `rate` again if its agents
  *  stopped now - its even spend climbing back toward what is used. Its free
  *  time when that never comes first. */
-function readyTime({ paced, window, rate, now }: { paced: PacedWindow; window: UsageWindow; rate: number; now: number }) {
+function readyTime({
+  paced,
+  window,
+  rate,
+  now
+}: {
+  paced: PacedWindow;
+  window: UsageWindow;
+  rate: number;
+  now: number;
+}) {
   function isReadyAt(time: number) {
     return (
       maySpendAt({
@@ -345,7 +394,15 @@ export function assessPace({
 /** Whether an account could afford a dearer effort or model again: every
  *  paced window keeps well above its spend (STEP_UP_KEEP). A window with no
  *  measured pace yet can't vouch for it. */
-export function hasRoomToSpare({ account, now, rateOf }: { account: AccountUsage | null; now: number; rateOf: RateOf }) {
+export function hasRoomToSpare({
+  account,
+  now,
+  rateOf
+}: {
+  account: AccountUsage | null;
+  now: number;
+  rateOf: RateOf;
+}) {
   if (!account) {
     return false;
   }
@@ -398,8 +455,21 @@ export function isForecastOverPace(forecast: PaceForecast) {
 
 /** Every paced window's forecast, by kind - for the Config panel's live
  *  lines. A session window runs out at its measured burn; a weekly window at
- *  its average spend since it started, nights and breaks included. */
-export function paceForecasts({ account, now, rateOf }: { account: AccountUsage | null; now: number; rateOf: RateOf }) {
+ *  its spend over the last day (`dailyRateOf`), nights and breaks included -
+ *  so a burst early in the week, since slowed by pacing, no longer forecasts
+ *  a run-out it won't reach - or, with less than a day of readings, its
+ *  average spend since it started. */
+export function paceForecasts({
+  account,
+  now,
+  rateOf,
+  dailyRateOf
+}: {
+  account: AccountUsage | null;
+  now: number;
+  rateOf: RateOf;
+  dailyRateOf: RateOf;
+}) {
   const forecasts: Partial<Record<PacedWindowKind, PaceForecast>> = {};
   for (const window of account?.windows ?? []) {
     const kind = pacedKind(window.kind);
@@ -411,7 +481,8 @@ export function paceForecasts({ account, now, rateOf }: { account: AccountUsage 
 
     const rate = rateOf(window);
     const elapsed = Math.max(MINIMUM_RATE_SPAN_MS, now - (resetAt - WEEKLY_WINDOW_MS));
-    const runOutRate = kind === PacedWindowKind.enum.weekly ? window.utilization / elapsed : rate;
+    const runOutRate =
+      kind === PacedWindowKind.enum.weekly ? (dailyRateOf(window) ?? window.utilization / elapsed) : rate;
     const isNoRunOut = runOutRate === null || runOutRate <= 0;
     const paced = pacedWindow({
       window,

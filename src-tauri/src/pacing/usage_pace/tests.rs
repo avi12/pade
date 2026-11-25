@@ -273,7 +273,10 @@ fn projects_the_pace_onto_the_load_running_now_when_that_is_more() {
 
 #[test]
 fn lifts_the_measured_pace_at_most_threefold() {
-    assert_near(project(Some(per_hour(1.0)), Some(per_hour(10.0)), 40.0), 3.0);
+    assert_near(
+        project(Some(per_hour(1.0)), Some(per_hour(10.0)), 40.0),
+        3.0,
+    );
 }
 
 #[test]
@@ -303,6 +306,7 @@ fn forecasts_each_paced_window_by_its_own_measure() {
         account: Some(&account),
         now: NOW,
         rate_of: &session_rate_only(Some(per_hour(30.0))),
+        daily_rate_of: &|_| None,
     });
     let session = forecasts.session.expect("a session forecast");
     let weekly = forecasts.weekly.expect("a weekly forecast");
@@ -322,11 +326,27 @@ fn has_no_run_out_time_before_a_sessions_burn_is_measured() {
         account: Some(&account),
         now: NOW,
         rate_of: &|_| None,
+        daily_rate_of: &|_| None,
     });
     assert_eq!(
         forecasts.session.map(|forecast| forecast.run_out_at),
         Some(None)
     );
+}
+
+#[test]
+fn forecasts_a_weekly_window_at_its_last_days_spend_once_it_has_one() {
+    // 75% after four and a half days averages 0.69% an hour - out in 36 hours -
+    // but the last day spent 0.41% an hour, which lasts the 61 hours left.
+    let account = account(vec![weekly_window(75.0, HOUR * 61.0)]);
+    let forecasts = pace_forecasts(PaceForecastsParams {
+        account: Some(&account),
+        now: NOW,
+        rate_of: &|_| None,
+        daily_rate_of: &|_| Some(per_hour(0.41)),
+    });
+    let weekly = forecasts.weekly.expect("a weekly forecast");
+    assert!(weekly.run_out_at.expect("a run-out") > NOW + HOUR * 60.0);
 }
 
 #[test]
@@ -337,6 +357,7 @@ fn a_forecast_is_over_pace_by_the_rule_the_pacing_loop_acts_on() {
         account: Some(&account),
         now: NOW,
         rate_of: &session_rate_only(Some(per_hour(30.0))),
+        daily_rate_of: &|_| None,
     });
     let forecast = forecasts.session.expect("a session forecast");
     assert!(is_forecast_over_pace(&forecast));

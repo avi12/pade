@@ -8605,6 +8605,7 @@
   "paceForecasts": [
     {
       "index": 383,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "session": {
           "window": {
@@ -8628,7 +8629,7 @@
             "resetsAt": "2026-10-17T23:20:00.000Z"
           },
           "resetAt": 1792279200000,
-          "runOutAt": 1792113950561.7979,
+          "runOutAt": 1792162185365.8538,
           "isMeasured": false,
           "keep": null
         }
@@ -8636,6 +8637,7 @@
     },
     {
       "index": 384,
+      "dailyRate": null,
       "forecasts": {
         "weekly": {
           "window": {
@@ -8654,6 +8656,7 @@
     },
     {
       "index": 385,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -8664,7 +8667,7 @@
             "resetsAt": "2026-10-22T04:20:00.000Z"
           },
           "resetAt": 1792642800000,
-          "runOutAt": 1792082160000,
+          "runOutAt": 1792394868292.6829,
           "isMeasured": false,
           "keep": null
         },
@@ -8685,6 +8688,7 @@
     },
     {
       "index": 386,
+      "dailyRate": null,
       "forecasts": {
         "weekly": {
           "window": {
@@ -8716,6 +8720,7 @@
     },
     {
       "index": 387,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -8726,7 +8731,7 @@
             "resetsAt": "2026-10-16T16:30:00.000Z"
           },
           "resetAt": 1792168200000,
-          "runOutAt": 1792745047058.8235,
+          "runOutAt": 1792570478048.7805,
           "isMeasured": true,
           "keep": 0.8198529411764707
         }
@@ -8734,6 +8739,7 @@
     },
     {
       "index": 388,
+      "dailyRate": null,
       "forecasts": {
         "weekly": {
           "window": {
@@ -8765,6 +8771,7 @@
     },
     {
       "index": 389,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -8775,7 +8782,7 @@
             "resetsAt": "2026-10-18T13:00:00.000Z"
           },
           "resetAt": 1792328400000,
-          "runOutAt": 1792234047761.194,
+          "runOutAt": 1792355356097.561,
           "isMeasured": true,
           "keep": 0.45308924485125857
         }
@@ -8783,6 +8790,7 @@
     },
     {
       "index": 390,
+      "dailyRate": null,
       "forecasts": {
         "weekly": {
           "window": {
@@ -8814,6 +8822,7 @@
     },
     {
       "index": 391,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "session": {
           "window": {
@@ -8837,7 +8846,7 @@
             "resetsAt": "2026-10-18T15:20:00.000Z"
           },
           "resetAt": 1792336800000,
-          "runOutAt": 1792067276381.9097,
+          "runOutAt": 1792069990243.9023,
           "isMeasured": false,
           "keep": null
         }
@@ -8845,6 +8854,7 @@
     },
     {
       "index": 392,
+      "dailyRate": null,
       "forecasts": {
         "weekly": {
           "window": {
@@ -8876,6 +8886,7 @@
     },
     {
       "index": 393,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -8886,7 +8897,7 @@
             "resetsAt": "2026-10-20T07:50:00.000Z"
           },
           "resetAt": 1792482600000,
-          "runOutAt": 1792111091925.4658,
+          "runOutAt": 1792236819512.195,
           "isMeasured": true,
           "keep": 0.33717579250720464
         },
@@ -8907,6 +8918,7 @@
     },
     {
       "index": 394,
+      "dailyRate": null,
       "forecasts": {
         "session": {
           "window": {
@@ -8938,6 +8950,7 @@
     },
     {
       "index": 395,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -8948,7 +8961,7 @@
             "resetsAt": "2026-10-20T07:00:00.000Z"
           },
           "resetAt": 1792479600000,
-          "runOutAt": 1792083324590.1638,
+          "runOutAt": 1792140234146.3416,
           "isMeasured": true,
           "keep": 0.018505079825834544
         },
@@ -8969,6 +8982,7 @@
     },
     {
       "index": 396,
+      "dailyRate": null,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9000,6 +9014,7 @@
     },
     {
       "index": 397,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "session": {
           "window": {
@@ -9023,7 +9038,7 @@
             "resetsAt": "2026-10-21T20:20:00.000Z"
           },
           "resetAt": 1792614000000,
-          "runOutAt": 1792103200000,
+          "runOutAt": 1792416819512.195,
           "isMeasured": true,
           "keep": 0.5257393209200438
         }
@@ -9031,6 +9046,7 @@
     },
     {
       "index": 398,
+      "dailyRate": null,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9062,6 +9078,7 @@
     },
     {
       "index": 399,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "session": {
           "window": {
@@ -9085,7 +9102,7 @@
             "resetsAt": "2026-10-15T22:40:00.000Z"
           },
           "resetAt": 1792104000000,
-          "runOutAt": 1792578057142.8572,
+          "runOutAt": 1792482673170.7317,
           "isMeasured": true,
           "keep": 5.773809523809524
         }
@@ -9093,6 +9110,7 @@
     },
     {
       "index": 400,
+      "dailyRate": null,
       "forecasts": {
         "session": {
           "window": {
@@ -9124,6 +9142,7 @@
     },
     {
       "index": 401,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9134,7 +9153,7 @@
             "resetsAt": "2026-10-16T13:00:00.000Z"
           },
           "resetAt": 1792155600000,
-          "runOutAt": 1792423342372.8813,
+          "runOutAt": 1792425600000,
           "isMeasured": false,
           "keep": null
         },
@@ -9155,6 +9174,7 @@
     },
     {
       "index": 402,
+      "dailyRate": null,
       "forecasts": {
         "session": {
           "window": {
@@ -9186,6 +9206,7 @@
     },
     {
       "index": 403,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9196,7 +9217,7 @@
             "resetsAt": "2026-10-17T10:40:00.000Z"
           },
           "resetAt": 1792233600000,
-          "runOutAt": 1806188800000,
+          "runOutAt": 1792917307317.0732,
           "isMeasured": true,
           "keep": 3.3360215053763445
         }
@@ -9204,6 +9225,7 @@
     },
     {
       "index": 404,
+      "dailyRate": null,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9235,6 +9257,7 @@
     },
     {
       "index": 405,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9245,7 +9268,7 @@
             "resetsAt": "2026-10-21T01:00:00.000Z"
           },
           "resetAt": 1792544400000,
-          "runOutAt": 1792779600000,
+          "runOutAt": 1792811941463.4146,
           "isMeasured": false,
           "keep": null
         },
@@ -9266,6 +9289,7 @@
     },
     {
       "index": 406,
+      "dailyRate": null,
       "forecasts": {
         "session": {
           "window": {
@@ -9284,6 +9308,7 @@
     },
     {
       "index": 407,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9294,7 +9319,7 @@
             "resetsAt": "2026-10-15T15:50:00.000Z"
           },
           "resetAt": 1792079400000,
-          "runOutAt": 1794951070588.2354,
+          "runOutAt": 1792794380487.805,
           "isMeasured": false,
           "keep": null
         },
@@ -9315,6 +9340,7 @@
     },
     {
       "index": 408,
+      "dailyRate": null,
       "forecasts": {
         "session": {
           "window": {
@@ -9346,6 +9372,7 @@
     },
     {
       "index": 409,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "session": {
           "window": {
@@ -9369,7 +9396,7 @@
             "resetsAt": "2026-10-20T12:00:00.000Z"
           },
           "resetAt": 1792497600000,
-          "runOutAt": 1792167085714.2856,
+          "runOutAt": 1792390478048.7805,
           "isMeasured": true,
           "keep": 0.30876216968011133
         }
@@ -9377,6 +9404,7 @@
     },
     {
       "index": 410,
+      "dailyRate": null,
       "forecasts": {
         "session": {
           "window": {
@@ -9408,6 +9436,7 @@
     },
     {
       "index": 411,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9418,7 +9447,7 @@
             "resetsAt": "2026-10-16T01:40:00.000Z"
           },
           "resetAt": 1792114800000,
-          "runOutAt": 1792817294117.647,
+          "runOutAt": 1792570478048.7805,
           "isMeasured": true,
           "keep": 1.3773148148148149
         },
@@ -9439,6 +9468,7 @@
     },
     {
       "index": 412,
+      "dailyRate": null,
       "forecasts": {
         "session": {
           "window": {
@@ -9470,6 +9500,7 @@
     },
     {
       "index": 413,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9480,7 +9511,7 @@
             "resetsAt": "2026-10-18T05:10:00.000Z"
           },
           "resetAt": 1792300200000,
-          "runOutAt": 1793147164705.8823,
+          "runOutAt": 1792719746341.4634,
           "isMeasured": false,
           "keep": null
         },
@@ -9501,6 +9532,7 @@
     },
     {
       "index": 414,
+      "dailyRate": null,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9519,6 +9551,7 @@
     },
     {
       "index": 415,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "session": {
           "window": {
@@ -9542,7 +9575,7 @@
             "resetsAt": "2026-10-16T01:40:00.000Z"
           },
           "resetAt": 1792114800000,
-          "runOutAt": 1792692127659.5745,
+          "runOutAt": 1792530965853.6584,
           "isMeasured": true,
           "keep": 1.2939814814814816
         }
@@ -9550,6 +9583,7 @@
     },
     {
       "index": 416,
+      "dailyRate": null,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9581,6 +9615,7 @@
     },
     {
       "index": 417,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "weekly": {
           "window": {
@@ -9591,7 +9626,7 @@
             "resetsAt": "2026-10-16T12:00:00.000Z"
           },
           "resetAt": 1792152000000,
-          "runOutAt": 1792187200000,
+          "runOutAt": 1792232429268.2927,
           "isMeasured": true,
           "keep": 4.094405594405595
         },
@@ -9612,6 +9647,7 @@
     },
     {
       "index": 418,
+      "dailyRate": null,
       "forecasts": {
         "session": {
           "window": {
@@ -9643,6 +9679,7 @@
     },
     {
       "index": 419,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "session": {
           "window": {
@@ -9666,7 +9703,7 @@
             "resetsAt": "2026-10-18T23:20:00.000Z"
           },
           "resetAt": 1792365600000,
-          "runOutAt": 1792486514285.7144,
+          "runOutAt": 1792574868292.6829,
           "isMeasured": true,
           "keep": 3.894789579158317
         }
@@ -9674,6 +9711,7 @@
     },
     {
       "index": 420,
+      "dailyRate": null,
       "forecasts": {
         "session": {
           "window": {
@@ -9692,6 +9730,7 @@
     },
     {
       "index": 421,
+      "dailyRate": 1.1388888888888888e-7,
       "forecasts": {
         "session": {
           "window": {
@@ -9715,7 +9754,7 @@
             "resetsAt": "2026-10-22T03:20:00.000Z"
           },
           "resetAt": 1792639200000,
-          "runOutAt": 1792223490909.0908,
+          "runOutAt": 1792798770731.7073,
           "isMeasured": false,
           "keep": null
         }
@@ -9723,6 +9762,7 @@
     },
     {
       "index": 422,
+      "dailyRate": null,
       "forecasts": {
         "session": {
           "window": {
@@ -9780,7 +9820,7 @@
           "resetsAt": "2026-10-17T23:20:00.000Z"
         },
         "resetAt": 1792279200000,
-        "runOutAt": 1792113950561.7979,
+        "runOutAt": 1792162185365.8538,
         "isMeasured": false,
         "keep": null
       },
@@ -9828,7 +9868,7 @@
           "resetsAt": "2026-10-22T04:20:00.000Z"
         },
         "resetAt": 1792642800000,
-        "runOutAt": 1792082160000,
+        "runOutAt": 1792394868292.6829,
         "isMeasured": false,
         "keep": null
       },
@@ -9876,7 +9916,7 @@
           "resetsAt": "2026-10-16T16:30:00.000Z"
         },
         "resetAt": 1792168200000,
-        "runOutAt": 1792745047058.8235,
+        "runOutAt": 1792570478048.7805,
         "isMeasured": true,
         "keep": 0.8198529411764707
       },
@@ -9924,7 +9964,7 @@
           "resetsAt": "2026-10-18T13:00:00.000Z"
         },
         "resetAt": 1792328400000,
-        "runOutAt": 1792234047761.194,
+        "runOutAt": 1792355356097.561,
         "isMeasured": true,
         "keep": 0.45308924485125857
       },
@@ -9988,7 +10028,7 @@
           "resetsAt": "2026-10-18T15:20:00.000Z"
         },
         "resetAt": 1792336800000,
-        "runOutAt": 1792067276381.9097,
+        "runOutAt": 1792069990243.9023,
         "isMeasured": false,
         "keep": null
       },
@@ -10052,7 +10092,7 @@
           "resetsAt": "2026-10-20T07:50:00.000Z"
         },
         "resetAt": 1792482600000,
-        "runOutAt": 1792111091925.4658,
+        "runOutAt": 1792236819512.195,
         "isMeasured": true,
         "keep": 0.33717579250720464
       },

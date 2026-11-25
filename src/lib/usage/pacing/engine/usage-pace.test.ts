@@ -6,6 +6,7 @@ import type { UsageWindow } from "@/lib/types/usage";
 import {
   assessPace,
   burnRate,
+  dailyRate,
   hasRoomToSpare,
   isForecastOverPace,
   isNearlySpent,
@@ -14,6 +15,7 @@ import {
   reportedPacedKinds,
   RESET_GRACE_MS,
   slowRestUntil,
+  withDailyReading,
   workRhythm
 } from "@/lib/usage/pacing/engine/usage-pace";
 import type { UsageSample } from "@/lib/usage/pacing/engine/usage-pace";
@@ -22,6 +24,7 @@ const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
+const WEEKLY_RESET = new Date(NOW + 2 * DAY_MS).toISOString();
 
 /** A burn rate in the formula's units, from percent per hour. */
 function perHour(percentage: number) {
@@ -411,7 +414,8 @@ describe("paceForecasts", () => {
         })
       ]),
       now: NOW,
-      rateOf: window => (window.kind === UsageWindowKind.enum.session ? perHour(30) : null)
+      rateOf: window => (window.kind === UsageWindowKind.enum.session ? perHour(30) : null),
+      dailyRateOf: () => null
     });
     expect(forecasts.session?.runOutAt).toBe(NOW + HOUR_MS);
     expect(forecasts.session?.keep).toBeCloseTo(30 / (3 - 1 / 6) / 30, 4);
@@ -431,9 +435,81 @@ describe("paceForecasts", () => {
           })
         ]),
         now: NOW,
-        rateOf: () => null
+        rateOf: () => null,
+        dailyRateOf: () => null
       }).session?.runOutAt
     ).toBeNull();
+  });
+
+  it("forecasts a weekly window at its last day's spend once it has one", () => {
+    // 75% after four and a half days averages 0.69% an hour - out in 36 hours -
+    // but the last day spent 0.41% an hour, which lasts the 61 hours left.
+    const forecasts = paceForecasts({
+      account: account([
+        weeklyWindow({
+          utilization: 75,
+          resetsIn: 61 * HOUR_MS
+        })
+      ]),
+      now: NOW,
+      rateOf: () => null,
+      dailyRateOf: () => perHour(0.41)
+    });
+    expect(forecasts.weekly?.runOutAt).toBeGreaterThan(NOW + 60 * HOUR_MS);
+  });
+});
+
+describe("daily readings", () => {
+  function reading({ hoursAgo, utilization }: { hoursAgo: number; utilization: number }) {
+    return {
+      at: NOW - hoursAgo * HOUR_MS,
+      utilization,
+      resetsAt: WEEKLY_RESET
+    };
+  }
+
+  function readingsOver(hours: number) {
+    let readings: UsageSample[] = [];
+    for (let minutesAgo = hours * 60; minutesAgo >= 0; minutesAgo -= 1) {
+      readings = withDailyReading({
+        readings,
+        reading: reading({
+          hoursAgo: minutesAgo / 60,
+          utilization: 50 + (hours * 60 - minutesAgo) / 60
+        })
+      });
+    }
+
+    return readings;
+  }
+
+  it("keeps about one reading an hour over the last day, the newest current", () => {
+    const readings = readingsOver(30);
+    expect(readings.length).toBeLessThanOrEqual(26);
+    expect(readings.at(-1)?.at).toBe(NOW);
+    expect(readings[0].at).toBeGreaterThan(NOW - DAY_MS);
+  });
+
+  it("measures the day's spend over wall time, nights included", () => {
+    expect(dailyRate(readingsOver(30))).toBeCloseTo(perHour(1), 8);
+  });
+
+  it("needs six hours behind it", () => {
+    expect(dailyRate(readingsOver(5))).toBeNull();
+  });
+
+  it("starts over in a new window", () => {
+    const readings = withDailyReading({
+      readings: readingsOver(10),
+      reading: {
+        ...reading({
+          hoursAgo: 0,
+          utilization: 1
+        }),
+        resetsAt: new Date(NOW + 7 * DAY_MS).toISOString()
+      }
+    });
+    expect(readings).toHaveLength(1);
   });
 });
 

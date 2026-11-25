@@ -96,6 +96,7 @@ import {
   assessPace,
   burnRate,
   CONTINUE_REQUEST,
+  dailyRate,
   hasRoomToSpare,
   isNearlySpent,
   MINIMUM_RATE_SPAN_MS,
@@ -104,6 +105,7 @@ import {
   RATE_HISTORY_MS,
   slowRestUntil,
   windowName,
+  withDailyReading,
   workRhythm
 } from "@/lib/usage/pacing/engine/usage-pace";
 import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/engine/usage-pace";
@@ -257,14 +259,27 @@ const StoredSamples = z.record(
   )
 );
 
+/** About a day of readings per account window, one an hour, for the weekly
+ *  forecast's spend over the last day - kept apart from `samples`, which a
+ *  pacing step restarts. */
+const dailyReadings = new SvelteMap<string, UsageSample[]>();
+
 function samplesStorageKey() {
   return `pade.usage-pacing-samples:${windowLabel()}`;
+}
+
+function dailyReadingsStorageKey() {
+  return `pade.usage-pacing-daily:${windowLabel()}`;
 }
 
 function rememberSamples() {
   writeStoredJson({
     key: samplesStorageKey(),
     value: Object.fromEntries(samples)
+  });
+  writeStoredJson({
+    key: dailyReadingsStorageKey(),
+    value: Object.fromEntries(dailyReadings)
   });
 }
 
@@ -325,13 +340,19 @@ function recordSamples({ accountKey, account, now }: { accountKey: string; accou
       accountKey,
       window
     });
-    const recent = (samples.get(key) ?? []).filter(sample => sample.at >= now - RATE_HISTORY_MS);
-    recent.push({
+    const reading = {
       at: now,
       utilization: window.utilization,
       resetsAt: window.resetsAt
-    });
-    samples.set(key, recent);
+    };
+    samples.set(key, [...(samples.get(key) ?? []).filter(sample => sample.at >= now - RATE_HISTORY_MS), reading]);
+    dailyReadings.set(
+      key,
+      withDailyReading({
+        readings: dailyReadings.get(key) ?? [],
+        reading
+      })
+    );
   }
 
   rememberSamples();
@@ -767,6 +788,15 @@ export function createUsagePacing(host: PacingHost) {
     }) ?? {}
   )) {
     samples.set(key, readings);
+  }
+
+  for (const [key, readings] of Object.entries(
+    readStoredJson({
+      key: dailyReadingsStorageKey(),
+      schema: StoredSamples
+    }) ?? {}
+  )) {
+    dailyReadings.set(key, readings);
   }
 
   function sessionOf(id: string) {
@@ -1729,7 +1759,16 @@ export function createUsagePacing(host: PacingHost) {
           paceOf({
             accountKey,
             window
-          })
+          }),
+        dailyRateOf: window =>
+          dailyRate(
+            dailyReadings.get(
+              sampleKey({
+                accountKey,
+                window
+              })
+            ) ?? []
+          )
       })
     );
   }

@@ -90,6 +90,7 @@ struct PaceCase {
 #[serde(rename_all = "camelCase")]
 struct ForecastCase {
     index: usize,
+    daily_rate: Option<f64>,
     forecasts: Value,
 }
 
@@ -208,6 +209,7 @@ fn pace_forecasts_agree_with_the_typescript() {
             account: Some(&usage),
             now: NOW,
             rate_of: &|window| inputs.rate_of(window),
+            daily_rate_of: &|_| case.daily_rate.map(BurnRate::new),
         });
         assert_json_close(
             &to_json(&forecasts),

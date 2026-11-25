@@ -368,8 +368,11 @@ writes.
   is interrupted and nothing is continued. A tab's SLOWED / PAUSED badge says, in its hint and its
   details, when the session is back to normal - each time in the details
   reads "at 2:49 PM" or, clicked, "in 6h 59m". A live line per limit shows the active agent's spend,
-  when it resets, when it runs out at this pace, and how many sessions pacing
-  slows. Every step undoes itself as room comes back (a cheaper effort or
+  when it resets, when it runs out at this pace (the weekly limit at its spend
+  over the last day, nights included, so a burst early in the week that pacing
+  has since slowed doesn't forecast a run-out it won't reach; its average since
+  the week started until a day of readings, at least 6 hours, is behind it),
+  and how many sessions pacing slows. Every step undoes itself as room comes back (a cheaper effort or
   model steps back up once every paced window keeps 1.3 times the account's
   spend, clear of what one step saves so it doesn't see-saw; a paused session
   goes on once its keep share is back to 1), and everything reverts as the window

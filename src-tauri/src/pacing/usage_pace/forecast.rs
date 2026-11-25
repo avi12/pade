@@ -57,17 +57,21 @@ pub struct PaceForecastsParams<'a> {
     pub account: Option<&'a AccountUsage>,
     pub now: EpochMilliseconds,
     pub rate_of: RateOf<'a>,
+    /// A window's spend over about the last day, nights included.
+    pub daily_rate_of: RateOf<'a>,
 }
 
 /// Every paced window's forecast, by kind - for the Config panel's live lines.
 /// A session window's comes from its measured burn; a weekly window's from its
-/// average spend since it started. The first window of each kind counts.
+/// spend over the last day, or its average since it started without a day of
+/// readings. The first window of each kind counts.
 #[must_use]
 pub fn pace_forecasts(params: PaceForecastsParams<'_>) -> PaceForecasts {
     let PaceForecastsParams {
         account,
         now,
         rate_of,
+        daily_rate_of,
     } = params;
     let mut forecasts = PaceForecasts::default();
     let windows = account.map_or(&[][..], |account| account.windows.as_slice());
@@ -91,6 +95,7 @@ pub fn pace_forecasts(params: PaceForecastsParams<'_>) -> PaceForecasts {
             reset_at,
             now,
             rate_of,
+            daily_rate_of,
         }));
     }
 
@@ -104,10 +109,13 @@ struct ForecastParams<'a> {
     reset_at: EpochMilliseconds,
     now: EpochMilliseconds,
     rate_of: RateOf<'a>,
+    daily_rate_of: RateOf<'a>,
 }
 
 /// A session window runs out at its measured burn; a weekly window at its
-/// average spend since it started, nights and breaks included.
+/// spend over the last day, nights and breaks included - so an early burst
+/// pacing has since slowed forecasts no run-out it won't reach - or its
+/// average since it started without a day of readings.
 fn forecast_of(params: ForecastParams<'_>) -> PaceForecast {
     let ForecastParams {
         kind,
@@ -115,13 +123,14 @@ fn forecast_of(params: ForecastParams<'_>) -> PaceForecast {
         reset_at,
         now,
         rate_of,
+        daily_rate_of,
     } = params;
     let rate = rate_of(window);
     let run_out_rate = match kind {
-        PacedWindowKind::Weekly => {
+        PacedWindowKind::Weekly => daily_rate_of(window).or_else(|| {
             let elapsed = (now - (reset_at - WEEKLY_WINDOW_MS)).longer(MINIMUM_RATE_SPAN_MS);
             Some(utilization_of(window) / elapsed)
-        }
+        }),
         PacedWindowKind::Session => rate,
     };
     let keep = paced_window(window, now).zip(rate).map(|(paced, rate)| {
