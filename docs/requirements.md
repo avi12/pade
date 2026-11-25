@@ -125,7 +125,12 @@ writes.
   holds, so a path the project starts ignoring hides and one it stops ignoring
   comes back, and the switch appears or goes with the file. Without a
   `.gitignore` nothing is hidden. The always-on noise list (`node_modules`,
-  `target`, `.git`, …) is still dropped outright.
+  `target`, `.git`, …) is still dropped outright. An already-ignored file never
+  flashes into the feed: when git can't answer for a moment (an agent busy in
+  the repo), the root `.gitignore` decides and that non-answer isn't
+  remembered. The feed keeps the newest 300 shown and 300 ignored changes
+  apart, so ignored churn (a browser profile, a build cache) never pushes the
+  shown changes out.
 - R1.2.8 ✅ **Language logos on cards.** Each change card leads with the file's
   **brand logo** (a local `.svg` under `src/lib/icons/` - `languages/`, `formats/` and kin - rendered via `Icon.svelte`)
   instead of a text chip - multi-colour marks (TS/JS/Python…) keep their brand

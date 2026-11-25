@@ -575,6 +575,24 @@ fn a_normal_source_path_is_not_excluded_in_static_mode() {
     assert!(!is_under_static_ignore_directory(path, &directories));
 }
 
+#[test]
+fn git_mode_falls_back_to_the_root_gitignore_when_git_gives_no_answer() {
+    // A git-mode policy over a folder git can't answer for (no repository):
+    // every check-ignore fails, as it can for a moment while an agent works
+    // the repo. The root .gitignore still marks what it ignores.
+    let root = std::env::temp_dir().join(format!("pade-ignore-fallback-{}", std::process::id()));
+    fs::create_dir_all(&root).expect("a scratch root");
+    let ignore_rules = IgnoreRules::default();
+    ignore_rules.install(IgnorePolicy::Git {
+        root: root.clone(),
+        rules: crate::workspace::gitignore::Rules::parse("user-profiles/\n"),
+    });
+
+    assert!(ignore_rules.excludes(&root.join("user-profiles/chrome/Profile 1/Cookies")));
+    assert!(!ignore_rules.excludes(&root.join("src/main.rs")));
+    let _ = fs::remove_dir_all(&root);
+}
+
 fn working_tree_route(root: &Path) -> LanguageRoute {
     let ignore_rules = IgnoreRules::default();
     ignore_rules.install(IgnorePolicy::Static {

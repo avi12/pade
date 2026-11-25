@@ -63,7 +63,13 @@ pub(super) fn is_under_static_ignore_directory(path: &Path, directories: &HashSe
 /// re-filters what it already shows.
 pub(super) enum IgnorePolicy {
     /// The root is a git work tree; ask `git check-ignore` per path (memoized).
-    Git { root: PathBuf },
+    /// The root `.gitignore`'s own rules answer when git can't (a transient
+    /// failure while an agent works the repo), so an ignored file never slips
+    /// into the feed on a git hiccup.
+    Git {
+        root: PathBuf,
+        rules: crate::workspace::gitignore::Rules,
+    },
     /// The root is not a git repo; exclude any path whose component names one of
     /// these tech-inferred directories, or that the root `.gitignore` ignores.
     Static {
@@ -104,9 +110,10 @@ impl IgnoreRules {
 
     /// Whether the policy excludes `path`. Git mode asks git (memoized per
     /// path); static mode matches the path's component names against the
-    /// tech-inferred ignore set. A poisoned lock, an unset policy, or a git
-    /// failure all resolve to "not excluded" so a fault never silently hides
-    /// real changes.
+    /// tech-inferred ignore set. A poisoned lock or an unset policy resolves to
+    /// "not excluded"; a git failure falls back to the root `.gitignore`. An
+    /// excluded change is only marked, never dropped, so the feed's switch can
+    /// always show it.
     pub(super) fn excludes(&self, path: &Path) -> bool {
         let git_root = {
             let Ok(guard) = self.policy.lock() else {
@@ -122,14 +129,16 @@ impl IgnoreRules {
                     return is_under_static_ignore_directory(path, directories)
                         || gitignore_excludes(root, rules, path);
                 }
-                Some(IgnorePolicy::Git { root }) => root.clone(),
+                Some(IgnorePolicy::Git { root, .. }) => root.clone(),
             }
         };
         self.git_excludes(&git_root, path)
     }
 
     /// Whether git considers `path` ignored under the work tree at `root`,
-    /// memoized so each path shells git at most once.
+    /// memoized so each path shells git at most once. Only git's real answers
+    /// are memoized: when git fails (twice), the root `.gitignore` decides this
+    /// once and the next change of the path asks git again.
     fn git_excludes(&self, root: &Path, path: &Path) -> bool {
         let memoized = self
             .git_ignore_cache
@@ -139,11 +148,26 @@ impl IgnoreRules {
         if let Some(is_ignored) = memoized {
             return is_ignored;
         }
-        let is_ignored = git_check_ignore(root, path);
+        let answer = git_check_ignore(root, path).or_else(|| git_check_ignore(root, path));
+        let Some(is_ignored) = answer else {
+            return self.root_gitignore_excludes(path);
+        };
         if let Ok(mut cache) = self.git_ignore_cache.lock() {
             cache.insert(path.to_path_buf(), is_ignored);
         }
         is_ignored
+    }
+
+    /// Whether the root `.gitignore` alone ignores `path` - git mode's answer
+    /// while git itself can't give one.
+    fn root_gitignore_excludes(&self, path: &Path) -> bool {
+        let Ok(guard) = self.policy.lock() else {
+            return false;
+        };
+        match guard.as_ref() {
+            Some(IgnorePolicy::Git { root, rules }) => gitignore_excludes(root, rules, path),
+            _ => false,
+        }
     }
 }
 
@@ -250,13 +274,14 @@ pub(super) fn is_gitignore_file(path: &Path) -> bool {
 /// rules when one exists. Runs git once (and, in static mode, one directory
 /// scan + one file read); re-run whenever the rules could have changed.
 pub(super) fn compute_ignore_policy(root: &Path) -> IgnorePolicy {
+    let rules = std::fs::read_to_string(root.join(GITIGNORE_FILE_NAME))
+        .map_or_default(|content| crate::workspace::gitignore::Rules::parse(&content));
     if is_git_work_tree(root) {
         return IgnorePolicy::Git {
             root: root.to_path_buf(),
+            rules,
         };
     }
-    let rules = std::fs::read_to_string(root.join(GITIGNORE_FILE_NAME))
-        .map_or_default(|content| crate::workspace::gitignore::Rules::parse(&content));
     IgnorePolicy::Static {
         root: root.to_path_buf(),
         directories: static_ignore_directories(root),
@@ -316,18 +341,23 @@ pub(super) fn gitignore_excludes(
 }
 
 /// Shell `git -C <root> check-ignore -q -- <path>` and report whether the path is
-/// ignored: exit status 0 means git would ignore it. Because git evaluates the path
-/// against every applicable ignore source itself, this correctly honors nested
-/// `.gitignore` files, `.git/info/exclude`, `core.excludesFile`, and negations. Any
-/// spawn failure resolves to `false` so a fault never hides a real change. Scoped to
-/// `root` via `-C`, never PADE's process cwd.
-pub(super) fn git_check_ignore(root: &Path, path: &Path) -> bool {
-    let Ok(output) = git_in(root)
+/// ignored: exit status 0 means git would ignore it, 1 that it would not. Because
+/// git evaluates the path against every applicable ignore source itself, this
+/// correctly honors nested `.gitignore` files, `.git/info/exclude`,
+/// `core.excludesFile`, and negations. `None` when git gave no answer - it failed
+/// to spawn or exited with an error - so the caller neither trusts nor memoizes
+/// it. Scoped to `root` via `-C`, never PADE's process cwd.
+pub(super) fn git_check_ignore(root: &Path, path: &Path) -> Option<bool> {
+    const IGNORED_EXIT_CODE: i32 = 0;
+    const NOT_IGNORED_EXIT_CODE: i32 = 1;
+    let output = git_in(root)
         .args(["check-ignore", "-q", "--"])
         .arg(path)
         .output()
-    else {
-        return false;
-    };
-    output.status.success()
+        .ok()?;
+    match output.status.code() {
+        Some(IGNORED_EXIT_CODE) => Some(true),
+        Some(NOT_IGNORED_EXIT_CODE) => Some(false),
+        _ => None,
+    }
 }
