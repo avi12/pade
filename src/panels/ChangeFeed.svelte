@@ -1,10 +1,12 @@
 <script lang="ts">
   import { groupChanges } from "@/lib/feed/change-groups";
+  import { filterIgnored, isHidingIgnored } from "@/lib/feed/filter/ignored-filter";
   import { countExtensions, filterByExtension } from "@/lib/feed/filter/type-filter";
   import { createFeedPreviews } from "@/lib/feed/preview/feed-previews";
   import { watchSummary } from "@/lib/feed/watch/feed-status";
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { effective } from "@/lib/settings/prefs.svelte";
+  import { prefs } from "@/lib/settings/settings.svelte";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import { workspaceMembers as storedMembers } from "@/lib/stores/workspace/active-project/workspaceMembers.svelte";
@@ -181,9 +183,25 @@
   // project and the "File type" filter narrow to a set of file extensions.
   let activeGroupId = $state<string | null>(null);
 
-  // The per-extension tally over the live feed - the one source both the filter
-  // popover's counts and its filtering read (SSOT).
-  const extensionCounts = $derived(countExtensions(feedStore.events));
+  // What the project's .gitignore ignores stays out of the feed while the
+  // toolbar's switch is on (the default, offered only with a .gitignore). The
+  // store re-marks held events as the .gitignore changes, so this follows it.
+  const isHiding = $derived(
+    isHidingIgnored({
+      prefs,
+      hasGitignore: feedStore.hasGitignore
+    })
+  );
+  const shownEvents = $derived(
+    filterIgnored({
+      events: feedStore.events,
+      isHiding
+    })
+  );
+
+  // The per-extension tally over the shown feed - the one source both the
+  // filter popover's counts and its filtering read (SSOT).
+  const extensionCounts = $derived(countExtensions(shownEvents));
 
   // Opt-in file-type filter: the extensions the user has ticked. An empty set is
   // the default and means "no filter - show every type", so a checkbox is empty
@@ -193,7 +211,7 @@
   const groups = $derived(
     groupChanges({
       events: filterByExtension({
-        events: feedStore.events,
+        events: shownEvents,
         selected: selectedExtensions
       }),
       workspaceRoot: project,
@@ -218,7 +236,7 @@
   // Publish the live event count to the shared side-panel header.
   $effect(() => {
     setPanelHeader({
-      count: feedStore.events.length,
+      count: shownEvents.length,
       refresh: null
     });
   });
@@ -266,10 +284,18 @@
       })}
     />
   {:else}
-    <FeedToolbar {extensionCounts} {hasRemote} {project} {selectedExtensions} />
+    <FeedToolbar
+      {extensionCounts}
+      hasGitignore={feedStore.hasGitignore}
+      {hasRemote}
+      hiddenCount={feedStore.events.length - shownEvents.length}
+      {isHiding}
+      {project}
+      {selectedExtensions}
+    />
 
     {#if isChipRowShown}
-      <GroupChips {groups} totalCount={feedStore.events.length} bind:activeGroupId />
+      <GroupChips {groups} totalCount={shownEvents.length} bind:activeGroupId />
     {/if}
 
     <FeedCards groups={visibleGroups} {now} {previews} {project} bind:diffMode bind:expandedId />

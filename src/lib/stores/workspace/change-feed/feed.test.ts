@@ -15,6 +15,7 @@ const ignoredPaths = vi.hoisted(() => {
   const value: string[] = [];
   return { value };
 });
+const gitignore = vi.hoisted(() => ({ isPresent: false }));
 
 vi.stubGlobal("addEventListener", vi.fn());
 vi.stubGlobal("removeEventListener", vi.fn());
@@ -26,6 +27,16 @@ vi.mock("@/lib/ipc/messaging", async importOriginal => {
     sendMessage: vi.fn(async (command: string) => {
       if (command === messaging.Command.FEED_IGNORED) {
         return ignoredPaths.value;
+      }
+
+      if (command === messaging.Command.WATCH_STATUS) {
+        return {
+          root: null,
+          armedAt: null,
+          surfaced: 0,
+          ignored: 0,
+          hasGitignore: gitignore.isPresent
+        };
       }
 
       throw new Error("no backend in tests");
@@ -48,7 +59,8 @@ function change({ root, name }: { root: string; name: string }) {
     added: 1,
     removed: 0,
     summary: "",
-    ts: 0
+    ts: 0,
+    isIgnored: false
   } satisfies ChangeEvent;
 }
 
@@ -123,7 +135,7 @@ describe("feed per project", () => {
     expect(shownIds()).toEqual([]);
   });
 
-  it("re-filters only the project whose ignore rules changed", async () => {
+  it("re-marks only the project whose ignore rules changed", async () => {
     keepFeedsOf([FRONT, BEHIND]);
     const frontChange = change({
       root: FRONT,
@@ -143,10 +155,39 @@ describe("feed per project", () => {
       }
     });
 
-    expect(shownIds()).toEqual([frontChange.id]);
+    expect(feedStore.events.map(event => event.isIgnored)).toEqual([false]);
     front = BEHIND;
-    expect(shownIds()).toEqual([]);
+    expect(feedStore.events.map(event => event.isIgnored)).toEqual([true]);
+
     ignoredPaths.value = [];
+    await handlers.get(EventType.FEED_IGNORE_CHANGED)?.({
+      data: {
+        root: BEHIND
+      }
+    });
+    expect(shownIds()).toEqual([behindChange.id]);
+    expect(feedStore.events.map(event => event.isIgnored)).toEqual([false]);
+  });
+
+  it("offers the ignored switch only while the project has a .gitignore", async () => {
+    keepFeedsOf([FRONT]);
+    expect(feedStore.hasGitignore).toBe(false);
+
+    gitignore.isPresent = true;
+    await handlers.get(EventType.FEED_IGNORE_CHANGED)?.({
+      data: {
+        root: FRONT
+      }
+    });
+    expect(feedStore.hasGitignore).toBe(true);
+
+    gitignore.isPresent = false;
+    await handlers.get(EventType.FEED_IGNORE_CHANGED)?.({
+      data: {
+        root: FRONT
+      }
+    });
+    expect(feedStore.hasGitignore).toBe(false);
   });
 
   it("asks the watch status of each newly held project by its own root", async () => {

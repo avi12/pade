@@ -13,7 +13,10 @@ export const ChangeEvent = z.object({
   added: z.number(),
   removed: z.number(),
   summary: z.string(),
-  ts: z.number()
+  ts: z.number(),
+  /** The project ignores this path (its `.gitignore`) - hidden while the feed
+   *  hides ignored changes. A feed saved before the flag existed reads false. */
+  isIgnored: z.boolean().default(false)
 });
 
 export type ChangeEvent = z.infer<typeof ChangeEvent>;
@@ -31,8 +34,9 @@ export const FeedDiff = z.object({
 export type FeedDiff = z.infer<typeof FeedDiff>;
 
 /** What this window's Change Feed watch is doing: the root it is armed on
- *  (`null` = no live watch), when it armed, and how many changes it has
- *  surfaced versus dropped as ignored since. The feed holds nothing from before
+ *  (`null` = no live watch), when it armed, how many changes it has surfaced
+ *  versus marked as ignored since, and whether the root has a `.gitignore` (the
+ *  feed offers its "hide ignored" switch only then). The feed holds nothing from before
  *  `armedAt` - the backend replays nothing - so the panel states all of it when
  *  the list is empty rather than leaving "nothing changed" and "nothing is
  *  watched" looking identical. */
@@ -40,7 +44,8 @@ export const WatchStatus = z.object({
   root: z.string().nullable(),
   armedAt: z.number().nullable(),
   surfaced: z.number(),
-  ignored: z.number()
+  ignored: z.number(),
+  hasGitignore: z.boolean()
 });
 
 export type WatchStatus = z.infer<typeof WatchStatus>;

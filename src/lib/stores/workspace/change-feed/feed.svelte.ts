@@ -9,7 +9,7 @@
 // the held root it belongs to, so every project gathers its own feed whether it
 // is in front or not; the panel shows the front project's.
 
-import { SvelteMap } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 import { eventsForLiveWatch, readFeedSnapshot, saveFeedSnapshot } from "@/lib/feed/watch/feed-snapshot";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
@@ -51,17 +51,38 @@ let isSubscribed = false;
 export const feedStore = {
   get events() {
     return feedsByProject.get(frontProject()) ?? NO_EVENTS;
+  },
+  /** Whether the front project has a `.gitignore` - the feed offers its "hide
+   *  ignored" switch only then. Follows the file being created or deleted. */
+  get hasGitignore() {
+    return projectsWithGitignore.has(frontProject());
   }
 };
 
+// The held projects whose root has a `.gitignore`, as the backend last said.
+const projectsWithGitignore = new SvelteSet<string>();
+
 // When the backend's watch of `root` armed; `null` while it is not armed yet,
 // or when the backend cannot say - either way there is no watch to tie to.
+// The same read says whether the root has a `.gitignore`.
 async function liveArmedAt(root: string) {
   try {
     const status = await sendMessage(Command.WATCH_STATUS, { root });
+    rememberGitignore({
+      root,
+      hasGitignore: status.hasGitignore
+    });
     return status.armedAt;
   } catch {
     return null;
+  }
+}
+
+function rememberGitignore({ root, hasGitignore }: { root: string; hasGitignore: boolean }) {
+  if (hasGitignore) {
+    projectsWithGitignore.add(root);
+  } else {
+    projectsWithGitignore.delete(root);
   }
 }
 
@@ -128,11 +149,13 @@ function fileChange(event: ChangeEvent) {
 }
 
 // The ignore rules are live: editing (or creating, or deleting) a .gitignore - and
-// a mid-session `git init` - re-filters what that project's feed already shows,
-// so a path the project just started ignoring drops out instead of lingering.
+// a mid-session `git init` - re-marks what that project's feed already holds, so
+// a path the project just started ignoring hides and one it stopped ignoring
+// comes back, and the "hide ignored" switch appears or goes with the file.
 // The backend is the one authority on "ignored" (git's own rules in a repo, the
 // root .gitignore + tech inference otherwise); the store only asks.
-async function refilterIgnored(root: string) {
+async function remarkIgnored(root: string) {
+  await liveArmedAt(root);
   const events = feedsByProject.get(root) ?? NO_EVENTS;
   const paths = [...new Set(events.map(event => event.path))];
   if (paths.length === 0) {
@@ -141,13 +164,21 @@ async function refilterIgnored(root: string) {
 
   const nowIgnored = new Set(await sendMessage(Command.FEED_IGNORED, { paths }));
   const current = feedsByProject.get(root);
-  if (nowIgnored.size === 0 || current === undefined) {
+  if (current === undefined) {
     return;
   }
 
   feedsByProject.set(
     root,
-    current.filter(event => !nowIgnored.has(event.path))
+    current.map(event => {
+      const isIgnored = nowIgnored.has(event.path);
+      return event.isIgnored === isIgnored
+        ? event
+        : {
+            ...event,
+            isIgnored
+          };
+    })
   );
 }
 
@@ -162,7 +193,7 @@ async function startFeedSubscription() {
   addEventListener("pagehide", saveFeedsOnUnload);
   try {
     await onMessage(EventType.FEED_CHANGE, ({ data: event }) => fileChange(event));
-    await onMessage(EventType.FEED_IGNORE_CHANGED, async ({ data: { root } }) => await refilterIgnored(root));
+    await onMessage(EventType.FEED_IGNORE_CHANGED, async ({ data: { root } }) => await remarkIgnored(root));
   } catch {
     // Re-arm on a failed subscribe so the next held-set change can try again.
     isSubscribed = false;
@@ -185,6 +216,7 @@ export function keepFeedsOf(projects: string[]) {
     if (!projects.includes(project)) {
       feedsByProject.delete(project);
       armedAtByProject.delete(project);
+      projectsWithGitignore.delete(project);
     }
   }
 

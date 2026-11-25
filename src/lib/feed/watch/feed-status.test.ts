@@ -22,7 +22,8 @@ describe("watchSummary", () => {
         root: null,
         armedAt: null,
         surfaced: 0,
-        ignored: 0
+        ignored: 0,
+        hasGitignore: false
       },
       project: PROJECT,
       now: NOW
@@ -37,7 +38,8 @@ describe("watchSummary", () => {
         root: "C:\\repositories\\avi\\taki",
         armedAt: NOW - 60_000,
         surfaced: 4,
-        ignored: 0
+        ignored: 0,
+        hasGitignore: false
       },
       project: PROJECT,
       now: NOW
@@ -53,7 +55,8 @@ describe("watchSummary", () => {
         root: "c:/repositories/avi/pade/",
         armedAt: NOW - 60_000,
         surfaced: 0,
-        ignored: 0
+        ignored: 0,
+        hasGitignore: false
       },
       project: PROJECT,
       now: NOW
@@ -68,7 +71,8 @@ describe("watchSummary", () => {
         root: PROJECT,
         armedAt: NOW - 12 * 60_000,
         surfaced: 0,
-        ignored: 0
+        ignored: 0,
+        hasGitignore: false
       },
       project: PROJECT,
       now: NOW
@@ -83,7 +87,8 @@ describe("watchSummary", () => {
         root: PROJECT,
         armedAt: NOW - 5000,
         surfaced: 0,
-        ignored: 1284
+        ignored: 1284,
+        hasGitignore: true
       },
       project: PROJECT,
       now: NOW

@@ -18,7 +18,8 @@ function change(path: string) {
     added: 0,
     removed: 0,
     summary: `Edited ${path}`,
-    ts: 0
+    ts: 0,
+    isIgnored: false
   } satisfies ChangeEvent;
 }
 

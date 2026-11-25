@@ -97,6 +97,9 @@ const Prefs = z.object({
   /** Slow agents down so neither usage limit runs out before it resets
    *  (lib/usage/pacing/engine/pacing-policy). Opt-out: on unless explicitly false. */
   paceUsage: z.boolean().nullish(),
+  /** Hide Change Feed entries the project's `.gitignore` ignores. Opt-out: on
+   *  unless explicitly false; offered only where a `.gitignore` exists. */
+  hideIgnoredChanges: z.boolean().nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
   uiScale: z.number().min(UI_SCALE_MINIMUM).max(UI_SCALE_MAXIMUM).nullish(),
   /** Width, in pixels, of the resizable side panel (Feed/Git/Tasks/Config). The

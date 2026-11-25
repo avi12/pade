@@ -26,7 +26,8 @@ function change({
     added,
     removed,
     summary: `Edited ${path}`,
-    ts: timestamp
+    ts: timestamp,
+    isIgnored: false
   } satisfies ChangeEvent;
 }
 

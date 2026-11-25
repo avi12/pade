@@ -52,7 +52,8 @@ function changeIn(root: string) {
     added: 3,
     removed: 1,
     summary: "Edited",
-    ts: ARMED_AT + 1_000
+    ts: ARMED_AT + 1_000,
+    isIgnored: false
   };
 }
 

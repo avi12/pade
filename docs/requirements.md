@@ -118,7 +118,14 @@ writes.
   root manifests** (`package.json`→`node_modules`…, `Cargo.toml`→`target`, Python /
   Go / JVM / Ruby / PHP / .NET, …). The cheap baseline still pre-filters, so a giant
   dir never shells git; git results are memoized per path and reset when a
-  `.gitignore` changes.
+  `.gitignore` changes. An ignored change still reaches the feed, marked
+  ignored, and the toolbar's **Hide ignored** switch (on by default, a setting
+  of its own) hides it. The switch shows only while the project root has a
+  `.gitignore`; creating, editing or deleting one re-marks every change the feed
+  holds, so a path the project starts ignoring hides and one it stops ignoring
+  comes back, and the switch appears or goes with the file. Without a
+  `.gitignore` nothing is hidden. The always-on noise list (`node_modules`,
+  `target`, `.git`, …) is still dropped outright.
 - R1.2.8 ✅ **Language logos on cards.** Each change card leads with the file's
   **brand logo** (a local `.svg` under `src/lib/icons/` - `languages/`, `formats/` and kin - rendered via `Icon.svelte`)
   instead of a text chip - multi-colour marks (TS/JS/Python…) keep their brand
