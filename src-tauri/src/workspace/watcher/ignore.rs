@@ -5,8 +5,10 @@ use super::registry::ProjectWatch;
 use crate::vcs::git_in;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Stdio;
 use std::sync::Mutex;
 use tauri::AppHandle;
 use tauri::Emitter;
@@ -87,9 +89,11 @@ pub(super) struct IgnoreRules {
     /// `None` until a policy is installed. Git mode defers to git's own ignore
     /// rules; static mode carries a tech-inferred set of directory names.
     policy: Mutex<Option<IgnorePolicy>>,
-    /// Memoized `git check-ignore` results per absolute path (git mode only), so
-    /// a path shells git at most once. Cleared with every new policy, since
-    /// editing the rules can flip any path's state.
+    /// Memoized `git check-ignore` results per absolute path - files and the
+    /// folders above them (git mode only) - so a path shells git at most once,
+    /// and nothing under a folder known to be ignored shells git at all.
+    /// Cleared with every new policy, since editing the rules can flip any
+    /// path's state.
     git_ignore_cache: Mutex<HashMap<PathBuf, bool>>,
 }
 
@@ -135,24 +139,55 @@ impl IgnoreRules {
         self.git_excludes(&git_root, path)
     }
 
-    /// Whether git considers `path` ignored under the work tree at `root`,
-    /// memoized so each path shells git at most once. Only git's real answers
-    /// are memoized: when git fails (twice), the root `.gitignore` decides this
-    /// once and the next change of the path asks git again.
+    /// Whether git considers `path` ignored under the work tree at `root` - the
+    /// way VS Code's git integration asks: one batched `git check-ignore` per
+    /// cache miss, never one per file. It asks about the path together with
+    /// every folder above it that isn't memoized yet, and memoizes each answer.
+    /// Git never looks inside an ignored folder, so once a folder is known to
+    /// be ignored, everything under it is answered from memory - a tool
+    /// churning hundreds of files there costs one git call, not hundreds.
+    /// Only git's real answers are memoized: when git fails (twice), the root
+    /// `.gitignore` decides this once and the next change asks git again.
     fn git_excludes(&self, root: &Path, path: &Path) -> bool {
-        let memoized = self
-            .git_ignore_cache
-            .lock()
-            .ok()
-            .and_then(|cache| cache.get(path).copied());
-        if let Some(is_ignored) = memoized {
-            return is_ignored;
-        }
-        let answer = git_check_ignore(root, path).or_else(|| git_check_ignore(root, path));
-        let Some(is_ignored) = answer else {
+        let folders = folders_between(root, path);
+        let unknown_folders = {
+            let Ok(cache) = self.git_ignore_cache.lock() else {
+                return false;
+            };
+            if let Some(&is_ignored) = cache.get(path) {
+                return is_ignored;
+            }
+            if folders
+                .iter()
+                .any(|folder| cache.get(folder) == Some(&true))
+            {
+                return true;
+            }
+            folders
+                .into_iter()
+                .filter(|folder| !cache.contains_key(folder))
+                .collect::<Vec<_>>()
+        };
+
+        let questions = unknown_folders
+            .iter()
+            .map(|folder| CheckIgnoreQuestion::folder(root, folder))
+            .chain(std::iter::once(CheckIgnoreQuestion::file(root, path)))
+            .collect::<Option<Vec<_>>>();
+        let Some(questions) = questions else {
             return self.root_gitignore_excludes(path);
         };
+        let answer =
+            git_ignored_among(root, &questions).or_else(|| git_ignored_among(root, &questions));
+        let Some(ignored) = answer else {
+            return self.root_gitignore_excludes(path);
+        };
+
+        let is_ignored = questions.iter().any(|question| question.is_in(&ignored));
         if let Ok(mut cache) = self.git_ignore_cache.lock() {
+            for (folder, question) in unknown_folders.iter().zip(&questions) {
+                cache.insert(folder.clone(), question.is_in(&ignored));
+            }
             cache.insert(path.to_path_buf(), is_ignored);
         }
         is_ignored
@@ -340,24 +375,95 @@ pub(super) fn gitignore_excludes(
     rules.is_ignored(&relative.replace('\\', "/"))
 }
 
-/// Shell `git -C <root> check-ignore -q -- <path>` and report whether the path is
-/// ignored: exit status 0 means git would ignore it, 1 that it would not. Because
-/// git evaluates the path against every applicable ignore source itself, this
-/// correctly honors nested `.gitignore` files, `.git/info/exclude`,
-/// `core.excludesFile`, and negations. `None` when git gave no answer - it failed
-/// to spawn or exited with an error - so the caller neither trusts nor memoizes
-/// it. Scoped to `root` via `-C`, never PADE's process cwd.
-pub(super) fn git_check_ignore(root: &Path, path: &Path) -> Option<bool> {
-    const IGNORED_EXIT_CODE: i32 = 0;
-    const NOT_IGNORED_EXIT_CODE: i32 = 1;
-    let output = git_in(root)
-        .args(["check-ignore", "-q", "--"])
-        .arg(path)
-        .output()
+/// The folders between the work-tree `root` and `path`, outermost first - not
+/// the root itself, nor `path`.
+fn folders_between(root: &Path, path: &Path) -> Vec<PathBuf> {
+    let Ok(relative) = path.strip_prefix(root) else {
+        return Vec::new();
+    };
+    let mut folders = relative
+        .ancestors()
+        .skip(1)
+        .filter(|folder| !folder.as_os_str().is_empty())
+        .map(|folder| root.join(folder))
+        .collect::<Vec<_>>();
+    folders.reverse();
+    folders
+}
+
+/// One path put to `git check-ignore`, spelled the way git takes it and echoes
+/// it back: relative to the work tree, `/`-separated, and a folder with a
+/// trailing `/` so folder-only patterns (`build/`) match it.
+struct CheckIgnoreQuestion {
+    spelling: String,
+}
+
+impl CheckIgnoreQuestion {
+    const FOLDER_SUFFIX: char = '/';
+
+    fn file(root: &Path, path: &Path) -> Option<Self> {
+        let relative = path.strip_prefix(root).ok()?.to_str()?;
+        Some(Self {
+            spelling: relative.replace('\\', "/"),
+        })
+    }
+
+    fn folder(root: &Path, folder: &Path) -> Option<Self> {
+        let mut question = Self::file(root, folder)?;
+        question.spelling.push(Self::FOLDER_SUFFIX);
+        Some(question)
+    }
+
+    /// Whether git listed this question among the ignored, however it trimmed
+    /// a folder's trailing `/`.
+    fn is_in(&self, ignored: &HashSet<String>) -> bool {
+        ignored.contains(&self.spelling)
+            || ignored.contains(self.spelling.trim_end_matches(Self::FOLDER_SUFFIX))
+    }
+}
+
+/// Shell one `git -C <root> check-ignore -z --stdin` for a whole batch - the
+/// paths written to it NUL-separated, as VS Code feeds it - and return the
+/// paths git would ignore (exit 0: some are, 1: none are). Because
+/// git evaluates each path against every applicable ignore source itself, this
+/// honors nested `.gitignore` files, `.git/info/exclude`, `core.excludesFile`,
+/// and negations. `None` when git gave no answer - it failed to spawn or exited
+/// with an error - so the caller neither trusts nor memoizes it. Scoped to
+/// `root` via `-C`, never PADE's process cwd.
+fn git_ignored_among(root: &Path, questions: &[CheckIgnoreQuestion]) -> Option<HashSet<String>> {
+    const SOME_IGNORED_EXIT_CODE: i32 = 0;
+    const NONE_IGNORED_EXIT_CODE: i32 = 1;
+    const PATH_SEPARATOR: char = '\0';
+    let mut child = git_in(root)
+        .args(["check-ignore", "-z", "--stdin"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
         .ok()?;
+    let mut batch = String::new();
+    for question in questions {
+        batch.push_str(&question.spelling);
+        batch.push(PATH_SEPARATOR);
+    }
+    // Dropping stdin after the write closes it, so git answers and exits.
+    let is_written = child
+        .stdin
+        .take()
+        .is_some_and(|mut stdin| stdin.write_all(batch.as_bytes()).is_ok());
+    let output = child.wait_with_output().ok()?;
+    if !is_written {
+        return None;
+    }
     match output.status.code() {
-        Some(IGNORED_EXIT_CODE) => Some(true),
-        Some(NOT_IGNORED_EXIT_CODE) => Some(false),
+        Some(SOME_IGNORED_EXIT_CODE) => Some(
+            String::from_utf8_lossy(&output.stdout)
+                .split(PATH_SEPARATOR)
+                .filter(|path| !path.is_empty())
+                .map(str::to_owned)
+                .collect(),
+        ),
+        Some(NONE_IGNORED_EXIT_CODE) => Some(HashSet::new()),
         _ => None,
     }
 }

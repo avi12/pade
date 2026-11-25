@@ -117,8 +117,10 @@ writes.
   no git it falls back to **technology-common ignore directories inferred from the
   root manifests** (`package.json`→`node_modules`…, `Cargo.toml`→`target`, Python /
   Go / JVM / Ruby / PHP / .NET, …). The cheap baseline still pre-filters, so a giant
-  dir never shells git; git results are memoized per path and reset when a
-  `.gitignore` changes. An ignored change still reaches the feed, marked
+  dir never shells git; like VS Code, git is asked in one batch per unknown
+  path (the path and the folders above it), the answers are memoized and reset
+  when a `.gitignore` changes, and nothing under a folder known to be ignored
+  asks git again. An ignored change still reaches the feed, marked
   ignored, and the toolbar's **Hide ignored** switch (on by default, a setting
   of its own) hides it. The switch shows only while the project root has a
   `.gitignore`; creating, editing or deleting one re-marks every change the feed

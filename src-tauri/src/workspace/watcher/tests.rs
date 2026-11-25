@@ -593,6 +593,41 @@ fn git_mode_falls_back_to_the_root_gitignore_when_git_gives_no_answer() {
     let _ = fs::remove_dir_all(&root);
 }
 
+#[test]
+fn git_mode_asks_git_once_and_answers_an_ignored_folder_from_memory() {
+    let root = std::env::temp_dir().join(format!("pade-ignore-batch-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("sub")).expect("a scratch repository");
+    let is_repository = crate::vcs::git_in(&root)
+        .args(["init", "-q"])
+        .status()
+        .is_ok_and(|status| status.success());
+    if !is_repository {
+        let _ = fs::remove_dir_all(&root);
+        return;
+    }
+    fs::write(root.join(".gitignore"), "user-profiles/\n*.log\n").expect("root rules");
+    fs::write(root.join("sub/.gitignore"), "!keep.log\n").expect("nested rules");
+    let ignore_rules = IgnoreRules::default();
+    ignore_rules.install(IgnorePolicy::Git {
+        root: root.clone(),
+        rules: crate::workspace::gitignore::Rules::default(),
+    });
+
+    // Git's own answers: a folder-only pattern, a file pattern, and a nested
+    // negation the root rules alone would get wrong.
+    assert!(ignore_rules.excludes(&root.join("user-profiles/chrome/Profile 1/Cookies")));
+    assert!(ignore_rules.excludes(&root.join("debug.log")));
+    assert!(!ignore_rules.excludes(&root.join("sub/keep.log")));
+    assert!(!ignore_rules.excludes(&root.join("src/main.rs")));
+
+    // With git gone, a new file under the folder known to be ignored is still
+    // answered - from memory, without asking git.
+    fs::remove_dir_all(root.join(".git")).expect("drop the repository");
+    assert!(ignore_rules.excludes(&root.join("user-profiles/chrome/Profile 1/History")));
+    let _ = fs::remove_dir_all(&root);
+}
+
 fn working_tree_route(root: &Path) -> LanguageRoute {
     let ignore_rules = IgnoreRules::default();
     ignore_rules.install(IgnorePolicy::Static {
