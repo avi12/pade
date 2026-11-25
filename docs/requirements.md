@@ -157,7 +157,10 @@ writes.
 - R1.4.3d ✅ **The panel's refresh pulls** - with a remote it fast-forwards the
   repo from it first (`git pull --ff-only`, the same pull as the feed's Sync
   all, refused with uncommitted changes), says how that went in a toast, then
-  reads status and log again; without one it only reads them again.
+  reads status and log again; without one it only reads them again. Its icon
+  spins until that is done, and commits that just arrived pop into the log
+  with a brief accent wash (the first read of a repository shows its log as
+  it is).
 - R1.4.3a ✅ Ctrl/Cmd-clicking the top-left project button opens the repository
   root in the system browser, while a plain click still opens its window menu.
   A missing remote or opener failure is surfaced instead of silently doing
