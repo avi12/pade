@@ -77,14 +77,14 @@ pub(super) fn moved_keys<'a>(
 pub(crate) async fn workspace_move(
     app: AppHandle,
     from: String,
-    dest_dir: String,
+    destination_directory: String,
 ) -> Result<String, String> {
     require_ade_owned(&load(), &from, "moved")?;
     let name = Path::new(&from)
         .file_name()
         .ok_or("bad source path")?
         .to_owned();
-    let destination = Path::new(&dest_dir).join(name);
+    let destination = Path::new(&destination_directory).join(name);
     relocate_folder(&app, &from, &destination, MovedLabel::Keep).await
 }
 

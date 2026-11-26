@@ -73,11 +73,11 @@ pub struct SlowRestParams {
 /// When a slowed session's rest ends: its rhythm's rest from now, never past the
 /// moment it would be back on pace anyway.
 #[must_use]
-pub fn slow_rest_until(params: SlowRestParams) -> EpochMilliseconds {
+pub fn slow_rest_until(parameters: SlowRestParams) -> EpochMilliseconds {
     let SlowRestParams {
         keep,
         ready_at,
         now,
-    } = params;
+    } = parameters;
     ready_at.earlier(now + work_rhythm(keep).rest)
 }

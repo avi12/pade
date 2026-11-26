@@ -120,16 +120,18 @@ impl<'a> Pass<'a> {
         for step in PacingStep::ORDER {
             let taken =
                 match step {
-                    PacingStep::Effort => can_step_down.is_some_and(|can| can.effort).then(|| {
-                        Decision::StepEffortDown {
+                    PacingStep::Effort => can_step_down
+                        .is_some_and(|can| can.can_lower_effort)
+                        .then(|| Decision::StepEffortDown {
                             session: session.id.clone(),
-                        }
-                    }),
-                    PacingStep::Model => can_step_down.is_some_and(|can| can.model).then(|| {
-                        Decision::StepModelDown {
-                            session: session.id.clone(),
-                        }
-                    }),
+                        }),
+                    PacingStep::Model => {
+                        can_step_down
+                            .is_some_and(|can| can.can_lower_model)
+                            .then(|| Decision::StepModelDown {
+                                session: session.id.clone(),
+                            })
+                    }
                     PacingStep::Rest | PacingStep::Stop => match self.pause_step(PauseStepParams {
                         step,
                         session,
@@ -151,12 +153,12 @@ impl<'a> Pass<'a> {
     /// The rest or the stop of a climb. A rest right after the last one ended
     /// would buy a "continue" only to cut off the first thing it started - so
     /// the session works its rhythm's stretch before it rests again.
-    fn pause_step(&self, params: PauseStepParams<'_>) -> PauseStep {
+    fn pause_step(&self, parameters: PauseStepParams<'_>) -> PauseStep {
         let PauseStepParams {
             step,
             session,
             binding,
-        } = params;
+        } = parameters;
         let now = self.inputs.now;
         let is_resting = step == PacingStep::Rest && !is_nearly_spent(&binding.window);
         let worked_for = now - session.working_since.unwrap_or(now);

@@ -107,7 +107,7 @@ async function replaceWithSuccessor({
   });
   if (isConsumed) {
     await sendMessage(Command.HANDOFF_DOC_DELETE, {
-      dir: host.projectDirectory(session),
+      directory: host.projectDirectory(session),
       name: doc
     });
   }

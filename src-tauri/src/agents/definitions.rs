@@ -53,7 +53,7 @@ pub(super) struct AgentDefinition {
     /// child-side console write) only for these agents, only on Windows, only when
     /// the scheme is light. `true` for Codex; `false` for CLIs whose box follows a
     /// config/env theme (Claude, aider, cursor) or that inherit the palette.
-    pub(super) needs_light_console_fix: bool,
+    pub(super) should_fix_light_console: bool,
     /// Whether this CLI runs the Unicode bidirectional algorithm over its OWN
     /// output, so the Arabic and Hebrew that reaches the terminal is already in
     /// **visual** order rather than the logical order a program normally writes.
@@ -68,7 +68,7 @@ pub(super) struct AgentDefinition {
     ///
     /// Measured, never assumed - the running app's buffer read against the
     /// agent's own transcript (see `docs/terminal-rendering.md`).
-    pub(super) reorders_bidi: bool,
+    pub(super) should_reorder_bidi: bool,
 }
 
 /// The PADE-owned Claude theme. Claude Code watches its user theme directory and
@@ -173,13 +173,13 @@ pub(super) const REGISTRY: &[AgentDefinition] = &[
         // is unchanged and still runs for Codex, pagers, and that choice).
         environment: &[],
         // Claude's box follows its `theme` settings key, not the terminal probe.
-        needs_light_console_fix: false,
+        should_fix_light_console: false,
         // Claude Code reorders its own Arabic and Hebrew before it writes them:
         // it splits each row into cells, runs bidi-js over the row with an `auto`
         // paragraph direction, and reverses the cells by embedding level. Measured
         // on 2.1.227 - unconditional, and the gate it consults has no path that
         // answers no, so nothing ADE can pass turns it off.
-        reorders_bidi: true,
+        should_reorder_bidi: true,
     },
     AgentDefinition {
         id: ID_CODEX,
@@ -264,8 +264,8 @@ pub(super) const REGISTRY: &[AgentDefinition] = &[
         // pseudoconsole's hard-coded BLACK buffer - so on a light ADE the box
         // clashes and no clean channel can fix it. `pty.rs` forces the console
         // buffer light before Codex probes it (Windows + light scheme only).
-        needs_light_console_fix: true,
-        reorders_bidi: false,
+        should_fix_light_console: true,
+        should_reorder_bidi: false,
     },
     AgentDefinition {
         id: ID_OPENCODE,
@@ -305,8 +305,8 @@ pub(super) const REGISTRY: &[AgentDefinition] = &[
         // The `pade-light` theme fixes the colors, but ConPTY resize refills
         // still paint from the console buffer - so a light ADE keeps the
         // console-buffer flip (like Codex) to stop dark flashes on reflow.
-        needs_light_console_fix: true,
-        reorders_bidi: false,
+        should_fix_light_console: true,
+        should_reorder_bidi: false,
     },
     AgentDefinition {
         id: ID_COPILOT,
@@ -343,8 +343,8 @@ pub(super) const REGISTRY: &[AgentDefinition] = &[
         // because `--resume` alone opens the session picker.
         session_id_flag: Some(SessionIdFlag::Joined("--resume")),
         environment: &[],
-        needs_light_console_fix: false,
-        reorders_bidi: false,
+        should_fix_light_console: false,
+        should_reorder_bidi: false,
     },
     AgentDefinition {
         id: ID_GROK,
@@ -364,8 +364,8 @@ pub(super) const REGISTRY: &[AgentDefinition] = &[
         theme_config: None,
         session_id_flag: None,
         environment: &[],
-        needs_light_console_fix: false,
-        reorders_bidi: false,
+        should_fix_light_console: false,
+        should_reorder_bidi: false,
     },
     AgentDefinition {
         id: ID_MUSE,
@@ -385,8 +385,8 @@ pub(super) const REGISTRY: &[AgentDefinition] = &[
         // Only `muse resume --last` is documented - no caller-chosen id.
         session_id_flag: None,
         environment: &[],
-        needs_light_console_fix: false,
-        reorders_bidi: false,
+        should_fix_light_console: false,
+        should_reorder_bidi: false,
     },
     AgentDefinition {
         id: ID_QWEN,
@@ -409,8 +409,8 @@ pub(super) const REGISTRY: &[AgentDefinition] = &[
         // restart-to-resume flow needs.
         session_id_flag: None,
         environment: &[],
-        needs_light_console_fix: false,
-        reorders_bidi: false,
+        should_fix_light_console: false,
+        should_reorder_bidi: false,
     },
     AgentDefinition {
         id: ID_ANTIGRAVITY,
@@ -427,8 +427,8 @@ pub(super) const REGISTRY: &[AgentDefinition] = &[
         theme_config: None,
         session_id_flag: None,
         environment: &[],
-        needs_light_console_fix: false,
-        reorders_bidi: false,
+        should_fix_light_console: false,
+        should_reorder_bidi: false,
     },
     AgentDefinition {
         id: ID_CURSOR,
@@ -448,8 +448,8 @@ pub(super) const REGISTRY: &[AgentDefinition] = &[
         }),
         session_id_flag: None,
         environment: &[],
-        needs_light_console_fix: false,
-        reorders_bidi: false,
+        should_fix_light_console: false,
+        should_reorder_bidi: false,
     },
     AgentDefinition {
         id: ID_AIDER,
@@ -468,7 +468,7 @@ pub(super) const REGISTRY: &[AgentDefinition] = &[
         }),
         session_id_flag: None,
         environment: &[],
-        needs_light_console_fix: false,
-        reorders_bidi: false,
+        should_fix_light_console: false,
+        should_reorder_bidi: false,
     },
 ];

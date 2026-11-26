@@ -17,7 +17,7 @@ use crate::workspace::config::McpFormat;
 /// creating or deleting an empty config still triggers an agent reload.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct McpSnapshot {
-    pub exists: bool,
+    pub is_present: bool,
     pub names: BTreeSet<String>,
     pub content: String,
 }
@@ -50,7 +50,7 @@ pub(crate) fn snapshot(path: &Path, format: McpFormat) -> Option<McpSnapshot> {
         }
     };
     Some(McpSnapshot {
-        exists: true,
+        is_present: true,
         names,
         content: text,
     })

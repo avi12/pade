@@ -41,7 +41,7 @@ pub(crate) struct History {
     /// pager)? Then this history is a stream of framebuffer edits, not a document,
     /// and replaying a trimmed one paints a torn frame. The frontend needs to know
     /// so it can ask the program to repaint itself instead.
-    alternate: bool,
+    is_alternate: bool,
 }
 
 impl History {
@@ -50,7 +50,7 @@ impl History {
         HistorySnapshot {
             data: self.data[self.start..].to_string(),
             sequence: self.sequence,
-            alternate: self.alternate,
+            is_alternate: self.is_alternate,
         }
     }
 }
@@ -64,7 +64,8 @@ pub(crate) struct HistorySnapshot {
     data: String,
     #[serde(rename = "seq")]
     sequence: u64,
-    alternate: bool,
+    #[serde(rename = "alternate")]
+    is_alternate: bool,
 }
 
 /// A terminal control sequence: the Control Sequence Introducer (`ESC [`)
@@ -203,8 +204,8 @@ fn append_history(history: &Mutex<History>, raw: &str) -> u64 {
     while !buffer.data.is_char_boundary(window_start) {
         window_start += 1;
     }
-    if let Some(alternate) = last_screen_switch(&buffer.data[window_start..]) {
-        buffer.alternate = alternate;
+    if let Some(is_alternate) = last_screen_switch(&buffer.data[window_start..]) {
+        buffer.is_alternate = is_alternate;
     }
 
     let is_history_overflowing = buffer.data.len() - buffer.start > HISTORY_CAPACITY;
@@ -332,7 +333,7 @@ mod tests {
 
     fn snapshot(history: &Mutex<History>) -> (String, bool) {
         let buffer = history.lock().expect("history lock");
-        (buffer.data[buffer.start..].to_string(), buffer.alternate)
+        (buffer.data[buffer.start..].to_string(), buffer.is_alternate)
     }
 
     #[test]

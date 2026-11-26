@@ -23,7 +23,7 @@ export async function fetchAccountReading({
 }) {
   const reading = await sendMessage(Command.USAGE_ACCOUNT_AGENT, {
     agent,
-    forceRefresh: shouldForceRefresh
+    shouldForceRefresh
   });
   if (reading.account !== null) {
     latest.set(agent, reading.account);

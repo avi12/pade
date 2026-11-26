@@ -156,7 +156,8 @@ pub(crate) struct SessionModel {
     #[serde(flatten)]
     running: RunningModel,
     /// Claude's Ultracode (multi-agent orchestration) is on for the session.
-    ultracode: bool,
+    #[serde(rename = "ultracode")]
+    is_ultracode: bool,
 }
 
 /// The model and effort `command`'s session `conversation_id` is running, or
@@ -171,13 +172,16 @@ pub(crate) async fn agent_running_model(
         let is_claude = command == ID_CLAUDE;
         let is_switchable_conversation = is_claude && is_plain_id(&conversation_id);
         if is_switchable_conversation {
-            let (running, ultracode) = claude::read_with_ultracode(&conversation_id)?;
-            return Some(SessionModel { running, ultracode });
+            let (running, is_ultracode) = claude::read_with_ultracode(&conversation_id)?;
+            return Some(SessionModel {
+                running,
+                is_ultracode,
+            });
         }
         let running = read(&command, &conversation_id)?;
         Some(SessionModel {
             running,
-            ultracode: false,
+            is_ultracode: false,
         })
     })
     .await

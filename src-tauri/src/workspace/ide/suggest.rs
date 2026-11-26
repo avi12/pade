@@ -204,7 +204,7 @@ pub(super) fn suggest_for(cwd: &str) -> Result<Vec<Ide>, String> {
     }
     let mut ranked: Vec<Ide> = ordered.iter().filter_map(|id| lookup(id, &added)).collect();
     for ide in &mut ranked {
-        ide.chosen = choice.as_deref() == Some(ide.id.as_str());
+        ide.is_chosen = choice.as_deref() == Some(ide.id.as_str());
     }
     Ok(ranked)
 }

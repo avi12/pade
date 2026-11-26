@@ -42,7 +42,7 @@
       : await sendMessage(Command.VCS_DIFF, {
         cwd: project,
         path: entry.path,
-        staged: entry.staged
+        isStaged: entry.staged
       });
   }
 

@@ -54,7 +54,7 @@ export interface WorkspaceCommandProtocol {
   [WORKSPACE_COMMANDS.MEMBERS_LIST]: (data: { root: string }) => WorkspaceMember[];
   /** Add a root folder. `create` makes a missing path first; the outcome says
    *  whether it was added, is missing, or names a file. */
-  [WORKSPACE_COMMANDS.WORKSPACE_ADD_ROOT]: (data: { path: string; create: boolean }) => AddRootOutcome;
+  [WORKSPACE_COMMANDS.WORKSPACE_ADD_ROOT]: (data: { path: string; shouldCreate: boolean }) => AddRootOutcome;
   [WORKSPACE_COMMANDS.WORKSPACE_REMOVE_ROOT]: (data: PathData) => Settings;
   /** Whether a partially-typed path exists (as a dir or a file), plus
    *  child-directory completions for the add-root autocomplete. */
@@ -63,10 +63,10 @@ export interface WorkspaceCommandProtocol {
   [WORKSPACE_COMMANDS.WORKSPACE_OPEN]: (data: PathData) => void;
   /** Delete a consumed auto-handoff doc (`continue-*.md` in the project dir -
    *  the backend refuses anything else). */
-  [WORKSPACE_COMMANDS.HANDOFF_DOC_DELETE]: (data: { dir: string; name: string }) => void;
+  [WORKSPACE_COMMANDS.HANDOFF_DOC_DELETE]: (data: { directory: string; name: string }) => void;
   /** Create a throwaway workspace, mark it owned, and open it; answers its path. */
   [WORKSPACE_COMMANDS.WORKSPACE_TEMP]: () => string;
-  [WORKSPACE_COMMANDS.WORKSPACE_MOVE]: (data: { from: string; destDir: string }) => string;
+  [WORKSPACE_COMMANDS.WORKSPACE_MOVE]: (data: { from: string; destinationDirectory: string }) => string;
   /** Promote a temp workspace into a saved root under a new name. */
   [WORKSPACE_COMMANDS.WORKSPACE_RENAME]: (data: WorkspaceRename) => string;
   /** Rename any workspace's folder where it stands, carrying every agent's
@@ -83,7 +83,7 @@ export interface WorkspaceCommandProtocol {
   [WORKSPACE_COMMANDS.WORKSPACE_PRUNE]: () => Settings;
   [WORKSPACE_COMMANDS.WORKSPACE_CREATE]: (data: { root: string; name: string }) => string;
   [WORKSPACE_COMMANDS.WORKSPACE_CLEAR_RECENT]: () => Settings;
-  [WORKSPACE_COMMANDS.WORKSPACE_SET_PINNED]: (data: { path: string; pinned: boolean }) => Settings;
+  [WORKSPACE_COMMANDS.WORKSPACE_SET_PINNED]: (data: { path: string; isPinned: boolean }) => Settings;
   /** Forget a project from the switcher (recents + pins); folder untouched. */
   [WORKSPACE_COMMANDS.WORKSPACE_REMOVE_RECENT]: (data: PathData) => Settings;
   /** Persist a drag-reordered pin order (reorders existing pins only). */

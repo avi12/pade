@@ -14,7 +14,7 @@ export interface UsageCommandProtocol {
   /** Live usage windows for one agent, read from its vendor's own usage
    *  endpoint with the locally-stored token (or the agent's own CLI), and why
    *  there is no reading when the latest ask brought none. */
-  [USAGE_COMMANDS.USAGE_ACCOUNT_AGENT]: (data: { agent: string; forceRefresh: boolean }) => AccountReading;
+  [USAGE_COMMANDS.USAGE_ACCOUNT_AGENT]: (data: { agent: string; shouldForceRefresh: boolean }) => AccountReading;
   /** The free usage-limit resets Claude's account can spend now, one per
    *  kind (the server's next kind first) - empty when it holds none. */
   [USAGE_COMMANDS.LIMIT_RESET_OFFERS]: () => LimitReset[];

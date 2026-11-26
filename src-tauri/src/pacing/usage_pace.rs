@@ -230,12 +230,12 @@ const MAXIMUM_PROJECTED_RISE: f64 = 3.0;
 /// session starting on, or switching to, a dear model counts at once. Either
 /// alone when the other is unknown; `None` when both are.
 #[must_use]
-pub fn projected_rate(params: ProjectedRateParams) -> Option<BurnRate> {
+pub fn projected_rate(parameters: ProjectedRateParams) -> Option<BurnRate> {
     let ProjectedRateParams {
         measured,
         rate_per_load,
         load,
-    } = params;
+    } = parameters;
     let forecast = rate_per_load.map(|rate| BurnRate::new(rate.get() * load.get()));
     match (measured, forecast) {
         (Some(measured), Some(forecast)) => Some(BurnRate::new(
@@ -368,13 +368,13 @@ pub struct AssessPaceParams<'a> {
 /// the reset is close enough to continue on its own (`continue_at`). `None` when
 /// no window holds it - or none is measured yet.
 #[must_use]
-pub fn assess_pace(params: AssessPaceParams<'_>) -> Option<BindingWindow> {
+pub fn assess_pace(parameters: AssessPaceParams<'_>) -> Option<BindingWindow> {
     let AssessPaceParams {
         account,
         now,
         is_paused,
         rate_of,
-    } = params;
+    } = parameters;
     let threshold = if is_paused {
         Fraction::WHOLE
     } else {
@@ -421,12 +421,12 @@ pub struct HasRoomParams<'a> {
 /// window keeps well above its spend (`STEP_UP_KEEP`). A window with no measured
 /// pace yet can't vouch for it.
 #[must_use]
-pub fn has_room_to_spare(params: HasRoomParams<'_>) -> bool {
+pub fn has_room_to_spare(parameters: HasRoomParams<'_>) -> bool {
     let HasRoomParams {
         account,
         now,
         rate_of,
-    } = params;
+    } = parameters;
     let Some(account) = account else {
         return false;
     };

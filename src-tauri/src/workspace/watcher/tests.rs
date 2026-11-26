@@ -189,7 +189,7 @@ fn change_kinds_serialize_to_the_lowercase_wire_strings() {
 fn creating_or_deleting_an_empty_mcp_file_changes_membership_state() {
     let missing = crate::workspace::mcp::McpSnapshot::default();
     let empty_file = crate::workspace::mcp::McpSnapshot {
-        exists: true,
+        is_present: true,
         ..crate::workspace::mcp::McpSnapshot::default()
     };
     assert!(mcp_membership_changed(&missing, &empty_file));
@@ -199,7 +199,7 @@ fn creating_or_deleting_an_empty_mcp_file_changes_membership_state() {
 #[test]
 fn editing_only_an_mcp_definition_does_not_change_membership_state() {
     let previous = crate::workspace::mcp::McpSnapshot {
-        exists: true,
+        is_present: true,
         names: ["github".to_string()].into_iter().collect(),
         content: "old".to_string(),
     };
@@ -428,7 +428,7 @@ fn a_cargo_manifest_maps_to_target() {
 }
 
 #[test]
-fn a_dotnet_project_file_maps_to_bin_and_obj_by_extension() {
+fn a_dotnet_project_file_maps_to_binary_and_object_folders_by_extension() {
     let directories = manifest_ignore_directories("MyApp.csproj");
     assert!(directories.contains(&"bin"));
     assert!(directories.contains(&"obj"));
@@ -538,9 +538,9 @@ fn a_quiet_channel_returns_the_first_message() {
         GitStateMessage::StateTouched,
         Duration::from_millis(SHORT_MILLISECONDS),
     );
-    assert!(burst.state_touched);
-    assert!(!burst.rearm);
-    assert!(!burst.ignore_touched);
+    assert!(burst.has_touched_state);
+    assert!(!burst.should_rearm);
+    assert!(!burst.has_touched_ignore);
 }
 
 /// A busy burst asks for each distinct effect it saw - a `git init` re-arm
@@ -560,9 +560,9 @@ fn a_burst_coalesces_every_distinct_effect() {
         GitStateMessage::StateTouched,
         Duration::from_millis(SHORT_MILLISECONDS),
     );
-    assert!(burst.rearm);
-    assert!(burst.state_touched);
-    assert!(burst.ignore_touched);
+    assert!(burst.should_rearm);
+    assert!(burst.has_touched_state);
+    assert!(burst.has_touched_ignore);
 }
 
 #[test]

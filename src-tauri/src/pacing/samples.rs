@@ -38,12 +38,12 @@ pub struct RecordParams<'a> {
 impl SampleBook {
     /// Take one reading of every window of an account, forgetting the readings
     /// older than the burn rate's history.
-    pub fn record(&mut self, params: RecordParams<'_>) {
+    pub fn record(&mut self, parameters: RecordParams<'_>) {
         let RecordParams {
             account_key,
             windows,
             now,
-        } = params;
+        } = parameters;
         let account = self.histories.entry(account_key.clone()).or_default();
         for window in windows {
             let history = account.entry(window.key.clone()).or_default();
@@ -110,13 +110,13 @@ mod tests {
     fn worked_book(account_key: &AccountKey, minutes: u32, rise: f64) -> (SampleBook, UsageWindow) {
         let mut book = SampleBook::default();
         let mut last = session_window(0.0, SpanMilliseconds::from_hours(WINDOW_HOURS));
-        for minute in 0..=minutes {
-            let used = f64::from(minute) * rise;
+        for i_minute in 0..=minutes {
+            let used = f64::from(i_minute) * rise;
             last = session_window(used, SpanMilliseconds::from_hours(WINDOW_HOURS));
             book.record(RecordParams {
                 account_key,
                 windows: std::slice::from_ref(&last),
-                now: NOW + SpanMilliseconds::from_minutes(f64::from(minute)),
+                now: NOW + SpanMilliseconds::from_minutes(f64::from(i_minute)),
             });
         }
         (book, last)

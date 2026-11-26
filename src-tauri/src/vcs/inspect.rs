@@ -29,7 +29,8 @@ pub(crate) struct CommitFileEntry {
     additions: u32,
     deletions: u32,
     /// True when git reports the file as binary (line counts are meaningless).
-    binary: bool,
+    #[serde(rename = "binary")]
+    is_binary: bool,
 }
 
 /// A single commit's full detail: message, author/date, branch, and per-file
@@ -87,7 +88,7 @@ pub(crate) async fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail,
                 .unwrap_or(StatusKind::Modified),
             additions: record.additions,
             deletions: record.deletions,
-            binary: record.is_binary,
+            is_binary: record.is_binary,
         })
         .collect();
 

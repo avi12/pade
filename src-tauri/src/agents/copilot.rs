@@ -194,9 +194,9 @@ fn encode_command(script: &str) -> String {
         let group = chunk.iter().enumerate().fold(0u32, |bits, (i, byte)| {
             bits | u32::from(*byte) << (FIRST_BYTE_SHIFT - BITS_PER_BYTE * i)
         });
-        for sextet in 0..=chunk.len() {
+        for i_sextet in 0..=chunk.len() {
             let index = usize::try_from(
-                (group >> (FIRST_SEXTET_SHIFT - BITS_PER_SEXTET * sextet)) & SEXTET_MASK,
+                (group >> (FIRST_SEXTET_SHIFT - BITS_PER_SEXTET * i_sextet)) & SEXTET_MASK,
             )
             .unwrap_or(0);
             encoded.push(char::from(

@@ -157,7 +157,8 @@ pub(crate) struct ConfigFile {
     #[serde(rename = "rel")]
     relative_path: String,
     kind: ConfigKind,
-    exists: bool,
+    #[serde(rename = "exists")]
+    is_present: bool,
 }
 
 fn project_root(
@@ -181,7 +182,7 @@ pub(crate) async fn config_list(
             name: definition.file_name().to_string(),
             relative_path: definition.relative_path.to_string(),
             kind: definition.kind,
-            exists: root.join(definition.relative_path).is_file(),
+            is_present: root.join(definition.relative_path).is_file(),
         })
         .collect();
     Ok(files)

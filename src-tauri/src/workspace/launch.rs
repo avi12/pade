@@ -11,7 +11,7 @@ pub(crate) struct LaunchDirectory {
     pub path: PathBuf,
     /// `true` when a `pade <dir>` argument named it (an explicit open), so the
     /// caller treats it as a project without probing for markers.
-    pub explicit: bool,
+    pub is_explicit: bool,
 }
 
 /// Resolve the directory this instance launched into - the single source of truth
@@ -27,12 +27,12 @@ pub(crate) fn launch_directory() -> LaunchDirectory {
     if let Some(directory) = directory_argument {
         return LaunchDirectory {
             path: PathBuf::from(directory),
-            explicit: true,
+            is_explicit: true,
         };
     }
     LaunchDirectory {
         path: std::env::current_dir().unwrap_or_default(),
-        explicit: false,
+        is_explicit: false,
     }
 }
 
@@ -95,7 +95,7 @@ pub(crate) fn webview_data_directory() -> Option<PathBuf> {
 pub(crate) fn launch_context() -> LaunchContext {
     let launch = launch_directory();
     LaunchContext {
-        has_project: launch.explicit || is_project(&launch.path),
+        has_project: launch.is_explicit || is_project(&launch.path),
         cwd: launch.path.to_string_lossy().into_owned(),
     }
 }

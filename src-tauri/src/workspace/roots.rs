@@ -108,7 +108,7 @@ pub(super) fn push_root(path: String) -> Result<Settings, String> {
 #[tauri::command]
 pub(crate) async fn workspace_add_root(
     path: String,
-    create: bool,
+    should_create: bool,
 ) -> Result<AddRootOutcome, String> {
     let target = Path::new(&path);
     if target.is_dir() {
@@ -119,7 +119,7 @@ pub(crate) async fn workspace_add_root(
     if target.exists() {
         return Ok(AddRootOutcome::NotADirectory);
     }
-    if !create {
+    if !should_create {
         return Ok(AddRootOutcome::Missing);
     }
     std::fs::create_dir_all(target).map_err(|error| error.to_string())?;
@@ -168,14 +168,16 @@ pub(crate) async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, St
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PathProbe {
     /// The typed path is an existing directory.
-    is_dir: bool,
+    #[serde(rename = "isDir")]
+    is_directory: bool,
     /// The typed path exists but names a file, not a directory.
     is_file: bool,
     /// The typed path's parent is an existing directory - so even though the path
     /// itself doesn't exist yet, it names a real place PADE can create it in. This
     /// is what tells a not-yet-created folder ("C:\repositories\new-app") apart
     /// from a stray, un-locatable string - an existence check in place of a regex.
-    parent_exists: bool,
+    #[serde(rename = "parentExists")]
+    has_parent: bool,
     /// Absolute paths of child directories that complete the text, name-sorted
     /// and capped. Empty when nothing matches or the parent can't be read.
     suggestions: Vec<String>,
@@ -299,9 +301,9 @@ pub(crate) async fn workspace_probe_path(path: String) -> PathProbe {
             )
         });
     PathProbe {
-        is_dir: target.is_dir(),
+        is_directory: target.is_dir(),
         is_file: target.is_file(),
-        parent_exists: target.parent().is_some_and(Path::is_dir),
+        has_parent: target.parent().is_some_and(Path::is_dir),
         suggestions,
         completion,
     }

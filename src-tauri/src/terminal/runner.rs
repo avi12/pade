@@ -455,8 +455,8 @@ mod tests {
     #[test]
     fn a_burst_arrives_as_one_batch_in_order() {
         let (sender, receiver) = mpsc::channel();
-        for index in 1..=LAST_LINE {
-            sender.send(format!("line {index}")).expect("open channel");
+        for i_line in 1..=LAST_LINE {
+            sender.send(format!("line {i_line}")).expect("open channel");
         }
         assert_eq!(
             collect_batch("line 0".into(), &receiver),

@@ -53,7 +53,7 @@ pub(super) fn leave_if_inside(path: &Path) {
 /// handles asynchronously: a process can be gone while its last handle is still
 /// open, and a delete in that window fails with "used by another process".
 /// Retrying briefly turns that race into a wait instead of an error.
-pub(super) fn remove_dir_all_patiently(path: &Path) -> std::io::Result<()> {
+pub(super) fn remove_directory_all_patiently(path: &Path) -> std::io::Result<()> {
     retry_through_sharing_race(|| match std::fs::remove_dir_all(path) {
         // Already gone (deleted outside PADE): the folder is in the state the
         // caller asked for, so this is a success - and the entry still on the

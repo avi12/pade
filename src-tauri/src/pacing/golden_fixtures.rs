@@ -97,7 +97,8 @@ struct ForecastCase {
 #[derive(Deserialize)]
 struct ForecastOverPaceCase {
     forecast: PaceForecast,
-    expected: bool,
+    #[serde(rename = "expected")]
+    is_expected: bool,
 }
 
 #[derive(Deserialize)]
@@ -227,7 +228,7 @@ fn forecast_over_pace_agrees_with_the_typescript() {
         .enumerate()
     {
         let is_over = is_forecast_over_pace(&case.forecast);
-        assert_eq!(is_over, case.expected, "isForecastOverPace case {i}");
+        assert_eq!(is_over, case.is_expected, "isForecastOverPace case {i}");
     }
 }
 

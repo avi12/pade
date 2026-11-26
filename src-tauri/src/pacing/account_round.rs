@@ -160,12 +160,12 @@ pub struct FreshReportsParams<'a> {
 
 /// The reports still current at `now`.
 #[must_use]
-pub fn fresh_reports(params: FreshReportsParams<'_>) -> Vec<&WindowReport> {
+pub fn fresh_reports(parameters: FreshReportsParams<'_>) -> Vec<&WindowReport> {
     let FreshReportsParams {
         reports,
         now,
         lifetime,
-    } = params;
+    } = parameters;
     reports
         .iter()
         .filter(|report| now - report.time <= lifetime)
@@ -248,12 +248,12 @@ struct ThrottleParams<'a> {
     reports: &'a [&'a WindowReport],
 }
 
-fn throttle_of(params: ThrottleParams<'_>) -> ThrottledSession {
+fn throttle_of(parameters: ThrottleParams<'_>) -> ThrottledSession {
     let ThrottleParams {
         session,
         account,
         reports,
-    } = params;
+    } = parameters;
     ThrottledSession {
         session_id: session.id.clone(),
         window_label: window_label_of(reports, &session.id),
@@ -280,14 +280,14 @@ fn throttle_of(params: ThrottleParams<'_>) -> ThrottledSession {
 /// The round over every fresh window's sessions, account by account, and the
 /// subagent steps it leaves - a subagent no longer reported loses its step.
 #[must_use]
-pub fn plan_round(params: PlanRoundParams<'_>) -> RoundOutcome {
+pub fn plan_round(parameters: PlanRoundParams<'_>) -> RoundOutcome {
     let PlanRoundParams {
         reports,
         steps,
         stepped_at,
         leader,
         now,
-    } = params;
+    } = parameters;
     let mut plan = RoundPlan {
         leader: leader.to_string(),
         time: now,

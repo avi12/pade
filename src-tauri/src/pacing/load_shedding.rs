@@ -122,8 +122,8 @@ pub struct CostWeightParams<'a> {
 /// What a choice costs per working minute, relative to the others: the model's
 /// price tier, scaled by where its effort sits on its ladder.
 #[must_use]
-pub fn cost_weight(params: CostWeightParams<'_>) -> CostWeight {
-    let CostWeightParams { choice, ladder } = params;
+pub fn cost_weight(parameters: CostWeightParams<'_>) -> CostWeight {
+    let CostWeightParams { choice, ladder } = parameters;
     let model = choice.model.as_deref().unwrap_or("");
     let tier_weight = price_ratio(model);
     let place = choice.effort.as_deref().and_then(|effort| {
@@ -160,12 +160,12 @@ pub struct SessionLoadParams {
 
 /// A session's estimated share-driver of its account's spend.
 #[must_use]
-pub fn session_load(params: SessionLoadParams) -> Load {
+pub fn session_load(parameters: SessionLoadParams) -> Load {
     let SessionLoadParams {
         cost,
         working_share,
         subagents,
-    } = params;
+    } = parameters;
     Load(cost.get() * working_share.get() * (1.0 + f64::from(subagents)))
 }
 
@@ -235,12 +235,12 @@ struct RankedCandidate<'a, Id> {
 /// weighted by fan-out, first, until the savings - unweighted - cover
 /// `fraction` of `total_load`.
 #[must_use]
-pub fn plan_shedding<Id: Clone>(params: PlanSheddingParams<'_, Id>) -> Vec<Id> {
+pub fn plan_shedding<Id: Clone>(parameters: PlanSheddingParams<'_, Id>) -> Vec<Id> {
     let PlanSheddingParams {
         candidates,
         total_load,
         fraction,
-    } = params;
+    } = parameters;
     let mut ranked: Vec<RankedCandidate<'_, Id>> = candidates
         .iter()
         .filter(|candidate| candidate.saving > Fraction::NONE)

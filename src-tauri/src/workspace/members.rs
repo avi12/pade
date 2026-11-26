@@ -76,7 +76,8 @@ pub(crate) struct Member {
     pub ecosystem: Option<Ecosystem>,
     /// It holds its own `.git`, so it has a branch, a status and a history of
     /// its own. The frontend shows git chrome only where this is true.
-    pub repository: bool,
+    #[serde(rename = "repository")]
+    pub is_repository: bool,
 }
 
 /// Manifest-confirmed members of the workspace at `root` (the open project),
@@ -103,7 +104,7 @@ fn discover_members(root: &Path) -> Vec<Member> {
         path: String::new(),
         name: found_root.and_then(Found::manifest_name),
         ecosystem: found_root.and_then(Found::ecosystem),
-        repository: found_root.is_some_and(|found| found.is_repository),
+        is_repository: found_root.is_some_and(|found| found.is_repository),
     };
     let nested_members = census
         .iter()
@@ -114,7 +115,7 @@ fn discover_members(root: &Path) -> Vec<Member> {
             path: path.clone(),
             name: found.manifest_name(),
             ecosystem: found.ecosystem(),
-            repository: found.is_repository,
+            is_repository: found.is_repository,
         });
     std::iter::once(root_member).chain(nested_members).collect()
 }

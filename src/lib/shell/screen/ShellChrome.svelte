@@ -66,7 +66,7 @@
     labels={settings.labels}
     onaddroot={async rootPath => await addRoot({
       path: rootPath,
-      create: false
+      shouldCreate: false
     })}
     {onmerge}
     {onsavetemp}

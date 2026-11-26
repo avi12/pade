@@ -57,7 +57,7 @@
     }) => void;
     ontogglepin: (target: {
       path: string;
-      pinned: boolean;
+      isPinned: boolean;
     }) => void;
     onreorderpins: (paths: string[]) => void;
     onrelabel: (project: string) => void;
@@ -115,7 +115,7 @@
       onrenamefolder: () => onrenamefolder(entry.project),
       ontogglepin: () => ontogglepin({
         path: entry.project,
-        pinned: !isPinned
+        isPinned: !isPinned
       })
     }}
     {now}

@@ -368,8 +368,8 @@ mod tests {
     /// An engine that has watched the account burn one percent a minute.
     fn engine_that_measured(used: f64) -> PacingEngine {
         let mut book = SampleBook::default();
-        for reading in 0..=MEASURED_READINGS {
-            let ago = f64::from(MEASURED_READINGS - reading);
+        for i_reading in 0..=MEASURED_READINGS {
+            let ago = f64::from(MEASURED_READINGS - i_reading);
             let window = session_window(used - ago, SpanMilliseconds::from_hours(WINDOW_HOURS));
             book.record(RecordParams {
                 account_key: &AccountKey::new("anthropic"),

@@ -238,8 +238,8 @@ fn total_load(session: &SessionFacts) -> Load {
 /// cost weight, a rest or stop saving all of it while it lasts.
 fn next_step_saving(choice: Option<&ChoiceFacts>) -> Fraction {
     match choice {
-        Some(choice) if choice.can_step_down.effort => choice.effort_saving,
-        Some(choice) if choice.can_step_down.model => choice.model_saving,
+        Some(choice) if choice.can_step_down.can_lower_effort => choice.effort_saving,
+        Some(choice) if choice.can_step_down.can_lower_model => choice.model_saving,
         Some(_) | None => Fraction::WHOLE,
     }
 }

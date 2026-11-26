@@ -332,8 +332,8 @@ fn title_and_project(
 fn chats_to_delete(chats: &[Chat], limits: Limits, now: u64) -> Vec<usize> {
     let protected_since = now.saturating_sub(PROTECTED_DAYS * MILLISECONDS_PER_DAY);
     let mut by_project: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
-    for (index, chat) in chats.iter().enumerate() {
-        by_project.entry(&chat.project).or_default().push(index);
+    for (i_chat, chat) in chats.iter().enumerate() {
+        by_project.entry(&chat.project).or_default().push(i_chat);
     }
     let deletable: Vec<Vec<usize>> = by_project
         .into_values()
@@ -377,10 +377,10 @@ fn chats_to_delete(chats: &[Chat], limits: Limits, now: u64) -> Vec<usize> {
         })
         .collect();
     let rounds = queues.iter().map(Vec::len).max().unwrap_or(0);
-    for round in 0..rounds {
+    for i_round in 0..rounds {
         let mut this_round: Vec<usize> = queues
             .iter()
-            .filter_map(|queue| queue.get(round).copied())
+            .filter_map(|queue| queue.get(i_round).copied())
             .collect();
         this_round.sort_by_key(|&index| chat_updated_at(chats, index));
         for index in this_round {

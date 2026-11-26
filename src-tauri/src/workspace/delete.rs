@@ -1,7 +1,7 @@
 //! Pruning vanished projects and deleting a project or its directory.
 
 use crate::workspace::patient_io::leave_if_inside;
-use crate::workspace::patient_io::remove_dir_all_patiently;
+use crate::workspace::patient_io::remove_directory_all_patiently;
 use crate::workspace::store::is_project;
 use crate::workspace::store::load;
 use crate::workspace::store::update_settings;
@@ -56,7 +56,7 @@ pub(super) fn delete_directory(path: &str) -> Result<(), String> {
         return Err("a filesystem root cannot be deleted".into());
     }
     leave_if_inside(&target);
-    remove_dir_all_patiently(&target).map_err(|error| error.to_string())?;
+    remove_directory_all_patiently(&target).map_err(|error| error.to_string())?;
     Ok(())
 }
 

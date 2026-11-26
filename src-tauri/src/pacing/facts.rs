@@ -64,8 +64,10 @@ pub struct ModelChoiceFacts {
 /// Which of the two choice steps still has somewhere to go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CanStepDown {
-    pub effort: bool,
-    pub model: bool,
+    #[serde(rename = "effort")]
+    pub can_lower_effort: bool,
+    #[serde(rename = "model")]
+    pub can_lower_model: bool,
 }
 
 /// A session's model and effort, and what stepping them would do.

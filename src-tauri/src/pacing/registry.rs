@@ -224,8 +224,8 @@ mod tests {
     fn the_observed_queue_is_bounded_keeping_the_newest() {
         let mut registry = Registry::default();
         let mut busy = report("main", epoch(0.0), &["a"]);
-        for index in 0..(OBSERVED_LIMIT + OVERFLOW_COUNT) {
-            let offset = f64::from(u32::try_from(index).expect("small"));
+        for i_observed in 0..(OBSERVED_LIMIT + OVERFLOW_COUNT) {
+            let offset = f64::from(u32::try_from(i_observed).expect("small"));
             busy.observed.push(observed(
                 "a",
                 EpochMilliseconds::new(START + offset),

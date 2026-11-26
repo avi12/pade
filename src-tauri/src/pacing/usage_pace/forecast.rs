@@ -66,13 +66,13 @@ pub struct PaceForecastsParams<'a> {
 /// spend over the last day, or its average since it started without a day of
 /// readings. The first window of each kind counts.
 #[must_use]
-pub fn pace_forecasts(params: PaceForecastsParams<'_>) -> PaceForecasts {
+pub fn pace_forecasts(parameters: PaceForecastsParams<'_>) -> PaceForecasts {
     let PaceForecastsParams {
         account,
         now,
         rate_of,
         daily_rate_of,
-    } = params;
+    } = parameters;
     let mut forecasts = PaceForecasts::default();
     let windows = account.map_or(&[][..], |account| account.windows.as_slice());
     for window in windows {
@@ -116,7 +116,7 @@ struct ForecastParams<'a> {
 /// spend over the last day, nights and breaks included - so an early burst
 /// pacing has since slowed forecasts no run-out it won't reach - or its
 /// average since it started without a day of readings.
-fn forecast_of(params: ForecastParams<'_>) -> PaceForecast {
+fn forecast_of(parameters: ForecastParams<'_>) -> PaceForecast {
     let ForecastParams {
         kind,
         window,
@@ -124,7 +124,7 @@ fn forecast_of(params: ForecastParams<'_>) -> PaceForecast {
         now,
         rate_of,
         daily_rate_of,
-    } = params;
+    } = parameters;
     let rate = rate_of(window);
     let run_out_rate = match kind {
         PacedWindowKind::Weekly => daily_rate_of(window).or_else(|| {

@@ -361,7 +361,7 @@ describe("createAutoHandoff", () => {
       expect(mocks.sendMessage).toHaveBeenCalledWith(
         Command.HANDOFF_DOC_DELETE,
         expect.objectContaining({
-          dir: "C:/repositories/pade"
+          directory: "C:/repositories/pade"
         })
       );
 

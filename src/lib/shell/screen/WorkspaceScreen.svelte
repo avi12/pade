@@ -200,7 +200,7 @@
           const cwd = await sendMessage(Command.VCS_WORKTREE_ADD, {
             cwd: activeMemberIn(project),
             branch,
-            create: false
+            shouldCreate: false
           });
           windowSessions.launch({
             agent,

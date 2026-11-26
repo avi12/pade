@@ -171,8 +171,8 @@ fn a_burst_folds_into_one_trailing_announcement_per_scope() {
     let project = ChangeScope::Project(PROJECT.to_string());
     let mut throttle = Throttle::default();
     assert_eq!(throttle.note(project.clone(), start), Some(project.clone()));
-    for step in 1..STEP_END {
-        let during = start + EMISSION_INTERVAL / INTERVAL_TENTHS * step;
+    for i_step in 1..STEP_END {
+        let during = start + EMISSION_INTERVAL / INTERVAL_TENTHS * i_step;
         assert_eq!(throttle.note(project.clone(), during), None);
     }
     assert_eq!(

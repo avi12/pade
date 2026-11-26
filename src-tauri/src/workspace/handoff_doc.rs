@@ -12,7 +12,7 @@ pub(super) const HANDOFF_DOC_EXTENSION: &str = "md";
 /// `continue-*.md` name (no path separators) directly inside `dir`. A doc that
 /// is already gone is fine - the goal is its absence.
 #[tauri::command]
-pub(crate) async fn handoff_doc_delete(dir: String, name: String) -> Result<(), String> {
+pub(crate) async fn handoff_doc_delete(directory: String, name: String) -> Result<(), String> {
     let is_handoff_doc = name.starts_with(HANDOFF_DOC_PREFIX)
         && Path::new(&name)
             .extension()
@@ -21,7 +21,7 @@ pub(crate) async fn handoff_doc_delete(dir: String, name: String) -> Result<(), 
     if !is_handoff_doc {
         return Err("only a continue-*.md handoff doc can be deleted".into());
     }
-    let path = Path::new(&dir).join(&name);
+    let path = Path::new(&directory).join(&name);
     if path.exists() {
         std::fs::remove_file(&path).map_err(|error| error.to_string())?;
     }

@@ -83,8 +83,8 @@ fn choice(can_effort: bool, can_model: bool) -> ChoiceFacts {
         effort: Some("high".to_string()),
         original: None,
         can_step_down: CanStepDown {
-            effort: can_effort,
-            model: can_model,
+            can_lower_effort: can_effort,
+            can_lower_model: can_model,
         },
         can_step_up: false,
         restore_at: None,
@@ -183,8 +183,8 @@ fn session_account(used: f64) -> BTreeMap<AgentId, AccountReading> {
 /// `per_minute` percent a minute - enough for a measured burn rate.
 fn measured(used: f64, per_minute: f64) -> SampleBook {
     let mut book = SampleBook::default();
-    for reading in 0..=MEASURED_READINGS {
-        let ago = f64::from(MEASURED_READINGS - reading);
+    for i_reading in 0..=MEASURED_READINGS {
+        let ago = f64::from(MEASURED_READINGS - i_reading);
         let window = session_window(
             per_minute.mul_add(-ago, used),
             SpanMilliseconds::from_hours(WINDOW_HOURS),

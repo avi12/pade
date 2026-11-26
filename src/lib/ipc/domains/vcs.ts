@@ -42,7 +42,7 @@ export const VCS_EVENTS = {
 export interface VcsCommandProtocol {
   [VCS_COMMANDS.VCS_STATUS]: (data: { cwd: string }) => StatusEntry[];
   [VCS_COMMANDS.VCS_LOG]: (data: { cwd: string; limit: number }) => Commit[];
-  [VCS_COMMANDS.VCS_DIFF]: (data: { cwd: string; path: string; staged: boolean }) => string;
+  [VCS_COMMANDS.VCS_DIFF]: (data: { cwd: string; path: string; isStaged: boolean }) => string;
   [VCS_COMMANDS.VCS_BRANCHES]: (data: { cwd: string }) => string[];
   /** Current HEAD branch per project path; non-repo / detached paths are omitted. */
   [VCS_COMMANDS.VCS_BRANCH_OF]: (data: { paths: string[] }) => Record<string, string>;
@@ -85,7 +85,7 @@ export interface VcsCommandProtocol {
     username?: string;
     password?: string;
   }) => string;
-  [VCS_COMMANDS.VCS_WORKTREE_ADD]: (data: { cwd: string; branch: string; create: boolean }) => string;
+  [VCS_COMMANDS.VCS_WORKTREE_ADD]: (data: { cwd: string; branch: string; shouldCreate: boolean }) => string;
   /** Rank prior commits by a natural-language description of the version. */
   [VCS_COMMANDS.VCS_RESTORE_CANDIDATES]: (data: { cwd: string; query: string; limit?: number }) => RestoreCandidate[];
   /** Non-destructively check the commit out on a `pade/restore-<sha>` branch. */

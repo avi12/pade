@@ -92,8 +92,8 @@ impl LinguistAttributes {
 /// Carries the file size read off the already-open handle, so classification
 /// never re-stats the path it just opened.
 pub(super) struct SourceContent {
-    binary: bool,
-    pub(super) generated: bool,
+    is_binary: bool,
+    pub(super) is_generated: bool,
     bytes: u64,
 }
 
@@ -135,11 +135,11 @@ pub(super) fn source_content(path: &std::path::Path) -> Option<SourceContent> {
     let mut sample = [0u8; SOURCE_SAMPLE_BYTES];
     let read = file.read(&mut sample).ok()?;
     let sample = sample.get(..read)?;
-    let binary = sample.contains(&0);
-    if binary {
+    let is_binary = sample.contains(&0);
+    if is_binary {
         return Some(SourceContent {
-            binary,
-            generated: false,
+            is_binary,
+            is_generated: false,
             bytes,
         });
     }
@@ -155,8 +155,8 @@ pub(super) fn source_content(path: &std::path::Path) -> Option<SourceContent> {
     let minified = sample.len() >= MINIFIED_MINIMUM_SAMPLE_BYTES
         && average_line_bytes > MINIFIED_AVERAGE_LINE_BYTES;
     Some(SourceContent {
-        binary,
-        generated: declares_generated || minified,
+        is_binary,
+        is_generated: declares_generated || minified,
         bytes,
     })
 }
@@ -172,8 +172,8 @@ pub(super) fn source_file_evidence(
         return None;
     }
     let content = source_content(path)?;
-    let is_generated = attributes.generated.unwrap_or(content.generated);
-    let is_excluded = content.binary || is_generated;
+    let is_generated = attributes.generated.unwrap_or(content.is_generated);
+    let is_excluded = content.is_binary || is_generated;
     if is_excluded {
         return None;
     }

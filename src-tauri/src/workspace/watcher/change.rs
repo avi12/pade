@@ -62,15 +62,15 @@ pub(super) struct ChangeEvent {
 /// its absence (rather than guessing temp-name shapes) catches every such file,
 /// whatever a tool happens to call it. A deletion is the one case where the file
 /// being gone *is* the event, so it always surfaces.
-pub(super) fn surfaces(kind: ChangeKind, path_exists: bool) -> bool {
-    matches!(kind, ChangeKind::Deleted) || path_exists
+pub(super) fn surfaces(kind: ChangeKind, is_path_present: bool) -> bool {
+    matches!(kind, ChangeKind::Deleted) || is_path_present
 }
 
 /// The change kind the card should carry, reconciled against the disk: a
 /// "deleted" path that exists again was an atomic-save replace (delete +
 /// rename-over), so it is a modification. Every other kind stands as reported.
-pub(super) fn reclassify(kind: ChangeKind, path_exists: bool) -> ChangeKind {
-    let is_recreated = matches!(kind, ChangeKind::Deleted) && path_exists;
+pub(super) fn reclassify(kind: ChangeKind, is_path_present: bool) -> ChangeKind {
+    let is_recreated = matches!(kind, ChangeKind::Deleted) && is_path_present;
     if is_recreated {
         ChangeKind::Modified
     } else {

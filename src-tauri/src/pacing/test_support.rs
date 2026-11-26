@@ -78,8 +78,8 @@ pub(super) fn assert_json_close(actual: &Value, expected: &Value, context: &str)
         }
         (Value::Array(actual), Value::Array(expected)) => {
             assert_eq!(actual.len(), expected.len(), "{context}: array length");
-            for (index, (actual, expected)) in actual.iter().zip(expected).enumerate() {
-                assert_json_close(actual, expected, &format!("{context}[{index}]"));
+            for (i_value, (actual, expected)) in actual.iter().zip(expected).enumerate() {
+                assert_json_close(actual, expected, &format!("{context}[{i_value}]"));
             }
         }
         (Value::Object(actual), Value::Object(expected)) => {

@@ -19,12 +19,12 @@ struct Pattern {
     /// The `/`-split glob segments (anchored) or the bare-name glob (floating).
     segments: Vec<String>,
     /// `!`-prefixed: a match re-includes instead of ignoring.
-    negated: bool,
+    is_negated: bool,
     /// Trailing `/`: the pattern only matches directories.
-    directory_only: bool,
+    is_directory_only: bool,
     /// Held a `/` (leading or inner): matched against the whole root-relative
     /// path. A bare name floats: it matches its basename at any depth.
-    anchored: bool,
+    is_anchored: bool,
 }
 
 /// The parsed rules of one `.gitignore`, ready to answer [`Rules::is_ignored`].
@@ -70,7 +70,7 @@ impl Rules {
         self.patterns
             .iter()
             .rev()
-            .find(|pattern| (is_directory || !pattern.directory_only) && pattern.matches(target))
+            .find(|pattern| (is_directory || !pattern.is_directory_only) && pattern.matches(target))
             .map(Pattern::verdict)
     }
 }
@@ -90,27 +90,27 @@ impl Pattern {
         if is_ignored_line {
             return None;
         }
-        let (negated, body) = line
+        let (is_negated, body) = line
             .strip_prefix('!')
             .map_or((false, line), |rest| (true, rest));
-        let (directory_only, body) = body
+        let (is_directory_only, body) = body
             .strip_suffix('/')
             .map_or((false, body), |rest| (true, rest));
-        let anchored = body.contains('/');
+        let is_anchored = body.contains('/');
         let body = body.strip_prefix('/').unwrap_or(body);
         if body.is_empty() {
             return None;
         }
         Some(Self {
             segments: body.split('/').map(str::to_string).collect(),
-            negated,
-            directory_only,
-            anchored,
+            is_negated,
+            is_directory_only,
+            is_anchored,
         })
     }
 
     fn verdict(&self) -> Verdict {
-        if self.negated {
+        if self.is_negated {
             Verdict::Included
         } else {
             Verdict::Ignored
@@ -118,7 +118,7 @@ impl Pattern {
     }
 
     fn matches(&self, target: &[&str]) -> bool {
-        if self.anchored {
+        if self.is_anchored {
             return segments_match(&self.segments, target);
         }
         // A floating pattern matches the basename at any depth.

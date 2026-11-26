@@ -21,7 +21,7 @@ import type { Relocator } from "@/lib/workspace/relocate/workspace-relocate";
  *  cwd locks), the settings sink, and the section re-scan. */
 export interface LifecycleHost {
   isOwned: (path: string) => boolean;
-  onmove: (target: { from: string; destDir: string }) => Promise<string>;
+  onmove: (target: { from: string; destinationDirectory: string }) => Promise<string>;
   onrename: (target: { from: string; newName: string }) => Promise<string>;
   /** Delete an owned workspace's folder - via the app's relocator, so the
    *  sessions holding it as cwd are killed first and the removal isn't blocked
@@ -118,7 +118,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
 
     await host.onmove({
       from: path,
-      destDir: destination
+      destinationDirectory: destination
     });
     await host.refresh();
   }

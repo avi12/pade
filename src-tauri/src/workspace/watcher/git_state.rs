@@ -66,9 +66,9 @@ pub(super) enum GitStateMessage {
 /// re-arm, an ignore refresh, and a state emit at once.
 #[derive(Default, Clone, Copy)]
 pub(super) struct GitStateBurst {
-    pub(super) rearm: bool,
-    pub(super) state_touched: bool,
-    pub(super) ignore_touched: bool,
+    pub(super) should_rearm: bool,
+    pub(super) has_touched_state: bool,
+    pub(super) has_touched_ignore: bool,
 }
 
 /// Whether `path` names one of the two git-state files. The watch is
@@ -328,12 +328,12 @@ pub(super) fn spawn_git_state_coalescer(
                 if guard.is_none() {
                     return;
                 }
-                if burst.rearm {
+                if burst.should_rearm {
                     let plan = GitStatePlan::for_root(&watch.root);
                     rearm_git_state_locked(&app, &watch, &plan, &mut guard);
                 }
             }
-            let needs_ignore_reload = burst.rearm || burst.ignore_touched;
+            let needs_ignore_reload = burst.should_rearm || burst.has_touched_ignore;
             if needs_ignore_reload {
                 // A `git init` flips the feed's ignore policy from the static
                 // fallback to git's own rules; a touched ancestor `.gitignore`
@@ -342,7 +342,7 @@ pub(super) fn spawn_git_state_coalescer(
                 // policy locks instead.
                 refresh_ignore_policy(&app, &watch);
             }
-            let needs_state_refresh = burst.rearm || burst.state_touched;
+            let needs_state_refresh = burst.should_rearm || burst.has_touched_state;
             if needs_state_refresh {
                 let _ = app.emit_to(
                     &watch.label,
@@ -367,9 +367,9 @@ pub(super) fn drain_burst(
 ) -> GitStateBurst {
     let mut burst = GitStateBurst::default();
     let mut fold = |message: GitStateMessage| match message {
-        GitStateMessage::StateTouched => burst.state_touched = true,
-        GitStateMessage::GitDirectoryChanged => burst.rearm = true,
-        GitStateMessage::IgnoreRulesTouched => burst.ignore_touched = true,
+        GitStateMessage::StateTouched => burst.has_touched_state = true,
+        GitStateMessage::GitDirectoryChanged => burst.should_rearm = true,
+        GitStateMessage::IgnoreRulesTouched => burst.has_touched_ignore = true,
     };
     fold(first);
     while let Ok(message) = receiver.recv_timeout(window) {

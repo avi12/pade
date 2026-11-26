@@ -35,7 +35,8 @@ pub(super) struct McpChange {
     /// Server names lost since the last seen set.
     removed: Vec<String>,
     /// Whether the file was created/deleted or server membership changed.
-    membership_changed: bool,
+    #[serde(rename = "membershipChanged")]
+    has_membership_changed: bool,
 }
 
 /// The agents whose MCP servers `path` declares, if it is a known MCP config
@@ -56,7 +57,7 @@ pub(super) fn mcp_membership_changed(
     previous: &crate::workspace::mcp::McpSnapshot,
     current: &crate::workspace::mcp::McpSnapshot,
 ) -> bool {
-    previous.exists != current.exists || previous.names != current.names
+    previous.is_present != current.is_present || previous.names != current.names
 }
 
 /// Seed the MCP server-name baseline for `root`: record the current set for each
@@ -85,7 +86,7 @@ pub(super) fn detect_mcp_change(app: &AppHandle, watch: &ProjectWatch, path: &Pa
         return; // unparseable mid-write - wait for the complete save
     };
 
-    let (added, removed, membership_changed) = {
+    let (added, removed, has_membership_changed) = {
         let Ok(mut baseline) = watch.mcp_servers.lock() else {
             return;
         };
@@ -96,9 +97,9 @@ pub(super) fn detect_mcp_change(app: &AppHandle, watch: &ProjectWatch, path: &Pa
         }
         let added: Vec<String> = current.names.difference(&previous.names).cloned().collect();
         let removed: Vec<String> = previous.names.difference(&current.names).cloned().collect();
-        let membership_changed = mcp_membership_changed(&previous, &current);
+        let has_membership_changed = mcp_membership_changed(&previous, &current);
         baseline.insert(path.to_path_buf(), current);
-        (added, removed, membership_changed)
+        (added, removed, has_membership_changed)
     };
 
     let _ = app.emit_to(
@@ -114,7 +115,7 @@ pub(super) fn detect_mcp_change(app: &AppHandle, watch: &ProjectWatch, path: &Pa
                 .collect(),
             added,
             removed,
-            membership_changed,
+            has_membership_changed,
         },
     );
 }

@@ -39,11 +39,11 @@ pub(super) fn order_key(label: &str) -> u32 {
 /// label recorded in the explicit order but no longer live simply never gets a key
 /// (only live windows are enumerated), so it drops out.
 pub(super) fn window_sort_key(label: &str, order: &[String]) -> (usize, u32, String) {
-    let explicit = order
+    let is_explicit = order
         .iter()
         .position(|ordered| ordered == label)
         .unwrap_or(usize::MAX);
-    (explicit, order_key(label), label.to_string())
+    (is_explicit, order_key(label), label.to_string())
 }
 
 /// Every live window's label, in switcher order.

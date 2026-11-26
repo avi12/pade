@@ -14,8 +14,8 @@ pub(super) fn lookup(id: &str, added: &[Ide]) -> Option<Ide> {
             id: editor.id.into(),
             label: editor.label.into(),
             command: editor.command.into(),
-            terminal: false,
-            chosen: false,
+            is_terminal: false,
+            is_chosen: false,
         });
     }
     // User-added editors are first-class too - resolve them by their stored id.
@@ -31,12 +31,12 @@ pub(super) fn lookup(id: &str, added: &[Ide]) -> Option<Ide> {
 pub(super) struct Family {
     label: &'static str,
     pub(super) style: Option<OpenStyle>,
-    pub(super) terminal: bool,
+    pub(super) is_terminal: bool,
 }
 
 pub(super) fn editor_family(basename: &str) -> Option<Family> {
     // (label, jump-to-line style, runs-in-a-terminal)
-    let (label, style, terminal) = match basename {
+    let (label, style, is_terminal) = match basename {
         "code" => ("VS Code", Some(OpenStyle::VsCode), false),
         "code - insiders" => ("VS Code Insiders", Some(OpenStyle::VsCode), false),
         "cursor" => ("Cursor", Some(OpenStyle::VsCode), false),
@@ -64,7 +64,7 @@ pub(super) fn editor_family(basename: &str) -> Option<Family> {
     Some(Family {
         label,
         style,
-        terminal,
+        is_terminal,
     })
 }
 
@@ -100,12 +100,12 @@ pub(super) fn added_editor_ides(added: Vec<crate::workspace::AddedEditor>) -> Ve
     added
         .into_iter()
         .map(|editor| Ide {
-            terminal: editor_family(&executable_basename(&editor.path))
-                .is_some_and(|family| family.terminal),
+            is_terminal: editor_family(&executable_basename(&editor.path))
+                .is_some_and(|family| family.is_terminal),
             id: editor.id,
             label: editor.label,
             command: editor.path,
-            chosen: false,
+            is_chosen: false,
         })
         .collect()
 }
@@ -124,11 +124,13 @@ pub(crate) struct Ide {
     label: String,
     pub(super) command: String,
     /// A console editor PADE runs inside a terminal tab (never a detached window).
-    terminal: bool,
+    #[serde(rename = "terminal")]
+    is_terminal: bool,
     /// True when this editor leads [`ide_suggest`]'s ranking because of an
     /// explicit per-project pick ([`ide_choose_editor`]) - the UI badges it as
     /// the user's choice rather than the auto-detected best fit.
-    pub(super) chosen: bool,
+    #[serde(rename = "chosen")]
+    pub(super) is_chosen: bool,
 }
 
 // `async` + `spawn_blocking`: detection probes every PATH/package-manager
@@ -151,8 +153,8 @@ pub(super) fn installed_ides() -> Vec<Ide> {
             id: editor.id.into(),
             label: editor.label.into(),
             command: editor.command.into(),
-            terminal: false,
-            chosen: false,
+            is_terminal: false,
+            is_chosen: false,
         })
         .chain(added_editors())
         .collect()

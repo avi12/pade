@@ -284,12 +284,15 @@ impl AccountUsageRequest {
 // `async` + `spawn_blocking` for the same reason as [`usage_get`]: a cache miss
 // is a bounded-but-slow curl request that must never run on the UI thread.
 #[tauri::command]
-pub(crate) async fn usage_account_agent(agent: String, force_refresh: bool) -> AccountReading {
+pub(crate) async fn usage_account_agent(
+    agent: String,
+    should_force_refresh: bool,
+) -> AccountReading {
     tauri::async_runtime::spawn_blocking(move || {
         let Some(agent) = UsageAgent::from_id(&agent) else {
             return AccountReading::no_source();
         };
-        let request = if force_refresh {
+        let request = if should_force_refresh {
             AccountUsageRequest::refresh(agent)
         } else {
             AccountUsageRequest::cached(agent)

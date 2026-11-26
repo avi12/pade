@@ -138,9 +138,9 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
         let items = items.ok()?;
         // SAFETY: `items` is a live IShellItemArray handed in by the shell.
         let count = unsafe { items.GetCount()? };
-        for index in 0..count {
+        for i_item in 0..count {
             // SAFETY: `index` is below the count the array reported.
-            let item: IShellItem = unsafe { items.GetItemAt(index)? };
+            let item: IShellItem = unsafe { items.GetItemAt(i_item)? };
             // SAFETY: `item` is live; the returned string is owned and freed below.
             let wide: PWSTR = unsafe { item.GetDisplayName(SIGDN_FILESYSPATH)? };
             // We own `wide`; convert then free before anything can early-return.

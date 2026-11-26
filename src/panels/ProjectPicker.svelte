@@ -42,7 +42,7 @@
     onopen: (target: OpenTarget) => void;
     onmove: (target: {
       from: string;
-      destDir: string;
+      destinationDirectory: string;
     }) => Promise<string>;
     onrename: (target: {
       from: string;
@@ -261,7 +261,7 @@
             // add-row can prompt to create the folder or show an error.
             const outcome = await requestAddRoot({
               path,
-              create: shouldCreate
+              shouldCreate
             });
             if (outcome.status !== AddRootStatus.enum.added) {
               return outcome;

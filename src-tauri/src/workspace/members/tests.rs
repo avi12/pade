@@ -230,7 +230,7 @@ fn a_nested_checkout_is_a_member_with_no_manifest_at_all() {
         .iter()
         .find(|member| member.path == "companion")
         .expect("companion member");
-    assert!(companion.repository);
+    assert!(companion.is_repository);
     assert_eq!(companion.name, None);
     assert_eq!(companion.ecosystem, None);
 
@@ -277,7 +277,7 @@ fn a_checkout_the_workspace_patterns_exclude_is_still_a_member() {
         .iter()
         .find(|member| member.path == "crates/legacy")
         .expect("legacy member");
-    assert!(legacy.repository);
+    assert!(legacy.is_repository);
     assert_eq!(legacy.name.as_deref(), Some("legacy"));
 
     let _ = fs::remove_dir_all(&root);
@@ -295,13 +295,13 @@ fn a_package_that_is_also_a_checkout_reports_both() {
     let members = discover_members(&root);
     let root_member = members.first().expect("root member");
     assert_eq!(root_member.path, "");
-    assert!(root_member.repository);
+    assert!(root_member.is_repository);
 
     let frontend = members
         .iter()
         .find(|member| member.path == "frontend")
         .expect("frontend member");
-    assert!(frontend.repository);
+    assert!(frontend.is_repository);
     assert_eq!(frontend.name.as_deref(), Some("web"));
     assert_eq!(frontend.ecosystem, Some(Ecosystem::JavaScript));
 
@@ -315,7 +315,7 @@ fn a_workspace_with_no_git_reports_a_root_that_is_no_repository() {
 
     let members = discover_members(&root);
     assert_eq!(members.len(), 1);
-    assert!(!members[0].repository);
+    assert!(!members[0].is_repository);
 
     let _ = fs::remove_dir_all(&root);
 }

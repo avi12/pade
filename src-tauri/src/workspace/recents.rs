@@ -59,12 +59,12 @@ pub(crate) fn workspace_clear_recent() -> Result<Settings, String> {
 /// Pin or unpin a project in the switcher. Pinning moves it to the front of the
 /// pinned list; unpinning drops it. Returns the refreshed settings.
 #[tauri::command]
-pub(crate) fn workspace_set_pinned(path: String, pinned: bool) -> Result<Settings, String> {
+pub(crate) fn workspace_set_pinned(path: String, is_pinned: bool) -> Result<Settings, String> {
     update_settings(|settings| {
         settings
             .pinned_projects
             .retain(|pinned_path| pinned_path != &path);
-        if pinned {
+        if is_pinned {
             settings.pinned_projects.insert(0, path);
         }
         Ok(())

@@ -126,8 +126,8 @@ pub struct NextStepParams {
 /// A subagent's next step and what it saves of the load it spends now (already
 /// held by its current step) - `None` once it is wrapping up.
 #[must_use]
-pub fn next_subagent_step(params: NextStepParams) -> Option<NextSubagentStep> {
-    let NextStepParams { current, shed } = params;
+pub fn next_subagent_step(parameters: NextStepParams) -> Option<NextSubagentStep> {
+    let NextStepParams { current, shed } = parameters;
     let Some(current) = current else {
         let hold = hold_for_saving(shed.unwrap_or(Fraction::NONE));
         return Some(NextSubagentStep {

@@ -18,7 +18,7 @@ const FALLBACK_REPOSITORY_NAME: &str = "repo";
 pub(crate) async fn vcs_worktree_add(
     cwd: String,
     branch: String,
-    create: bool,
+    should_create: bool,
 ) -> Result<String, String> {
     let toplevel = run_git(&cwd, &["rev-parse", "--show-toplevel"])?;
     let repository_name = Path::new(toplevel.trim())
@@ -37,7 +37,7 @@ pub(crate) async fn vcs_worktree_add(
         return Ok(directory_text);
     }
 
-    if create {
+    if should_create {
         run_git(&cwd, &["worktree", "add", "-b", &branch, &directory_text])?;
     } else {
         run_git(&cwd, &["worktree", "add", &directory_text, &branch])?;

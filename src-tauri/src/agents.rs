@@ -272,7 +272,7 @@ pub(crate) fn commands() -> impl Iterator<Item = &'static str> {
 /// this plus `cfg!(windows)` and a light scheme. `false` for an unknown command
 /// or a CLI that themes its box some other way.
 pub(crate) fn needs_light_console_fix(command: &str) -> bool {
-    definition(command).is_some_and(|agent| agent.needs_light_console_fix)
+    definition(command).is_some_and(|agent| agent.should_fix_light_console)
 }
 
 #[derive(Serialize)]
@@ -284,7 +284,8 @@ pub(crate) struct Agent {
     /// Carried to the frontend because the TERMINAL is what has to act on it -
     /// the right-to-left overlay stands down for an agent that has already
     /// reordered its own output.
-    reorders_bidi: bool,
+    #[serde(rename = "reordersBidi")]
+    should_reorder_bidi: bool,
 }
 
 /// Every installed agent backend. The shell fallback is appended so the list is
@@ -311,7 +312,7 @@ fn detect_installed() -> Vec<Agent> {
             id: agent.id.into(),
             label: agent.label.into(),
             command: agent.command.into(),
-            reorders_bidi: agent.reorders_bidi,
+            should_reorder_bidi: agent.should_reorder_bidi,
         })
         .collect();
 
@@ -320,7 +321,7 @@ fn detect_installed() -> Vec<Agent> {
         label: SHELL_LABEL.into(),
         command: DEFAULT_SHELL.into(),
         // A shell writes whatever the program it runs writes: logical order.
-        reorders_bidi: false,
+        should_reorder_bidi: false,
     });
     found
 }

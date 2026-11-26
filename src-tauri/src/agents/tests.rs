@@ -214,7 +214,7 @@ fn only_claude_is_known_to_reorder_its_own_right_to_left_text() {
     // overlay reorders, which is right for logical order.
     let reorders: Vec<&str> = REGISTRY
         .iter()
-        .filter(|agent| agent.reorders_bidi)
+        .filter(|agent| agent.should_reorder_bidi)
         .map(|agent| agent.command)
         .collect();
     assert_eq!(reorders, vec!["claude"]);

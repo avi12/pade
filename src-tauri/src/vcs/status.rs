@@ -23,7 +23,8 @@ pub(crate) struct StatusEntry {
     path: String,
     kind: StatusKind,
     /// Staged in the index (agent commits land here after "approve").
-    staged: bool,
+    #[serde(rename = "staged")]
+    is_staged: bool,
 }
 
 fn classify(index: char, worktree: char) -> (StatusKind, bool) {
@@ -66,11 +67,11 @@ fn parse_status(raw: &str) -> Vec<StatusEntry> {
             records.next();
         }
 
-        let (kind, staged) = classify(index, worktree);
+        let (kind, is_staged) = classify(index, worktree);
         entries.push(StatusEntry {
             path: path.to_string(),
             kind,
-            staged,
+            is_staged,
         });
     }
     entries
@@ -78,9 +79,9 @@ fn parse_status(raw: &str) -> Vec<StatusEntry> {
 
 /// Raw unified diff for one path (staged or working-tree).
 #[tauri::command]
-pub(crate) async fn vcs_diff(cwd: String, path: String, staged: bool) -> Result<String, String> {
+pub(crate) async fn vcs_diff(cwd: String, path: String, is_staged: bool) -> Result<String, String> {
     let mut arguments = vec!["diff", "--no-color"];
-    if staged {
+    if is_staged {
         arguments.push("--staged");
     }
     arguments.push("--");
@@ -123,7 +124,7 @@ mod tests {
         let paths: Vec<&str> = entries.iter().map(|entry| entry.path.as_str()).collect();
         assert_eq!(paths, ["src/app.ts", "src/new.ts", "notes.md"]);
         assert_eq!(entries[1].kind, StatusKind::Renamed);
-        assert!(entries[1].staged);
+        assert!(entries[1].is_staged);
     }
 
     /// A copy record carries its source path as the next field too; reading

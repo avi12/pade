@@ -413,7 +413,7 @@ fn generated_content_sits_out_the_census_without_a_path_rule() {
     assert!(
         source_content(&directory.join("bundle.unknown"))
             .expect("bundle readable")
-            .generated
+            .is_generated
     );
     let totals = census(&directory);
     assert_eq!(
@@ -699,10 +699,10 @@ fn family_rejects_a_non_editor_executable() {
 
 #[test]
 fn console_editors_are_flagged_terminal_but_gui_ones_are_not() {
-    assert!(editor_family("nvim").expect("supported").terminal);
-    assert!(editor_family("vi").expect("supported").terminal);
-    assert!(!editor_family("code").expect("supported").terminal);
-    assert!(!editor_family("gvim").expect("supported").terminal);
+    assert!(editor_family("nvim").expect("supported").is_terminal);
+    assert!(editor_family("vi").expect("supported").is_terminal);
+    assert!(!editor_family("code").expect("supported").is_terminal);
+    assert!(!editor_family("gvim").expect("supported").is_terminal);
 }
 
 #[test]

@@ -20,8 +20,8 @@ pub(super) struct MemberPatterns {
 impl MemberPatterns {
     /// File a declared pattern into include or exclude (a leading `!` negates).
     fn add(&mut self, raw: &str) {
-        if let Some(negated) = raw.trim().strip_prefix('!') {
-            self.subtract(negated);
+        if let Some(is_negated) = raw.trim().strip_prefix('!') {
+            self.subtract(is_negated);
             return;
         }
         if let Some(pattern) = normalize_pattern(raw) {
