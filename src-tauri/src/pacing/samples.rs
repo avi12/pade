@@ -139,7 +139,7 @@ mod tests {
     fn readings_older_than_the_history_are_forgotten() {
         let account_key = key("anthropic");
         let (mut book, window) = worked_book(&account_key, SOME_READINGS, 1.0);
-        let later = NOW + SpanMilliseconds::from_hours(2.0);
+        let later = NOW + RATE_HISTORY_MS + SpanMilliseconds::from_hours(1.0);
         book.record(RecordParams {
             account_key: &account_key,
             windows: std::slice::from_ref(&window),

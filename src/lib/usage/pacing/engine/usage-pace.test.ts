@@ -86,6 +86,59 @@ describe("burnRate", () => {
     ).toBeCloseTo(30);
   });
 
+  /** One reading a minute of a window read in whole percents, burning
+   *  `percentPerHour` - the flat steps a real window shows. */
+  function wholePercentReadings({
+    minutes,
+    burn,
+    startsAt = 0.5
+  }: {
+    minutes: number;
+    burn: number;
+    startsAt?: number;
+  }) {
+    return Array.from({ length: minutes + 1 }, (_, i) => ({
+      at: NOW + i * MINUTE_MS,
+      utilization: Math.floor(90 + startsAt + (burn * i) / 60),
+      resetsAt: "reset"
+    })) satisfies UsageSample[];
+  }
+
+  it("reads a slow burn tick to tick, not as the flat line most windows show", () => {
+    // 0.7% an hour crosses a whole percent about every 86 minutes.
+    expect(
+      percentPerHour(
+        wholePercentReadings({
+          minutes: 180,
+          burn: 0.7
+        })
+      )
+    ).toBeCloseTo(0.7, 1);
+  });
+
+  it("names no rate from a flat stretch too short to show a tick", () => {
+    expect(
+      burnRate(
+        wholePercentReadings({
+          minutes: 45,
+          burn: 0.7,
+          startsAt: 0
+        })
+      )
+    ).toBeNull();
+  });
+
+  it("calls the burn nothing only after two hours without a tick", () => {
+    expect(
+      burnRate(
+        readings({
+          minutes: 120,
+          rise: 0
+        })
+      )
+    ).toBe(0);
+  });
+
   it("waits for ten minutes of working time before naming a rate", () => {
     expect(
       burnRate(
@@ -532,6 +585,25 @@ describe("projectedRate", () => {
         load: 40
       })
     ).toBeCloseTo(perHour(4));
+  });
+
+  it("keeps the load forecast when the readings measure the burn as none", () => {
+    // A measured zero is any burn under a whole percent in two hours, so the
+    // forecast may still run to three times that.
+    expect(
+      projectedRate({
+        measured: 0,
+        ratePerLoad: perHour(0.01),
+        load: 40
+      })
+    ).toBeCloseTo(perHour(0.4));
+    expect(
+      projectedRate({
+        measured: 0,
+        ratePerLoad: perHour(10),
+        load: 40
+      })
+    ).toBeCloseTo(perHour(1.5));
   });
 
   it("lifts the measured burn at most threefold, however far the load forecast runs", () => {

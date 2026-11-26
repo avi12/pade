@@ -48,8 +48,16 @@ pub const RESET_JITTER_MS: SpanMilliseconds = SpanMilliseconds::from_minutes(1.0
 const MAXIMUM_SAMPLE_GAP_MS: SpanMilliseconds = SpanMilliseconds::from_minutes(5.0);
 /// A burn rate needs at least this much working time behind it...
 pub const MINIMUM_RATE_SPAN_MS: SpanMilliseconds = SpanMilliseconds::from_minutes(10.0);
-/// ...and only this much recent working time counts toward it.
-pub const RATE_HISTORY_MS: SpanMilliseconds = SpanMilliseconds::from_minutes(45.0);
+/// ...and only this much recent working time counts toward it - long enough to
+/// hold two of a window's whole-percent ticks at a slow, paced burn.
+pub const RATE_HISTORY_MS: SpanMilliseconds = SpanMilliseconds::from_hours(3.0);
+/// A window's usage is read in whole percents: the burn shows only when it
+/// crosses one.
+const UTILIZATION_STEP: Percentage = Percentage::new(1.0);
+/// This much working time without a single tick says the burn is slower than
+/// the readings can show; less says nothing yet - a whole percent can take
+/// over an hour to cross at a paced burn.
+const ZERO_EVIDENCE_SPAN_MS: SpanMilliseconds = SpanMilliseconds::from_hours(2.0);
 /// How long a weekly window runs, start to reset.
 pub const WEEKLY_WINDOW_MS: SpanMilliseconds = SpanMilliseconds::from_days(7.0);
 /// How long a session window runs, start to reset.
@@ -181,13 +189,21 @@ fn is_same_reset(previous: &UsageSample, current: &UsageSample) -> bool {
     }
 }
 
-/// How fast a window is being spent while its agents work: the rise across
-/// consecutive readings of the same window, over the working time between them.
-/// `None` until enough working time is behind it.
+/// How fast a window is being spent while its agents work, from consecutive
+/// readings of the same window over the working time between them. The
+/// readings move in whole percents, so a short span mostly reads a flat line
+/// however fast the burn: it is measured tick to tick (the rise after the
+/// first tick, over the working time to the last one), never faster than the
+/// flat stretch since allows. `None` until enough working time is behind it,
+/// and while no tick has shown in less than `ZERO_EVIDENCE_SPAN_MS` - a flat
+/// line that short is no evidence of no burn.
 #[must_use]
 pub fn burn_rate(samples: &[UsageSample]) -> Option<BurnRate> {
     let mut spent = Percentage::ZERO;
     let mut span = SpanMilliseconds::ZERO;
+    let mut first_tick_at: Option<SpanMilliseconds> = None;
+    let mut last_tick_at = SpanMilliseconds::ZERO;
+    let mut spent_after_first_tick = Percentage::ZERO;
     for pair in samples.windows(2) {
         let [previous, current] = pair else {
             continue;
@@ -205,9 +221,49 @@ pub fn burn_rate(samples: &[UsageSample]) -> Option<BurnRate> {
 
         spent += rise;
         span += gap;
+        let is_tick = rise > Percentage::ZERO;
+        if !is_tick {
+            continue;
+        }
+        if first_tick_at.is_none() {
+            first_tick_at = Some(span);
+        } else {
+            spent_after_first_tick += rise;
+            last_tick_at = span;
+        }
     }
 
-    (span >= MINIMUM_RATE_SPAN_MS).then(|| spent / span)
+    let is_too_short = span < MINIMUM_RATE_SPAN_MS;
+    if is_too_short {
+        return None;
+    }
+    let Some(first_tick_at) = first_tick_at else {
+        return (span >= ZERO_EVIDENCE_SPAN_MS).then_some(BurnRate::new(0.0));
+    };
+
+    let tick_span = last_tick_at - first_tick_at;
+    let is_tick_to_tick =
+        spent_after_first_tick > Percentage::ZERO && tick_span >= MINIMUM_RATE_SPAN_MS;
+    let estimate = if is_tick_to_tick {
+        spent_after_first_tick / tick_span
+    } else {
+        spent / span
+    };
+    // Since the first tick the window has crossed no more than what it shows,
+    // and not yet the next whole percent.
+    let since_first_tick = span - first_tick_at;
+    let is_tick_last = since_first_tick <= SpanMilliseconds::ZERO;
+    if is_tick_last {
+        return Some(estimate);
+    }
+    let ceiling = (spent_after_first_tick + UTILIZATION_STEP) / since_first_tick;
+    Some(BurnRate::new(estimate.get().min(ceiling.get())))
+}
+
+/// The slowest burn the readings can tell from none: one tick in
+/// `ZERO_EVIDENCE_SPAN_MS`.
+fn slowest_measurable_rate() -> BurnRate {
+    UTILIZATION_STEP / ZERO_EVIDENCE_SPAN_MS
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -227,8 +283,10 @@ const MAXIMUM_PROJECTED_RISE: f64 = 3.0;
 /// An account's pace as its agents run now: the measured burn, raised to what
 /// the sessions working now would spend at the burn per unit of load measured
 /// last, at most `MAXIMUM_PROJECTED_RISE` times the measured burn - so a
-/// session starting on, or switching to, a dear model counts at once. Either
-/// alone when the other is unknown; `None` when both are.
+/// session starting on, or switching to, a dear model counts at once. A
+/// measured zero only says the burn is below what whole-percent readings show,
+/// so the cap counts it as that slowest measurable burn rather than silencing
+/// the forecast. Either alone when the other is unknown; `None` when both are.
 #[must_use]
 pub fn projected_rate(parameters: ProjectedRateParams) -> Option<BurnRate> {
     let ProjectedRateParams {
@@ -238,12 +296,13 @@ pub fn projected_rate(parameters: ProjectedRateParams) -> Option<BurnRate> {
     } = parameters;
     let forecast = rate_per_load.map(|rate| BurnRate::new(rate.get() * load.get()));
     match (measured, forecast) {
-        (Some(measured), Some(forecast)) => Some(BurnRate::new(
-            measured
-                .get()
-                .max(forecast.get())
-                .min(measured.get() * MAXIMUM_PROJECTED_RISE),
-        )),
+        (Some(measured), Some(forecast)) => {
+            let ceiling =
+                measured.get().max(slowest_measurable_rate().get()) * MAXIMUM_PROJECTED_RISE;
+            Some(BurnRate::new(
+                measured.get().max(forecast.get()).min(ceiling),
+            ))
+        }
         (measured, forecast) => measured.or(forecast),
     }
 }

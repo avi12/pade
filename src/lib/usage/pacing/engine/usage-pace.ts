@@ -45,8 +45,18 @@ export const RESET_GRACE_MS = 10 * 60_000;
 const MAXIMUM_SAMPLE_GAP_MS = 5 * 60_000;
 /** A burn rate needs at least this much working time behind it… */
 export const MINIMUM_RATE_SPAN_MS = 10 * 60_000;
-/** …and only this much recent working time counts toward it. */
-export const RATE_HISTORY_MS = 45 * 60_000;
+/** …and only this much recent working time counts toward it - long enough to
+ *  hold two of a window's whole-percent ticks at a slow, paced burn. */
+export const RATE_HISTORY_MS = 3 * 60 * 60_000;
+/** A window's usage is read in whole percents: the burn shows only when it
+ *  crosses one. */
+const UTILIZATION_STEP = 1;
+/** This much working time without a single tick says the burn is slower than
+ *  the readings can show; less says nothing yet - a whole percent can take
+ *  over an hour to cross at a paced burn. */
+const ZERO_EVIDENCE_SPAN_MS = 2 * 60 * 60_000;
+/** The slowest burn the readings can tell from none: one tick in that span. */
+const SLOWEST_MEASURABLE_RATE = UTILIZATION_STEP / ZERO_EVIDENCE_SPAN_MS;
 /** The shortest rest a slowed session takes - a rest of seconds is all
  *  interruption and no saving. */
 const MINIMUM_REST_MS = 5 * 60_000;
@@ -147,11 +157,19 @@ function isSameReset({ previous, current }: { previous: UsageSample; current: Us
 }
 
 /** How fast a window is being spent while its agents work, in percent per
- *  millisecond: the rise across consecutive readings of the same window, over
- *  the working time between them. Null until enough working time is behind it. */
+ *  millisecond, from consecutive readings of the same window over the working
+ *  time between them. The readings move in whole percents, so a short span
+ *  mostly reads a flat line however fast the burn: it is measured tick to tick
+ *  (the rise after the first tick, over the working time to the last one),
+ *  never faster than the flat stretch since allows. Null until enough working
+ *  time is behind it, and while no tick has shown in less than
+ *  `ZERO_EVIDENCE_SPAN_MS` - a flat line that short is no evidence of no burn. */
 export function burnRate(samples: readonly UsageSample[]) {
   let spent = 0;
   let span = 0;
+  let firstTickAt: number | null = null;
+  let lastTickAt = 0;
+  let spentAfterFirstTick = 0;
   for (let i = 1; i < samples.length; i += 1) {
     const previous = samples[i - 1];
     const current = samples[i];
@@ -169,9 +187,35 @@ export function burnRate(samples: readonly UsageSample[]) {
 
     spent += rise;
     span += gap;
+    const isTick = rise > 0;
+    if (!isTick) {
+      continue;
+    }
+
+    if (firstTickAt === null) {
+      firstTickAt = span;
+    } else {
+      spentAfterFirstTick += rise;
+      lastTickAt = span;
+    }
   }
 
-  return span >= MINIMUM_RATE_SPAN_MS ? spent / span : null;
+  if (span < MINIMUM_RATE_SPAN_MS) {
+    return null;
+  }
+
+  if (firstTickAt === null) {
+    return span >= ZERO_EVIDENCE_SPAN_MS ? 0 : null;
+  }
+
+  const tickSpan = lastTickAt - firstTickAt;
+  const isTickToTick = spentAfterFirstTick > 0 && tickSpan >= MINIMUM_RATE_SPAN_MS;
+  const estimate = isTickToTick ? spentAfterFirstTick / tickSpan : spent / span;
+  // Since the first tick the window has crossed no more than what it shows,
+  // and not yet the next whole percent.
+  const sinceFirstTick = span - firstTickAt;
+  const ceiling = sinceFirstTick > 0 ? (spentAfterFirstTick + UTILIZATION_STEP) / sinceFirstTick : estimate;
+  return Math.min(estimate, ceiling);
 }
 
 /** A window's daily readings with a new one added: one an hour over the last
@@ -217,7 +261,10 @@ const MAXIMUM_PROJECTED_RISE = 3;
  *  the sessions working now would spend at the burn per unit of load measured
  *  last (`ratePerLoad`), at most `MAXIMUM_PROJECTED_RISE` times the measured
  *  burn - so a session starting on, or switching to, a dear model counts at
- *  once. Either alone when the other is unknown; null when both are. */
+ *  once. A measured zero only says the burn is below what whole-percent
+ *  readings show, so the cap counts it as that slowest measurable burn rather
+ *  than silencing the forecast. Either alone when the other is unknown; null
+ *  when both are. */
 export function projectedRate({
   measured,
   ratePerLoad,
@@ -233,7 +280,12 @@ export function projectedRate({
     return forecast;
   }
 
-  return forecast === null ? measured : Math.min(Math.max(measured, forecast), measured * MAXIMUM_PROJECTED_RISE);
+  if (forecast === null) {
+    return measured;
+  }
+
+  const ceiling = Math.max(measured, SLOWEST_MEASURABLE_RATE) * MAXIMUM_PROJECTED_RISE;
+  return Math.min(Math.max(measured, forecast), ceiling);
 }
 
 /** The pace each window's account is measured at, in percent per millisecond -

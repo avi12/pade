@@ -290,8 +290,11 @@ writes.
   session's half-day burst fits in the allowance and slows nothing; several
   sessions bursting at once drain it within hours and the keep share slides
   toward what lasts. The account's pace is its measured burn while its agents
-  work (its usage deltas over the last working time, from the readings each
-  minute), raised to what its sessions run now when that is more: the burn per
+  work (its usage deltas over the last 3 hours of working time, from the
+  readings each minute; the readings move in whole percents, so it is measured
+  tick to tick, and a flat stretch under 2 hours counts as not yet measured
+  rather than as no burn, since one percent can take over an hour to cross),
+  raised to what its sessions run now when that is more: the burn per
   unit of load is calibrated as it is measured, so a session starting on, or
   switching to, a dear model such as Fable counts the moment it does, not ten
   minutes of readings later. Under a keep share of 0.95 the window is over pace.

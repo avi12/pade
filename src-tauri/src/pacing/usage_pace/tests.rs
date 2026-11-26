@@ -85,6 +85,69 @@ fn burn_rate_waits_for_ten_minutes_of_working_time_before_naming_a_rate() {
     assert_eq!(burn_rate(&readings(9, 0.5, "reset")), None);
 }
 
+/// One reading a minute of a window read in whole percents, burning
+/// `percent_per_hour` - the flat steps a real window shows.
+fn whole_percent_readings(minutes: u32, percent_per_hour: f64, starts_at: f64) -> Vec<UsageSample> {
+    let minutes_per_hour = HOUR / MINUTE;
+    (0..=minutes)
+        .map(|i| UsageSample {
+            time: NOW + MINUTE * f64::from(i),
+            utilization: Percentage::new(
+                (BASE_UTILIZATION + starts_at + percent_per_hour * f64::from(i) / minutes_per_hour)
+                    .floor(),
+            ),
+            resets_at: Some("reset".to_string()),
+        })
+        .collect()
+}
+
+/// A paced burn: 0.7% an hour crosses a whole percent about every 86 minutes.
+const PACED_BURN: f64 = 0.7;
+const TICK_TO_TICK_TOLERANCE: f64 = 0.05;
+const THREE_HOURS_OF_READINGS: u32 = 180;
+const TWO_HOURS_OF_READINGS: u32 = 120;
+const UNDER_AN_HOUR_OF_READINGS: u32 = 45;
+const HALF_A_PERCENT: f64 = 0.5;
+
+#[test]
+fn burn_rate_reads_a_slow_burn_tick_to_tick() {
+    let rate = percent_per_hour(&whole_percent_readings(
+        THREE_HOURS_OF_READINGS,
+        PACED_BURN,
+        HALF_A_PERCENT,
+    ))
+    .expect("a rate");
+    let is_near = (rate - PACED_BURN).abs() < TICK_TO_TICK_TOLERANCE;
+    assert!(is_near, "got {rate}");
+}
+
+#[test]
+fn burn_rate_names_no_rate_from_a_flat_stretch_too_short_to_show_a_tick() {
+    let readings = whole_percent_readings(UNDER_AN_HOUR_OF_READINGS, PACED_BURN, 0.0);
+    assert_eq!(burn_rate(&readings), None);
+}
+
+#[test]
+fn burn_rate_calls_the_burn_nothing_only_after_two_hours_without_a_tick() {
+    assert_eq!(
+        percent_per_hour(&readings(TWO_HOURS_OF_READINGS, 0.0, "reset")),
+        Some(0.0)
+    );
+}
+
+#[test]
+fn a_measured_zero_keeps_the_load_forecast() {
+    const RATE_PER_LOAD: f64 = 0.01;
+    const LOAD: f64 = 40.0;
+    let projected = projected_rate(ProjectedRateParams {
+        measured: Some(BurnRate::new(0.0)),
+        rate_per_load: Some(per_hour(RATE_PER_LOAD)),
+        load: Load::new(LOAD),
+    })
+    .expect("a projected rate");
+    assert_close(projected.get(), per_hour(RATE_PER_LOAD * LOAD).get());
+}
+
 #[test]
 fn burn_rate_counts_readings_whose_reset_differs_only_by_the_vendors_jitter_as_one_window() {
     let jittered: Vec<UsageSample> = readings(READING_COUNT, RISE_PER_READING, "reset")
