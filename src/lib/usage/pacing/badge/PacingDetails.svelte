@@ -5,6 +5,7 @@
 
   import { adaptedChoice } from "@/lib/stores/usage/usageAdapt.svelte";
   import type { pacingStatus } from "@/lib/stores/usage/usagePacing.svelte";
+  import PacedSession from "@/lib/usage/pacing/badge/PacedSession.svelte";
   import PacingActions from "@/lib/usage/pacing/badge/PacingActions.svelte";
   import { PACING_STEP_TEXT, pacingFacts, pacingWhen, spokenTime } from "@/lib/usage/pacing/engine/pacing-policy";
   import type { pacingResume } from "@/lib/usage/pacing/engine/pacing-policy";
@@ -84,6 +85,13 @@
     <li>{PACING_STEP_TEXT[step]}</li>
   {/each}
 </ul>
+{#if status.throttle}
+  <!-- What the account-wide round asks of its subagents: the same row the
+       usage panel lists, here beside the overrides that lift it. -->
+  <ul class="throttle">
+    <PacedSession session={status.throttle} />
+  </ul>
+{/if}
 
 <PacingActions isStopped={status.isStopped} {sessionId} />
 
@@ -135,6 +143,12 @@
     .countdown-toggle:focus-visible ~ p & {
       outline: 2px solid var(--primary);
     }
+  }
+
+  .throttle {
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   .active {

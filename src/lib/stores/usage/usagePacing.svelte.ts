@@ -568,12 +568,22 @@ function liveVerdict(id: string) {
   };
 }
 
+/** What the account-wide round asks of a session's subagents now - held tool
+ *  calls, wrapping up, or no new ones - or null while it asks nothing. */
+function sessionThrottle(id: string) {
+  return throttledSessions().find(throttle => throttle.sessionId === id && isThrottling(throttle)) ?? null;
+}
+
 /** Everything a session's pacing badge shows (reactive): which steps are
- *  active, why, what it runs now, when it reverts, and what pacing did. Null
- *  when pacing isn't touching the session. */
+ *  active, what its subagents are held to, why, what it runs now, when it
+ *  reverts, and what pacing did. Null when pacing isn't touching the session -
+ *  a session whose subagents alone are held still shows, so its badge offers
+ *  the way out. */
 export function pacingStatus(id: string) {
   const steps = activeSteps(id);
-  if (steps.length === 0) {
+  const throttle = sessionThrottle(id);
+  const isUntouched = steps.length === 0 && throttle === null;
+  if (isUntouched) {
     return null;
   }
 
@@ -581,6 +591,7 @@ export function pacingStatus(id: string) {
   const hasRestEnd = state !== undefined && !isRestPending(state);
   return {
     steps,
+    throttle,
     verdict: liveVerdict(id),
     isStopped: state !== undefined,
     /** When a paused session continues on its own. */
@@ -1048,7 +1059,7 @@ export function createUsagePacing(host: PacingHost) {
     }
 
     const isPaused = paced.has(id);
-    const isThrottled = throttledSessions().some(throttle => throttle.sessionId === id && isThrottling(throttle));
+    const isThrottled = sessionThrottle(id) !== null;
     const isHeldBack = isPaused || isThrottled || adapter.isSteppedDown(id);
     if (!isHeldBack) {
       return;
@@ -1986,6 +1997,16 @@ export function createUsagePacing(host: PacingHost) {
       const until = paced.get(id)?.continueAt ?? verdicts.get(id)?.resetAt ?? Date.now() + SKIP_FALLBACK_MS;
       skippedUntil.set(id, until);
       verdicts.delete(id);
+      // Left alone, the session drops out of the round's reports, which lifts
+      // its subagents' holds next round; lift them now, so a blocked spawn
+      // works at once.
+      await setThrottlePart({
+        target: {
+          command: session.agent.command,
+          conversationId: session.conversationId
+        },
+        throttle: NO_THROTTLE
+      });
       await resume(id);
       await adapter.restoreSession(session);
       record({

@@ -404,7 +404,10 @@ writes.
   While pacing holds an agent its tab shows **SLOWED** (**PAUSED** while it is
   stopped); the badge opens why, what it runs now, when it reverts and what
   pacing did, with **Ease one step**, **Skip this window** and, when stopped or
-  resting, **Resume now**. A stopped agent also shows the note with
+  resting, **Resume now**. A session whose subagents alone are held (no new
+  subagents, held tool calls, wrapping up) shows SLOWED too, its popover saying
+  what its subagents are held to, and **Skip this window** lifts that hold at
+  once. A stopped agent also shows the note with
   **Continue anyway**. Pauses and steps are remembered per window across a
   reload. A prompt sent to an agent pacing holds back - the user pressing
   Enter, or PADE's own handoff request - takes it over at once: that turn keeps
