@@ -129,6 +129,22 @@ export function reportedPacedKinds(account: AccountUsage | null) {
   return PacedWindowKind.options.filter(kind => reported.has(kind));
 }
 
+/** When the last of an account's paced windows resets - how long "Skip this
+ *  window" holds when no verdict names the window. Null with none known. */
+export function lastPacedReset(account: AccountUsage | null) {
+  let last: number | null = null;
+  for (const window of account?.windows ?? []) {
+    const resetAt = usageResetTime(window.resetsAt);
+    const isLaterPacedReset =
+      pacedKind(window.kind) !== null && Number.isFinite(resetAt) && (last === null || resetAt > last);
+    if (isLaterPacedReset) {
+      last = resetAt;
+    }
+  }
+
+  return last;
+}
+
 export function windowName(kind: UsageWindowKind) {
   const paced = pacedKind(kind);
   return paced === null ? kind : PACED_WINDOW_NAMES[paced];

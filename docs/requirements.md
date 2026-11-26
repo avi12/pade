@@ -404,7 +404,10 @@ writes.
   While pacing holds an agent its tab shows **SLOWED** (**PAUSED** while it is
   stopped); the badge opens why, what it runs now, when it reverts and what
   pacing did, with **Ease one step**, **Skip this window** and, when stopped or
-  resting, **Resume now**. A session whose subagents alone are held (no new
+  resting, **Resume now**. An override holds: an eased session takes no new
+  step for 30 minutes, and a skipped one is left alone until its window (or,
+  when none is judged right then, the account's last paced window) resets -
+  never stepped straight back by the next round. A session whose subagents alone are held (no new
   subagents, held tool calls, wrapping up) shows SLOWED too, its popover saying
   what its subagents are held to, and **Skip this window** lifts that hold at
   once. A stopped agent also shows the note with

@@ -99,6 +99,7 @@ import {
   dailyRate,
   hasRoomToSpare,
   isNearlySpent,
+  lastPacedReset,
   MINIMUM_RATE_SPAN_MS,
   paceForecasts,
   projectedRate,
@@ -138,8 +139,11 @@ const HISTORY_LENGTH = 6;
 /** How long a handoff successor works before pacing may step in - ample to
  *  read one handoff doc and take in its goal. */
 const HANDOFF_READ_GRACE_MS = 2 * MILLISECONDS_PER_MINUTE;
-/** How long "Skip this window" holds when the window's reset isn't known. */
+/** How long "Skip this window" holds when no window's reset is known. */
 const SKIP_FALLBACK_MS = 60 * MILLISECONDS_PER_MINUTE;
+/** How long "Ease one step" holds: the eased session takes no new step for
+ *  this long, so the next round doesn't undo the user's call at once. */
+const EASE_HOLD_MS = 30 * MILLISECONDS_PER_MINUTE;
 /** The steps that change what the agent runs rather than when it runs. */
 const MODEL_STEPS: ReadonlySet<PacingStep> = new Set([PacingStep.enum.effort, PacingStep.enum.model]);
 
@@ -1672,6 +1676,12 @@ export function createUsagePacing(host: PacingHost) {
     return (skippedUntil.get(id) ?? 0) > Date.now();
   }
 
+  // Leave a session alone until `until` - never shortening a longer hold the
+  // user asked for before.
+  function holdAlone({ id, until }: { id: string; until: number }) {
+    skippedUntil.set(id, Math.max(until, skippedUntil.get(id) ?? 0));
+  }
+
   // What the loop alone knows of a session, for the backend engine's report.
   // Reads only - the shields' own checks (`isContinuedRun`, `isShielded`)
   // move their state on, and are made once per scan by `paceSession`.
@@ -1982,6 +1992,12 @@ export function createUsagePacing(host: PacingHost) {
       }
 
       if (await adapter.stepUp(session)) {
+        // The user's call holds: left alone a while, the session isn't stepped
+        // straight back down by the next round while the account is over pace.
+        holdAlone({
+          id,
+          until: Date.now() + EASE_HOLD_MS
+        });
         record({
           id,
           text: "eased a step"
@@ -1994,8 +2010,15 @@ export function createUsagePacing(host: PacingHost) {
         return;
       }
 
-      const until = paced.get(id)?.continueAt ?? verdicts.get(id)?.resetAt ?? Date.now() + SKIP_FALLBACK_MS;
-      skippedUntil.set(id, until);
+      const until =
+        paced.get(id)?.continueAt ??
+        verdicts.get(id)?.resetAt ??
+        lastPacedReset(latestAccount(session.agent.id)) ??
+        Date.now() + SKIP_FALLBACK_MS;
+      holdAlone({
+        id,
+        until
+      });
       verdicts.delete(id);
       // Left alone, the session drops out of the round's reports, which lifts
       // its subagents' holds next round; lift them now, so a blocked spawn

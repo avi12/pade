@@ -10,6 +10,7 @@ import {
   hasRoomToSpare,
   isForecastOverPace,
   isNearlySpent,
+  lastPacedReset,
   paceForecasts,
   projectedRate,
   reportedPacedKinds,
@@ -193,6 +194,29 @@ describe("burnRate", () => {
       resetsAt: "next"
     };
     expect(percentPerHour([...working, ...afterIdleHour, nextWindow])).toBeCloseTo(30);
+  });
+});
+
+describe("lastPacedReset", () => {
+  it("holds a skip until the last paced window resets", () => {
+    expect(
+      lastPacedReset(
+        account([
+          sessionWindow({
+            utilization: 40,
+            resetsIn: 3 * HOUR_MS
+          }),
+          weeklyWindow({
+            utilization: 94,
+            resetsIn: 30 * HOUR_MS
+          })
+        ])
+      )
+    ).toBe(NOW + 30 * HOUR_MS);
+  });
+
+  it("knows no reset without a reading", () => {
+    expect(lastPacedReset(null)).toBeNull();
   });
 });
 
