@@ -99,8 +99,9 @@ export interface AgentCommandProtocol {
    *  it (epoch ms), null when it hasn't since the stop was written. */
   [AGENT_COMMANDS.AGENT_PACING_STOP_SEEN]: (data: { conversationId: string }) => number | null;
   /** This window's pacing scan, for the backend engine to compare its own
-   *  decisions with (shadow phase: it acts on nothing). */
-  [AGENT_COMMANDS.PACING_REPORT]: (data: PacingReport) => void;
+   *  decisions with (shadow phase: it acts on nothing). Wrapped in `report`,
+   *  the name of the Rust command's one argument. */
+  [AGENT_COMMANDS.PACING_REPORT]: (data: { report: PacingReport }) => void;
   /** How often the engine's decisions agreed with this app's, per kind, and the
    *  latest disagreements. */
   [AGENT_COMMANDS.PACING_SHADOW_SUMMARY]: () => ShadowSummary;
