@@ -430,7 +430,23 @@ impl CheckIgnoreQuestion {
 /// and negations. `None` when git gave no answer - it failed to spawn or exited
 /// with an error - so the caller neither trusts nor memoizes it. Scoped to
 /// `root` via `-C`, never PADE's process cwd.
+///
+/// The exchange runs on a thread of its own. This is called from notify's
+/// watcher thread, and on Windows a write to a child's stdin waits alertably:
+/// notify's own completion routine then runs inside that wait, takes the event
+/// handler lock this very thread already holds, and deadlocks it - which froze
+/// every terminal once the locks it held starved the async runtime.
 fn git_ignored_among(root: &Path, questions: &[CheckIgnoreQuestion]) -> Option<HashSet<String>> {
+    std::thread::scope(|scope| {
+        scope
+            .spawn(|| ask_git_check_ignore(root, questions))
+            .join()
+            .ok()
+            .flatten()
+    })
+}
+
+fn ask_git_check_ignore(root: &Path, questions: &[CheckIgnoreQuestion]) -> Option<HashSet<String>> {
     const SOME_IGNORED_EXIT_CODE: i32 = 0;
     const NONE_IGNORED_EXIT_CODE: i32 = 1;
     const PATH_SEPARATOR: char = '\0';
