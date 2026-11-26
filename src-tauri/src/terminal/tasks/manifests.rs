@@ -2,17 +2,17 @@
 
 use std::path::Path;
 
-use super::dotnet::{
+use crate::terminal::tasks::dotnet::{
     dotnet_tasks, msbuild_tasks, NATIVE_PROJECT_EXTENSION, SOLUTION_EXTENSION,
     XML_SOLUTION_EXTENSION,
 };
-use super::jvm::{gradle_tasks, maven_tasks};
-use super::native_build::{
+use crate::terminal::tasks::jvm::{gradle_tasks, maven_tasks};
+use crate::terminal::tasks::native_build::{
     bazel_tasks, cmake_preset_tasks, cmake_tasks, make_tasks, meson_tasks, ninja_tasks,
     premake_tasks, qmake_tasks, scons_tasks, xmake_tasks,
 };
-use super::package_managers::{cargo_tasks, go_tasks, npm_tasks, python_tasks};
-use super::{Task, TaskKind, TaskManifestDescriptor};
+use crate::terminal::tasks::package_managers::{cargo_tasks, go_tasks, npm_tasks, python_tasks};
+use crate::terminal::tasks::{Task, TaskKind, TaskManifestDescriptor};
 
 /// How a file in a scanned directory is recognised as a manifest. Most
 /// ecosystems name their manifest exactly (`package.json`); the .NET and MSVC

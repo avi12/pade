@@ -1,5 +1,5 @@
-use super::manifest::{offer_from, Offer, Version};
-use super::Updater;
+use crate::update::manifest::{offer_from, Offer, Version};
+use crate::update::Updater;
 
 const RUNNING: Version = Version {
     major: 0,

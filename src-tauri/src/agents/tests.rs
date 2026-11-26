@@ -1,4 +1,4 @@
-use super::{
+use crate::agents::{
     installed_names, needs_light_console_fix, oneshot_invocation, resolve_codex_home,
     session_arguments, session_id_flag, spawn_environment, theme_config, ConversationRecord,
     REGISTRY,
@@ -179,7 +179,7 @@ fn opencode_runs_headless_via_run_and_autonomous_via_auto() {
 /// own first - and an agent with no headless mode is skipped, not tried.
 #[test]
 fn headless_agents_lead_with_the_preferred_one() {
-    let chain: Vec<&str> = super::headless_agents("codex").collect();
+    let chain: Vec<&str> = crate::agents::headless_agents("codex").collect();
     assert_eq!(chain.first(), Some(&"codex"));
     assert!(chain.contains(&"claude"));
     assert_eq!(
@@ -187,7 +187,7 @@ fn headless_agents_lead_with_the_preferred_one() {
         1
     );
     assert!(!chain.contains(&"copilot"));
-    let without_headless: Vec<&str> = super::headless_agents("copilot").collect();
+    let without_headless: Vec<&str> = crate::agents::headless_agents("copilot").collect();
     assert_eq!(without_headless.first(), Some(&"claude"));
 }
 

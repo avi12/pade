@@ -4,11 +4,11 @@ use crate::test_support::assert_empty;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::patterns::{
+use crate::workspace::members::patterns::{
     glob_match, go_work_patterns, package_json_patterns, pnpm_workspace_patterns, MemberPatterns,
 };
-use super::toml_text::{toml_string_array, toml_string_value};
-use super::{discover_members, package_name_from_text, Ecosystem};
+use crate::workspace::members::toml_text::{toml_string_array, toml_string_value};
+use crate::workspace::members::{discover_members, package_name_from_text, Ecosystem};
 
 // ── glob matcher ─────────────────────────────────────────────────────────
 

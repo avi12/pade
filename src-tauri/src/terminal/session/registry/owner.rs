@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use super::SessionError;
+use crate::terminal::session::registry::SessionError;
 
 /// The window a session belongs to. Shared between the registry entry and the
 /// session's output pump, so moving a live session to another window

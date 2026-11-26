@@ -2,12 +2,12 @@
 //! take the steps it plans (effort, model, rest, stop), restore what it frees
 //! and let paused sessions go, spaced.
 
-use super::{
-    is_stepped_down, next_step_saving, Assessment, EngineMemory, Pass, PauseStep, Round,
-    RELEASE_SPACING, ROUND_LEADER,
-};
 use crate::pacing::account_round::{
     is_throttling, plan_round, OverPace, PlanRoundParams, SessionReport, WindowReport,
+};
+use crate::pacing::engine::{
+    is_stepped_down, next_step_saving, Assessment, EngineMemory, Pass, PauseStep, Round,
+    RELEASE_SPACING, ROUND_LEADER,
 };
 use crate::pacing::facts::{Decision, SessionFacts, SessionId};
 use crate::pacing::load_shedding::{lightest_to_restore, shed_fraction};

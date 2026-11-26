@@ -13,7 +13,7 @@ use crate::terminal::pty_host::protocol::{
 };
 use crate::terminal::pty_host::transport::ClientStream;
 
-use super::{HostError, REQUEST_TIMEOUT};
+use crate::terminal::pty_host::client::{HostError, REQUEST_TIMEOUT};
 
 /// Requests queued for the connection's writer before a caller waits.
 pub(super) const OUTBOUND_CAPACITY: usize = 256;

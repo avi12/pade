@@ -1,7 +1,7 @@
 //! Cursor usage adapter (tier label only): confirms a local `cursor-agent` login.
 
-use super::readings::{AccountUsage, BillingAccount, NoReadingReason};
-use super::CURSOR_PLAN;
+use crate::usage::readings::{AccountUsage, BillingAccount, NoReadingReason};
+use crate::usage::CURSOR_PLAN;
 use crate::util::{home_directory, read_json};
 
 // ---------------------------------------------------------------------------

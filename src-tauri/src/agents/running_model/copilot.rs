@@ -9,7 +9,7 @@
 
 use std::path::{Path, PathBuf};
 
-use super::{EffortOption, ModelOption, RunningModel};
+use crate::agents::running_model::{EffortOption, ModelOption, RunningModel};
 
 const EVENT_LOG: &str = "events.jsonl";
 const MODEL_CHANGE: &str = "session.model_change";
@@ -123,7 +123,7 @@ fn model_option(model: String) -> ModelOption {
 
 #[cfg(test)]
 mod tests {
-    use super::newest_model_in;
+    use crate::agents::running_model::copilot::newest_model_in;
 
     #[test]
     fn a_model_switch_names_model_and_effort() {

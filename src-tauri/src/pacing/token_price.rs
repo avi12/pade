@@ -27,7 +27,7 @@ pub fn price_ratio(model: &str) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pacing::token_price::*;
 
     #[test]
     fn prices_each_tier_by_its_long_context_list_price_haiku_first() {

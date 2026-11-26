@@ -1,7 +1,7 @@
 //! Where PADE was launched: the launch directory, its canonical form and the launch context the frontend boots from.
 
-use super::store::is_project;
-use super::store::LaunchContext;
+use crate::workspace::store::is_project;
+use crate::workspace::store::LaunchContext;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::OnceLock;

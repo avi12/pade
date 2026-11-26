@@ -1,6 +1,6 @@
 //! The order windows are listed, reordered and cycled through, and focusing one by label or relative position.
 
-use super::{
+use crate::platform::window::{
     bring_to_front, broadcast_windows_changed, WindowProjects, MAIN_WINDOW_LABEL,
     SPAWNED_LABEL_PREFIX,
 };

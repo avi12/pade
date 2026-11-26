@@ -1,18 +1,18 @@
 //! Arming and releasing the Change Feed watch for the projects a window holds.
 
-use super::events::handle_event;
-use super::git_state::arm_git_state;
-use super::git_state::GitStatePlan;
-use super::ignore::compute_ignore_policy;
-use super::ignore::IgnoreRules;
-use super::languages::rearm_language_watch_after_feed;
-use super::mcp::mcp_baseline;
-use super::registry::prune_closed_windows;
-use super::registry::watch_set_change;
-use super::registry::window_watches;
-use super::registry::ProjectWatch;
-use super::registry::WatcherState;
 use crate::util::now_milliseconds;
+use crate::workspace::watcher::events::handle_event;
+use crate::workspace::watcher::git_state::arm_git_state;
+use crate::workspace::watcher::git_state::GitStatePlan;
+use crate::workspace::watcher::ignore::compute_ignore_policy;
+use crate::workspace::watcher::ignore::IgnoreRules;
+use crate::workspace::watcher::languages::rearm_language_watch_after_feed;
+use crate::workspace::watcher::mcp::mcp_baseline;
+use crate::workspace::watcher::registry::prune_closed_windows;
+use crate::workspace::watcher::registry::watch_set_change;
+use crate::workspace::watcher::registry::window_watches;
+use crate::workspace::watcher::registry::ProjectWatch;
+use crate::workspace::watcher::registry::WatcherState;
 use notify::Event;
 use notify::RecursiveMode;
 use notify::Watcher;

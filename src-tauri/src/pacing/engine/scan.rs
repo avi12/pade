@@ -1,7 +1,7 @@
 //! The per-session half of one pacing pass: each live session is stood down,
 //! left alone, advanced while paused, or assessed while it works.
 
-use super::{
+use crate::pacing::engine::{
     account_of, is_left_alone, is_owned_elsewhere, is_stepped_down, total_load, Assessment, Pass,
 };
 use crate::pacing::facts::{Decision, PaceFacts, PacePhase, SessionFacts};

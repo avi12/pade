@@ -1,6 +1,6 @@
 //! Window durations and epoch seconds as the meter shows them: classify a window by its length, label it, and write a reset as ISO-8601.
 
-use super::readings::UsageWindowKind;
+use crate::usage::readings::UsageWindowKind;
 
 /// The two subscription window durations (Codex's account-wide caps, Muse's
 /// allowance), used to classify a window by its length into the same

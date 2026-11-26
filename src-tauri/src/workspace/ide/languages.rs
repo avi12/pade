@@ -1,7 +1,7 @@
 //! Per-project language shares and the cache that keeps their census cheap.
 
-use super::census::source_profile;
-use super::project_registry::language_named;
+use crate::workspace::ide::census::source_profile;
+use crate::workspace::ide::project_registry::language_named;
 use serde::Serialize;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;

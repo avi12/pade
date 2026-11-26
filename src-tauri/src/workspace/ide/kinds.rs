@@ -1,21 +1,21 @@
 //! Kind commands: the per-kind editor options and the kind of each listed project.
 
-use super::declarations::declarations_in;
-use super::declarations::has_extension;
-use super::declarations::kinds_from_declarations;
-use super::declarations::probe_roots;
-use super::declarations::ProjectDeclaration;
-use super::editor_registry::EditorCoverage;
-use super::editor_registry::ProjectKind;
-use super::editor_registry::REGISTRY;
-use super::editors::installed_ides;
-use super::editors::ADDED_EDITOR_ID_PREFIX;
-use super::editors::TYPESCRIPT_ICON_KEY;
-use super::project_registry::Marker;
-use super::project_registry::KIND_REGISTRY;
-use super::suggest::dedup_in_order;
-use super::suggest::ranked_editor_ids;
-use super::suggest::FALLBACK_KEY;
+use crate::workspace::ide::declarations::declarations_in;
+use crate::workspace::ide::declarations::has_extension;
+use crate::workspace::ide::declarations::kinds_from_declarations;
+use crate::workspace::ide::declarations::probe_roots;
+use crate::workspace::ide::declarations::ProjectDeclaration;
+use crate::workspace::ide::editor_registry::EditorCoverage;
+use crate::workspace::ide::editor_registry::ProjectKind;
+use crate::workspace::ide::editor_registry::REGISTRY;
+use crate::workspace::ide::editors::installed_ides;
+use crate::workspace::ide::editors::ADDED_EDITOR_ID_PREFIX;
+use crate::workspace::ide::editors::TYPESCRIPT_ICON_KEY;
+use crate::workspace::ide::project_registry::Marker;
+use crate::workspace::ide::project_registry::KIND_REGISTRY;
+use crate::workspace::ide::suggest::dedup_in_order;
+use crate::workspace::ide::suggest::ranked_editor_ids;
+use crate::workspace::ide::suggest::FALLBACK_KEY;
 use serde::Serialize;
 use std::collections::BTreeMap;
 

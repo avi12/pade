@@ -1,4 +1,6 @@
-use super::{is_grant_id, offered_resets, LimitReset, LimitResetOutcome, ResetKind, ResetStatus};
+use crate::usage::limit_reset::{
+    is_grant_id, offered_resets, LimitReset, LimitResetOutcome, ResetKind, ResetStatus,
+};
 
 fn status(json: &serde_json::Value) -> ResetStatus {
     serde_json::from_value(json.clone()).expect("a status")

@@ -271,7 +271,7 @@ impl StatusKind {
 
 #[cfg(test)]
 mod tests {
-    use super::{
+    use crate::vcs::{
         head_file_text, run_git, tracked_set_indexes, validate_object_id, NumstatRow, StatusKind,
     };
 

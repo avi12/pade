@@ -1,11 +1,11 @@
 //! The source census: counts a project's tracked and untracked source by language, skipping generated and vendored files.
 
-use super::declarations::IGNORED_PROBE_DIRECTORIES;
-use super::editor_registry::ProjectKind;
-use super::project_registry::language_named;
-use super::project_registry::language_of_extension;
-use super::project_registry::LanguageDefinition;
 use crate::vcs::git_in;
+use crate::workspace::ide::declarations::IGNORED_PROBE_DIRECTORIES;
+use crate::workspace::ide::editor_registry::ProjectKind;
+use crate::workspace::ide::project_registry::language_named;
+use crate::workspace::ide::project_registry::language_of_extension;
+use crate::workspace::ide::project_registry::LanguageDefinition;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::io::Write;

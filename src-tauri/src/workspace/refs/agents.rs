@@ -24,8 +24,8 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
-use super::{moved_path, rewrite_file_forms};
 use crate::util::{encode_project, home_directory};
+use crate::workspace::refs::{moved_path, rewrite_file_forms};
 
 /// Codex's tables that record a folder: its threads and its projects' roots.
 const CODEX_PATH_COLUMNS: [(&str, &str); 2] = [("threads", "cwd"), ("project_roots", "path")];
@@ -335,10 +335,10 @@ fn rebase_column(
 
 #[cfg(test)]
 mod tests {
-    use super::{
+    use crate::util::encode_project;
+    use crate::workspace::refs::agents::{
         first_cwd, move_claude_transcripts, rebase_database_columns, recorded_cwd, stamp_relocated,
     };
-    use crate::util::encode_project;
 
     fn scratch(name: &str) -> std::path::PathBuf {
         let directory = std::env::temp_dir().join(format!("pade-agent-memory-{name}"));

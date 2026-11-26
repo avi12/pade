@@ -1,6 +1,6 @@
 //! Live MCP config watching: restarts sessions when a project's declared servers change.
 
-use super::registry::ProjectWatch;
+use crate::workspace::watcher::registry::ProjectWatch;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::Path;

@@ -1,4 +1,4 @@
-use super::*;
+use crate::agents::token_burn::*;
 use std::io::Cursor;
 
 const NOW: &str = "2026-10-30T12:00:00.000Z";

@@ -13,7 +13,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Output;
 
-use super::current_executable;
+use crate::platform::contextmenu::current_executable;
 use crate::util::command;
 
 /// Package identity `Name` - must equal `<Identity Name>` in `AppxManifest.xml`.

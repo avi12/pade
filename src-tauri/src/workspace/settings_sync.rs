@@ -92,7 +92,7 @@ fn announce_if_news(settings_file: &Path, announce: fn()) {
 
 #[cfg(test)]
 mod tests {
-    use super::Announced;
+    use crate::workspace::settings_sync::Announced;
 
     #[test]
     fn a_write_from_another_process_is_news_once() {

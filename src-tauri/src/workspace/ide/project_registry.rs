@@ -1,7 +1,7 @@
 //! The project-kind and language catalogs: the markers that prove a kind and the extensions that name a language.
 
-use super::declarations::has_extension;
-use super::editor_registry::ProjectKind;
+use crate::workspace::ide::declarations::has_extension;
+use crate::workspace::ide::editor_registry::ProjectKind;
 
 /// A project-kind marker - something in the project root that signals the kind,
 /// and how it is probed on disk.

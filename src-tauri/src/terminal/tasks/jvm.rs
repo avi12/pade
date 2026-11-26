@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use super::{task, Task};
+use crate::terminal::tasks::{task, Task};
 
 /// A build tool whose projects usually commit a wrapper script that pins the
 /// tool's version - the JVM pair. Running the wrapper is the point of shipping

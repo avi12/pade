@@ -157,7 +157,7 @@ pub(crate) fn preview_clip(source: &Path) -> Result<Vec<u8>, ClipError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_video, preview_clip, transcode_arguments, ClipError};
+    use crate::platform::media::{is_video, preview_clip, transcode_arguments, ClipError};
     use std::path::Path;
 
     #[test]

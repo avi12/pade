@@ -1,8 +1,8 @@
 //! Which paths the Change Feed ignores: static directories, gitignore and git check-ignore.
 
-use super::registry::ProjectRootPayload;
-use super::registry::ProjectWatch;
 use crate::vcs::git_in;
+use crate::workspace::watcher::registry::ProjectRootPayload;
+use crate::workspace::watcher::registry::ProjectWatch;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::Write;

@@ -43,7 +43,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use super::{is_plain_id, write_json};
+use crate::agents::running_model::{is_plain_id, write_json};
 use crate::agents::{ID_CLAUDE, ID_OPENCODE};
 use crate::util::now_milliseconds;
 

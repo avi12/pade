@@ -1,17 +1,17 @@
 //! Codex usage adapter: the `ChatGPT` rate-limit windows read from the Codex CLI's own backend endpoint.
 
-use super::claude::humanize_key;
-use super::readings::{
+use crate::usage::claude::humanize_key;
+use crate::usage::readings::{
     AccountUsage, BillingAccount, NoReadingReason, RequestFailure, UsageWindow, UsageWindowKind,
 };
-use super::sign_in::{parse_usage_body, read_sign_in, sign_in_field};
-use super::transport::{
+use crate::usage::sign_in::{parse_usage_body, read_sign_in, sign_in_field};
+use crate::usage::transport::{
     curl_json, is_safe_header_token, CurlRequest, AUTHORIZATION_HEADER, USER_AGENT_HEADER,
 };
-use super::window_time::{
+use crate::usage::window_time::{
     humanize_window_seconds, unix_seconds_to_iso8601, window_kind_for_duration,
 };
-use super::{
+use crate::usage::{
     local_source, plan_label, Usage, CODEX_OAUTH_SOURCE, CODEX_PLAN, USAGE_REQUEST_TIMEOUT_SECONDS,
 };
 use crate::util::read_json;

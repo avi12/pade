@@ -53,7 +53,7 @@ mod tests {
     use std::path::Path;
     use std::time::{Duration, SystemTime};
 
-    use super::ParsedFiles;
+    use crate::agents::parsed_files::ParsedFiles;
 
     #[test]
     fn an_unchanged_file_is_parsed_once() {

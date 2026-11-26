@@ -1,20 +1,22 @@
 //! Tests for the IDE modules.
 
-use super::census::{
+use crate::test_support::assert_not_empty;
+use crate::workspace::ide::census::{
     census, git_linguist_attributes, source_content, SourceFileEvidence, SourceProfile,
 };
-use super::declarations::{project_declarations, required_project_kinds, ProjectDeclaration};
-use super::editor_registry::{EditorCoverage, OpenStyle, ProjectKind, REGISTRY};
-use super::editors::{editor_family, executable_basename};
-use super::kinds::{ide_kinds, primary_declared_kind};
-use super::languages::{
+use crate::workspace::ide::declarations::{
+    project_declarations, required_project_kinds, ProjectDeclaration,
+};
+use crate::workspace::ide::editor_registry::{EditorCoverage, OpenStyle, ProjectKind, REGISTRY};
+use crate::workspace::ide::editors::{editor_family, executable_basename};
+use crate::workspace::ide::kinds::{ide_kinds, primary_declared_kind};
+use crate::workspace::ide::languages::{
     cached_language_shares, language_shares, note_working_tree_change, project_key,
 };
-use super::open::{open_arguments, open_style};
-use super::suggest::{
+use crate::workspace::ide::open::{open_arguments, open_style};
+use crate::workspace::ide::suggest::{
     editor_covers_project, preference_chain, ranked_editor_ids, suggestible_editor_ids,
 };
-use crate::test_support::assert_not_empty;
 
 fn is_general_purpose_editor(id: &str) -> bool {
     REGISTRY
@@ -555,7 +557,7 @@ fn a_reported_working_tree_change_recounts_a_project_whose_index_never_moved() {
         return;
     }
     let path = directory.to_string_lossy().into_owned();
-    let languages = |shares: Vec<super::languages::LanguageShare>| -> Vec<String> {
+    let languages = |shares: Vec<crate::workspace::ide::languages::LanguageShare>| -> Vec<String> {
         shares.into_iter().map(|share| share.language).collect()
     };
     assert_eq!(languages(cached_language_shares(&path)), ["TypeScript"]);

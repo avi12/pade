@@ -175,7 +175,7 @@ pub(crate) fn task_running(_root: u32, _command: &str) -> Result<bool, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::terminal::process_tree::*;
     use crate::test_support::assert_empty;
 
     fn process(process_id: u32, parent_process_id: u32, command_line: &str) -> ProcessInfo {

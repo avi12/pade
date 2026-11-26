@@ -1,7 +1,7 @@
 //! Remote-URL resolution - the browsable base behind "open on GitHub".
 
-use super::branches::current_branch;
-use super::{run_git, DEFAULT_REMOTE_NAME, HEAD_REFERENCE};
+use crate::vcs::branches::current_branch;
+use crate::vcs::{run_git, DEFAULT_REMOTE_NAME, HEAD_REFERENCE};
 
 /// The `branch.<name>.remote` value git writes for a branch that tracks
 /// another branch of the same repository rather than a real remote.
@@ -74,7 +74,7 @@ fn normalize_remote(url: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{branch_remote_name, normalize_remote, remote_default_branch};
+    use crate::vcs::remote::{branch_remote_name, normalize_remote, remote_default_branch};
 
     #[test]
     fn configured_branch_remote_leads_over_origin() {
@@ -83,12 +83,12 @@ mod tests {
         let _ = std::fs::remove_dir_all(&scratch);
         std::fs::create_dir_all(&scratch).expect("create scratch repository");
         let cwd = scratch.to_string_lossy();
-        if super::run_git(&cwd, &["init", "-q"]).is_err() {
+        if crate::vcs::remote::run_git(&cwd, &["init", "-q"]).is_err() {
             let _ = std::fs::remove_dir_all(scratch);
             return;
         }
 
-        super::run_git(
+        crate::vcs::remote::run_git(
             &cwd,
             &[
                 "-c",
@@ -102,10 +102,11 @@ mod tests {
             ],
         )
         .expect("commit so HEAD points at a born branch");
-        let branch = super::current_branch(&cwd).expect("read initial branch");
+        let branch = crate::vcs::remote::current_branch(&cwd).expect("read initial branch");
         let key = format!("branch.{branch}.remote");
-        super::run_git(&cwd, &["config", &key, "upstream"]).expect("configure branch remote");
-        super::run_git(
+        crate::vcs::remote::run_git(&cwd, &["config", &key, "upstream"])
+            .expect("configure branch remote");
+        crate::vcs::remote::run_git(
             &cwd,
             &[
                 "symbolic-ref",

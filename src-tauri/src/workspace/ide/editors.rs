@@ -1,8 +1,8 @@
 //! Editor detection and the user-added editors: the `Ide` shape, its lookup and the add/remove commands.
 
-use super::editor_registry::OpenStyle;
-use super::editor_registry::REGISTRY;
 use crate::util::is_on_path;
+use crate::workspace::ide::editor_registry::OpenStyle;
+use crate::workspace::ide::editor_registry::REGISTRY;
 use serde::Serialize;
 
 /// Resolve an editor id against the registry, else against the caller's

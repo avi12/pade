@@ -322,9 +322,9 @@ pub fn init(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::pacing::facts::ObservedKind;
     use crate::pacing::test_support::{account, session_window, NOW};
+    use crate::pacing::*;
     use crate::test_support::assert_empty;
 
     const MEASURED_READINGS: u32 = 12;

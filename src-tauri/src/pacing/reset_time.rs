@@ -153,7 +153,7 @@ fn fixed_digits(text: &str, width: usize) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pacing::reset_time::*;
 
     fn reset(iso: &str) -> Option<f64> {
         usage_reset_time(Some(iso)).map(EpochMilliseconds::get)

@@ -1,6 +1,6 @@
-use super::catalog::model_option;
-use super::switch::{hold_open, revert_switch_keys};
-use super::{
+use crate::agents::running_model::claude::catalog::model_option;
+use crate::agents::running_model::claude::switch::{hold_open, revert_switch_keys};
+use crate::agents::running_model::claude::{
     effort_for_model, merge_settings, newest_effort_set, newest_ultracode_entry, ULTRACODE_ENTER,
     ULTRACODE_EXIT,
 };

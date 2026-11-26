@@ -23,7 +23,7 @@ mod switch;
 use std::cell::OnceCell;
 use std::path::{Path, PathBuf};
 
-use super::{
+use crate::agents::running_model::{
     hook_command, newer, pacing_control, read_session_state, state_directory,
     timestamp_milliseconds, EffortOption, HookShell, ModelChoice, ModelOption, RunningModel, Saved,
     SessionState,

@@ -168,7 +168,7 @@ fn after_visible_characters(text: &str, budget: usize) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::{summary_prompt, tidy_summary, MAXIMUM_SUMMARY_LENGTH};
+    use crate::agents::summary::{summary_prompt, tidy_summary, MAXIMUM_SUMMARY_LENGTH};
 
     #[test]
     fn a_reply_becomes_one_line_without_its_wrapping() {

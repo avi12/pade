@@ -131,7 +131,7 @@ impl Pattern {
 
 #[cfg(test)]
 mod tests {
-    use super::Rules;
+    use crate::workspace::gitignore::Rules;
 
     #[test]
     fn bare_names_match_at_any_depth() {

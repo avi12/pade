@@ -1,5 +1,7 @@
-use super::order::{cycled_index, order_key, window_sort_key, CycleDirection};
-use super::{labels_to_recreate, reserve_sequences_past, LaunchMode, NEXT_WINDOW_SEQUENCE};
+use crate::platform::window::order::{cycled_index, order_key, window_sort_key, CycleDirection};
+use crate::platform::window::{
+    labels_to_recreate, reserve_sequences_past, LaunchMode, NEXT_WINDOW_SEQUENCE,
+};
 
 #[test]
 fn only_missing_windows_other_than_main_are_recreated_once_each_in_order() {

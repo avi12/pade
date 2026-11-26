@@ -17,8 +17,10 @@ use crate::terminal::pty_host::protocol::{
 use crate::terminal::pty_host::transport::{self};
 use crate::terminal::session::registry::EXIT_TEARDOWN_TIMEOUT;
 
-use super::connection::{open_connection, seed_known_sessions, Answer, Connection, Link};
-use super::HostError;
+use crate::terminal::pty_host::client::connection::{
+    open_connection, seed_known_sessions, Answer, Connection, Link,
+};
+use crate::terminal::pty_host::client::HostError;
 
 /// How long the host has to answer an `Opening`.
 pub(super) const GREETING_TIMEOUT: Duration = Duration::from_secs(5);

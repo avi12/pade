@@ -1,7 +1,7 @@
 //! Directory-listing watches behind the file browser.
 
-use super::registry::prune_closed_windows;
-use super::registry::WatcherState;
+use crate::workspace::watcher::registry::prune_closed_windows;
+use crate::workspace::watcher::registry::WatcherState;
 use notify::event::ModifyKind;
 use notify::Event;
 use notify::EventKind;

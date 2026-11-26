@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use super::{
+use crate::vcs::{
     commit_header_format, run_git, CommitHeader, NumstatRow, FIELD_SEPARATOR, RECORD_SEPARATOR,
 };
 
@@ -76,7 +76,7 @@ fn parse_log(raw: &str) -> Vec<Commit> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_log, FIELD_SEPARATOR, RECORD_SEPARATOR};
+    use crate::vcs::log::{parse_log, FIELD_SEPARATOR, RECORD_SEPARATOR};
 
     fn header(id: &str) -> String {
         let fields = [id, "abc", "subject", "Avi", "2 days ago"];

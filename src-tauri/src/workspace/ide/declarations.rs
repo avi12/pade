@@ -1,10 +1,10 @@
 //! Project declarations: which kinds a project proves it is, from its manifests and where its source lives.
 
-use super::census::is_directory_entry;
-use super::census::SourceFileEvidence;
-use super::census::SourceProfile;
-use super::editor_registry::ProjectKind;
-use super::project_registry::KIND_REGISTRY;
+use crate::workspace::ide::census::is_directory_entry;
+use crate::workspace::ide::census::SourceFileEvidence;
+use crate::workspace::ide::census::SourceProfile;
+use crate::workspace::ide::editor_registry::ProjectKind;
+use crate::workspace::ide::project_registry::KIND_REGISTRY;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 

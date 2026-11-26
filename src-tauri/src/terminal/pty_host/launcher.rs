@@ -11,7 +11,7 @@
 use std::io;
 use std::path::Path;
 
-use super::PTY_HOST_FLAG;
+use crate::terminal::pty_host::PTY_HOST_FLAG;
 
 /// The two values the WMI script reads from its environment, so neither path is
 /// ever spliced into script text (no quoting to get wrong).

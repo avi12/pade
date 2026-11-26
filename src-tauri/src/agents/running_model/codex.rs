@@ -17,7 +17,7 @@
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
-use super::{
+use crate::agents::running_model::{
     hook_command, modified_milliseconds, newer, read_session_state, timestamp_milliseconds,
     EffortOption, HookShell, ModelOption, RunningModel, Saved,
 };
@@ -286,7 +286,7 @@ fn supported_efforts(model: &serde_json::Value) -> Vec<EffortOption> {
 
 #[cfg(test)]
 mod tests {
-    use super::{fingerprint, model_option, newest_turn_in};
+    use crate::agents::running_model::codex::{fingerprint, model_option, newest_turn_in};
 
     #[test]
     fn lists_only_models_the_picker_shows() {

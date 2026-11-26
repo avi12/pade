@@ -250,7 +250,7 @@ pub(crate) async fn agent_resume_args(
 
 #[cfg(test)]
 mod tests {
-    use super::interactive_session_id;
+    use crate::agents::resume::interactive_session_id;
     use crate::util::json_string_field;
 
     const META: &str = r#"{"timestamp":"t","type":"session_meta","payload":{"session_id":"019f-abc","id":"019f-abc","cwd":"C:\\repositories\\avi\\proj","originator":"codex_exec","cli_version":"0.144.5","source":"exec"}}"#;
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn an_opencode_database_row_yields_its_session_id() {
         assert_eq!(
-            super::opencode_session_id("id\nses_24440494dffekcRK8jTX3XCccC\n"),
+            crate::agents::resume::opencode_session_id("id\nses_24440494dffekcRK8jTX3XCccC\n"),
             Some("ses_24440494dffekcRK8jTX3XCccC".to_string())
         );
     }
@@ -310,8 +310,11 @@ mod tests {
     fn an_opencode_database_result_without_a_row_yields_nothing() {
         // Header only (no session recorded), empty output, and an error blurb
         // must all read as "nothing to resume", never as a session id.
-        assert_eq!(super::opencode_session_id("id\n"), None);
-        assert_eq!(super::opencode_session_id(""), None);
-        assert_eq!(super::opencode_session_id("Error: Unexpected error"), None);
+        assert_eq!(crate::agents::resume::opencode_session_id("id\n"), None);
+        assert_eq!(crate::agents::resume::opencode_session_id(""), None);
+        assert_eq!(
+            crate::agents::resume::opencode_session_id("Error: Unexpected error"),
+            None
+        );
     }
 }

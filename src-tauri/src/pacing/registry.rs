@@ -104,8 +104,8 @@ impl Registry {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::pacing::facts::{ObservedKind, SessionId};
+    use crate::pacing::registry::*;
     use crate::test_support::assert_empty;
 
     const START: f64 = 1_000_000.0;

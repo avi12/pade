@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::{run_git, HEAD_REFERENCE};
+use crate::vcs::{run_git, HEAD_REFERENCE};
 
 /// The current HEAD branch name - the one authoritative "current branch" query,
 /// used by `vcs_commit`, the per-project branch chip, and remote resolution.

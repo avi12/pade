@@ -49,7 +49,7 @@ fn instance_directory_argument(arguments: &[String]) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::terminal::pty_host::*;
 
     #[test]
     fn the_host_flag_names_its_instance_folder() {
@@ -84,12 +84,14 @@ mod smoke {
 
     use tokio::io::{BufReader, ReadHalf, WriteHalf};
 
-    use super::discovery::{ensure_host_copy, executable_fingerprint, read_state, HostPaths};
-    use super::protocol::{
+    use crate::terminal::pty_host::discovery::{
+        ensure_host_copy, executable_fingerprint, read_state, HostPaths,
+    };
+    use crate::terminal::pty_host::protocol::{
         read_frame, write_frame, Greeting, HostMessage, Opening, Outcome, Request, RequestFrame,
         PROTOCOL_VERSION,
     };
-    use super::transport::{self, ClientStream};
+    use crate::terminal::pty_host::transport::{self, ClientStream};
     use crate::terminal::session::launch::SessionLaunch;
 
     const SESSION: &str = "smoke-session";
@@ -181,7 +183,8 @@ mod smoke {
             .join("pade.exe");
         let fingerprint = executable_fingerprint(&executable).expect("a built pade.exe");
         let copy = ensure_host_copy(&paths, &executable, &fingerprint).expect("copied");
-        super::launcher::launch_host(&copy, paths.instance_directory()).expect("launched");
+        crate::terminal::pty_host::launcher::launch_host(&copy, paths.instance_directory())
+            .expect("launched");
 
         runtime().block_on(async {
             let (mut link, _) = attach(&paths).await;

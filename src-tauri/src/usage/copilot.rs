@@ -1,15 +1,15 @@
 //! Copilot usage adapter: the premium-request entitlement read from GitHub's internal endpoint.
 
-use super::claude::{humanize_key, string_field};
-use super::readings::{
+use crate::usage::claude::{humanize_key, string_field};
+use crate::usage::readings::{
     AccountUsage, BillingAccount, NoReadingReason, RequestFailure, UsageWindow, UsageWindowKind,
     FULL_PERCENTAGE,
 };
-use super::sign_in::parse_usage_body;
-use super::transport::{
+use crate::usage::sign_in::parse_usage_body;
+use crate::usage::transport::{
     curl_json, is_safe_header_token, CurlRequest, AUTHORIZATION_HEADER, USER_AGENT_HEADER,
 };
-use super::{plan_label, COPILOT_OAUTH_SOURCE, COPILOT_PLAN, USAGE_REQUEST_TIMEOUT_SECONDS};
+use crate::usage::{plan_label, COPILOT_OAUTH_SOURCE, COPILOT_PLAN, USAGE_REQUEST_TIMEOUT_SECONDS};
 use crate::util::{home_directory, read_json};
 
 // ---------------------------------------------------------------------------

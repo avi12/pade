@@ -17,12 +17,12 @@ use std::time::Instant;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use super::claude::{
+use crate::usage::claude::{
     claude_access_token, claude_usage_url, curl_claude_oauth, ClaudeOauthRequest, ClaudeProfile,
     CLAUDE_API,
 };
-use super::transport::is_safe_header_token;
-use super::USAGE_CACHE_TTL;
+use crate::usage::transport::is_safe_header_token;
+use crate::usage::USAGE_CACHE_TTL;
 
 /// The reset program's name, both as the usage query flag and in the claim.
 const RESET_PROGRAM: &str = "cedar_ember";

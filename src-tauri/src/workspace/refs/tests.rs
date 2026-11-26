@@ -1,7 +1,7 @@
 //! Tests for the move-directory reference updater.
 
-use super::paths::{rebase_paths_in, vscode_uri};
-use super::symlinks::moved_link_target;
+use crate::workspace::refs::paths::{rebase_paths_in, vscode_uri};
+use crate::workspace::refs::symlinks::moved_link_target;
 use std::path::Path;
 
 #[test]
@@ -107,7 +107,11 @@ fn a_junction_into_the_moved_folder_is_re_pointed() {
         .output()
         .is_ok_and(|output| output.status.success());
     if is_created {
-        super::symlinks::fix_project_symlinks(&new, &old.to_string_lossy(), &new.to_string_lossy());
+        crate::workspace::refs::symlinks::fix_project_symlinks(
+            &new,
+            &old.to_string_lossy(),
+            &new.to_string_lossy(),
+        );
         let target = std::fs::read_link(&link).expect("re-pointed junction");
         assert!(
             target.ends_with(Path::new("new").join("store").join("package")),
@@ -122,12 +126,12 @@ fn a_junction_into_the_moved_folder_is_re_pointed() {
 #[cfg(windows)]
 #[test]
 fn a_junction_script_doubles_percent_signs_and_quotes_each_path() {
-    let junction = super::symlinks::StaleLink {
+    let junction = crate::workspace::refs::symlinks::StaleLink {
         link: std::path::PathBuf::from(r"C:\a & b\100%"),
         target: r"C:\c\100%".to_string(),
         is_target_directory: true,
     };
-    let script = super::symlinks::junction_script(&[&junction]);
+    let script = crate::workspace::refs::symlinks::junction_script(&[&junction]);
     assert!(
         script.ends_with("@mklink /J \"C:\\a & b\\100%%\" \"C:\\c\\100%%\" >nul\r\n"),
         "{script}"

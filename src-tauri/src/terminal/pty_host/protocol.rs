@@ -270,7 +270,7 @@ pub(crate) fn is_same_token(presented: &str, expected: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::terminal::pty_host::protocol::*;
 
     fn round_trip<T>(message: &T) -> T
     where

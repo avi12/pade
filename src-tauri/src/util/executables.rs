@@ -1,7 +1,7 @@
 //! Executable resolution: the search path PADE builds, and finding a command on it.
 
-use super::paths::{directory_key, home_directory};
-use super::registry::{expand_environment_variables, registry_string};
+use crate::util::paths::{directory_key, home_directory};
+use crate::util::registry::{expand_environment_variables, registry_string};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 

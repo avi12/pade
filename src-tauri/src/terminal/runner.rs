@@ -422,7 +422,7 @@ pub(crate) fn init(app: &AppHandle) {
 mod tests {
     use std::sync::mpsc;
 
-    use super::{
+    use crate::terminal::runner::{
         collect_batch, last_carriage_frame, RunnerData, RunnerStream, MAXIMUM_BATCH_LINES,
     };
 

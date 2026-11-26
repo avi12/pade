@@ -1,19 +1,19 @@
 //! Feed commands: watch status, diffs, previews and ignore checks.
 
-use super::change::authorize_path;
-use super::change::read_authorized_file;
-use super::change::read_preview_text;
-use super::ignore::is_always_ignored;
-use super::ignore::GITIGNORE_FILE_NAME;
-use super::registry::owning_project;
-use super::registry::window_watches;
-use super::registry::ProjectWatch;
-use super::registry::WatcherState;
 use crate::platform::preview::image_mime_type;
 use crate::platform::preview::video_preview;
 use crate::platform::preview::FeedImage;
 use crate::platform::preview::FeedVideo;
 use crate::platform::preview::MAXIMUM_IMAGE_BYTES;
+use crate::workspace::watcher::change::authorize_path;
+use crate::workspace::watcher::change::read_authorized_file;
+use crate::workspace::watcher::change::read_preview_text;
+use crate::workspace::watcher::ignore::is_always_ignored;
+use crate::workspace::watcher::ignore::GITIGNORE_FILE_NAME;
+use crate::workspace::watcher::registry::owning_project;
+use crate::workspace::watcher::registry::window_watches;
+use crate::workspace::watcher::registry::ProjectWatch;
+use crate::workspace::watcher::registry::WatcherState;
 use serde::Serialize;
 use std::path::Path;
 use std::sync::atomic::Ordering;

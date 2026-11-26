@@ -14,15 +14,15 @@ use tokio::sync::{mpsc, Notify};
 use crate::terminal::session::output::SessionEvents;
 use crate::terminal::session::registry::SessionRegistry;
 
-use super::discovery::{
+use crate::terminal::pty_host::discovery::{
     executable_fingerprint, fingerprint_of_copy, read_state, remove_state_if_owned, write_state,
     HostPaths, HostState,
 };
-use super::protocol::{
+use crate::terminal::pty_host::protocol::{
     is_same_token, read_frame, write_frame, Greeting, HostMessage, Opening, Outcome, Request,
     RequestFrame, PROTOCOL_VERSION,
 };
-use super::transport::{self, Listener, ServerStream};
+use crate::terminal::pty_host::transport::{self, Listener, ServerStream};
 
 /// How long a fresh connection has to say who it is.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);

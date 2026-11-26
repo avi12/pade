@@ -206,7 +206,7 @@ fn short_digest(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::terminal::pty_host::discovery::*;
 
     fn scratch(name: &str) -> PathBuf {
         let directory =

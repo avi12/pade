@@ -1,8 +1,8 @@
 //! Workspace labels: the manual and automatic names a project row shows.
 
-use super::store::update_settings;
-use super::store::Settings;
-use super::temp::require_ade_owned;
+use crate::workspace::store::update_settings;
+use crate::workspace::store::Settings;
+use crate::workspace::temp::require_ade_owned;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 

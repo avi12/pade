@@ -1,11 +1,11 @@
 //! Live git state watching: HEAD and config changes, coalesced into one event.
 
-use super::ignore::is_gitignore_file;
-use super::ignore::refresh_ignore_policy;
-use super::ignore::GIT_DIRECTORY_NAME;
-use super::registry::ProjectRootPayload;
-use super::registry::ProjectWatch;
 use crate::vcs::git_in;
+use crate::workspace::watcher::ignore::is_gitignore_file;
+use crate::workspace::watcher::ignore::refresh_ignore_policy;
+use crate::workspace::watcher::ignore::GIT_DIRECTORY_NAME;
+use crate::workspace::watcher::registry::ProjectRootPayload;
+use crate::workspace::watcher::registry::ProjectWatch;
 use notify::Event;
 use notify::EventKind;
 use notify::RecommendedWatcher;

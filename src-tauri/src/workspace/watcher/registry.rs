@@ -1,7 +1,7 @@
 //! Per-window, per-project watch state and the registry that owns it.
 
-use super::ignore::IgnoreRules;
-use super::languages::LanguageRoute;
+use crate::workspace::watcher::ignore::IgnoreRules;
+use crate::workspace::watcher::languages::LanguageRoute;
 use notify::RecommendedWatcher;
 use serde::Serialize;
 use std::collections::HashMap;

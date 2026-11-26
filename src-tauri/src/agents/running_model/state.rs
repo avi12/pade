@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use super::ModelChoice;
+use crate::agents::running_model::ModelChoice;
 use crate::util::now_milliseconds;
 
 /// PADE's data subfolder holding one state file per session, and that file's

@@ -123,7 +123,7 @@ pub(crate) fn detect_install(directory: &Path) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{detect_install, is_dependency_directory};
+    use crate::workspace::provision::{detect_install, is_dependency_directory};
     use std::path::PathBuf;
 
     /// A unique, pre-created scratch directory under the OS temp dir - the same

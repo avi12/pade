@@ -1,16 +1,16 @@
 //! Saving a temp workspace as a real project: the destination root, the copy that skips dependencies, and the rename.
 
-use super::provision;
-use super::recents::record_recent;
-use super::refs;
-use super::relocate::relocate_folder;
-use super::relocate::MovedLabel;
-use super::roots::canonical_path;
-use super::roots::validated_child_path;
-use super::store::load;
-use super::store::update_settings;
-use super::store::Settings;
-use super::temp::require_ade_owned;
+use crate::workspace::provision;
+use crate::workspace::recents::record_recent;
+use crate::workspace::refs;
+use crate::workspace::relocate::relocate_folder;
+use crate::workspace::relocate::MovedLabel;
+use crate::workspace::roots::canonical_path;
+use crate::workspace::roots::validated_child_path;
+use crate::workspace::store::load;
+use crate::workspace::store::update_settings;
+use crate::workspace::store::Settings;
+use crate::workspace::temp::require_ade_owned;
 use serde::Serialize;
 use std::path::Path;
 use tauri::AppHandle;

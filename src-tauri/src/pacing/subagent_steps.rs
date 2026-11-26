@@ -178,7 +178,7 @@ pub fn eased_subagent_step(current: SubagentStep) -> Option<SubagentStep> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pacing::subagent_steps::*;
 
     fn gate(seconds: u32) -> SubagentStep {
         SubagentStep::Gate {

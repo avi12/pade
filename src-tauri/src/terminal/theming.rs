@@ -296,7 +296,7 @@ pub(crate) fn spawn_tui_config_environment(command: &str, scheme: Scheme) -> Vec
 
 #[cfg(test)]
 mod tests {
-    use super::{
+    use crate::terminal::theming::{
         materialize_tui_config, spawn_arguments, spawn_environment, spawn_tui_config_environment,
         write_if_stale, Scheme, ThemeConfig, PADE_DARK_THEME_FILE, PADE_DARK_THEME_JSON,
         PADE_LIGHT_THEME_FILE, PADE_LIGHT_THEME_JSON,

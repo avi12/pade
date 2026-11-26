@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use super::{quoted_file_name, task, Task};
+use crate::terminal::tasks::{quoted_file_name, task, Task};
 use crate::util::{is_on_path, read_jsonc};
 
 /// `Makefile` - each target line (`^name:`), skipping directives (`.PHONY` etc.)

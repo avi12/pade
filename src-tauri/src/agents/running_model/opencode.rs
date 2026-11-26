@@ -18,7 +18,7 @@
 
 use std::path::{Path, PathBuf};
 
-use super::{
+use crate::agents::running_model::{
     pacing_control, read_session_state, state_file, EffortOption, ModelOption, RunningModel,
 };
 use crate::util::read_json;
@@ -286,7 +286,7 @@ fn effort_levels(entry: &serde_json::Value) -> Vec<EffortOption> {
 
 #[cfg(test)]
 mod tests {
-    use super::config_with_plugin;
+    use crate::agents::running_model::opencode::config_with_plugin;
 
     #[test]
     fn the_plugin_joins_an_inherited_inline_config() {

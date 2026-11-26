@@ -1,9 +1,9 @@
 //! Recent projects and pins: opening a project records it, leaving stamps it, and the pinned list and its order.
 
-use super::roots::canonical_path;
-use super::store::update_settings;
-use super::store::Settings;
 use crate::util::now_milliseconds;
+use crate::workspace::roots::canonical_path;
+use crate::workspace::store::update_settings;
+use crate::workspace::store::Settings;
 
 /// Push a path to the front of the recent list (canonicalized, deduped). The list
 /// is unbounded - every project ever opened stays until removed or cleared; the

@@ -11,7 +11,7 @@ use crate::agents::running_model::ModelChoice;
 use crate::agents::DEFAULT_SHELL;
 use crate::terminal::theming::Scheme;
 
-use super::registry::SessionError;
+use crate::terminal::session::registry::SessionError;
 
 /// Overrides the program a session runs when the spawn names none.
 const AGENT_COMMAND_OVERRIDE_VARIABLE: &str = "ADE_AGENT_CMD";
@@ -326,7 +326,7 @@ const LIGHT_CONSOLE_PREFIX: [&str; 4] = ["/c", "color", "F0", "&"];
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::terminal::session::launch::*;
 
     /// The Windows light-console wrapper must lead with `cmd /c color F0 &`, keep
     /// the agent's absolute path as ONE argv token even with spaces, and preserve

@@ -1,5 +1,5 @@
-use super::*;
 use crate::pacing::account_round::ThrottledSession;
+use crate::pacing::shadow::*;
 use crate::pacing::units::SpanMilliseconds;
 use crate::test_support::assert_empty;
 

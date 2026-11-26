@@ -8,7 +8,7 @@
 
 use serde::Serialize;
 
-use super::run_git;
+use crate::vcs::run_git;
 
 /// How a sync resolved. Serializes to the camelCase wire strings the frontend's
 /// zod `PullOutcome` schema reads - the one authoritative home for the literals.
@@ -97,7 +97,7 @@ fn fast_forward_pull(cwd: &str) -> Result<PullOutcome, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{has_uncommitted_changes, is_already_up_to_date};
+    use crate::vcs::pull::{has_uncommitted_changes, is_already_up_to_date};
 
     #[test]
     fn a_modified_tracked_file_is_dirty() {

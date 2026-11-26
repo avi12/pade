@@ -4,11 +4,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{
+use crate::pacing::units::{EpochMilliseconds, Fraction, Percentage};
+use crate::pacing::usage_pace::{
     paced_window, reset_time_of, utilization_of, PaceCheck, PacedWindowKind, RateOf,
     MINIMUM_RATE_SPAN_MS, SLOW_DOWN_KEEP, WEEKLY_WINDOW_MS,
 };
-use crate::pacing::units::{EpochMilliseconds, Fraction, Percentage};
 use crate::usage::{AccountUsage, UsageWindow};
 
 /// One paced window's live line for the Config panel (`pace_forecasts`).

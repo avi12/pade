@@ -1,13 +1,13 @@
 //! Muse Code usage adapter: the allowance `muse usage --json` prints.
 
-use super::plan_label;
-use super::readings::{AccountUsage, BillingAccount, NoReadingReason, UsageWindow};
-use super::sign_in::parse_usage_body;
-use super::window_time::{
+use crate::agents::ID_MUSE;
+use crate::usage::plan_label;
+use crate::usage::readings::{AccountUsage, BillingAccount, NoReadingReason, UsageWindow};
+use crate::usage::sign_in::parse_usage_body;
+use crate::usage::window_time::{
     humanize_window_seconds, unix_seconds_to_iso8601, window_kind_for_duration,
     FIVE_HOUR_WINDOW_SECONDS, SECONDS_PER_MINUTE, WEEKLY_WINDOW_SECONDS,
 };
-use crate::agents::ID_MUSE;
 use std::time::Duration;
 
 // ---------------------------------------------------------------------------

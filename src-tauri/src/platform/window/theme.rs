@@ -1,6 +1,6 @@
 //! A window's look: the in-theme surface it is painted with at creation, and the scheme the frontend starts on and flips to.
 
-use super::THEME_CHANGED_EVENT;
+use crate::platform::window::THEME_CHANGED_EVENT;
 use crate::terminal::theming::Scheme;
 use tauri::window::Color;
 use tauri::Emitter;

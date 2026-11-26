@@ -1,4 +1,4 @@
-use super::*;
+use crate::terminal::session::registry::*;
 use std::sync::mpsc;
 
 #[test]

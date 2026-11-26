@@ -315,7 +315,7 @@ impl Fraction {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pacing::units::*;
 
     #[test]
     fn a_time_minus_a_time_is_a_span_and_a_span_moves_a_time() {

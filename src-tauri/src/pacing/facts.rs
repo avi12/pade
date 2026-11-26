@@ -252,7 +252,7 @@ impl Decision {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pacing::facts::*;
 
     const REPORT_JSON: &str = r#"{
         "windowLabel": "main",

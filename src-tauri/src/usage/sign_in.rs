@@ -1,6 +1,6 @@
 //! Reading an adapter's stored sign-in: the credentials file and the fields a usable login must carry.
 
-use super::readings::NoReadingReason;
+use crate::usage::readings::NoReadingReason;
 use crate::util::read_json;
 use std::path::PathBuf;
 

@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use super::{quoted_file_name, task, Task};
+use crate::terminal::tasks::{quoted_file_name, task, Task};
 
 /// A solution names its projects instead of holding them, so both the .NET and
 /// the MSVC family can claim one; each extractor reads it to decide. `.slnx` is

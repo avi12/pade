@@ -1,15 +1,19 @@
 use crate::test_support::assert_empty;
 use std::path::Path;
 
-use super::dotnet::{declared_targets, dotnet_tasks, entry_point_targets, msbuild_tasks};
-use super::jvm::{gradle_tasks, GRADLE, MAVEN};
-use super::manifests::ManifestMatch;
-use super::native_build::{
+use crate::terminal::tasks::dotnet::{
+    declared_targets, dotnet_tasks, entry_point_targets, msbuild_tasks,
+};
+use crate::terminal::tasks::jvm::{gradle_tasks, GRADLE, MAVEN};
+use crate::terminal::tasks::manifests::ManifestMatch;
+use crate::terminal::tasks::native_build::{
     cmake_preset_tasks, looks_like_qmake_project, make_target, make_tasks_from_text,
     text_declares_project,
 };
-use super::package_managers::{cargo_tasks, go_tasks, python_tasks_from_text, PackageManager};
-use super::{
+use crate::terminal::tasks::package_managers::{
+    cargo_tasks, go_tasks, python_tasks_from_text, PackageManager,
+};
+use crate::terminal::tasks::{
     quoted_file_name, relative_display, tasks_descriptors, Task, TaskKind, TaskManifestDescriptor,
 };
 

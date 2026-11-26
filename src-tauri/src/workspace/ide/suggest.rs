@@ -1,19 +1,19 @@
 //! Which editors to suggest for a project: ranking, coverage and the per-project choice.
 
-use super::census::source_profile;
-use super::declarations::project_declarations;
-use super::declarations::required_project_kinds;
-use super::editor_registry::EditorCoverage;
-use super::editor_registry::IdeDefinition;
-use super::editor_registry::ProjectKind;
-use super::editor_registry::REGISTRY;
-use super::editors::added_editor_ides;
-use super::editors::added_editors;
-use super::editors::lookup;
-use super::editors::Ide;
-use super::editors::ADDED_EDITOR_ID_PREFIX;
-use super::kinds::primary_declared_kind;
 use crate::util::is_on_path;
+use crate::workspace::ide::census::source_profile;
+use crate::workspace::ide::declarations::project_declarations;
+use crate::workspace::ide::declarations::required_project_kinds;
+use crate::workspace::ide::editor_registry::EditorCoverage;
+use crate::workspace::ide::editor_registry::IdeDefinition;
+use crate::workspace::ide::editor_registry::ProjectKind;
+use crate::workspace::ide::editor_registry::REGISTRY;
+use crate::workspace::ide::editors::added_editor_ides;
+use crate::workspace::ide::editors::added_editors;
+use crate::workspace::ide::editors::lookup;
+use crate::workspace::ide::editors::Ide;
+use crate::workspace::ide::editors::ADDED_EDITOR_ID_PREFIX;
+use crate::workspace::ide::kinds::primary_declared_kind;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 

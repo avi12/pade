@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use portable_pty::{Child, MasterPty};
 
-use super::SessionOwner;
 use crate::terminal::session::output::History;
+use crate::terminal::session::registry::SessionOwner;
 
 /// One live session.
 pub(super) struct Pty {

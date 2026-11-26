@@ -1,10 +1,10 @@
 //! Per-project and default agent, user-added editors and the free-form preference patch.
 
-use super::roots::canonical_path;
-use super::store::update_settings;
-use super::store::AddedEditor;
-use super::store::Prefs;
-use super::store::Settings;
+use crate::workspace::roots::canonical_path;
+use crate::workspace::store::update_settings;
+use crate::workspace::store::AddedEditor;
+use crate::workspace::store::Prefs;
+use crate::workspace::store::Settings;
 
 /// Master switch: set the default agent for every project and clear per-project
 /// overrides so the whole workspace moves to it at once.

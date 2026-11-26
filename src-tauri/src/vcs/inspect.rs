@@ -7,15 +7,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::Serialize;
 
-use super::branches::current_branch;
-use super::{
-    commit_header_format, run_git, run_git_bytes, run_git_into, validate_object_id, CommitHeader,
-    NumstatRow, StatusKind, FIELD_SEPARATOR,
-};
 use crate::platform::media::is_video;
 use crate::platform::preview::{
     image_mime_type, preview_text, video_preview, FeedImage, FeedVideo, MAXIMUM_IMAGE_BYTES,
     MAXIMUM_PREVIEW_BYTES,
+};
+use crate::vcs::branches::current_branch;
+use crate::vcs::{
+    commit_header_format, run_git, run_git_bytes, run_git_into, validate_object_id, CommitHeader,
+    NumstatRow, StatusKind, FIELD_SEPARATOR,
 };
 
 /// One file changed by a commit, with its per-file line counts.
@@ -281,7 +281,7 @@ pub(crate) async fn vcs_commit_text(
 
 #[cfg(test)]
 mod tests {
-    use super::{
+    use crate::vcs::inspect::{
         parse_numstat_records, read_commit_blob, run_git, status_kinds_by_path, write_commit_blob,
         StatusKind,
     };

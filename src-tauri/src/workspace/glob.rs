@@ -49,7 +49,7 @@ pub(crate) fn segment_matches(pattern: &str, name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{segment_matches, segments_match};
+    use crate::workspace::glob::{segment_matches, segments_match};
 
     #[test]
     fn a_star_stays_within_one_segment() {

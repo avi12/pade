@@ -125,7 +125,7 @@ pub fn command_line(process_id: u32) -> Option<String> {
 
 #[cfg(all(test, windows))]
 mod tests {
-    use super::{command_line, processes};
+    use crate::{command_line, processes};
 
     #[test]
     fn the_snapshot_holds_this_process_and_its_parent() {

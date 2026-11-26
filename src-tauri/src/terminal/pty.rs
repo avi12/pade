@@ -379,7 +379,7 @@ async fn reattach_at_startup(app: AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::terminal::pty::*;
 
     /// The `pty://data` payload is the frontend contract; borrowing its fields
     /// must not change the wire shape.

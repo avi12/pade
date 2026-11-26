@@ -15,7 +15,7 @@ const CLAUDE_KEYBINDINGS_FILE: &str = "keybindings.json";
 #[tauri::command]
 pub(crate) async fn claude_keybindings() -> Option<serde_json::Value> {
     tauri::async_runtime::spawn_blocking(|| {
-        let path = super::claude_directory()?.join(CLAUDE_KEYBINDINGS_FILE);
+        let path = crate::agents::claude_directory()?.join(CLAUDE_KEYBINDINGS_FILE);
         crate::util::read_jsonc(&path)
     })
     .await

@@ -363,7 +363,7 @@ fn converse(socket: &mut Socket, id: &str, prompt: &str) -> Result<String, ChatE
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::agents::copilot::*;
     use std::net::TcpListener;
 
     /// A fake hub on a local port: it answers the handshake, checks the URL and

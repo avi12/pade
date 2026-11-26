@@ -41,7 +41,7 @@ impl CostTier {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pacing::model_cost::*;
 
     #[test]
     fn places_a_model_by_its_family_word() {

@@ -24,7 +24,7 @@ mod symlinks;
 #[cfg(test)]
 mod tests;
 
-use super::RelocateStep;
+use crate::workspace::RelocateStep;
 use ide_recents::rewrite_ide_recents;
 use package_manager::reconcile_package_manager;
 pub(crate) use paths::moved_path;

@@ -35,7 +35,7 @@ fn is_packaged_answer(answer: WIN32_ERROR) -> bool {
 
 #[cfg(all(test, windows))]
 mod tests {
-    use super::is_packaged_answer;
+    use crate::is_packaged_answer;
     use windows::Win32::Foundation::{
         APPMODEL_ERROR_NO_PACKAGE, ERROR_INSUFFICIENT_BUFFER, ERROR_INVALID_PARAMETER,
         ERROR_SUCCESS,
@@ -55,6 +55,6 @@ mod tests {
 
     #[test]
     fn a_test_process_is_unpackaged() {
-        assert!(!super::is_packaged());
+        assert!(!crate::is_packaged());
     }
 }

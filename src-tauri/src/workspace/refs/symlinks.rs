@@ -1,6 +1,6 @@
 //! Symlinks and junctions inside a moved folder that still point at its old location, recreated at the new one.
 
-use super::paths::moved_path;
+use crate::workspace::refs::paths::moved_path;
 use std::path::Path;
 use std::path::PathBuf;
 

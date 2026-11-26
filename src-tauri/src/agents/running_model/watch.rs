@@ -10,7 +10,9 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Emitter, Manager};
 
-use super::{claude, codex, copilot, hook_sink, state_directory, STATE_FILE_EXTENSION};
+use crate::agents::running_model::{
+    claude, codex, copilot, hook_sink, state_directory, STATE_FILE_EXTENSION,
+};
 
 /// Tells every window a session's model or effort may have changed. The payload
 /// names the conversation, or is null when a settings file every session reads

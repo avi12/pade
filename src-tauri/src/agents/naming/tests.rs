@@ -1,4 +1,4 @@
-use super::{dominant_stem, extract_name, sanitize};
+use crate::agents::naming::{dominant_stem, extract_name, sanitize};
 
 #[test]
 fn sanitize_kebabs_a_titlecase_phrase() {
@@ -71,7 +71,7 @@ fn readable_transcript_collapses_repeated_repaint_frames() {
     let painted =
         "⠋ Working\nSearch Tel Aviv startups\n⠙ Working\nSearch Tel Aviv startups\n⠹ Working";
     assert_eq!(
-        super::readable_transcript(painted),
+        crate::agents::naming::readable_transcript(painted),
         "⠋ Working\nSearch Tel Aviv startups\n⠙ Working\n⠹ Working"
     );
 }

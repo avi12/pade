@@ -1,4 +1,4 @@
-use super::{
+use crate::agents::running_model::pacing_control::{
     capped_input, decide, hold_through_rest, spawn_cap, ControlPart, EpochMilliseconds,
     PacingControl, RestClock, SubagentCap, SubagentCapRequest, SubagentStep, Throttle, ToolAnswer,
     MAXIMUM_HOLD_SECONDS, MAXIMUM_REST_HOLD, SPAWN_REASON, STOP_REASON, WRAP_UP_REASON,

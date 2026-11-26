@@ -1,10 +1,10 @@
-use super::executables::find_in;
-use super::ipc::{owner_access, OwnerAccess};
-use super::json::strip_jsonc_sugar;
-use super::process::capture_within;
-use super::project_encoding::encode_project;
+use crate::util::executables::find_in;
+use crate::util::ipc::{owner_access, OwnerAccess};
+use crate::util::json::strip_jsonc_sugar;
+use crate::util::process::capture_within;
+use crate::util::project_encoding::encode_project;
 #[cfg(windows)]
-use super::registry::expand_environment_variables;
+use crate::util::registry::expand_environment_variables;
 use std::fs;
 use std::path::PathBuf;
 use std::slice;
@@ -30,7 +30,7 @@ fn oversized_output_command() -> String {
 fn output_bigger_than_the_pipe_buffer_is_captured_without_waiting_out_the_timeout() {
     let started = Instant::now();
     let run = capture_within(
-        super::shell_command(&oversized_output_command()),
+        crate::util::shell_command(&oversized_output_command()),
         CAPTURE_TIMEOUT,
     )
     .expect("a clean exit returns its whole output");
@@ -42,7 +42,7 @@ fn output_bigger_than_the_pipe_buffer_is_captured_without_waiting_out_the_timeou
 #[test]
 fn a_failed_run_still_answers_what_it_printed_to_stderr() {
     let run = capture_within(
-        super::shell_command("echo not logged in 1>&2 && exit 3"),
+        crate::util::shell_command("echo not logged in 1>&2 && exit 3"),
         CAPTURE_TIMEOUT,
     )
     .expect("the run finishes");
@@ -138,7 +138,7 @@ fn expand_environment_resolves_known_variables_and_leaves_unknown_ones() {
 }
 
 mod project_encoding_tests {
-    use super::encode_project;
+    use crate::util::tests::encode_project;
 
     #[test]
     fn every_character_but_a_letter_or_digit_becomes_a_dash() {

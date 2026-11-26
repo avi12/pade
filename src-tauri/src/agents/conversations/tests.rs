@@ -1,4 +1,4 @@
-use super::{
+use crate::agents::conversations::{
     first_typed_prompt, transcript_title, user_turn, yaml_value, UserTurn, SYNTHETIC_RECORD_FLAGS,
 };
 

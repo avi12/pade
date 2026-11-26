@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::workspace::ensure_config_directory;
 
-use super::run_git;
+use crate::vcs::run_git;
 
 /// The folder under PADE's config directory that holds every agent worktree.
 const WORKTREES_DIRECTORY: &str = "worktrees";

@@ -1,24 +1,28 @@
 //! Tests for the watcher modules.
 
-use super::arm::resolve_watch_root;
-use super::change::{
+use crate::platform::preview::{MAXIMUM_IMAGE_BYTES, MAXIMUM_PREVIEW_BYTES};
+use crate::workspace::watcher::arm::resolve_watch_root;
+use crate::workspace::watcher::change::{
     line_count, line_delta, read_authorized_file, read_preview_text, reclassify, summarize,
     surfaces, ChangeKind,
 };
-use super::events::record_first_touch_baseline;
-use super::git_state::{
+use crate::workspace::watcher::events::record_first_touch_baseline;
+use crate::workspace::watcher::git_state::{
     drain_burst, git_directory_lifecycle_changed, git_state_directories, is_git_directory_entry,
     is_git_state_file, unique_directories, GitStateMessage,
 };
-use super::ignore::{
+use crate::workspace::watcher::ignore::{
     is_under_static_ignore_directory, manifest_ignore_directories, static_ignore_directories,
 };
-use super::ignore::{IgnorePolicy, IgnoreRules};
-use super::languages::{language_news, planned_language_routes, LanguageNews, LanguageRoute};
-use super::mcp::{mcp_config_for_path, mcp_membership_changed};
-use super::registry::WindowWatches;
-use super::registry::{deepest_containing, watch_set_change, ProjectRootPayload, WatchSetChange};
-use crate::platform::preview::{MAXIMUM_IMAGE_BYTES, MAXIMUM_PREVIEW_BYTES};
+use crate::workspace::watcher::ignore::{IgnorePolicy, IgnoreRules};
+use crate::workspace::watcher::languages::{
+    language_news, planned_language_routes, LanguageNews, LanguageRoute,
+};
+use crate::workspace::watcher::mcp::{mcp_config_for_path, mcp_membership_changed};
+use crate::workspace::watcher::registry::WindowWatches;
+use crate::workspace::watcher::registry::{
+    deepest_containing, watch_set_change, ProjectRootPayload, WatchSetChange,
+};
 use std::sync::Arc;
 
 /// `watch_projects` asks git before it locks, so a slow request can finish

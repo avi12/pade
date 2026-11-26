@@ -1,9 +1,9 @@
 //! Opening a project or a file in an editor: the launcher arguments and the detached spawn.
 
-use super::editor_registry::OpenStyle;
-use super::editor_registry::REGISTRY;
-use super::editors::editor_family;
-use super::editors::executable_basename;
+use crate::workspace::ide::editor_registry::OpenStyle;
+use crate::workspace::ide::editor_registry::REGISTRY;
+use crate::workspace::ide::editors::editor_family;
+use crate::workspace::ide::editors::executable_basename;
 
 /// The jump-to-line style for a launcher command, or `None` for an unknown one.
 /// An added editor's command is its executable path, so fall back to matching

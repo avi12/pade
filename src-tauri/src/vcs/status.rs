@@ -3,7 +3,7 @@
 
 use serde::Serialize;
 
-use super::{run_git, StatusKind};
+use crate::vcs::{run_git, StatusKind};
 
 /// The index letter `git status --porcelain` prints for an untracked path (`??`).
 const UNTRACKED_LETTER: char = '?';
@@ -89,7 +89,7 @@ pub(crate) async fn vcs_diff(cwd: String, path: String, staged: bool) -> Result<
 
 #[cfg(test)]
 mod tests {
-    use super::{classify, parse_status, StatusKind};
+    use crate::vcs::status::{classify, parse_status, StatusKind};
 
     #[test]
     fn untracked_is_never_staged() {

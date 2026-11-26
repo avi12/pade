@@ -36,7 +36,7 @@ pub(crate) fn is_absent(error: &io::Error) -> bool {
 
 #[cfg(windows)]
 mod platform {
-    use super::{io, BUSY_RETRY_INTERVAL, BUSY_RETRY_WINDOW};
+    use crate::terminal::pty_host::transport::{io, BUSY_RETRY_INTERVAL, BUSY_RETRY_WINDOW};
     use tokio::net::windows::named_pipe::{
         ClientOptions, NamedPipeClient, NamedPipeServer, ServerOptions,
     };
@@ -96,7 +96,7 @@ mod platform {
 
 #[cfg(unix)]
 mod platform {
-    use super::io;
+    use crate::terminal::pty_host::transport::io;
     use tokio::net::{UnixListener, UnixStream};
 
     pub(crate) type ServerStream = UnixStream;
@@ -123,7 +123,7 @@ pub(crate) use platform::{connect, ClientStream, Listener, ServerStream};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::terminal::pty_host::transport::*;
 
     #[test]
     fn every_endpoint_is_fresh() {

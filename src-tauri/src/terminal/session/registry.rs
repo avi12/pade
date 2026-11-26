@@ -25,8 +25,10 @@ pub(super) use self::owner::SessionOwner;
 use self::pty_handle::Pty;
 use self::teardown::Teardowns;
 
-use super::launch::{launch_process, pty_size, SessionLaunch};
-use super::output::{spawn_output_pump, History, HistorySnapshot, OutputBuffers, SessionEvents};
+use crate::terminal::session::launch::{launch_process, pty_size, SessionLaunch};
+use crate::terminal::session::output::{
+    spawn_output_pump, History, HistorySnapshot, OutputBuffers, SessionEvents,
+};
 
 /// How many sessions one window may hold.
 const MAXIMUM_SESSIONS_PER_WINDOW: usize = 32;

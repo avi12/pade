@@ -1,6 +1,6 @@
 //! The Windows registry reads the live `PATH` and environment expansion need.
 
-use super::process::command;
+use crate::util::process::command;
 
 /// The single home for reading the registry via `reg query` - no registry crate,
 /// per the minimize-dependencies rule. `arguments` are the tokens after `query`

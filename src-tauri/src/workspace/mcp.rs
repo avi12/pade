@@ -58,8 +58,8 @@ pub(crate) fn snapshot(path: &Path, format: McpFormat) -> Option<McpSnapshot> {
 
 #[cfg(test)]
 mod tests {
-    use super::{snapshot, McpSnapshot};
     use crate::workspace::config::McpFormat;
+    use crate::workspace::mcp::{snapshot, McpSnapshot};
     use std::collections::BTreeSet;
 
     fn scratch(name: &str) -> std::path::PathBuf {

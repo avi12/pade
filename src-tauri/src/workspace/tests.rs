@@ -1,18 +1,18 @@
 //! Tests for the workspace modules.
 
-use super::delete::is_deletable_project;
-use super::labels::{apply_label, manual_label, LabelSource};
-use super::patient_io::retry_through_sharing_race;
-use super::preferences::apply_prefs_patch;
-use super::recents::MILLISECONDS_PER_DAY;
-use super::roots::{
+use crate::test_support::assert_empty;
+use crate::workspace::delete::is_deletable_project;
+use crate::workspace::labels::{apply_label, manual_label, LabelSource};
+use crate::workspace::patient_io::retry_through_sharing_race;
+use crate::workspace::preferences::apply_prefs_patch;
+use crate::workspace::recents::MILLISECONDS_PER_DAY;
+use crate::workspace::roots::{
     canonical_dedup, canonical_path, next_segment_completion, shared_leaf_prefix,
     validated_child_path,
 };
-use super::save::copy_tree_skipping_dependencies;
-use super::store::{Prefs, Settings, SettingsRepository};
-use super::temp::{expired_temps, is_temp_workspace_in};
-use crate::test_support::assert_empty;
+use crate::workspace::save::copy_tree_skipping_dependencies;
+use crate::workspace::store::{Prefs, Settings, SettingsRepository};
+use crate::workspace::temp::{expired_temps, is_temp_workspace_in};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

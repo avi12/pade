@@ -1,8 +1,8 @@
 //! Antigravity usage adapter (tier label only): confirms the local Google login.
 
-use super::readings::{AccountUsage, BillingAccount, NoReadingReason};
-use super::sign_in::{read_sign_in, sign_in_field};
-use super::{local_source, ANTIGRAVITY_PLAN};
+use crate::usage::readings::{AccountUsage, BillingAccount, NoReadingReason};
+use crate::usage::sign_in::{read_sign_in, sign_in_field};
+use crate::usage::{local_source, ANTIGRAVITY_PLAN};
 use crate::util::home_directory;
 
 // ---------------------------------------------------------------------------

@@ -1,14 +1,14 @@
 //! Pruning vanished projects and deleting a project or its directory.
 
-use super::patient_io::leave_if_inside;
-use super::patient_io::remove_dir_all_patiently;
-use super::store::is_project;
-use super::store::load;
-use super::store::update_settings;
-use super::store::Settings;
-use super::temp::delete_unused_temps;
-use super::temp::is_ade_owned;
-use super::temp::require_ade_owned;
+use crate::workspace::patient_io::leave_if_inside;
+use crate::workspace::patient_io::remove_dir_all_patiently;
+use crate::workspace::store::is_project;
+use crate::workspace::store::load;
+use crate::workspace::store::update_settings;
+use crate::workspace::store::Settings;
+use crate::workspace::temp::delete_unused_temps;
+use crate::workspace::temp::is_ade_owned;
+use crate::workspace::temp::require_ade_owned;
 use std::path::Path;
 use tauri::AppHandle;
 

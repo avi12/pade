@@ -27,7 +27,7 @@ impl PacingStep {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pacing::policy::*;
 
     #[test]
     fn steps_climb_from_the_mildest_to_a_stop() {

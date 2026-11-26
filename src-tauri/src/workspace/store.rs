@@ -1,7 +1,7 @@
 //! The settings store: the persisted `Settings` shapes, the config directory, the locked read-modify-write `update_settings` and the change broadcast.
 
-use super::roots::canonical_dedup;
-use super::settings_sync;
+use crate::workspace::roots::canonical_dedup;
+use crate::workspace::settings_sync;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::BTreeMap;

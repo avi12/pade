@@ -1,6 +1,6 @@
 //! The one curl transport behind every vendor's usage call: the config document, the header-token guard and the status mapping.
 
-use super::readings::RequestFailure;
+use crate::usage::readings::RequestFailure;
 use std::fmt::Write as _;
 use std::io::Write;
 use std::process::Stdio;

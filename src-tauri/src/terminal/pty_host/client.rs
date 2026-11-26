@@ -16,7 +16,7 @@ use crate::terminal::session::launch::SessionLaunch;
 use crate::terminal::session::output::HistorySnapshot;
 use crate::terminal::session::registry::{HostedSession, SessionError};
 
-use super::protocol::{Outcome, Request};
+use crate::terminal::pty_host::protocol::{Outcome, Request};
 
 use self::connection::Connection;
 use self::lifecycle::establish;
@@ -62,8 +62,8 @@ impl From<std::io::Error> for HostError {
     }
 }
 
-impl From<super::protocol::FrameError> for HostError {
-    fn from(error: super::protocol::FrameError) -> Self {
+impl From<crate::terminal::pty_host::protocol::FrameError> for HostError {
+    fn from(error: crate::terminal::pty_host::protocol::FrameError) -> Self {
         Self::Unavailable(error.to_string())
     }
 }

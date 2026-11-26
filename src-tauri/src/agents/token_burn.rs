@@ -33,9 +33,9 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use super::conversations::TRANSCRIPT_EXTENSION;
-use super::running_model::{modified_milliseconds, timestamp_milliseconds};
-use super::session_context::{claude_session_log, LogLine, TokenUsage, SYNTHETIC_MODEL};
+use crate::agents::conversations::TRANSCRIPT_EXTENSION;
+use crate::agents::running_model::{modified_milliseconds, timestamp_milliseconds};
+use crate::agents::session_context::{claude_session_log, LogLine, TokenUsage, SYNTHETIC_MODEL};
 
 /// The folder beside a transcript (named by its conversation) that holds its
 /// subagents' transcripts.

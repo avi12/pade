@@ -8,12 +8,12 @@ use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use super::{Chat, CLAUDE_PER_CHAT_FOLDERS, COPILOT_EVENT_LOG, UNKNOWN_PROJECT};
 use crate::agents::conversations::{
     copilot_workspace_cwd, COPILOT_WORKSPACE_FILE, TRANSCRIPT_EXTENSION,
 };
 use crate::agents::resume::{first_line, recorded_cwd, rollout_files, CODEX_SESSIONS_DIRECTORY};
 use crate::agents::running_model::copilot_session_root;
+use crate::agents::storage::{Chat, CLAUDE_PER_CHAT_FOLDERS, COPILOT_EVENT_LOG, UNKNOWN_PROJECT};
 use crate::agents::{
     claude_directory, claude_projects_directory, codex_home, ID_CLAUDE, ID_CODEX, ID_COPILOT,
 };

@@ -2,8 +2,10 @@
 
 use serde::Serialize;
 
-use super::{commit_header_format, run_git, validate_object_id, CommitHeader, FIELD_SEPARATOR};
 use crate::util::since_unix_epoch;
+use crate::vcs::{
+    commit_header_format, run_git, validate_object_id, CommitHeader, FIELD_SEPARATOR,
+};
 
 /// A commit ranked against a natural-language restore query: the Log view's
 /// header fields plus a relevance `score`.
@@ -191,7 +193,7 @@ pub(crate) async fn vcs_restore_checkout(cwd: String, sha: String) -> Result<Str
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_days_ago, time_hint_window, tokenize, DAY_SECONDS};
+    use crate::vcs::restore::{parse_days_ago, time_hint_window, tokenize, DAY_SECONDS};
 
     const NOW: u64 = 100 * DAY_SECONDS;
 

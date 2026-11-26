@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 use tokio::sync::mpsc;
 
-use super::connection::Connection;
+use crate::terminal::pty_host::client::connection::Connection;
 
 #[test]
 fn a_closed_connection_reports_each_known_session_once() {

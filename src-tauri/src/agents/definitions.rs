@@ -3,7 +3,7 @@
 //! arguments, theme mechanism, session-id flag), plus the PADE-owned theme
 //! definitions those entries select. Adding a backend is one entry here.
 
-use super::{
+use crate::agents::{
     SessionIdFlag, ID_AIDER, ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_GROK,
     ID_MUSE, ID_OPENCODE, ID_QWEN,
 };

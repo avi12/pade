@@ -1,4 +1,4 @@
-use super::{chats_to_delete, storage_of, Chat, Limits, MILLISECONDS_PER_DAY};
+use crate::agents::storage::{chats_to_delete, storage_of, Chat, Limits, MILLISECONDS_PER_DAY};
 use std::path::PathBuf;
 
 const NOW: u64 = 1000 * MILLISECONDS_PER_DAY;

@@ -5,8 +5,8 @@
 
 use std::io::Read;
 
-use super::state::{fold, read_state, state_file, write_json};
-use super::{claude, hook_sink, pacing_control, CONVERSATION_VARIABLE};
+use crate::agents::running_model::state::{fold, read_state, state_file, write_json};
+use crate::agents::running_model::{claude, hook_sink, pacing_control, CONVERSATION_VARIABLE};
 use crate::util::now_milliseconds;
 
 /// The first argument that turns `pade.exe` into the hook sink.

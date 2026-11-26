@@ -1,7 +1,7 @@
 //! The IDE adapters: `JetBrains`, VS Code and Cursor recent-project lists, run only where the moved folder carries that IDE's marker.
 
-use super::paths::moved_path;
-use super::paths::rewrite_file_forms;
+use crate::workspace::refs::paths::moved_path;
+use crate::workspace::refs::paths::rewrite_file_forms;
 use std::path::Path;
 
 // ---------------------------------------------------------------------------
@@ -130,7 +130,7 @@ pub(super) mod windows {
 
     use crate::util::home_directory;
 
-    use super::{rewrite_file_forms, VsCodeApp};
+    use crate::workspace::refs::ide_recents::{rewrite_file_forms, VsCodeApp};
 
     /// Rewrite `old` → `new` in every `JetBrains` IDE's `recentProjects.xml`
     /// (`~/AppData/Roaming/JetBrains/*/options/recentProjects.xml`) - one file per
@@ -221,7 +221,8 @@ pub(super) mod windows {
             return;
         };
 
-        let Some(updated) = super::moved_path(&value, old, new) else {
+        let Some(updated) = crate::workspace::refs::ide_recents::moved_path(&value, old, new)
+        else {
             return;
         };
 

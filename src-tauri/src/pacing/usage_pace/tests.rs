@@ -1,5 +1,5 @@
-use super::*;
 use crate::pacing::test_support::{account, session_window, weekly_window, NOW};
+use crate::pacing::usage_pace::*;
 
 const MINUTE: SpanMilliseconds = SpanMilliseconds::from_minutes(1.0);
 const HOUR: SpanMilliseconds = SpanMilliseconds::from_hours(1.0);

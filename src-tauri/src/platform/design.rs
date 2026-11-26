@@ -90,8 +90,8 @@ pub(crate) fn design_tools(agent: String) -> Vec<DesignTool> {
 
 #[cfg(test)]
 mod tests {
-    use super::design_tools;
     use crate::agents::{ID_ANTIGRAVITY, ID_CODEX};
+    use crate::platform::design::design_tools;
 
     #[test]
     fn the_active_agents_vendor_tool_is_pinned_first_and_flagged() {

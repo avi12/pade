@@ -1,14 +1,14 @@
 //! Claude usage adapter: the stored OAuth login, the account's windows, credits and prepaid balance, and the claude.ai OAuth request every Claude endpoint shares.
 
-use super::readings::{
+use crate::usage::readings::{
     credits_state, AccountUsage, BillingAccount, CreditBalance, CreditsState, NoReadingReason,
     RequestFailure, UsageWindow, UsageWindowKind, CREDITS_KEY,
 };
-use super::sign_in::{parse_usage_body, read_sign_in, sign_in_field};
-use super::transport::{
+use crate::usage::sign_in::{parse_usage_body, read_sign_in, sign_in_field};
+use crate::usage::transport::{
     curl_json, is_safe_header_token, CurlRequest, AUTHORIZATION_HEADER, USER_AGENT_HEADER,
 };
-use super::{
+use crate::usage::{
     local_source, plan_label, Usage, CLAUDE_OAUTH_SOURCE, CLAUDE_PLAN,
     USAGE_REQUEST_TIMEOUT_SECONDS,
 };

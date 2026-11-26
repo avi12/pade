@@ -304,7 +304,7 @@ pub fn lightest_to_restore<Id: Clone>(candidates: &[RestoreCandidate<Id>]) -> Op
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pacing::load_shedding::*;
 
     fn weight(model: &str, effort: Option<&str>) -> CostWeight {
         cost_weight(CostWeightParams {

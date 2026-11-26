@@ -1,8 +1,8 @@
 //! The member include/exclude patterns a root declares in its workspace-defining files (pnpm, npm, Cargo, uv, Go).
 
-use super::toml_text::strip_quotes;
-use super::toml_text::toml_string_array;
 use crate::workspace::glob::segments_match;
+use crate::workspace::members::toml_text::strip_quotes;
+use crate::workspace::members::toml_text::toml_string_array;
 use std::fs;
 use std::path::Path;
 

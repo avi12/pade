@@ -15,7 +15,7 @@ use crate::util::{
 };
 use crate::workspace::validated_child_path;
 
-use super::DEFAULT_REMOTE_NAME;
+use crate::vcs::DEFAULT_REMOTE_NAME;
 
 /// Is the `git` CLI available? Gates the picker's Clone tab - without git the
 /// tab shows an install prompt instead of a clone form.
@@ -67,8 +67,14 @@ pub(crate) async fn vcs_probe_remote(url: String) -> bool {
 /// The bounded `git ls-remote` behind [`vcs_probe_remote`].
 fn probe_remote(url: &str) -> bool {
     let mut ls_remote = command("git");
-    ls_remote.args(["ls-remote", "--exit-code", "--", url, super::HEAD_REFERENCE]);
-    super::harden_git(&mut ls_remote);
+    ls_remote.args([
+        "ls-remote",
+        "--exit-code",
+        "--",
+        url,
+        crate::vcs::HEAD_REFERENCE,
+    ]);
+    crate::vcs::harden_git(&mut ls_remote);
     succeeds_within(ls_remote, PROBE_REMOTE_TIMEOUT)
 }
 
@@ -222,7 +228,7 @@ fn clone_repository(
     clone
         .args(["-c", "credential.helper=", "clone", "--", &clone_url])
         .arg(&destination);
-    super::harden_git(&mut clone);
+    crate::vcs::harden_git(&mut clone);
     let askpass = credentials
         .as_ref()
         .map(|(_, password)| arm_askpass(&mut clone, password))
@@ -296,7 +302,7 @@ fn remove_credentials_from_remote(destination: &Path, clean_url: &str) -> Result
 
 #[cfg(test)]
 mod tests {
-    use super::{authenticated_url, host_and_path, https_url, is_valid_clone_url};
+    use crate::vcs::clone::{authenticated_url, host_and_path, https_url, is_valid_clone_url};
 
     #[test]
     fn host_and_path_reads_the_three_supported_shapes() {

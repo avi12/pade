@@ -1,4 +1,4 @@
-use super::*;
+use crate::agents::conversation_watch::*;
 
 const PROJECT: &str = "C:/repositories/pade";
 

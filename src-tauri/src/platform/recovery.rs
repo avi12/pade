@@ -222,7 +222,7 @@ fn rebuild(app: &tauri::AppHandle, label: &str, url: &tauri::Url, placement: &Pl
 #[cfg(test)]
 #[cfg(windows)]
 mod tests {
-    use super::ArmedAddresses;
+    use crate::platform::recovery::ArmedAddresses;
 
     fn address(query: &str) -> tauri::Url {
         tauri::Url::parse(&format!("http://localhost:1430/?{query}")).expect("a valid test url")

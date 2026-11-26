@@ -1,7 +1,7 @@
 //! The models Claude Code itself lists: its cached `/model` picker catalog read
 //! into names, effort levels with their labels and the recommended level.
 
-use super::{settings_directory, EffortOption, ModelOption};
+use crate::agents::running_model::claude::{settings_directory, EffortOption, ModelOption};
 
 /// The catalog surface Claude Code's own `/model` picker reads.
 const CATALOG_SURFACE_SUFFIX: &str = "-cc.json";

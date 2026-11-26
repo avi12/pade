@@ -207,7 +207,7 @@ pub(crate) async fn terminal_schemes() -> Vec<TerminalScheme> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
+    use crate::terminal::schemes::{
         catalogue, schemes_in_settings, vendored_schemes, TerminalScheme, BUNDLED_SCHEMES,
     };
     use crate::test_support::assert_empty;

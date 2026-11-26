@@ -1,4 +1,4 @@
-use super::{
+use crate::platform::discord::{
     activity_payload, encode_frame, read_frame, ActivityFields, DiscordError, Opcode,
     FRAME_HEADER_LENGTH,
 };
@@ -48,7 +48,7 @@ fn a_truncated_or_oversized_frame_is_an_error() {
 
 #[test]
 fn every_ipc_socket_slot_is_tried_in_order() {
-    let names: Vec<String> = super::ipc_socket_names().collect();
+    let names: Vec<String> = crate::platform::discord::ipc_socket_names().collect();
     assert_eq!(names.len(), 10);
     assert_eq!(names[0], "discord-ipc-0");
     assert_eq!(names[9], "discord-ipc-9");
@@ -103,7 +103,7 @@ fn activity_payload_carries_the_language_overlay_when_given() {
 
 #[test]
 fn clear_payload_sends_a_null_activity() {
-    let payload = super::clear_payload("nonce-2");
+    let payload = crate::platform::discord::clear_payload("nonce-2");
     let value: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
     assert_eq!(value["cmd"], serde_json::json!("SET_ACTIVITY"));
     assert_eq!(value["args"]["activity"], serde_json::Value::Null);

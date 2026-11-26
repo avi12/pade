@@ -91,7 +91,7 @@ fn save_clipboard_image(app: &tauri::AppHandle) -> Result<Option<String>, String
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::platform::clipboard::*;
     use crate::test_support::assert_empty;
 
     fn seconds(count: u64) -> Duration {

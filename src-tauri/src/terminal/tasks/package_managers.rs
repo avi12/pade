@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use super::{task, Task};
+use crate::terminal::tasks::{task, Task};
 
 /// `package.json` - each `scripts` key is a task; the package manager is picked
 /// from the lockfile in the same directory (pnpm/yarn/npm).

@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
-use super::registry::SessionOwner;
+use crate::terminal::session::registry::SessionOwner;
 
 /// Where a session's output goes once it is in the session's own buffers - in
 /// the PTY host, the connected app. A trait so the session engine can run (and
@@ -302,7 +302,7 @@ pub(super) fn spawn_output_pump(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::terminal::session::output::*;
     use crate::test_support::assert_empty;
 
     fn history_with(chunks: &[&str]) -> (Mutex<History>, u64) {

@@ -1,14 +1,14 @@
 //! Language-census watches: tells the frontend when a project's languages may have changed.
 
-use super::change::ChangeKind;
-use super::ignore::compute_ignore_policy;
-use super::ignore::is_always_ignored;
-use super::ignore::is_gitignore_file;
-use super::ignore::IgnoreRules;
-use super::registry::prune_closed_windows;
-use super::registry::window_watches;
-use super::registry::LanguageWatch;
-use super::registry::WatcherState;
+use crate::workspace::watcher::change::ChangeKind;
+use crate::workspace::watcher::ignore::compute_ignore_policy;
+use crate::workspace::watcher::ignore::is_always_ignored;
+use crate::workspace::watcher::ignore::is_gitignore_file;
+use crate::workspace::watcher::ignore::IgnoreRules;
+use crate::workspace::watcher::registry::prune_closed_windows;
+use crate::workspace::watcher::registry::window_watches;
+use crate::workspace::watcher::registry::LanguageWatch;
+use crate::workspace::watcher::registry::WatcherState;
 use notify::Event;
 use notify::RecursiveMode;
 use notify::Watcher;

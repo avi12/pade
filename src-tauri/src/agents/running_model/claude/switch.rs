@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use super::{
+use crate::agents::running_model::claude::{
     read, read_settings, saved_effort, settings_file, state_directory, ModelChoice, MODEL_KEY,
     MODEL_SETTINGS_KEY,
 };

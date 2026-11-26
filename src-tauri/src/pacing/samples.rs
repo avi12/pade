@@ -92,7 +92,7 @@ impl SampleBook {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pacing::samples::*;
     use crate::pacing::test_support::{account, session_window, NOW};
     use crate::pacing::units::SpanMilliseconds;
 

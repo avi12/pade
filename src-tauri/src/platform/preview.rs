@@ -151,7 +151,7 @@ pub(crate) fn preview_text(bytes: Vec<u8>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{base64_encode, image_mime_type, preview_text, FeedImage};
+    use crate::platform::preview::{base64_encode, image_mime_type, preview_text, FeedImage};
     use std::path::Path;
 
     #[test]

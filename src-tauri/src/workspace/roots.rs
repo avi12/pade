@@ -1,11 +1,11 @@
 //! Project roots: adding and removing them, scanning for projects, path probing and creating a project.
 
-use super::recents::workspace_open;
-use super::store::is_project;
-use super::store::update_settings;
-use super::store::ProjectEntry;
-use super::store::Settings;
-use super::store::GIT_DIRECTORY;
+use crate::workspace::recents::workspace_open;
+use crate::workspace::store::is_project;
+use crate::workspace::store::update_settings;
+use crate::workspace::store::ProjectEntry;
+use crate::workspace::store::Settings;
+use crate::workspace::store::GIT_DIRECTORY;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::Path;

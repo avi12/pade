@@ -105,7 +105,7 @@ fn effort_on_ladder(query: EffortQuery<'_>) -> Option<(usize, usize)> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::pacing::model_label::*;
 
     fn step(model: &str, effort: &str, ladder: &[&str]) -> Option<EffortStep> {
         let ladder: Vec<String> = ladder.iter().map(ToString::to_string).collect();

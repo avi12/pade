@@ -140,7 +140,7 @@ fn prune_retired(target: &Path) {
 
 #[cfg(test)]
 mod tests {
-    use super::{marked, place, prune_retired, RETIRED_MARKER};
+    use crate::agents::running_model::hook_sink::{marked, place, prune_retired, RETIRED_MARKER};
     use std::path::PathBuf;
     use std::time::{Duration, SystemTime};
 

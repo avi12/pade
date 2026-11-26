@@ -1,16 +1,16 @@
 //! Temp workspaces and ownership: which folders PADE created, which it may move or delete, and the expiry of unused temps.
 
-use super::delete::delete_directory;
-use super::recents::workspace_open;
-use super::recents::MILLISECONDS_PER_DAY;
-use super::roots::canonical_path;
-use super::store::ensure_config_directory;
-use super::store::load;
-use super::store::update_settings;
-use super::store::Settings;
-use super::store::TEMP_WORKSPACE_PREFIX;
-use super::store::WORKSPACES_DIRECTORY;
 use crate::util::now_milliseconds;
+use crate::workspace::delete::delete_directory;
+use crate::workspace::recents::workspace_open;
+use crate::workspace::recents::MILLISECONDS_PER_DAY;
+use crate::workspace::roots::canonical_path;
+use crate::workspace::store::ensure_config_directory;
+use crate::workspace::store::load;
+use crate::workspace::store::update_settings;
+use crate::workspace::store::Settings;
+use crate::workspace::store::TEMP_WORKSPACE_PREFIX;
+use crate::workspace::store::WORKSPACES_DIRECTORY;
 use std::path::Path;
 use std::path::PathBuf;
 

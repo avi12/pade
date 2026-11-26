@@ -2,9 +2,9 @@
 //! behaviours `usage-pacing.test.ts`, `usage-pace.test.ts` and
 //! `account-round.test.ts` hold the TypeScript to.
 
-use super::*;
 use crate::pacing::account_round::is_throttling;
 use crate::pacing::account_round::SubagentReport;
+use crate::pacing::engine::*;
 use crate::pacing::facts::{CanStepDown, ModelChoiceFacts, ObservedKind, WindowLabel};
 use crate::pacing::facts::{PaceFacts, PacePhase};
 use crate::pacing::samples::RecordParams;

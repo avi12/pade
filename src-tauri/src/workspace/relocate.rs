@@ -1,14 +1,14 @@
 //! Moving and renaming a workspace folder, then re-keying every path-keyed setting to the new path.
 
-use super::patient_io::leave_if_inside;
-use super::patient_io::rename_patiently;
-use super::refs;
-use super::roots::validated_child_path;
-use super::store::load;
-use super::store::update_settings;
-use super::store::Settings;
-use super::temp::require_ade_owned;
-use super::watcher;
+use crate::workspace::patient_io::leave_if_inside;
+use crate::workspace::patient_io::rename_patiently;
+use crate::workspace::refs;
+use crate::workspace::roots::validated_child_path;
+use crate::workspace::store::load;
+use crate::workspace::store::update_settings;
+use crate::workspace::store::Settings;
+use crate::workspace::temp::require_ade_owned;
+use crate::workspace::watcher;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::Path;
