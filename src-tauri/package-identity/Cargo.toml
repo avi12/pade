@@ -18,7 +18,7 @@ publish = false
 [target."cfg(windows)".dependencies]
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Storage_Packaging_Appx"] }
 
-# avi12-lint:begin rust-config (generated from rust-config-avi12; edit avi12-rust.local.toml)
+# avi12-lint:begin rust-config (generated from lint-config rust-config; edit avi12-rust.local.toml)
 [lints.rust]
 # Win32 package identity calls
 unsafe_code = "allow"

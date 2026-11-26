@@ -52,7 +52,7 @@ windows = { version = "0.62", features = [
 # allow unsafe: an in-proc COM server is inherently unsafe (raw vtable pointers,
 # FFI). Every other lint stays at the pedantic-with-`-D warnings` level.
 
-# avi12-lint:begin rust-config (generated from rust-config-avi12; edit avi12-rust.local.toml)
+# avi12-lint:begin rust-config (generated from lint-config rust-config; edit avi12-rust.local.toml)
 [lints.rust]
 # The COM context-menu handler is Win32 FFI
 unsafe_code = "allow"

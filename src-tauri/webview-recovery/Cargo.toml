@@ -24,7 +24,7 @@ windows-core = "0.62"
 # Same strict bar as the main crate (rust-best-practices), but this crate MUST
 # allow unsafe: COM event registration is FFI. Everything else stays pedantic.
 
-# avi12-lint:begin rust-config (generated from rust-config-avi12; edit avi12-rust.local.toml)
+# avi12-lint:begin rust-config (generated from lint-config rust-config; edit avi12-rust.local.toml)
 [lints.rust]
 # WebView2 COM calls
 unsafe_code = "allow"
