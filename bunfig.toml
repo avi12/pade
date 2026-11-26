@@ -1,0 +1,3 @@
+[install]
+# One day, the minimum age of a release
+minimumReleaseAge = 86400
