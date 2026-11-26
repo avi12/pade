@@ -1,5 +1,5 @@
 {
-  "extends": ["stylelint-config-avi12"],
+  "extends": ["lint-config/stylelint"],
   "overrides": [
     {
       "files": ["src/lib/session/SessionTabs.svelte"],

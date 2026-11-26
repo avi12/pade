@@ -11,7 +11,7 @@
 // docs/handoff-webview2-resize-blank.md). It is a boot-and-render gate only.
 //
 // Reuses an already-running instance when one serves CDP on :9222 (the dev
-// loop); otherwise launches `pnpm app` itself and tears it down afterwards.
+// loop); otherwise launches `bun run app` itself and tears it down afterwards.
 import { execSync, spawn } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -34,8 +34,8 @@ async function cdpTargets() {
 
 let launched = null;
 if (!(await cdpTargets())) {
-  console.log("smoke: launching the app (pnpm app) with a CDP port…");
-  launched = spawn("pnpm", ["app"], {
+  console.log("smoke: launching the app (bun run app) with a CDP port…");
+  launched = spawn("bun", ["run", "app"], {
     shell: true,
     stdio: "ignore",
     env: {
@@ -128,7 +128,7 @@ function teardown() {
     return;
   }
 
-  // The pnpm shim spawns a tree (vite + cargo + the app) - kill all of it.
+  // bun spawns a tree (vite + cargo + the app) - kill all of it.
   try {
     execSync(`taskkill /pid ${launched.pid} /T /F`, { stdio: "ignore" });
   } catch {

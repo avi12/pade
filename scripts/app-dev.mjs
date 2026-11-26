@@ -1,4 +1,4 @@
-// `pnpm app`: `tauri dev` with the webview's DevTools port (9222) open, so the
+// `bun run app`: `tauri dev` with the webview's DevTools port (9222) open, so the
 // live frontend can always be inspected and driven over CDP. The Rust side
 // honours the switch only in debug builds (lib.rs), so a release never exposes it.
 import { spawnSync } from "node:child_process";

@@ -15,7 +15,7 @@ it.
 
 PADE keeps its settings in `%APPDATA%\pade` and its WebView2 data in
 `%LOCALAPPDATA%`. The MSIX carries the Windows 11 context-menu handler as a file
-its manifest declares; an unpackaged exe (`pnpm app:build`, a development run)
+its manifest declares; an unpackaged exe (`bun run app:build`, a development run)
 carries it inside itself and writes it out beside itself when "Open in PADE" is
 turned on. WebView2 ships with Windows 11.
 
@@ -95,7 +95,7 @@ Every push to `main` is released (see `CLAUDE.md`). With the work committed:
 2. Run
 
    ```powershell
-   pnpm release <major.minor.patch> <notes-file>
+   bun run release <major.minor.patch> <notes-file>
    ```
 
 `scripts/release.mjs` (a thin entry over one module per stage in
@@ -131,7 +131,7 @@ installed from asks Windows for a newer package each time PADE starts, and PADE
 itself never checks (`src-tauri/src/platform/package.rs` is the one answer).
 
 A copy that is **not** packaged - an exe or MSI PADE shipped before it became
-MSIX-only, or a `pnpm app:build` exe - cannot update itself any more. A
+MSIX-only, or a `bun run app:build` exe - cannot update itself any more. A
 published one still polls `docs/updates.json` from `main`
 (raw.githubusercontent.com) at start and every six hours
 (`src-tauri/src/update.rs`), only to compare versions. When the manifest names a
@@ -139,7 +139,7 @@ newer one, Config → Updates and a toast say "PADE now ships as an MSIX package
 install it from the latest release", and **Open release page** opens that
 release in the browser. Nothing is downloaded, swapped or elevated.
 
-- A development build (`pnpm app`) or a release build run from `src-tauri\target`
+- A development build (`bun run app`) or a release build run from `src-tauri\target`
   never checks, so never nags.
 - **Check for updates** in Config turns the check off, and with it every
   connection it makes.

@@ -1,7 +1,7 @@
 // Golden fixtures for the Rust port of the usage-pacing math: it sweeps a grid of
 // inputs (and a seeded random scatter) through the TypeScript functions and
 // returns what they answer, so `src-tauri/src/pacing/golden_fixtures.rs` can hold
-// the Rust functions to the same numbers. `pnpm pacing:fixtures` (from the repo
+// the Rust functions to the same numbers. `bun run pacing:fixtures` (from the repo
 // root) writes them to `src-tauri/src/pacing/fixtures/`; run it whenever a pacing
 // rule changes and commit the JSON it rewrites. The generators live per domain in
 // `scripts/pacing-fixtures/`.

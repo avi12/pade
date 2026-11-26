@@ -526,7 +526,7 @@ frame around underneath it. (An earlier ungated version did precisely that.)
 
 Both shipped bundles (`lib/xterm.js`, `lib/xterm.mjs`) carry both changes; the patch
 script asserts each site matches exactly once, so a version bump fails loudly instead
-of silently no-op'ing. After any `pnpm patch` / `pnpm install`, clear
+of silently no-op'ing. After any `bun run patch` / `bun install`, clear
 `node_modules/.vite` and restart, or Vite serves a stale pre-patch bundle and you
 will "verify" the wrong code.
 
@@ -649,7 +649,7 @@ which the agent's next paint covers, instead of the terminal.
 ## Harness - how to measure this yourself
 
 - Launch with CDP:
-  `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9222' pnpm tauri dev -- "<project>"`,
+  `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9222' bun run tauri dev -- "<project>"`,
   then drive `http://127.0.0.1:9222` (a dependency-free WebSocket client is enough).
 - **Never resize the OS window programmatically** (CDP `Browser.setWindowBounds`) -
   it triggers the WebView2 non-present bug in `handoff-webview2-resize-blank.md`

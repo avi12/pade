@@ -1,5 +1,5 @@
-# Files `tauri dev` must not restart the app for. Every `pnpm release` bumps
+# Files `tauri dev` must not restart the app for. Every `bun run release` bumps
 # the version in both, and a restart kills every running agent session; a
-# real dependency change still needs a manual restart of `pnpm app`.
+# real dependency change still needs a manual restart of `bun run app`.
 Cargo.toml
 Cargo.lock

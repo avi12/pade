@@ -1,4 +1,4 @@
-import { svelte } from "eslint-config-avi12/svelte";
+import { svelte } from "lint-config/eslint/svelte";
 
 export default svelte({
   ignores: [".fallow/", ".verify/", ".claude/worktrees/", "src-tauri/target/", "dist/", "release/"]

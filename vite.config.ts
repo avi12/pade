@@ -58,7 +58,7 @@ export default defineConfig({
       // Everything else there is written by tools beside a live session, and on
       // Windows a watched file locked or deleted under the watcher kills it for
       // good: the app keeps running but never receives another hot update until
-      // `pnpm app` restarts. That is src-tauri's locked .pdb/.exe artifacts
+      // `bun run app` restarts. That is src-tauri's locked .pdb/.exe artifacts
       // (EBUSY), `release/` getting each release's package, `dist/`
       // emptied by every build, the subagent worktrees under `.claude/` (copies
       // of the whole source, deleted again), and `.svelte-check/`, whose

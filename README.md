@@ -62,7 +62,7 @@ Full status per requirement: [`docs/requirements.md`](docs/requirements.md).
 
 ## Prerequisites
 
-- **Node** ≥ 18 and **pnpm** (`corepack enable` picks up the version pinned in
+- **Node** ≥ 18 and **Bun** (the version is pinned in
   `package.json`)
 - **Rust** (stable) via [rustup](https://rustup.rs)
 - Platform WebView + build tools per the
@@ -73,8 +73,8 @@ Full status per requirement: [`docs/requirements.md`](docs/requirements.md).
 ## Run (development)
 
 ```bash
-pnpm install
-pnpm app          # tauri dev - compiles the Rust core and opens the native window, DevTools (CDP) on :9222
+bun install
+bun run app          # tauri dev - compiles the Rust core and opens the native window, DevTools (CDP) on :9222
 ```
 
 The terminal launches your platform shell by default. To launch an agent CLI
@@ -82,9 +82,9 @@ directly, set its command:
 
 ```bash
 # macOS/Linux
-ADE_AGENT_CMD=claude pnpm app
+ADE_AGENT_CMD=claude bun run app
 # Windows PowerShell
-$env:ADE_AGENT_CMD="claude"; pnpm app
+$env:ADE_AGENT_CMD="claude"; bun run app
 ```
 
 Then edit any file in the repo and watch it appear in the Change Feed.
@@ -97,12 +97,12 @@ Every [release](https://github.com/avi12/pade/releases) has a signed MSIX
 [docs/releasing.md](docs/releasing.md)); Windows then keeps PADE up to date.
 
 ```bash
-pnpm app:build                 # tauri build --no-bundle → src-tauri/target/release/pade.exe
-pnpm release <version> <notes> # build the exe, pack the MSIX, tag, publish the GitHub release and update manifest
+bun run app:build                 # tauri build --no-bundle → src-tauri/target/release/pade.exe
+bun run release <version> <notes> # build the exe, pack the MSIX, tag, publish the GitHub release and update manifest
 ```
 
 Tauri builds for the host platform only, so run the build on each OS you target.
-Before cutting a release, run the quality gates: `pnpm lint` and `pnpm test`.
+Before cutting a release, run the quality gates: `bun run lint` and `bun run test`.
 [`docs/releasing.md`](docs/releasing.md) has the release steps and how installed copies update.
 
 ## Architecture

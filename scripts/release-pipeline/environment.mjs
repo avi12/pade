@@ -15,11 +15,6 @@ export const CONTEXT_MENU_HANDLER = join(RELEASE_TARGET, CONTEXT_MENU_HANDLER_FI
 export const EXECUTABLE_FILE = "pade.exe";
 export const BUILT_EXECUTABLE = join(RELEASE_TARGET, EXECUTABLE_FILE);
 
-const IS_WINDOWS = process.platform === "win32";
-/** Commands installed as a `.cmd` shim on Windows, which only a shell can
- *  start. Their arguments here never hold a space, so the shell can't split one. */
-const SHIM_COMMANDS = new Set(["pnpm"]);
-
 export const MSIX_ONLY_FLAG = "--msix-only";
 
 /** Environment variable names are case-blind on Windows; compared lowercased. */
@@ -33,8 +28,7 @@ export function run({ command, args, environment = {} }) {
     env: {
       ...process.env,
       ...environment
-    },
-    shell: IS_WINDOWS && SHIM_COMMANDS.has(command)
+    }
   });
 }
 

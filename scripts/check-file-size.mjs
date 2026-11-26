@@ -1,7 +1,7 @@
 // Ratchet against bloated files: counts the non-test, non-blank, non-comment
 // lines of every source file and fails when a file over the limit is new or
 // has grown past the size recorded in scripts/file-size-baseline.json.
-// Usage: pnpm lint:size [--update | --init]. --update only ever lowers the
+// Usage: bun run lint:size [--update | --init]. --update only ever lowers the
 // baseline; --init writes the first one from the current tree.
 
 import { execFileSync } from "node:child_process";
@@ -82,7 +82,7 @@ const findings = judgeSizes({
   baseline
 });
 for (const { path, size, recorded } of findings.filter(finding => finding.kind === Verdict.Shrunk)) {
-  console.log(`shrunk: ${path} is ${size} lines (baseline ${recorded}) - run pnpm lint:size --update to tighten`);
+  console.log(`shrunk: ${path} is ${size} lines (baseline ${recorded}) - run bun run lint:size --update to tighten`);
 }
 
 const failures = findings.filter(finding => finding.kind === Verdict.Fail);

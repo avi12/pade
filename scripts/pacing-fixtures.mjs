@@ -1,7 +1,7 @@
 // Runs scripts/pacing-fixtures.ts through Vite's module loader, so the `@/`
 // alias and the TypeScript resolve exactly as they do in the app and its tests,
 // and writes what it returns to the Rust port's fixture folder.
-// Usage: pnpm pacing:fixtures (from the repo root).
+// Usage: bun run pacing:fixtures (from the repo root).
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";

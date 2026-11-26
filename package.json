@@ -19,10 +19,10 @@
     "test:js": "vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:e2e": "node scripts/smoke.mjs",
-    "test": "pnpm test:js && pnpm test:rust",
+    "test": "bun run test:js && bun run test:rust",
     "fallow": "fallow audit --base HEAD",
     "lint:fix": "avi12-lint --fix",
-    "lint:all": "pnpm lint && pnpm lint:rust && pnpm lint:size && pnpm fallow"
+    "lint:all": "bun run lint && bun run lint:rust && bun run lint:size && bun run fallow"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
@@ -34,31 +34,40 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@ast-grep/cli": "^0.44.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tauri-apps/cli": "^2.12.3",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
-    "avi12-lint": "github:avi12/lint-config#v0.11.0&path:/packages/avi12-lint",
     "eslint": "^10.13.0",
-    "eslint-config-avi12": "github:avi12/lint-config#v0.11.0&path:/packages/eslint-config",
     "eslint-plugin-svelte": "^3.24.0",
     "fallow": "2.103.0",
-    "fallow-config-avi12": "github:avi12/lint-config#v0.11.0&path:/packages/fallow-config",
+    "globals": "^17.13.0",
+    "lint-config": "github:avi12/lint-config#v0.12.0",
     "oxfmt": "^0.78.0",
-    "oxfmt-config-avi12": "github:avi12/lint-config#v0.11.0&path:/packages/oxfmt-config",
     "oxlint": "1.90.0",
-    "oxlint-config-avi12": "github:avi12/lint-config#v0.11.0&path:/packages/oxlint-config",
-    "oxlint-plugin-naming": "github:avi12/lint-config#v0.11.0&path:/packages/oxlint-plugin-naming",
     "postcss-html": "^2.0.0",
     "stylelint": "^17.16.0",
-    "stylelint-config-avi12": "github:avi12/lint-config#v0.11.0&path:/packages/stylelint-config",
-    "stylelint-config-standard": "^40.0.0",
+    "stylelint-config-ccb": "^3.32.0",
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.6",
     "svelte-eslint-parser": "^1.10.1",
     "tsrs": "0.25.0-ts7.1.0-beta",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1",
     "vite": "^8.3.4",
     "vitest": "^5.0.4"
   },
-  "packageManager": "pnpm@11.1.2"
+  "packageManager": "bun@1.4.5",
+  "trustedDependencies": [
+    "esbuild",
+    "fallow",
+    "@ast-grep/cli"
+  ],
+  "overrides": {
+    "fast-uri": "3.1.4"
+  },
+  "patchedDependencies": {
+    "@xterm/xterm@6.1.0-beta.288": "patches/@xterm__xterm@6.1.0-beta.288.patch",
+    "svelte@5.57.2": "patches/svelte@5.57.2.patch"
+  }
 }

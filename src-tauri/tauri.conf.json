@@ -5,8 +5,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1430",
-    "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build"
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build"
   },
   "app": {
     "windows": [

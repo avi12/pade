@@ -30,10 +30,10 @@ These are non-negotiable for all work in this repo.
      a helper on top of `sendMessage` exists only when it adds behaviour (e.g.
      `sendSettingsMessage`), never as a pass-through wrapper.
    - No file over ~500 lines of non-test code: split by concern into a semantic
-     subfolder (never one named `release/`, it is gitignored). `pnpm lint:size`
+     subfolder (never one named `release/`, it is gitignored). `bun run lint:size`
      enforces it against `scripts/file-size-baseline.json`, which only shrinks -
      a new file over the limit, or a baselined file that grows, fails; tighten
-     with `pnpm lint:size --update`.
+     with `bun run lint:size --update`.
 
 3. **Tree-shaking** - keep the bundle lean. Use named ESM imports (never
    `import * as`), no side-effectful barrel files, `import type` for types, and
@@ -61,7 +61,7 @@ These are non-negotiable for all work in this repo.
    same turn - proactively, without waiting to be asked - so `main` on the remote
    never lags behind completed, verified work.
    **Every push is released.** Once the commits are pushed, cut a GitHub release
-   in the same turn with `pnpm release <version> <notes-file>` (see
+   in the same turn with `bun run release <version> <notes-file>` (see
    `docs/releasing.md`): bump the patch version by default (minor for a feature
    users would notice); the notes file holds the **changelog highlights** -
    plain sentences for users, no file names - and the script appends the link to
@@ -379,9 +379,9 @@ clippy `-D warnings` finding needs an idiomatic fix rather than an `#[allow]`.
 
 ## After every batch of changes
 
-1. **Run the linters, and leave zero errors.** Run `pnpm lint` (oxlint and
+1. **Run the linters, and leave zero errors.** Run `bun run lint` (oxlint and
    eslint, stylelint, clippy at `-D warnings` plus `cargo fmt`, and the fallow
-   audit) and `pnpm check`. Fix every error, including ones in files you didn't
+   audit) and `bun run check`. Fix every error, including ones in files you didn't
    touch, before you commit or call the work done. Never silence a rule to get
    past it.
 2. **Enforce the engineering principles above on what you changed**, in
@@ -402,40 +402,39 @@ platform (PADE ships only as a signed MSIX); Tauri builds for the host OS only.
 
 ### Prerequisites
 
-- Node 18 or newer, with pnpm via corepack. The pnpm version is pinned in
-  `package.json` (`packageManager`), currently pnpm 11.1.2.
+- Node 18 or newer, and Bun. The Bun version is pinned in
+  `package.json` (`packageManager`), currently 1.4.5.
 - Rust stable via rustup.
 - Platform prerequisites per Tauri: on Windows, WebView2 (preinstalled on
   Windows 11) and the MSVC build tools.
 
-If `pnpm` is not recognized in your shell, fix that before building anything:
-Tauri's `beforeBuildCommand` spawns `pnpm build` as a child process, so
-invoking through `corepack pnpm tauri build` is not enough - `pnpm` itself
-must resolve on `PATH` in the same shell. `corepack enable` installs the
-shims next to Node. Verify with `pnpm --version` (expect 11.1.2).
+If `bun` is not recognized in your shell, fix that before building anything:
+Tauri's `beforeBuildCommand` spawns `bun run build` as a child process, so
+`bun` itself must resolve on `PATH` in the same shell. Verify with
+`bun --version` (expect 1.4.5).
 
 ### Install and develop
 
 ```powershell
-pnpm install
-pnpm app          # tauri dev: Rust core + native window, frontend on :1430, CDP on :9222
-pnpm dev          # Vite only, no native window
+bun install
+bun run app          # tauri dev: Rust core + native window, frontend on :1430, CDP on :9222
+bun run dev          # Vite only, no native window
 ```
 
 `tauri dev` restarts the app, and every agent session in it, on any change
 under `src-tauri/` except what `src-tauri/.taurignore` lists: `Cargo.toml`
 and `Cargo.lock`, so a release's version bump leaves the app running. After
-changing a dependency, restart `pnpm app` by hand.
+changing a dependency, restart `bun run app` by hand.
 
 ### Build the frontend only
 
 ```powershell
-pnpm build        # vite build -> dist/
+bun run build        # vite build -> dist/
 ```
 
 ### Build for release (local, publishes nothing)
 
-A plain `pnpm app:build` produces an exe WITHOUT the embedded Windows 11
+A plain `bun run app:build` produces an exe WITHOUT the embedded Windows 11
 context-menu handler: `src-tauri/build.rs` embeds the handler only when
 `PADE_CONTEXT_MENU_HANDLER` points at the built DLL. To get the files that
 actually ship, replicate the build steps from `scripts/release.mjs`:
@@ -443,7 +442,7 @@ actually ship, replicate the build steps from `scripts/release.mjs`:
 ```powershell
 cargo build --release --manifest-path src-tauri/Cargo.toml -p contextmenu-handler
 $env:PADE_CONTEXT_MENU_HANDLER = (Resolve-Path 'src-tauri/target/release/contextmenu_handler.dll').Path
-pnpm tauri build --no-bundle
+bun run tauri build --no-bundle
 ```
 
 Output: `src-tauri/target/release/pade.exe`. Verify the exe before reporting done:
@@ -471,17 +470,17 @@ node scripts/release.mjs --msix-only <major.minor.patch>
 Run these before calling work done (see `package.json` for the scripts):
 
 ```powershell
-pnpm check        # svelte-check type gate
-pnpm lint         # oxlint + eslint, stylelint, cargo clippy -D warnings + fmt, file-size ratchet, fallow audit
-pnpm test         # vitest + cargo test
+bun run check        # svelte-check type gate
+bun run lint         # oxlint + eslint, stylelint, cargo clippy -D warnings + fmt, file-size ratchet, fallow audit
+bun run test         # vitest + cargo test
 ```
 
-Note: `pnpm lint:rust` runs `cargo fmt`, which rewrites files. Check
+Note: `bun run lint:rust` runs `cargo fmt`, which rewrites files. Check
 `git status` afterwards and do not keep formatting churn you did not intend.
 
 ### Publishing a release (only when the user explicitly asks to publish)
 
-`pnpm release <major.minor.patch> <notes-file>` is NOT a build command. It
+`bun run release <major.minor.patch> <notes-file>` is NOT a build command. It
 bumps the version, builds as above, commits `chore(release): <version>`, tags,
 pushes, creates the GitHub release with `PADE-<version>.msix`,
 `PADE.msix`, `PADE.cer` and `PADE.appinstaller`, and pushes the update manifest

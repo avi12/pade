@@ -131,7 +131,7 @@ Reuse existing modules: `usage_pace`, `load_shedding`, `account_round`, `subagen
   `usage-pace`/`account-round` tests and the TS code paths), registry freshness, samples persistence round trip,
   shadow comparison logic.
 - Frontend: tests for the report builder (pure part) and the recorder.
-- All gates green: `pnpm check`, `pnpm lint` (clippy -D warnings, cargo fmt, fallow), `pnpm test`.
+- All gates green: `bun run check`, `bun run lint` (clippy -D warnings, cargo fmt, fallow), `bun run test`.
 - ARCHITECTURE.md module map + docs/requirements.md note (shadow phase) in the same change.
 
 ## Shadow comparison and summary (as built)
