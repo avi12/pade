@@ -353,7 +353,8 @@ fn the_sharing_race_retry_stops_at_the_first_success() {
     let mut calls = 0;
     let outcome = retry_through_sharing_race(|| {
         calls += 1;
-        if calls < 3 {
+        let is_early_call = calls < 3;
+        if is_early_call {
             return Err(std::io::Error::other("still held"));
         }
         Ok(())

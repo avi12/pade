@@ -38,14 +38,16 @@ pub fn work_rhythm(duty: Fraction) -> WorkRhythm {
     let bounded_duty = duty.get().clamp(0.0, 1.0);
     let longest_rest_duty =
         MINIMUM_WORK_STRETCH_MS.get() / (MINIMUM_WORK_STRETCH_MS.get() + MAXIMUM_REST_MS.get());
-    if bounded_duty <= longest_rest_duty {
+    let is_within_longest_rest = bounded_duty <= longest_rest_duty;
+    if is_within_longest_rest {
         return WorkRhythm {
             stretch: MINIMUM_WORK_STRETCH_MS,
             rest: MAXIMUM_REST_MS,
         };
     }
 
-    if bounded_duty >= 1.0 {
+    let is_full_duty = bounded_duty >= 1.0;
+    if is_full_duty {
         return WorkRhythm {
             stretch: MINIMUM_WORK_STRETCH_MS,
             rest: MINIMUM_REST_MS,

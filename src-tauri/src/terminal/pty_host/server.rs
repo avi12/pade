@@ -194,7 +194,8 @@ impl Host {
 
     fn detach(&self, connection: u64) {
         if let Ok(mut attached) = self.attached.lock() {
-            if *attached == Some(connection) {
+            let is_attached_connection = *attached == Some(connection);
+            if is_attached_connection {
                 *attached = None;
             }
         }
@@ -294,7 +295,8 @@ async fn exit_when_idle(host: Arc<Host>) {
             continue;
         }
         let since = *quiet_since.get_or_insert_with(Instant::now);
-        if since.elapsed() >= IDLE_EXIT_AFTER {
+        let is_idle_too_long = since.elapsed() >= IDLE_EXIT_AFTER;
+        if is_idle_too_long {
             host.log.write("idle with no app attached; exiting");
             host.shutdown.notify_one();
             return;
@@ -324,7 +326,8 @@ async fn serve_connection(host: Arc<Host>, stream: ServerStream, connection: u64
                 host.log.write("refused a connection with a wrong token");
                 return;
             }
-            if protocol_version != PROTOCOL_VERSION {
+            let is_protocol_mismatch = protocol_version != PROTOCOL_VERSION;
+            if is_protocol_mismatch {
                 let mismatch = Greeting::VersionMismatch {
                     protocol_version: PROTOCOL_VERSION,
                 };

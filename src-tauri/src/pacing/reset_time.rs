@@ -51,7 +51,8 @@ fn trim_sub_millisecond_digits(iso: &str) -> String {
             .bytes()
             .take_while(u8::is_ascii_digit)
             .count();
-        if digits > MILLISECOND_DIGITS {
+        let is_beyond_milliseconds = digits > MILLISECOND_DIGITS;
+        if is_beyond_milliseconds {
             let kept_end = point + 1 + MILLISECOND_DIGITS;
             let dropped_end = point + 1 + digits;
             return format!("{}{}", &iso[..kept_end], &iso[dropped_end..]);

@@ -47,10 +47,16 @@ pub(super) fn strip_jsonc_sugar(raw: &str) -> String {
             json.push(character);
             if is_escaped {
                 is_escaped = false;
-            } else if character == '\\' {
-                is_escaped = true;
-            } else if character == '"' {
-                is_in_string = false;
+            } else {
+                let is_backslash = character == '\\';
+                if is_backslash {
+                    is_escaped = true;
+                } else {
+                    let is_quote = character == '"';
+                    if is_quote {
+                        is_in_string = false;
+                    }
+                }
             }
             continue;
         }
@@ -64,7 +70,8 @@ pub(super) fn strip_jsonc_sugar(raw: &str) -> String {
                 // A line comment ends at the newline, which is kept so the rest
                 // of the file keeps the line structure the user wrote.
                 for skipped in characters.by_ref() {
-                    if skipped == '\n' {
+                    let is_line_break = skipped == '\n';
+                    if is_line_break {
                         json.push('\n');
                         break;
                     }
@@ -74,7 +81,8 @@ pub(super) fn strip_jsonc_sugar(raw: &str) -> String {
                 characters.next();
                 let mut is_after_star = false;
                 for skipped in characters.by_ref() {
-                    if is_after_star && skipped == '/' {
+                    let is_comment_closed = is_after_star && skipped == '/';
+                    if is_comment_closed {
                         break;
                     }
                     is_after_star = skipped == '*';

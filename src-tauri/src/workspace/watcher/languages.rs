@@ -104,7 +104,8 @@ pub(super) fn language_news(
             git_directories, ..
         } => git_directories.iter().any(|directory| directory == parent),
     });
-    if is_in_git_directory && is_tracked_set_file(path) {
+    let is_tracked_set_change = is_in_git_directory && is_tracked_set_file(path);
+    if is_tracked_set_change {
         return Some(LanguageNews::TrackedSet);
     }
     let LanguageRoute::WorkingTree { ignore_rules, .. } = route else {
@@ -115,10 +116,12 @@ pub(super) fn language_news(
         return None;
     }
     let is_rules_change = is_gitignore_file(path);
-    if is_rules_change || !ignore_rules.is_installed() {
+    let needs_rules_install = is_rules_change || !ignore_rules.is_installed();
+    if needs_rules_install {
         ignore_rules.install(compute_ignore_policy(watched));
     }
-    if !is_rules_change && ignore_rules.excludes(path) {
+    let is_ignored_change = !is_rules_change && ignore_rules.excludes(path);
+    if is_ignored_change {
         return None;
     }
     Some(LanguageNews::WorkingTree)
@@ -174,7 +177,8 @@ pub(super) fn report_language_news(
     project: &str,
     news: LanguageNews,
 ) {
-    if news == LanguageNews::WorkingTree {
+    let is_working_tree_news = news == LanguageNews::WorkingTree;
+    if is_working_tree_news {
         crate::workspace::ide::note_working_tree_change(Path::new(project));
     }
     let _ = app.emit_to(label, LANGUAGES_CHANGED_EVENT, project);

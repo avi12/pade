@@ -249,7 +249,8 @@ mod tests {
         let channel = |offset: usize| {
             let byte = u8::from_str_radix(&hex[offset..offset + 2], 16).expect("hex pair");
             let value = f64::from(byte) / 255.0;
-            if value <= 0.03928 {
+            let is_linear_segment = value <= 0.03928;
+            if is_linear_segment {
                 value / 12.92
             } else {
                 ((value + 0.055) / 1.055).powf(2.4)

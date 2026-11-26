@@ -92,7 +92,8 @@ impl SessionRegistry {
                 .values()
                 .filter(|pty| pty.owner.matches_label(owner))
                 .count();
-            if owner_session_count >= MAXIMUM_SESSIONS_PER_WINDOW {
+            let is_window_at_session_limit = owner_session_count >= MAXIMUM_SESSIONS_PER_WINDOW;
+            if is_window_at_session_limit {
                 return Err(SessionError::WindowFull);
             }
         }
@@ -119,7 +120,8 @@ impl SessionRegistry {
         let duplicate = {
             let mut sessions = self.sessions.lock()?;
             let existing = session_access(&sessions, id, owner).map(|found| found.is_some());
-            if existing == Ok(false) {
+            let is_known_absent = existing == Ok(false);
+            if is_known_absent {
                 sessions.insert(id.to_string(), pty);
                 None
             } else {
@@ -273,7 +275,8 @@ impl SessionRegistry {
             .values()
             .filter(|pty| pty.owner.matches_label(to))
             .count();
-        if receiving_count + moving.len() > MAXIMUM_SESSIONS_PER_WINDOW {
+        let is_over_session_limit = receiving_count + moving.len() > MAXIMUM_SESSIONS_PER_WINDOW;
+        if is_over_session_limit {
             return Err(SessionError::ReceivingWindowFull);
         }
         // Only an owner label changes hands - a pointer-sized write per session -

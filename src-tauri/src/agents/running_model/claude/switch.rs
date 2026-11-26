@@ -162,10 +162,16 @@ fn is_settings_saved_since(moment: SystemTime) -> bool {
 fn wait_for_quiet_settings() {
     let deadline = std::time::Instant::now() + SETTINGS_QUIET_LIMIT;
     let mut last_seen = settings_modified_at();
-    while std::time::Instant::now() < deadline {
+    loop {
+        let is_within_deadline = std::time::Instant::now() < deadline;
+        if !is_within_deadline {
+            break;
+        }
+
         std::thread::sleep(SETTINGS_QUIET);
         let now_seen = settings_modified_at();
-        if now_seen == last_seen {
+        let is_settled = now_seen == last_seen;
+        if is_settled {
             return;
         }
         last_seen = now_seen;
@@ -175,7 +181,12 @@ fn wait_for_quiet_settings() {
 /// Poll `has_landed` until it holds or `within` runs out.
 fn wait_until(within: Duration, has_landed: impl Fn() -> bool) -> bool {
     let deadline = std::time::Instant::now() + within;
-    while std::time::Instant::now() < deadline {
+    loop {
+        let is_within_deadline = std::time::Instant::now() < deadline;
+        if !is_within_deadline {
+            break;
+        }
+
         if has_landed() {
             return true;
         }
@@ -199,7 +210,8 @@ fn restore_saved_defaults(settings: &Path, snapshot: Option<&str>) -> Result<(),
     let Ok(current) = std::fs::read_to_string(settings) else {
         return Ok(());
     };
-    if current == snapshot {
+    let is_unchanged = current == snapshot;
+    if is_unchanged {
         return Ok(());
     }
     let (Ok(before), Ok(mut after)) = (
@@ -220,7 +232,8 @@ fn restored_text(
     before: &serde_json::Value,
     after: &serde_json::Value,
 ) -> Result<String, String> {
-    if after == before {
+    let is_restored = after == before;
+    if is_restored {
         return Ok(snapshot.to_string());
     }
     let mut text = serde_json::to_string_pretty(after).map_err(|error| error.to_string())?;

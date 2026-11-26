@@ -102,7 +102,8 @@ enum WatchedPlace {
 impl WatchedPlace {
     /// Only per-session folders nest; everything else is one flat directory.
     fn recursive_mode(self) -> RecursiveMode {
-        if self == Self::SessionFolders {
+        let is_session_folders = self == Self::SessionFolders;
+        if is_session_folders {
             RecursiveMode::Recursive
         } else {
             RecursiveMode::NonRecursive

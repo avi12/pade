@@ -12,7 +12,8 @@ use crate::vcs::{run_git, HEAD_REFERENCE};
 pub(super) fn current_branch(cwd: &str) -> Option<String> {
     let raw = run_git(cwd, &["rev-parse", "--abbrev-ref", HEAD_REFERENCE]).ok()?;
     let name = raw.trim();
-    if name.is_empty() || name == HEAD_REFERENCE {
+    let is_invalid_name = name.is_empty() || name == HEAD_REFERENCE;
+    if is_invalid_name {
         return None;
     }
     Some(name.to_string())

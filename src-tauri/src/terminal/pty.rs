@@ -123,7 +123,9 @@ pub(crate) async fn pty_spawn(
         || model_choice
             .as_ref()
             .is_some_and(|choice| !choice.is_well_formed());
-    if exceeds_argument_limits || exceeds_string_limits || !are_valid_dimensions(cols, rows) {
+    let is_invalid_launch =
+        exceeds_argument_limits || exceeds_string_limits || !are_valid_dimensions(cols, rows);
+    if is_invalid_launch {
         return Err("PTY request exceeds its input limits".into());
     }
 

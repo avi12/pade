@@ -140,7 +140,8 @@ pub fn next_subagent_step(params: NextStepParams) -> Option<NextSubagentStep> {
         return None;
     };
 
-    if held >= MAXIMUM_HOLD_SECONDS {
+    let is_held_long_enough = held >= MAXIMUM_HOLD_SECONDS;
+    if is_held_long_enough {
         return Some(NextSubagentStep {
             step: SubagentStep::WrapUp,
             saving: Fraction::WHOLE,
@@ -169,7 +170,8 @@ pub fn eased_subagent_step(current: SubagentStep) -> Option<SubagentStep> {
     };
 
     let halved = hold_seconds.get() / HOLD_GROWTH;
-    if halved < MINIMUM_HOLD_SECONDS.get() {
+    let is_below_minimum_hold = halved < MINIMUM_HOLD_SECONDS.get();
+    if is_below_minimum_hold {
         return None;
     }
 

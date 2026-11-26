@@ -358,7 +358,8 @@ pub(crate) fn claude_transcript(conversation_id: &str) -> Option<PathBuf> {
 /// Claude's path encoding. The one place this file is located; see the module
 /// note on why only Claude is resolved.
 pub(super) fn claude_session_log(command: &str, conversation_id: Option<&str>) -> Option<PathBuf> {
-    if command != ID_CLAUDE {
+    let is_other_command = command != ID_CLAUDE;
+    if is_other_command {
         return None;
     }
     let conversation_id = conversation_id?;

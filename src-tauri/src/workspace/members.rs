@@ -198,7 +198,8 @@ fn census(root: &Path) -> BTreeMap<String, Found> {
                 name: package_name(&directory.join(manifest_name), *ecosystem),
             },
         );
-        if manifest.is_none() && !is_repository {
+        let is_not_member = manifest.is_none() && !is_repository;
+        if is_not_member {
             continue;
         }
         found.insert(

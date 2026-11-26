@@ -333,7 +333,8 @@ pub(super) fn spawn_git_state_coalescer(
                     rearm_git_state_locked(&app, &watch, &plan, &mut guard);
                 }
             }
-            if burst.rearm || burst.ignore_touched {
+            let needs_ignore_reload = burst.rearm || burst.ignore_touched;
+            if needs_ignore_reload {
                 // A `git init` flips the feed's ignore policy from the static
                 // fallback to git's own rules; a touched ancestor `.gitignore`
                 // changes the rules in place. Both re-filter the events already
@@ -341,7 +342,8 @@ pub(super) fn spawn_git_state_coalescer(
                 // policy locks instead.
                 refresh_ignore_policy(&app, &watch);
             }
-            if burst.rearm || burst.state_touched {
+            let needs_state_refresh = burst.rearm || burst.state_touched;
+            if needs_state_refresh {
                 let _ = app.emit_to(
                     &watch.label,
                     GIT_STATE_EVENT,

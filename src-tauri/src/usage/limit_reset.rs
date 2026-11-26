@@ -142,7 +142,8 @@ static OFFER_CACHE: Mutex<Option<(Instant, Vec<LimitReset>)>> = Mutex::new(None)
 fn fetch_offers() -> Vec<LimitReset> {
     let cached = OFFER_CACHE.lock().ok().and_then(|guard| guard.clone());
     if let Some((read_at, offers)) = &cached {
-        if read_at.elapsed() < USAGE_CACHE_TTL {
+        let is_cache_fresh = read_at.elapsed() < USAGE_CACHE_TTL;
+        if is_cache_fresh {
             return offers.clone();
         }
     }

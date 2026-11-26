@@ -67,7 +67,8 @@ fn copilot_live_usage(token: &str) -> Result<AccountUsage, NoReadingReason> {
 
     let has_plan = response.get("copilot_plan").is_some();
     let windows = collect_copilot_windows(&response);
-    if windows.is_empty() && !has_plan {
+    let has_nothing_to_report = windows.is_empty() && !has_plan;
+    if has_nothing_to_report {
         return Err(NoReadingReason::Unreachable);
     }
 
@@ -143,7 +144,8 @@ fn copilot_percent_used(snapshot: &serde_json::Value) -> Option<f64> {
     let entitlement = snapshot
         .get("entitlement")
         .and_then(serde_json::Value::as_f64)?;
-    if entitlement <= 0.0 {
+    let is_without_entitlement = entitlement <= 0.0;
+    if is_without_entitlement {
         return None;
     }
     Some((1.0 - remaining / entitlement) * FULL_PERCENTAGE)

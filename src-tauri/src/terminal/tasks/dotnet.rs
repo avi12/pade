@@ -44,7 +44,8 @@ pub(super) fn references_native_project(path: &Path) -> bool {
 /// is `MSBuild`'s, not the SDK's.
 pub(super) fn dotnet_tasks(path: &Path) -> Vec<Task> {
     let solution = is_solution(path);
-    if solution && references_native_project(path) {
+    let is_native_solution = solution && references_native_project(path);
+    if is_native_solution {
         return Vec::new();
     }
     let target = quoted_file_name(path);
@@ -149,7 +150,8 @@ pub(super) fn element_end(text: &str) -> Option<usize> {
     let mut quote: Option<char> = None;
     for (index, character) in text.char_indices() {
         let Some(open) = quote else {
-            if character == '>' {
+            let is_tag_end = character == '>';
+            if is_tag_end {
                 return Some(index);
             }
 
@@ -159,7 +161,8 @@ pub(super) fn element_end(text: &str) -> Option<usize> {
 
             continue;
         };
-        if character == open {
+        let is_closing_quote = character == open;
+        if is_closing_quote {
             quote = None;
         }
     }
@@ -203,7 +206,8 @@ pub(super) fn attribute(element: &str, name: &str) -> Option<String> {
 /// `MSBuild`. `Debug` is the configuration Visual Studio opens with, so it is the
 /// one a "build" here means.
 pub(super) fn msbuild_tasks(path: &Path) -> Vec<Task> {
-    if is_solution(path) && !references_native_project(path) {
+    let is_managed_solution = is_solution(path) && !references_native_project(path);
+    if is_managed_solution {
         return Vec::new();
     }
     let target = quoted_file_name(path);

@@ -93,7 +93,8 @@ fn session_name(transcript: &str, agent: &str) -> Option<String> {
     // namer saw mostly the loading chrome. Collapse to distinct content lines
     // first so the namer reads what was SAID, not one frame's UI amplified.
     let readable = readable_transcript(transcript);
-    if readable.len() < MINIMUM_SESSION_NAME_INPUT_LENGTH {
+    let is_too_little_input = readable.len() < MINIMUM_SESSION_NAME_INPUT_LENGTH;
+    if is_too_little_input {
         return None;
     }
 
@@ -133,11 +134,17 @@ pub(crate) fn readable_transcript(transcript: &str) -> String {
 /// The trailing `maximum_length` bytes of `text`, snapped to a char boundary - most recent
 /// context matters most and keeps the prompt bounded.
 pub(crate) fn tail(text: &str, maximum_length: usize) -> &str {
-    if text.len() <= maximum_length {
+    let is_short_enough = text.len() <= maximum_length;
+    if is_short_enough {
         return text;
     }
     let mut start = text.len() - maximum_length;
-    while start < text.len() && !text.is_char_boundary(start) {
+    loop {
+        let is_inside_character = start < text.len() && !text.is_char_boundary(start);
+        if !is_inside_character {
+            break;
+        }
+
         start += 1;
     }
     &text[start..]
@@ -229,7 +236,8 @@ fn gather_files(directory: &Path) -> Vec<String> {
             continue;
         };
         for entry in entries.flatten() {
-            if files.len() >= MAXIMUM_FILES {
+            let is_file_limit_reached = files.len() >= MAXIMUM_FILES;
+            if is_file_limit_reached {
                 return files;
             }
             let name = entry.file_name();
@@ -239,7 +247,8 @@ fn gather_files(directory: &Path) -> Vec<String> {
             }
             let path = entry.path();
             if path.is_dir() {
-                if depth < MAXIMUM_DEPTH {
+                let is_within_depth = depth < MAXIMUM_DEPTH;
+                if is_within_depth {
                     stack.push((path, depth + 1));
                 }
                 continue;
@@ -414,7 +423,8 @@ fn dominant_stem(files: &[String]) -> Option<String> {
             .and_then(|value| value.to_str())
             .unwrap_or("")
             .to_lowercase();
-        if stem.is_empty() || NOISE.contains(&stem.as_str()) {
+        let is_noise = stem.is_empty() || NOISE.contains(&stem.as_str());
+        if is_noise {
             continue;
         }
         *counts.entry(stem).or_insert(0) += 1;

@@ -131,7 +131,8 @@ fn manifest_directories(root: &Path) -> Vec<PathBuf> {
     let mut stack = vec![(root.to_path_buf(), 0u8)];
     while let Some((directory, depth)) = stack.pop() {
         directories.push(directory.clone());
-        if depth >= MAXIMUM_DEPTH {
+        let is_too_deep = depth >= MAXIMUM_DEPTH;
+        if is_too_deep {
             continue;
         }
         let Ok(entries) = std::fs::read_dir(&directory) else {

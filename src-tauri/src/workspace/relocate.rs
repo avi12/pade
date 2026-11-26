@@ -172,7 +172,8 @@ pub(super) fn relocate_folder_now(
         .ok()
         .zip(std::fs::canonicalize(destination).ok())
         .is_some_and(|(source, target)| source == target);
-    if destination.exists() && !is_same_folder {
+    let is_destination_taken = destination.exists() && !is_same_folder;
+    if is_destination_taken {
         return Err(format!("{} already exists", destination.display()));
     }
 
@@ -188,7 +189,8 @@ pub(super) fn relocate_folder_now(
     report(RelocateStep::Settings);
     update_settings(|settings| {
         retarget(settings, from, &destination_string);
-        if label == MovedLabel::Drop {
+        let is_dropped = label == MovedLabel::Drop;
+        if is_dropped {
             settings.labels.remove(&destination_string);
         }
         Ok(())

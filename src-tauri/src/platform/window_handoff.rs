@@ -41,7 +41,8 @@ pub(crate) async fn hand_off(
     sessions: &[String],
     payload: String,
 ) -> Result<(), String> {
-    if payload.len() > MAXIMUM_HANDOFF_BYTES {
+    let is_payload_too_large = payload.len() > MAXIMUM_HANDOFF_BYTES;
+    if is_payload_too_large {
         return Err("hand-off exceeds its size limit".into());
     }
     let host = app.state::<HostClient>();
@@ -59,7 +60,8 @@ fn park(app: &AppHandle, to: &str, payload: String) -> Result<bool, String> {
     let handoffs = app.state::<WindowHandoffs>();
     let mut parked = handoffs.0.lock().map_err(|error| error.to_string())?;
     let waiting = parked.entry(to.to_string()).or_default();
-    if waiting.len() >= MAXIMUM_PARKED_HANDOFFS {
+    let is_parking_full = waiting.len() >= MAXIMUM_PARKED_HANDOFFS;
+    if is_parking_full {
         return Ok(false);
     }
     waiting.push(payload);

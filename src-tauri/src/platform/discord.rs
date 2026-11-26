@@ -371,12 +371,14 @@ fn read_frame(stream: &mut dyn DuplexStream) -> Result<(), DiscordError> {
     stream.read_exact(&mut header)?;
     let [_, _, _, _, length @ ..] = header;
     let length = u64::from(u32::from_le_bytes(length));
-    if length > MAXIMUM_FRAME_PAYLOAD {
+    let is_payload_too_long = length > MAXIMUM_FRAME_PAYLOAD;
+    if is_payload_too_long {
         return Err(DiscordError::OversizedFrame);
     }
     // Drained into a sink: the reply is never inspected, so it needs no buffer.
     let drained = std::io::copy(&mut stream.take(length), &mut std::io::sink())?;
-    if drained < length {
+    let has_more_to_drain = drained < length;
+    if has_more_to_drain {
         return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof).into());
     }
     Ok(())

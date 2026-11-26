@@ -109,7 +109,8 @@ pub(super) fn credits_state(response: &serde_json::Value) -> Option<CreditsState
     let is_held_back = credits
         .get("disabled_reason")
         .is_some_and(serde_json::Value::is_string);
-    if is_cap_spent || is_spend_limit_reached || is_held_back {
+    let is_blocked = is_cap_spent || is_spend_limit_reached || is_held_back;
+    if is_blocked {
         return Some(CreditsState::Unavailable);
     }
     Some(CreditsState::Available)

@@ -73,12 +73,22 @@ fn base64_encode(bytes: &[u8]) -> String {
         let third = chunk.get(2).copied().unwrap_or(0);
         encoded.push(sextet(first >> 2));
         encoded.push(sextet((first << 4) | (second >> 4)));
-        encoded.push(if chunk.len() > 1 {
-            sextet((second << 2) | (third >> 6))
-        } else {
-            PAD
+        encoded.push({
+            let has_second_byte = chunk.len() > 1;
+            if has_second_byte {
+                sextet((second << 2) | (third >> 6))
+            } else {
+                PAD
+            }
         });
-        encoded.push(if chunk.len() > 2 { sextet(third) } else { PAD });
+        encoded.push({
+            let has_third_byte = chunk.len() > 2;
+            if has_third_byte {
+                sextet(third)
+            } else {
+                PAD
+            }
+        });
     }
     encoded
 }

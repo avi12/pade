@@ -53,7 +53,9 @@ fn configure_webview2_environment() {
     // absolute terms, but immune to GPU contention.
     let is_software_render_preferred = workspace::load().prefs.passthrough.get("softwareRender")
         == Some(&serde_json::Value::Bool(true));
-    if is_software_render_preferred || is_switch_on("PADE_SOFTWARE_RENDER") {
+    let should_render_in_software =
+        is_software_render_preferred || is_switch_on("PADE_SOFTWARE_RENDER");
+    if should_render_in_software {
         browser_arguments.push("--disable-gpu".to_string());
     }
     // WebView2 takes its locale - and so every `Intl` date, time and number -
@@ -308,7 +310,9 @@ pub fn run() {
             // its replacement (same label, same URL) is about to be built,
             // and killing the PTYs now would defeat the recovery. An
             // explicit exit (`code` present) is always honored.
-            if code.is_none() && platform::recovery::is_recreate_pending() {
+            let is_exit_for_recreation =
+                code.is_none() && platform::recovery::is_recreate_pending();
+            if is_exit_for_recreation {
                 api.prevent_exit();
                 return;
             }

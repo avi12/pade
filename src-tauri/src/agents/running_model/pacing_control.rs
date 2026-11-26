@@ -236,7 +236,8 @@ pub(crate) async fn agent_set_pacing_control(
         let next = read_control(&conversation_id)
             .unwrap_or_default()
             .with_part(&command, part);
-        if !next.is_stopped && next.rest_until.is_none() {
+        let is_resumed = !next.is_stopped && next.rest_until.is_none();
+        if is_resumed {
             forget_stop_seen(&conversation_id);
         }
         if next.is_empty() {
@@ -401,7 +402,8 @@ fn forget_stop_seen(conversation_id: &str) {
         return;
     };
     if let Err(error) = std::fs::remove_file(path) {
-        if error.kind() != std::io::ErrorKind::NotFound {
+        let is_unexpected_error = error.kind() != std::io::ErrorKind::NotFound;
+        if is_unexpected_error {
             eprintln!("pade: could not clear the hook's stop note: {error}");
         }
     }
@@ -419,7 +421,8 @@ fn read_control(conversation_id: &str) -> Option<PacingControl> {
 fn decide(control: &PacingControl, report: &serde_json::Value) -> ToolAnswer {
     let tool = tool_name(report);
     let tool = tool.as_str();
-    if control.is_stopped && !CLAUDE_STOPPING_TOOLS.contains(&tool) {
+    let is_blocked_tool = control.is_stopped && !CLAUDE_STOPPING_TOOLS.contains(&tool);
+    if is_blocked_tool {
         return ToolAnswer::deny(STOP_REASON);
     }
 

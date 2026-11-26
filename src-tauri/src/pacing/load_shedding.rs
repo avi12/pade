@@ -137,7 +137,8 @@ pub fn cost_weight(params: CostWeightParams<'_>) -> CostWeight {
         return CostWeight(tier_weight * MIDDLE_EFFORT_WEIGHT);
     };
 
-    let height = if place.steps > 1 {
+    let has_several_steps = place.steps > 1;
+    let height = if has_several_steps {
         f64::from(place.step - 1) / f64::from(place.steps - 1)
     } else {
         1.0
@@ -270,7 +271,8 @@ pub fn plan_shedding<Id: Clone>(params: PlanSheddingParams<'_, Id>) -> Vec<Id> {
     let mut chosen = Vec::new();
     let mut saved = Load::ZERO;
     for candidate in ranked {
-        if saved >= needed {
+        let has_saved_enough = saved >= needed;
+        if has_saved_enough {
             break;
         }
 

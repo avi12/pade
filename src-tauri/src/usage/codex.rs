@@ -192,7 +192,8 @@ fn codex_window(value: &serde_json::Value, feature: Option<&str>) -> Option<Usag
 /// refused - see [`is_safe_header_token`].
 fn read_codex_usage_endpoint(login: &CodexLogin) -> Result<String, RequestFailure> {
     let CodexLogin { token, account_id } = *login;
-    if !is_safe_header_token(token) || !is_safe_header_token(account_id) {
+    let is_unsafe_request = !is_safe_header_token(token) || !is_safe_header_token(account_id);
+    if is_unsafe_request {
         return Err(RequestFailure::Rejected);
     }
 

@@ -56,7 +56,9 @@ impl<'a> Pass<'a> {
             });
         }
 
-        if is_stepped_down(session) && !self.restored.contains(&session.id) {
+        let is_newly_stepped_down =
+            is_stepped_down(session) && !self.restored.contains(&session.id);
+        if is_newly_stepped_down {
             self.decisions.push(Decision::RestoreChoice {
                 session: session.id.clone(),
             });
@@ -123,11 +125,13 @@ impl<'a> Pass<'a> {
         let is_stop = pace.rest_until.is_none();
         let is_still_over_pace =
             binding.is_some_and(|binding| !is_stop || is_nearly_spent(&binding.window));
-        if is_still_over_pace || is_still_stopping {
+        let is_still_held = is_still_over_pace || is_still_stopping;
+        if is_still_held {
             return;
         }
 
-        if pace.phase == PacePhase::Overridden {
+        let is_overridden = pace.phase == PacePhase::Overridden;
+        if is_overridden {
             self.decisions.push(Decision::Release {
                 session: session.id.clone(),
             });
@@ -146,7 +150,8 @@ impl<'a> Pass<'a> {
     /// As its window is about to reset a paused session continues on its own -
     /// unless the user took it over, which ends the pause.
     pub(super) fn continue_at_reset(&mut self, session: &SessionFacts, pace: &PaceFacts) {
-        let decision = if pace.phase == PacePhase::Overridden {
+        let is_overridden = pace.phase == PacePhase::Overridden;
+        let decision = if is_overridden {
             Decision::Release {
                 session: session.id.clone(),
             }

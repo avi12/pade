@@ -12,7 +12,8 @@ pub(crate) fn segments_match<Segment: AsRef<str>>(pattern: &[Segment], path: &[&
     let Some((head, rest)) = pattern.split_first() else {
         return path.is_empty();
     };
-    if head.as_ref() == ANY_DEPTH_SEGMENT {
+    let is_any_depth = head.as_ref() == ANY_DEPTH_SEGMENT;
+    if is_any_depth {
         return (0..=path.len())
             .any(|skip| segments_match(rest, path.get(skip..).unwrap_or_default()));
     }

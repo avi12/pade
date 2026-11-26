@@ -210,7 +210,8 @@ pub(crate) fn migrate_from_ade() {
     let old = base.join(LEGACY_CONFIG_DIRECTORY);
     let new = base.join(CONFIG_DIRECTORY);
     let is_already_migrated = new.exists();
-    if is_already_migrated || !old.exists() {
+    let is_nothing_to_migrate = is_already_migrated || !old.exists();
+    if is_nothing_to_migrate {
         return;
     }
     if std::fs::rename(&old, &new).is_err() {
@@ -294,7 +295,8 @@ impl SettingsRepository {
         let before = self.load_unlocked();
         let mut settings = before.clone();
         mutate(&mut settings)?;
-        let written = if settings == before {
+        let is_unchanged = settings == before;
+        let written = if is_unchanged {
             None
         } else {
             Some(self.save_unlocked(&settings)?)

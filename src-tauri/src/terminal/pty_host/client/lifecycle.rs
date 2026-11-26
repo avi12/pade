@@ -189,7 +189,8 @@ pub(super) async fn retire(state: &HostState) -> Result<(), HostError> {
             Err(HostError::Unavailable(_)) => return Ok(()),
             Err(error) => return Err(error),
         };
-        if greeting == Greeting::Retired {
+        let is_retired = greeting == Greeting::Retired;
+        if is_retired {
             return wait_until_gone(state).await;
         }
         tokio::time::sleep(BUSY_RETRY_INTERVAL).await;
@@ -201,7 +202,12 @@ pub(super) async fn retire(state: &HostState) -> Result<(), HostError> {
 
 pub(super) async fn wait_until_gone(state: &HostState) -> Result<(), HostError> {
     let deadline = tokio::time::Instant::now() + HOST_START_TIMEOUT;
-    while tokio::time::Instant::now() < deadline {
+    loop {
+        let is_within_deadline = tokio::time::Instant::now() < deadline;
+        if !is_within_deadline {
+            break;
+        }
+
         match transport::connect(&state.endpoint).await {
             Err(error) if transport::is_absent(&error) => return Ok(()),
             _ => tokio::time::sleep(POLL_INTERVAL).await,
@@ -213,7 +219,8 @@ pub(super) async fn wait_until_gone(state: &HostState) -> Result<(), HostError> 
 /// Delete a state file whose host is gone - unless it has changed since it was
 /// read, which means a new host has just published itself.
 pub(super) fn remove_if_unchanged(state_file: &Path, stale: &HostState) {
-    if read_state(state_file).as_ref() != Some(stale) {
+    let is_state_replaced = read_state(state_file).as_ref() != Some(stale);
+    if is_state_replaced {
         return;
     }
     if let Err(error) = std::fs::remove_file(state_file) {
@@ -244,7 +251,12 @@ pub(super) async fn start_host(
 
 pub(super) async fn wait_for_state(state_file: &Path) -> Result<HostState, HostError> {
     let deadline = tokio::time::Instant::now() + HOST_START_TIMEOUT;
-    while tokio::time::Instant::now() < deadline {
+    loop {
+        let is_within_deadline = tokio::time::Instant::now() < deadline;
+        if !is_within_deadline {
+            break;
+        }
+
         if let Some(state) = read_state(state_file) {
             return Ok(state);
         }

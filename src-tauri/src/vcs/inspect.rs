@@ -140,7 +140,8 @@ fn status_kinds_by_path(name_status: &str) -> HashMap<&str, StatusKind> {
 
     while let Some(code) = fields.next() {
         let kind = StatusKind::from_status_code(code);
-        let path = if kind == StatusKind::Renamed {
+        let is_rename = kind == StatusKind::Renamed;
+        let path = if is_rename {
             new_path_of_rename(&mut fields)
         } else {
             fields.next()
@@ -190,7 +191,8 @@ fn commit_blob(cwd: &str, sha: &str, path: &str) -> Option<(String, u64)> {
 /// no such file or the file is larger than `maximum_bytes`.
 fn read_commit_blob(cwd: &str, sha: &str, path: &str, maximum_bytes: u64) -> Option<Vec<u8>> {
     let (spec, size) = commit_blob(cwd, sha, path)?;
-    if size > maximum_bytes {
+    let is_too_large = size > maximum_bytes;
+    if is_too_large {
         return None;
     }
     run_git_bytes(cwd, &["cat-file", "blob", &spec]).ok()
@@ -212,7 +214,8 @@ fn write_commit_blob(cwd: &str, sha: &str, path: &str) -> Option<ScratchFile> {
     static NEXT_SCRATCH: AtomicU64 = AtomicU64::new(0);
 
     let (spec, size) = commit_blob(cwd, sha, path)?;
-    if size > MAXIMUM_VIDEO_BYTES {
+    let is_video_too_large = size > MAXIMUM_VIDEO_BYTES;
+    if is_video_too_large {
         return None;
     }
     let extension = Path::new(path).extension()?.to_string_lossy();

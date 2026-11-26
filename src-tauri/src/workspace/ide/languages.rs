@@ -144,7 +144,8 @@ pub(super) fn cached_language_shares(path: &str) -> Vec<LanguageShare> {
 /// and ordered biggest first.
 pub(super) fn language_shares(totals: &BTreeMap<&'static str, u64>) -> Vec<LanguageShare> {
     let total: u64 = totals.values().sum();
-    if total == 0 {
+    let is_empty_total = total == 0;
+    if is_empty_total {
         return Vec::new();
     }
 

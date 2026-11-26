@@ -45,7 +45,9 @@ pub(crate) fn validated_child_path(root: &Path, name: &str) -> Result<PathBuf, S
     let name = name.trim();
     let has_separator = name.contains(['/', '\\']);
     let has_control = name.chars().any(char::is_control);
-    if name.is_empty() || name == "." || name == ".." || has_separator || has_control {
+    let is_invalid_name =
+        name.is_empty() || name == "." || name == ".." || has_separator || has_control;
+    if is_invalid_name {
         return Err("folder name must be one plain path segment".into());
     }
 
@@ -67,7 +69,8 @@ pub(crate) fn validated_child_path(root: &Path, name: &str) -> Result<PathBuf, S
             )
         });
         let is_reserved = RESERVED_DEVICE_NAMES.contains(&stem.as_str()) || is_reserved_port;
-        if name.contains(':') || name.ends_with(['.', ' ']) || is_reserved {
+        let is_forbidden_name = name.contains(':') || name.ends_with(['.', ' ']) || is_reserved;
+        if is_forbidden_name {
             return Err("folder name is reserved by Windows".into());
         }
     }
@@ -197,7 +200,8 @@ pub(super) fn split_for_completion(input: &str) -> Option<(PathBuf, String)> {
     let cut = input.rfind(['\\', '/'])?;
     let (head, tail) = input.split_at(cut);
     let prefix = tail[1..].to_string();
-    let parent = if head.is_empty() || head.ends_with(':') {
+    let is_drive_or_empty = head.is_empty() || head.ends_with(':');
+    let parent = if is_drive_or_empty {
         format!("{head}{}", std::path::MAIN_SEPARATOR)
     } else {
         head.to_string()
@@ -263,7 +267,8 @@ pub(super) fn next_segment_completion(
     let (Some(first), Some(last)) = (matches.values().next(), matches.values().next_back()) else {
         return String::new();
     };
-    if matches.len() == 1 {
+    let is_unique_match = matches.len() == 1;
+    if is_unique_match {
         return format!("{}{}", first.to_string_lossy(), std::path::MAIN_SEPARATOR);
     }
 

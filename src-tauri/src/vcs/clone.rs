@@ -113,7 +113,8 @@ fn is_valid_clone_url(url: &str) -> bool {
     let has_forbidden_character = url
         .chars()
         .any(|character| character.is_control() || character.is_whitespace());
-    if has_forbidden_character || url.len() > MAXIMUM_CLONE_URL_LENGTH {
+    let is_rejected_url = has_forbidden_character || url.len() > MAXIMUM_CLONE_URL_LENGTH;
+    if is_rejected_url {
         return false;
     }
     if let Ok(parsed) = Url::parse(url) {

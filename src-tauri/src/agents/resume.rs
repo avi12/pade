@@ -180,7 +180,8 @@ fn opencode_session_for_cwd(cwd: &str) -> Option<String> {
         let mut reader = BufReader::new(stdout);
         let mut line = String::new();
         while let Ok(read) = reader.read_line(&mut line) {
-            if read == 0 {
+            let is_end_of_file = read == 0;
+            if is_end_of_file {
                 break;
             }
 

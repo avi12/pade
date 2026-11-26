@@ -163,7 +163,8 @@ pub(crate) async fn agent_running_model(
 ) -> Option<SessionModel> {
     tauri::async_runtime::spawn_blocking(move || {
         let is_claude = command == ID_CLAUDE;
-        if is_claude && is_plain_id(&conversation_id) {
+        let is_switchable_conversation = is_claude && is_plain_id(&conversation_id);
+        if is_switchable_conversation {
             let (running, ultracode) = claude::read_with_ultracode(&conversation_id)?;
             return Some(SessionModel { running, ultracode });
         }
@@ -211,7 +212,8 @@ pub(crate) async fn agent_apply_model(
     if !can_switch_in_place {
         return Ok(SwitchOutcome::NeedsRestart);
     }
-    if !choice.is_well_formed() || !is_plain_id(&conversation_id) {
+    let is_rejected_request = !choice.is_well_formed() || !is_plain_id(&conversation_id);
+    if is_rejected_request {
         return Err("that model choice isn't valid".into());
     }
 

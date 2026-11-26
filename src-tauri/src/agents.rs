@@ -228,7 +228,8 @@ pub(crate) fn session_id_flag(command: &str) -> Option<SessionIdFlag> {
 pub(crate) fn session_id_arguments(command: &str, conversation_id: &str) -> Option<Vec<String>> {
     let flag = session_id_flag(command)?;
     let is_resumable = matches!(flag, SessionIdFlag::CreateOrResume { .. });
-    let record = if is_resumable && is_claude_conversation_recorded(conversation_id) {
+    let is_continuable = is_resumable && is_claude_conversation_recorded(conversation_id);
+    let record = if is_continuable {
         ConversationRecord::Recorded
     } else {
         ConversationRecord::Unrecorded

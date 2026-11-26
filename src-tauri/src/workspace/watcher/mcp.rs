@@ -90,7 +90,8 @@ pub(super) fn detect_mcp_change(app: &AppHandle, watch: &ProjectWatch, path: &Pa
             return;
         };
         let previous = baseline.get(path).cloned().unwrap_or_default();
-        if current == previous {
+        let is_unchanged = current == previous;
+        if is_unchanged {
             return;
         }
         let added: Vec<String> = current.names.difference(&previous.names).cloned().collect();

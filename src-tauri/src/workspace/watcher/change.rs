@@ -70,7 +70,8 @@ pub(super) fn surfaces(kind: ChangeKind, path_exists: bool) -> bool {
 /// "deleted" path that exists again was an atomic-save replace (delete +
 /// rename-over), so it is a modification. Every other kind stands as reported.
 pub(super) fn reclassify(kind: ChangeKind, path_exists: bool) -> ChangeKind {
-    if matches!(kind, ChangeKind::Deleted) && path_exists {
+    let is_recreated = matches!(kind, ChangeKind::Deleted) && path_exists;
+    if is_recreated {
         ChangeKind::Modified
     } else {
         kind
@@ -103,7 +104,8 @@ pub(super) fn line_count(path: &Path) -> Option<usize> {
     loop {
         line.clear();
         let bytes = reader.read_line(&mut line).ok()?;
-        if bytes == 0 {
+        let is_empty = bytes == 0;
+        if is_empty {
             return Some(count);
         }
         count += 1;
@@ -139,7 +141,8 @@ pub(super) fn read_authorized_file(
 
     let mut file = std::fs::File::open(resolved).map_err(|_| ())?;
     let metadata = file.metadata().map_err(|_| ())?;
-    if !metadata.is_file() || metadata.len() > maximum_bytes {
+    let is_unreadable = !metadata.is_file() || metadata.len() > maximum_bytes;
+    if is_unreadable {
         return Err(());
     }
 
@@ -148,7 +151,8 @@ pub(super) fn read_authorized_file(
         .take(maximum_bytes.saturating_add(1))
         .read_to_end(&mut bytes)
         .map_err(|_| ())?;
-    if u64::try_from(bytes.len()).map_err(|_| ())? > maximum_bytes {
+    let is_over_limit = u64::try_from(bytes.len()).map_err(|_| ())? > maximum_bytes;
+    if is_over_limit {
         return Err(());
     }
     Ok(Some(bytes))
@@ -170,19 +174,24 @@ pub(super) fn summarize(kind: ChangeKind, added: usize, removed: usize) -> Strin
         ChangeKind::Created => "New file".to_string(),
         ChangeKind::Deleted => "Deleted".to_string(),
         ChangeKind::Modified => {
-            if added > 0 && removed == 0 {
+            let is_only_additions = added > 0 && removed == 0;
+            if is_only_additions {
                 format!("Grew by {added} line{}", plural(added))
-            } else if removed > 0 && added == 0 {
-                format!("Trimmed {removed} line{}", plural(removed))
             } else {
-                "Edited".to_string()
+                let is_only_removals = removed > 0 && added == 0;
+                if is_only_removals {
+                    format!("Trimmed {removed} line{}", plural(removed))
+                } else {
+                    "Edited".to_string()
+                }
             }
         }
     }
 }
 
 pub(super) fn plural(count: usize) -> &'static str {
-    if count == 1 {
+    let is_single = count == 1;
+    if is_single {
         ""
     } else {
         "s"

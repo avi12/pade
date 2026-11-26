@@ -142,7 +142,8 @@ enum ConversationStore {
 
 impl ConversationStore {
     fn recursive_mode(self) -> RecursiveMode {
-        if self == Self::CodexHome {
+        let is_codex_home = self == Self::CodexHome;
+        if is_codex_home {
             RecursiveMode::NonRecursive
         } else {
             RecursiveMode::Recursive
@@ -232,7 +233,8 @@ fn session_scopes(path: &Path, cwd: Option<String>, listed: &HashSet<String>) ->
 
 /// Where a changed Codex rollout's or Copilot workspace's session ran.
 fn session_cwd(path: &Path, store: ConversationStore) -> Option<String> {
-    if store == ConversationStore::CodexSessions {
+    let is_codex_store = store == ConversationStore::CodexSessions;
+    if is_codex_store {
         codex_rollout_cwd(path)
     } else {
         copilot_workspace_cwd(path)

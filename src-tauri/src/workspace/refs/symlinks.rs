@@ -117,7 +117,8 @@ pub(super) fn recreate_links(stale: &[StaleLink]) {
             continue;
         }
         let is_removed = remove_stale_link(link, std::fs::remove_file(&link.link));
-        if is_removed && symlink_file(&link.target, &link.link).is_err() {
+        let is_link_lost = is_removed && symlink_file(&link.target, &link.link).is_err();
+        if is_link_lost {
             report_unlinked(link);
         }
     }
@@ -130,7 +131,8 @@ pub(super) fn recreate_links(stale: &[StaleLink]) {
 
     for link in stale {
         let is_removed = remove_stale_link(link, std::fs::remove_file(&link.link));
-        if is_removed && symlink(&link.target, &link.link).is_err() {
+        let is_link_lost = is_removed && symlink(&link.target, &link.link).is_err();
+        if is_link_lost {
             report_unlinked(link);
         }
     }

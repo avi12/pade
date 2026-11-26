@@ -54,7 +54,8 @@ pub(crate) async fn session_summarize(
 
 fn session_summary(transcript: &str, agent: &str, links: &[String]) -> Option<String> {
     let readable = readable_transcript(transcript);
-    if readable.len() < MINIMUM_SUMMARY_INPUT_LENGTH {
+    let is_too_little_input = readable.len() < MINIMUM_SUMMARY_INPUT_LENGTH;
+    if is_too_little_input {
         return None;
     }
 
@@ -123,7 +124,8 @@ fn tidy_summary(raw: &str) -> Option<String> {
         .and_then(|inner| inner.strip_suffix('"'))
         .unwrap_or(unmarked)
         .trim();
-    if trimmed.chars().count() < MINIMUM_SUMMARY_LENGTH {
+    let is_too_short = trimmed.chars().count() < MINIMUM_SUMMARY_LENGTH;
+    if is_too_short {
         return None;
     }
 
@@ -158,7 +160,8 @@ fn after_visible_characters(text: &str, budget: usize) -> Option<usize> {
             is_in_address = true;
             continue;
         }
-        if shown == budget {
+        let is_budget_spent = shown == budget;
+        if is_budget_spent {
             return Some(index);
         }
         shown += 1;

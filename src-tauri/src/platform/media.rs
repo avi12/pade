@@ -149,7 +149,8 @@ pub(crate) fn preview_clip(source: &Path) -> Result<Vec<u8>, ClipError> {
         .map_err(|_| ClipError::Failed)?
         .map_err(|_| ClipError::Failed)?;
     let is_within_cap = u64::try_from(clip.len()).is_ok_and(|length| length <= MAXIMUM_CLIP_BYTES);
-    if !has_succeeded || clip.is_empty() || !is_within_cap {
+    let is_rejected_clip = !has_succeeded || clip.is_empty() || !is_within_cap;
+    if is_rejected_clip {
         return Err(ClipError::Failed);
     }
     Ok(clip)
@@ -194,7 +195,8 @@ mod tests {
         std::fs::write(&scratch, b"not a video").expect("write scratch");
         let result = preview_clip(&scratch);
         let _ = std::fs::remove_file(&scratch);
-        if result == Err(ClipError::NoTranscoder) {
+        let is_missing_transcoder = result == Err(ClipError::NoTranscoder);
+        if is_missing_transcoder {
             return;
         }
         assert_eq!(result, Err(ClipError::Failed));

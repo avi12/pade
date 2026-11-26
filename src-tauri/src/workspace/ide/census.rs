@@ -171,7 +171,8 @@ pub(super) fn source_file_evidence(
     }
     let content = source_content(path)?;
     let is_generated = attributes.generated.unwrap_or(content.generated);
-    if content.binary || is_generated {
+    let is_excluded = content.binary || is_generated;
+    if is_excluded {
         return None;
     }
     let language = attributes.language.or_else(|| {
@@ -294,7 +295,8 @@ pub(super) fn git_linguist_attributes(
     let Ok(output) = output else {
         return BTreeMap::new();
     };
-    if !wrote_all_paths || !output.status.success() {
+    let is_check_failed = !wrote_all_paths || !output.status.success();
+    if is_check_failed {
         return BTreeMap::new();
     }
 
@@ -332,14 +334,16 @@ pub(super) fn census_walk(
     files_left: &mut usize,
     profile: &mut SourceProfile,
 ) {
-    if depth > CENSUS_MAXIMUM_DEPTH || *files_left == 0 {
+    let is_census_exhausted = depth > CENSUS_MAXIMUM_DEPTH || *files_left == 0;
+    if is_census_exhausted {
         return;
     }
     let Ok(entries) = std::fs::read_dir(directory) else {
         return;
     };
     for entry in entries.flatten() {
-        if *files_left == 0 {
+        let is_budget_spent = *files_left == 0;
+        if is_budget_spent {
             return;
         }
         let path = entry.path();

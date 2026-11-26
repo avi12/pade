@@ -87,7 +87,8 @@ pub(super) fn muse_account_usage(
         .get("tier")
         .and_then(serde_json::Value::as_str)
         .filter(|tier| !tier.is_empty());
-    if windows.is_empty() && tier.is_none() {
+    let has_nothing_to_report = windows.is_empty() && tier.is_none();
+    if has_nothing_to_report {
         return Err(NoReadingReason::Unreachable);
     }
 
@@ -113,7 +114,8 @@ fn muse_window(key: &str, value: &serde_json::Value) -> Option<UsageWindow> {
     let minutes = value
         .get("windowDurationMins")
         .and_then(serde_json::Value::as_i64);
-    let documented_seconds = if key == MUSE_WEEKLY_KEY {
+    let is_weekly_key = key == MUSE_WEEKLY_KEY;
+    let documented_seconds = if is_weekly_key {
         WEEKLY_WINDOW_SECONDS
     } else {
         FIVE_HOUR_WINDOW_SECONDS

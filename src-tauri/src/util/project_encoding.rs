@@ -19,7 +19,8 @@ pub(crate) fn encode_project(path: &str) -> String {
             encoded.push('-');
         }
     }
-    if encoded.len() <= MAXIMUM_PROJECT_NAME {
+    let is_short_enough = encoded.len() <= MAXIMUM_PROJECT_NAME;
+    if is_short_enough {
         return encoded;
     }
     encoded.truncate(MAXIMUM_PROJECT_NAME);
@@ -54,7 +55,8 @@ fn base36(mut value: u32) -> String {
                 .unwrap_or(b'0'),
         );
         value /= 36;
-        if value == 0 {
+        let is_zero = value == 0;
+        if is_zero {
             break;
         }
     }

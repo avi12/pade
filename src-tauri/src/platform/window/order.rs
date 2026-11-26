@@ -22,7 +22,8 @@ pub(crate) enum CycleDirection {
 /// stray window never breaks the cycle. Lexicographic sorting would misplace
 /// `w-10` before `w-2`; the numeric parse keeps them in creation order.
 pub(super) fn order_key(label: &str) -> u32 {
-    if label == MAIN_WINDOW_LABEL {
+    let is_main_window = label == MAIN_WINDOW_LABEL;
+    if is_main_window {
         return 0;
     }
     label

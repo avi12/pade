@@ -90,7 +90,8 @@ pub fn command_line(process_id: u32) -> Option<String> {
             &raw mut length,
         )
     };
-    if status != STATUS_INFO_LENGTH_MISMATCH {
+    let is_final_status = status != STATUS_INFO_LENGTH_MISMATCH;
+    if is_final_status {
         return None;
     }
 

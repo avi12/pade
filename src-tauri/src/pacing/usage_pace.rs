@@ -197,7 +197,9 @@ pub fn burn_rate(samples: &[UsageSample]) -> Option<BurnRate> {
         let is_working_stretch = gap > SpanMilliseconds::ZERO && gap <= MAXIMUM_SAMPLE_GAP_MS;
         let rise = current.utilization - previous.utilization;
         let is_falling = rise < Percentage::ZERO;
-        if !is_same_reset(previous, current) || !is_working_stretch || is_falling {
+        let is_not_comparable =
+            !is_same_reset(previous, current) || !is_working_stretch || is_falling;
+        if is_not_comparable {
             continue;
         }
 
@@ -392,7 +394,8 @@ pub fn assess_pace(params: AssessPaceParams<'_>) -> Option<BindingWindow> {
         };
         let keep = check.keep();
         let keeps_least = binding.as_ref().is_none_or(|holding| keep < holding.keep);
-        if keep < threshold && keeps_least {
+        let is_better_candidate = keep < threshold && keeps_least;
+        if is_better_candidate {
             binding = Some(BindingWindow {
                 kind: paced.kind,
                 window: window.clone(),

@@ -153,7 +153,8 @@ fn collect_submodule_indexes(
     depth_left: usize,
     indexes: &mut Vec<std::path::PathBuf>,
 ) {
-    if depth_left == 0 {
+    let is_depth_exhausted = depth_left == 0;
+    if is_depth_exhausted {
         return;
     }
     let Ok(entries) = std::fs::read_dir(directory) else {
@@ -231,7 +232,8 @@ pub(crate) fn head_file_text(
 fn validate_object_id(object_id: &str) -> Result<&str, String> {
     let is_valid_length =
         (MINIMUM_OBJECT_ID_LENGTH..=MAXIMUM_OBJECT_ID_LENGTH).contains(&object_id.len());
-    if is_valid_length && object_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+    let is_object_id = is_valid_length && object_id.bytes().all(|byte| byte.is_ascii_hexdigit());
+    if is_object_id {
         return Ok(object_id);
     }
     Err("invalid Git object id".into())

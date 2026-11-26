@@ -247,10 +247,12 @@ where
         .take(limit)
         .read_until(FRAME_END, buffer)
         .await?;
-    if read == 0 {
+    let is_end_of_stream = read == 0;
+    if is_end_of_stream {
         return Ok(None);
     }
-    if buffer.last() != Some(&FRAME_END) {
+    let is_unterminated = buffer.last() != Some(&FRAME_END);
+    if is_unterminated {
         return Err(FrameError::Oversized);
     }
     Ok(Some(serde_json::from_slice(buffer)?))

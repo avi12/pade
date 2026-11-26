@@ -31,7 +31,8 @@ pub(super) fn humanize_window_seconds(seconds: i64) -> String {
     let is_whole = |unit_seconds: i64| seconds > 0 && seconds % unit_seconds == 0;
     if is_whole(SECONDS_PER_DAY) {
         let days = seconds / SECONDS_PER_DAY;
-        if days == DAYS_PER_WEEK {
+        let is_whole_week = days == DAYS_PER_WEEK;
+        if is_whole_week {
             return "Weekly".to_string();
         }
         return format!("{days}-day");
@@ -69,7 +70,8 @@ pub(crate) fn unix_seconds_to_iso8601(seconds: i64) -> String {
     let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
     let month_pointer = (5 * day_of_year + 2) / 153;
     let day = day_of_year - (153 * month_pointer + 2) / 5 + 1;
-    let month = if month_pointer < 10 {
+    let is_march_to_december = month_pointer < 10;
+    let month = if is_march_to_december {
         month_pointer + 3
     } else {
         month_pointer - 9

@@ -94,7 +94,9 @@ fn runner_start_access(
         .values()
         .filter(|runner| runner.owner == owner)
         .count();
-    if access == OwnerAccess::Vacant && owner_runner_count >= MAXIMUM_RUNNERS_PER_WINDOW {
+    let is_window_at_runner_limit =
+        access == OwnerAccess::Vacant && owner_runner_count >= MAXIMUM_RUNNERS_PER_WINDOW;
+    if is_window_at_runner_limit {
         return Err("this window has reached its runner limit".into());
     }
     Ok(access)
@@ -182,7 +184,12 @@ fn last_carriage_frame(line: &str) -> &str {
 fn collect_batch(first: String, receiver: &Receiver<String>) -> Vec<String> {
     let deadline = Instant::now() + BATCH_WINDOW;
     let mut batch = vec![first];
-    while batch.len() < MAXIMUM_BATCH_LINES {
+    loop {
+        let is_batch_open = batch.len() < MAXIMUM_BATCH_LINES;
+        if !is_batch_open {
+            break;
+        }
+
         let remaining = deadline.saturating_duration_since(Instant::now());
         let Ok(line) = receiver.recv_timeout(remaining) else {
             break;
@@ -311,7 +318,8 @@ pub(crate) async fn runner_start(
             .map(|runner| runner.owner.as_str()),
         &owner,
     );
-    if access == OwnerAccess::Vacant {
+    let is_vacant = access == OwnerAccess::Vacant;
+    if is_vacant {
         runners.insert(registry_id, Runner { owner, child, info });
         return Ok(());
     }
@@ -321,7 +329,8 @@ pub(crate) async fn runner_start(
     if let Ok(mut duplicate) = child.lock() {
         stop_process_tree(&mut duplicate);
     }
-    if access == OwnerAccess::Foreign {
+    let is_foreign = access == OwnerAccess::Foreign;
+    if is_foreign {
         return Err(FOREIGN_RUNNER_ERROR.into());
     }
     Ok(())
@@ -380,13 +389,13 @@ pub(crate) async fn runner_stop(
     let registry_id = registry_key(window.label(), &id);
     let removed = {
         let mut runners = state.0.lock().map_err(|error| error.to_string())?;
-        if owner_access(
+        let is_foreign_owner = owner_access(
             runners
                 .get(&registry_id)
                 .map(|runner| runner.owner.as_str()),
             window.label(),
-        ) == OwnerAccess::Foreign
-        {
+        ) == OwnerAccess::Foreign;
+        if is_foreign_owner {
             return Err(FOREIGN_RUNNER_ERROR.into());
         }
         runners.remove(&registry_id)

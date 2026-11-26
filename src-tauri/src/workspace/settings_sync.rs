@@ -40,7 +40,8 @@ impl Announced {
     /// announced exactly once.
     fn is_news(&self, text: &str) -> bool {
         let mut announced = self.text.lock().unwrap_or_else(PoisonError::into_inner);
-        if announced.as_deref() == Some(text) {
+        let is_already_announced = announced.as_deref() == Some(text);
+        if is_already_announced {
             return false;
         }
 

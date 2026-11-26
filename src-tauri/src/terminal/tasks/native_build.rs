@@ -23,7 +23,8 @@ pub(super) fn make_tasks_from_text(text: &str) -> Vec<Task> {
         let Some(target) = make_target(line) else {
             continue;
         };
-        if target.starts_with('.') || !seen.insert(target.clone()) {
+        let is_skipped_target = target.starts_with('.') || !seen.insert(target.clone());
+        if is_skipped_target {
             continue;
         }
         tasks.push(Task {
@@ -111,7 +112,8 @@ pub(super) fn cmake_preset_tasks(path: &Path) -> Vec<Task> {
             let Some(name) = preset.get("name").and_then(serde_json::Value::as_str) else {
                 continue;
             };
-            if is_hidden || name.is_empty() {
+            let is_ignored_name = is_hidden || name.is_empty();
+            if is_ignored_name {
                 continue;
             }
             tasks.push(task(

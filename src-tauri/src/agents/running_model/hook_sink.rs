@@ -86,7 +86,8 @@ fn place(source: &Path, target: &Path) -> io::Result<()> {
         .as_ref()
         .and_then(|metadata| metadata.modified().ok())
         .is_some_and(|written| written > source_written);
-    if is_current || is_newer_build_placed {
+    let is_hook_ready = is_current || is_newer_build_placed;
+    if is_hook_ready {
         return Ok(());
     }
 

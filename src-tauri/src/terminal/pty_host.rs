@@ -260,7 +260,8 @@ mod smoke {
                 let mut buffer = Vec::new();
                 let greeting: Option<Greeting> =
                     read_frame(&mut reader, &mut buffer).await.expect("read");
-                if greeting != Some(Greeting::Busy) {
+                let is_unexpected_greeting = greeting != Some(Greeting::Busy);
+                if is_unexpected_greeting {
                     break greeting;
                 }
                 tokio::time::sleep(Duration::from_millis(100)).await;

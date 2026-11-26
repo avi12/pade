@@ -71,7 +71,8 @@ fn model_from_event_line(line: &str) -> Option<RunningModel> {
     let kind = event.get("type")?.as_str()?;
     let data = event.get("data")?;
     let text = |key: &str| data.get(key).and_then(serde_json::Value::as_str);
-    if kind == MODEL_CHANGE {
+    let is_model_change = kind == MODEL_CHANGE;
+    if is_model_change {
         return Some(RunningModel {
             model: text("newModel")?.to_string(),
             effort: text("reasoningEffort").map(str::to_string),

@@ -87,7 +87,8 @@ fn the_handshake_guards_the_host_and_a_retire_ends_it() {
         };
         let retired = loop {
             let (greeting, _) = open(&state.endpoint, &retire).await;
-            if greeting != Some(Greeting::Busy) {
+            let is_unexpected_greeting = greeting != Some(Greeting::Busy);
+            if is_unexpected_greeting {
                 break greeting;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;

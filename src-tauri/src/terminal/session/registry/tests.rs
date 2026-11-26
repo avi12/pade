@@ -110,7 +110,12 @@ fn a_real_command_streams_into_history_and_is_reaped() {
     }
     assert!(said.contains("pade-engine-test"), "output was: {said:?}");
 
-    while registry.count() > 0 && std::time::Instant::now() < deadline {
+    loop {
+        let is_still_draining = registry.count() > 0 && std::time::Instant::now() < deadline;
+        if !is_still_draining {
+            break;
+        }
+
         std::thread::sleep(CHILD_POLL_INTERVAL);
     }
     assert_eq!(registry.count(), 0, "the exited session is reaped");

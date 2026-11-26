@@ -175,7 +175,8 @@ pub(super) fn watch_set_change<'a>(
     let wanted: HashSet<&String> = requested.iter().collect();
     let mut to_arm: Vec<String> = Vec::new();
     for root in requested {
-        if !current.contains(root) && !to_arm.contains(root) {
+        let is_stale_root = !current.contains(root) && !to_arm.contains(root);
+        if is_stale_root {
             to_arm.push(root.clone());
         }
     }

@@ -100,7 +100,8 @@ pub(super) fn open_arguments(
 /// PADE terminal tab and are meant to stay tied to ADE.)
 pub(super) fn spawn_launcher(command: &str, arguments: &[String]) -> Result<(), String> {
     let is_path = command.contains('/') || command.contains('\\');
-    let spawn = if cfg!(windows) && !is_path {
+    let is_windows_command = cfg!(windows) && !is_path;
+    let spawn = if is_windows_command {
         let mut shell_arguments = Vec::with_capacity(arguments.len() + 2);
         shell_arguments.push(crate::util::COMMAND_SHELL_RUN_FLAG.to_owned());
         shell_arguments.push(command.to_owned());

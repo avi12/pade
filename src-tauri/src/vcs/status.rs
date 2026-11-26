@@ -27,7 +27,8 @@ pub(crate) struct StatusEntry {
 }
 
 fn classify(index: char, worktree: char) -> (StatusKind, bool) {
-    if index == UNTRACKED_LETTER {
+    let is_untracked = index == UNTRACKED_LETTER;
+    if is_untracked {
         return (StatusKind::Untracked, false);
     }
     let is_staged = index != UNCHANGED_LETTER;

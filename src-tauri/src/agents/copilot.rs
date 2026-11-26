@@ -126,7 +126,8 @@ fn is_allowance_spent() -> bool {
 fn cached_token() -> Option<String> {
     let mut cached = lock(&TOKEN);
     if let Some((token, minted)) = cached.as_ref() {
-        if minted.elapsed() < TOKEN_LIFETIME {
+        let is_token_fresh = minted.elapsed() < TOKEN_LIFETIME;
+        if is_token_fresh {
             return Some(token.clone());
         }
     }
@@ -319,7 +320,12 @@ fn converse(socket: &mut Socket, id: &str, prompt: &str) -> Result<String, ChatE
 
     let started = Instant::now();
     let mut is_asked = false;
-    while started.elapsed() < NAME_TIMEOUT {
+    loop {
+        let is_within_name_timeout = started.elapsed() < NAME_TIMEOUT;
+        if !is_within_name_timeout {
+            break;
+        }
+
         let message = match socket.read() {
             Ok(message) => message,
             Err(tungstenite::Error::Io(error))
@@ -344,7 +350,8 @@ fn converse(socket: &mut Socket, id: &str, prompt: &str) -> Result<String, ChatE
             };
             // `{}` answers the handshake: now the chat can be asked.
             let is_handshake_answer = frame.as_object().is_some_and(serde_json::Map::is_empty);
-            if is_handshake_answer && !is_asked {
+            let is_unsolicited_handshake = is_handshake_answer && !is_asked;
+            if is_unsolicited_handshake {
                 is_asked = true;
                 socket
                     .send(record(&chat_call(id, prompt)))
@@ -390,15 +397,19 @@ mod tests {
             while let Ok(Message::Text(text)) = socket.read() {
                 let frame: Value =
                     serde_json::from_str(text.trim_end_matches(RECORD_END)).expect("a frame");
-                if frame["protocol"] == "json" {
+                let is_json_protocol = frame["protocol"] == "json";
+                if is_json_protocol {
                     socket.send(record(&json!({}))).expect("answer");
-                } else if frame["target"] == "chat" {
-                    let sent = &frame["arguments"][0]["message"];
-                    assert!(sent["text"].as_str().expect("text").starts_with("Name it"));
-                    socket
-                        .send(record(&json!({ "type": 1, "target": "update" })))
-                        .expect("update");
-                    socket.send(record(&result)).expect("result");
+                } else {
+                    let is_chat_frame = frame["target"] == "chat";
+                    if is_chat_frame {
+                        let sent = &frame["arguments"][0]["message"];
+                        assert!(sent["text"].as_str().expect("text").starts_with("Name it"));
+                        socket
+                            .send(record(&json!({ "type": 1, "target": "update" })))
+                            .expect("update");
+                        socket.send(record(&result)).expect("result");
+                    }
                 }
             }
         });

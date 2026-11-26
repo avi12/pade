@@ -158,7 +158,8 @@ pub(super) fn project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
             let roots = probe_roots(std::path::Path::new(&path));
             let kind = primary_declared_kind(&declarations_in(&roots))?;
             // A web project that uses TypeScript shows the TS badge, not JavaScript.
-            let icon_key = if kind == ProjectKind::Web && uses_typescript(&roots) {
+            let is_typescript_web = kind == ProjectKind::Web && uses_typescript(&roots);
+            let icon_key = if is_typescript_web {
                 TYPESCRIPT_ICON_KEY.to_string()
             } else {
                 kind.as_str().to_string()

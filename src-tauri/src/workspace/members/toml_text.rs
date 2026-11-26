@@ -91,7 +91,8 @@ pub(super) fn quoted_strings(fragment: &str) -> Vec<String> {
     let mut found = Vec::new();
     let mut characters = fragment.chars();
     while let Some(character) = characters.next() {
-        if character != '"' && character != '\'' {
+        let is_unquoted = character != '"' && character != '\'';
+        if is_unquoted {
             continue;
         }
         let literal: String = characters
@@ -110,7 +111,8 @@ pub(super) fn strip_toml_comment(line: &str) -> &str {
     for (index, character) in line.char_indices() {
         match in_string {
             Some(quote) => {
-                if character == quote {
+                let is_closing_quote = character == quote;
+                if is_closing_quote {
                     in_string = None;
                 }
             }

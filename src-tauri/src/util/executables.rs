@@ -174,7 +174,8 @@ fn is_executable(path: &Path) -> bool {
 /// commands should build [`search_directories`] once and call [`find_in`].
 pub(crate) fn resolve(command: &str) -> Option<PathBuf> {
     let given = Path::new(command);
-    if given.components().count() > 1 {
+    let is_nested_path = given.components().count() > 1;
+    if is_nested_path {
         return is_executable(given).then(|| given.to_path_buf());
     }
     find_in(&search_directories(), &[command])

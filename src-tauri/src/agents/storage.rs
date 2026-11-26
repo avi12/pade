@@ -384,7 +384,8 @@ fn chats_to_delete(chats: &[Chat], limits: Limits, now: u64) -> Vec<usize> {
             .collect();
         this_round.sort_by_key(|&index| chat_updated_at(chats, index));
         for index in this_round {
-            if remaining <= total {
+            let is_within_total = remaining <= total;
+            if is_within_total {
                 return chosen;
             }
             remaining -= chat_bytes(chats, index);

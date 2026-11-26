@@ -86,7 +86,8 @@ impl Pattern {
     /// that is nothing but slashes.
     fn parse(line: &str) -> Option<Self> {
         let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
+        let is_ignored_line = line.is_empty() || line.starts_with('#');
+        if is_ignored_line {
             return None;
         }
         let (negated, body) = line

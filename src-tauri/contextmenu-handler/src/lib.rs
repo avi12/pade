@@ -194,7 +194,8 @@ fn current_module_path() -> Option<PathBuf> {
     let mut buffer = [0u16; MAXIMUM_MODULE_PATH_UNITS];
     // SAFETY: `buffer` is writable for its whole length and `module` was found by the caller.
     let length = usize::try_from(unsafe { GetModuleFileNameW(Some(module), &mut buffer) }).ok()?;
-    if length == 0 || length >= buffer.len() {
+    let is_unusable_length = length == 0 || length >= buffer.len();
+    if is_unusable_length {
         return None;
     }
     Some(PathBuf::from(String::from_utf16_lossy(
@@ -265,7 +266,8 @@ impl IClassFactory_Impl for OpenInPadeFactory_Impl {
 /// neighbouring `pade.exe`. Windows calls this on load/unload.
 #[no_mangle]
 pub extern "system" fn DllMain(instance: HINSTANCE, reason: u32, _reserved: *mut c_void) -> BOOL {
-    if reason == DLL_PROCESS_ATTACH {
+    let is_process_attach = reason == DLL_PROCESS_ATTACH;
+    if is_process_attach {
         DLL_INSTANCE.store(instance.0, Ordering::SeqCst);
     }
     BOOL(1)
@@ -287,11 +289,13 @@ pub unsafe extern "system" fn DllGetClassObject(
     }
     // SAFETY: the caller passed a valid out-pointer for the object.
     unsafe { *object = null_mut() };
-    if class_id.is_null() || interface_id.is_null() {
+    let has_null_pointer = class_id.is_null() || interface_id.is_null();
+    if has_null_pointer {
         return E_POINTER;
     }
     // SAFETY: the caller passed a valid class-id pointer.
-    if unsafe { *class_id } != CLSID_OPEN_IN_PADE {
+    let is_other_class = unsafe { *class_id } != CLSID_OPEN_IN_PADE;
+    if is_other_class {
         return CLASS_E_CLASSNOTAVAILABLE;
     }
     let factory: IClassFactory = OpenInPadeFactory.into();
@@ -302,7 +306,8 @@ pub unsafe extern "system" fn DllGetClassObject(
 /// COM may unload this DLL only when no objects and no server locks remain.
 #[no_mangle]
 pub extern "system" fn DllCanUnloadNow() -> HRESULT {
-    if DLL_REFERENCES.load(Ordering::SeqCst) == 0 {
+    let is_unreferenced = DLL_REFERENCES.load(Ordering::SeqCst) == 0;
+    if is_unreferenced {
         S_OK
     } else {
         S_FALSE

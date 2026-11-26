@@ -82,7 +82,8 @@ pub(super) fn pnpm_workspace_patterns(text: &str, patterns: &mut MemberPatterns)
     let mut in_packages = false;
     for line in text.lines() {
         let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
+        let is_ignored_line = trimmed.is_empty() || trimmed.starts_with('#');
+        if is_ignored_line {
             continue;
         }
         let is_top_level_key = !line.starts_with([' ', '\t']) && !trimmed.starts_with('-');
@@ -150,7 +151,8 @@ pub(super) fn go_work_patterns(text: &str, patterns: &mut MemberPatterns) {
     for line in text.lines() {
         let uncommented = line.split("//").next().unwrap_or_default().trim();
         if in_use_block {
-            if uncommented == ")" {
+            let is_block_end = uncommented == ")";
+            if is_block_end {
                 in_use_block = false;
                 continue;
             }
@@ -159,7 +161,8 @@ pub(super) fn go_work_patterns(text: &str, patterns: &mut MemberPatterns) {
             }
             continue;
         }
-        if uncommented == "use (" || uncommented == "use(" {
+        let is_block_start = uncommented == "use (" || uncommented == "use(";
+        if is_block_start {
             in_use_block = true;
             continue;
         }

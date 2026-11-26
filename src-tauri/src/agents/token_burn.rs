@@ -343,10 +343,13 @@ impl<R: Read + Seek> ReverseLines<R> {
         let mut lines: Vec<&[u8]> = Vec::with_capacity(complete.len() + 1);
         if is_file_start {
             lines.push(first);
-        } else if first.len() > self.limits.maximum_line_bytes {
-            self.is_dropping_line = true;
         } else {
-            self.line_end = first.to_vec();
+            let is_line_too_long = first.len() > self.limits.maximum_line_bytes;
+            if is_line_too_long {
+                self.is_dropping_line = true;
+            } else {
+                self.line_end = first.to_vec();
+            }
         }
         lines.extend(complete);
         self.ready = lines
@@ -367,7 +370,8 @@ impl<R: Read + Seek> Iterator for ReverseLines<R> {
             if let Some(line) = self.ready.pop() {
                 return Some(line);
             }
-            if self.unread_end == 0 {
+            let is_nothing_unread = self.unread_end == 0;
+            if is_nothing_unread {
                 return None;
             }
             // A file that can no longer be read ends its lines where the read

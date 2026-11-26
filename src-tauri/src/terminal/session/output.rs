@@ -132,10 +132,12 @@ fn skip_control_sequence(characters: &mut impl Iterator<Item = char>) {
 /// Skip an OSC body: up to and including BEL or the ST (`ESC \`) terminator.
 fn skip_operating_system_command(characters: &mut std::iter::Peekable<impl Iterator<Item = char>>) {
     while let Some(character) = characters.next() {
-        if character == BELL {
+        let is_bell = character == BELL;
+        if is_bell {
             break;
         }
-        if character == ESCAPE {
+        let is_escape = character == ESCAPE;
+        if is_escape {
             characters.next_if_eq(&'\\');
             break;
         }
@@ -152,9 +154,15 @@ fn append_transcript(transcript: &Mutex<String>, cleaned: &str) {
         return;
     };
     buffer.push_str(cleaned);
-    if buffer.len() > TRANSCRIPT_CAPACITY {
+    let is_over_capacity = buffer.len() > TRANSCRIPT_CAPACITY;
+    if is_over_capacity {
         let mut cut = buffer.len() - TRANSCRIPT_CAPACITY;
-        while cut < buffer.len() && !buffer.is_char_boundary(cut) {
+        loop {
+            let is_inside_character = cut < buffer.len() && !buffer.is_char_boundary(cut);
+            if !is_inside_character {
+                break;
+            }
+
             cut += 1;
         }
         buffer.drain(..cut);
@@ -199,7 +207,8 @@ fn append_history(history: &Mutex<History>, raw: &str) -> u64 {
         buffer.alternate = alternate;
     }
 
-    if buffer.data.len() - buffer.start > HISTORY_CAPACITY {
+    let is_history_overflowing = buffer.data.len() - buffer.start > HISTORY_CAPACITY;
+    if is_history_overflowing {
         // Walk the cap overflow to a char boundary BEFORE slicing - landing inside
         // a multibyte character would panic - then cut just past the first line
         // break so a replay starts on a whole line. A tail with no line break at
@@ -215,7 +224,8 @@ fn append_history(history: &Mutex<History>, raw: &str) -> u64 {
 
         // `String::drain` moves the retained tail. Do that only after a full
         // history window has expired, not once per output chunk.
-        if buffer.start >= HISTORY_CAPACITY {
+        let is_compaction_due = buffer.start >= HISTORY_CAPACITY;
+        if is_compaction_due {
             let start = buffer.start;
             buffer.data.drain(..start);
             buffer.start = 0;

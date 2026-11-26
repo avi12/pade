@@ -195,7 +195,13 @@ impl ShadowState {
 
         counts.disagree += 1;
         self.last_disagreements.push_back(verdict.clone());
-        while self.last_disagreements.len() > LAST_DISAGREEMENT_LIMIT {
+        loop {
+            let is_over_disagreement_limit =
+                self.last_disagreements.len() > LAST_DISAGREEMENT_LIMIT;
+            if !is_over_disagreement_limit {
+                break;
+            }
+
             self.last_disagreements.pop_front();
         }
     }
@@ -280,7 +286,8 @@ impl ShadowLog {
         std::fs::create_dir_all(&self.directory)?;
         let path = self.directory.join(SHADOW_LOG_FILE_NAME);
         let size = std::fs::metadata(&path).map_or(0, |metadata| metadata.len());
-        if size >= LOG_LIMIT_BYTES {
+        let is_log_full = size >= LOG_LIMIT_BYTES;
+        if is_log_full {
             std::fs::rename(&path, self.directory.join(ROTATED_LOG_FILE_NAME))?;
         }
 

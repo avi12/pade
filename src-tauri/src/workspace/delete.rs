@@ -47,7 +47,8 @@ pub(crate) async fn workspace_prune(app: AppHandle) -> Result<Settings, String> 
 /// confirmation-gated `workspace_delete_directory`.
 pub(super) fn delete_directory(path: &str) -> Result<(), String> {
     let metadata = std::fs::symlink_metadata(path).map_err(|error| error.to_string())?;
-    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+    let is_plain_entry = !metadata.is_dir() || metadata.file_type().is_symlink();
+    if is_plain_entry {
         return Err("only a real project directory can be deleted".into());
     }
     let target = std::fs::canonicalize(path).map_err(|error| error.to_string())?;

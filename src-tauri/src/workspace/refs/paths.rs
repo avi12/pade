@@ -65,7 +65,8 @@ pub(super) fn replace_folder(haystack: &str, old: &str, new: &str) -> String {
     let mut output = String::with_capacity(haystack.len());
     let mut copied_up_to = 0;
     for (start, _) in lower_haystack.match_indices(&lower_old) {
-        if start < copied_up_to {
+        let is_already_copied = start < copied_up_to;
+        if is_already_copied {
             continue;
         }
         let end = start + old.len();
@@ -98,7 +99,8 @@ pub(super) fn rewrite_file_forms(path: &Path, old: &str, new: &str) {
         return;
     };
     let updated = rebase_paths_in(&content, old, new);
-    if updated == content {
+    let is_unchanged = updated == content;
+    if is_unchanged {
         return;
     }
     if let Err(error) = std::fs::write(path, updated) {

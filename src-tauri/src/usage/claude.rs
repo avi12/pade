@@ -215,7 +215,8 @@ pub(super) fn uncapped_credits_spend(response: &serde_json::Value) -> Option<Cre
     let credits = response.get(CREDITS_KEY)?;
     let is_enabled = credits.get("is_enabled")?.as_bool()?;
     let has_cap = !credits.get("monthly_limit")?.is_null();
-    if !is_enabled || has_cap {
+    let is_nothing_to_check = !is_enabled || has_cap;
+    if is_nothing_to_check {
         return None;
     }
 
@@ -344,7 +345,8 @@ pub(crate) fn curl_claude_oauth(request: &ClaudeOauthRequest) -> Result<String, 
         timeout_seconds,
     } = *request;
     let is_organization_safe = organization.is_none_or(is_safe_header_token);
-    if !is_safe_header_token(token) || !is_organization_safe {
+    let is_unsafe_request = !is_safe_header_token(token) || !is_organization_safe;
+    if is_unsafe_request {
         return Err(RequestFailure::Rejected);
     }
 

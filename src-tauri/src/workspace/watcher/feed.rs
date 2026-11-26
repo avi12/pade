@@ -198,7 +198,9 @@ pub(crate) async fn feed_video(
     let Some(watch) = owning_watch(&state, window.label(), file) else {
         return Ok(None);
     };
-    if !crate::platform::media::is_video(file) || !was_surfaced(&watch, file)? {
+    let is_not_surfaceable =
+        !crate::platform::media::is_video(file) || !was_surfaced(&watch, file)?;
+    if is_not_surfaceable {
         return Ok(None);
     }
     let Ok(Some(source)) = authorize_path(&watch.canonical_root, file) else {

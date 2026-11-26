@@ -76,7 +76,8 @@ pub fn watch_process_failed(
                 kind == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE;
             if is_renderer_hung {
                 let reports = consecutive_unresponsive.fetch_add(1, Ordering::Relaxed) + 1;
-                if reports < UNRESPONSIVE_REPORTS_BEFORE_RELOAD {
+                let is_below_reload_threshold = reports < UNRESPONSIVE_REPORTS_BEFORE_RELOAD;
+                if is_below_reload_threshold {
                     return Ok(());
                 }
             }
@@ -95,7 +96,8 @@ pub fn watch_process_failed(
                 return Ok(());
             }
 
-            if kind == COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED {
+            let is_browser_exit = kind == COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;
+            if is_browser_exit {
                 on_browser_process_gone();
             }
             // GPU, utility, and frame-renderer failures recover on their own

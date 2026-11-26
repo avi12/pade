@@ -94,7 +94,8 @@ fn move_claude_transcripts(projects: &Path, old: &str, new: &str) {
         let name = entry.file_name().to_string_lossy().into_owned();
         let is_the_folder = name == encoded_old;
         let may_be_inside = name.starts_with(&inside_prefix);
-        if !is_the_folder && !may_be_inside {
+        let is_unrelated = !is_the_folder && !may_be_inside;
+        if is_unrelated {
             continue;
         }
         // The workspace's own folder may hold only auto-memory, no transcript.
@@ -210,7 +211,8 @@ fn stamp_relocated(transcript: &Path, old: &str, new: &str) {
 
 fn ends_with_newline(file: &mut std::fs::File) -> std::io::Result<bool> {
     let length = file.metadata()?.len();
-    if length == 0 {
+    let is_empty_match = length == 0;
+    if is_empty_match {
         return Ok(true);
     }
     file.seek(SeekFrom::Start(length - 1))?;

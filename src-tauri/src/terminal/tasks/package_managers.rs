@@ -98,7 +98,8 @@ pub(super) fn python_tasks_from_text(text: &str) -> Vec<Task> {
             in_scripts = matches!(trimmed, "[project.scripts]" | "[tool.poetry.scripts]");
             continue;
         }
-        if !in_scripts || trimmed.is_empty() || trimmed.starts_with('#') {
+        let is_ignored_line = !in_scripts || trimmed.is_empty() || trimmed.starts_with('#');
+        if is_ignored_line {
             continue;
         }
         let Some(name) = trimmed

@@ -276,7 +276,8 @@ impl<'path> LaunchMode<'path> {
     /// the mode asks for one.
     fn resolve(mode: &str, path: Option<&'path str>) -> Self {
         if let Some(path) = path {
-            if mode == HANDOFF_MODE {
+            let is_handoff_mode = mode == HANDOFF_MODE;
+            if is_handoff_mode {
                 return Self::Handoff(path);
             }
             return Self::Open(path);
