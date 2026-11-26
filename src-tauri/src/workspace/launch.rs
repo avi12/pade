@@ -4,6 +4,7 @@ use super::store::is_project;
 use super::store::LaunchContext;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 /// The directory PADE launched into, and whether it came from an explicit request.
 pub(crate) struct LaunchDirectory {
@@ -39,9 +40,20 @@ pub(crate) fn launch_directory() -> LaunchDirectory {
 /// app instance. Two instances launched into different projects are different
 /// instances (their own `WebView2` folder, their own PTY host); a relaunch into
 /// the same one is the same instance again.
+///
+/// Read once, at the first ask (the `WebView2` setup, before any window): with
+/// no folder argument the launch directory is the process working directory,
+/// and opening a project moves that (`workspace_open`). Read again later, a
+/// reconnect to the PTY host would look for another project's host, start an
+/// empty one and lose every running agent.
 pub(crate) fn canonical_launch_directory() -> PathBuf {
-    let launch = launch_directory().path;
-    std::fs::canonicalize(&launch).unwrap_or(launch)
+    static IDENTITY: OnceLock<PathBuf> = OnceLock::new();
+    IDENTITY
+        .get_or_init(|| {
+            let launch = launch_directory().path;
+            std::fs::canonicalize(&launch).unwrap_or(launch)
+        })
+        .clone()
 }
 
 /// This instance's `WebView2` user-data folder, keyed by the launch project so two
