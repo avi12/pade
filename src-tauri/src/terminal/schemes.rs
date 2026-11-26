@@ -213,6 +213,18 @@ mod tests {
     use crate::test_support::assert_empty;
     use std::path::PathBuf;
 
+    const HEXADECIMAL_RADIX: u32 = 16;
+    const CHANNEL_MAXIMUM: f64 = 255.0;
+    const LINEAR_THRESHOLD: f64 = 0.03928;
+    const LINEAR_DIVISOR: f64 = 12.92;
+    const GAMMA_OFFSET: f64 = 0.055;
+    const GAMMA_SCALE: f64 = 1.055;
+    const GAMMA_EXPONENT: f64 = 2.4;
+    const RED_LUMINANCE: f64 = 0.2126;
+    const GREEN_LUMINANCE: f64 = 0.7152;
+    const BLUE_LUMINANCE: f64 = 0.0722;
+    const BLUE_OFFSET: usize = 4;
+
     fn scratch(name: &str) -> PathBuf {
         let directory = std::env::temp_dir().join(format!(
             "pade-terminal-schemes-{}-{name}",
@@ -247,16 +259,19 @@ mod tests {
     fn luminance(hex: &str) -> f64 {
         let hex = hex.trim_start_matches('#');
         let channel = |offset: usize| {
-            let byte = u8::from_str_radix(&hex[offset..offset + 2], 16).expect("hex pair");
-            let value = f64::from(byte) / 255.0;
-            let is_linear_segment = value <= 0.03928;
+            let byte =
+                u8::from_str_radix(&hex[offset..offset + 2], HEXADECIMAL_RADIX).expect("hex pair");
+            let value = f64::from(byte) / CHANNEL_MAXIMUM;
+            let is_linear_segment = value <= LINEAR_THRESHOLD;
             if is_linear_segment {
-                value / 12.92
+                value / LINEAR_DIVISOR
             } else {
-                ((value + 0.055) / 1.055).powf(2.4)
+                ((value + GAMMA_OFFSET) / GAMMA_SCALE).powf(GAMMA_EXPONENT)
             }
         };
-        0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
+        RED_LUMINANCE * channel(0)
+            + GREEN_LUMINANCE * channel(2)
+            + BLUE_LUMINANCE * channel(BLUE_OFFSET)
     }
 
     fn named<'a>(schemes: &'a [TerminalScheme], name: &str) -> &'a TerminalScheme {

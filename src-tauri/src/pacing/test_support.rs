@@ -6,6 +6,8 @@ use serde_json::Value;
 use crate::pacing::units::{EpochMilliseconds, SpanMilliseconds};
 use crate::usage::{AccountUsage, UsageWindow, UsageWindowKind};
 
+const MILLISECONDS_PER_SECOND: f64 = 1_000.0;
+
 /// 2026-10-15T12:00:00Z, the clock the ported tests run on.
 pub(super) const NOW: EpochMilliseconds = EpochMilliseconds::new(1_792_065_600_000.0);
 
@@ -17,7 +19,7 @@ const RELATIVE_TOLERANCE: f64 = 1e-9;
 
 /// `time` as the ISO string the usage endpoint would send.
 pub(super) fn iso(time: EpochMilliseconds) -> String {
-    let seconds: i64 = (time.get() / 1_000.0)
+    let seconds: i64 = (time.get() / MILLISECONDS_PER_SECOND)
         .round()
         .to_string()
         .parse()

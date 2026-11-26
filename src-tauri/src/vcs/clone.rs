@@ -170,7 +170,8 @@ impl AskPass {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
+            const OWNER_ONLY_MODE: u32 = 0o700;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(OWNER_ONLY_MODE))
                 .map_err(|error| error.to_string())?;
         }
         Ok(Self { path })

@@ -308,6 +308,19 @@ pub fn lightest_to_restore<Id: Clone>(candidates: &[RestoreCandidate<Id>]) -> Op
 mod tests {
     use crate::pacing::load_shedding::*;
 
+    const HEAVY_LOAD: f64 = 3000.0;
+    const MEDIUM_LOAD: f64 = 1000.0;
+    const LIGHT_LOAD: f64 = 500.0;
+    const HIGH_COST: f64 = 5.0;
+    const LOWER_COST: f64 = 4.0;
+    const QUARTER_SHARE: f64 = 0.25;
+    const WIDE_FAN_OUT: u32 = 4;
+    const SUBAGENT_SESSION_LOAD: f64 = 12.0;
+    const MODEL_SAVING: f64 = 0.4;
+    const OPUS_LOAD: f64 = 20.0;
+    const SONNET_LOAD: f64 = 3.0;
+    const LONE_LOAD: f64 = 9.0;
+
     fn weight(model: &str, effort: Option<&str>) -> CostWeight {
         cost_weight(CostWeightParams {
             choice: &ModelChoice {
@@ -352,11 +365,11 @@ mod tests {
     fn an_estimate_scales_onto_what_the_measured_sessions_burn() {
         let scale = measured_per_estimated(&[
             LoadPair {
-                measured: Load::new(3000.0),
+                measured: Load::new(HEAVY_LOAD),
                 estimated: Load::new(2.0),
             },
             LoadPair {
-                measured: Load::new(1000.0),
+                measured: Load::new(MEDIUM_LOAD),
                 estimated: Load::new(2.0),
             },
         ]);
@@ -367,7 +380,7 @@ mod tests {
     fn an_estimate_stays_as_it_is_while_nothing_is_measured() {
         assert!((measured_per_estimated(&[]) - 1.0).abs() < f64::EPSILON);
         let none_comparable = measured_per_estimated(&[LoadPair {
-            measured: Load::new(500.0),
+            measured: Load::new(LIGHT_LOAD),
             estimated: Load::ZERO,
         }]);
         assert!((none_comparable - 1.0).abs() < f64::EPSILON);
@@ -377,7 +390,7 @@ mod tests {
     fn a_session_load_grows_with_each_subagent_the_session_runs() {
         let load = |subagents| {
             session_load(SessionLoadParams {
-                cost: CostWeight(5.0),
+                cost: CostWeight(HIGH_COST),
                 working_share: Fraction::WHOLE,
                 subagents,
             })
@@ -388,8 +401,8 @@ mod tests {
     #[test]
     fn a_session_load_weighs_by_how_much_of_the_time_it_works() {
         let load = session_load(SessionLoadParams {
-            cost: CostWeight(4.0),
-            working_share: Fraction::new(0.25),
+            cost: CostWeight(LOWER_COST),
+            working_share: Fraction::new(QUARTER_SHARE),
             subagents: 0,
         });
         assert_eq!(load, Load::new(1.0));
@@ -397,7 +410,7 @@ mod tests {
 
     #[test]
     fn a_shed_asks_for_what_the_account_may_not_keep() {
-        let fraction = shed_fraction(Fraction::new(0.25)).expect("over pace");
+        let fraction = shed_fraction(Fraction::new(QUARTER_SHARE)).expect("over pace");
         assert!((fraction.get() - 0.75).abs() < 1e-9);
     }
 
@@ -419,20 +432,30 @@ mod tests {
 
     fn fanned_out() -> ShedCandidate<&'static str> {
         ShedCandidate {
-            fan_out: 4,
-            ..candidate("opus-with-three-subagents", 12.0, 0.4)
+            fan_out: WIDE_FAN_OUT,
+            ..candidate(
+                "opus-with-three-subagents",
+                SUBAGENT_SESSION_LOAD,
+                MODEL_SAVING,
+            )
         }
     }
 
     #[test]
     fn slows_a_session_fanning_work_out_before_a_lone_one_spending_as_much() {
-        let both = [candidate("opus-alone", 20.0, 0.4), fanned_out()];
+        let both = [
+            candidate("opus-alone", OPUS_LOAD, MODEL_SAVING),
+            fanned_out(),
+        ];
         assert_eq!(plan(&both, 32.0, Some(0.1)), ["opus-with-three-subagents"]);
     }
 
     #[test]
     fn still_slows_the_lone_session_when_the_fanned_out_one_cant_cover_the_shed() {
-        let both = [candidate("opus-alone", 20.0, 0.4), fanned_out()];
+        let both = [
+            candidate("opus-alone", OPUS_LOAD, MODEL_SAVING),
+            fanned_out(),
+        ];
         assert_eq!(
             plan(&both, 32.0, Some(0.3)),
             ["opus-with-three-subagents", "opus-alone"]
@@ -454,8 +477,8 @@ mod tests {
     #[test]
     fn steps_the_biggest_saving_first_and_stops_once_the_shed_is_covered() {
         let all = [
-            candidate("sonnet-alone", 3.0, 0.4),
-            candidate("opus-with-subagents", 20.0, 0.4),
+            candidate("sonnet-alone", SONNET_LOAD, MODEL_SAVING),
+            candidate("opus-with-subagents", OPUS_LOAD, MODEL_SAVING),
             candidate("haiku-resting", 1.0, 1.0),
         ];
         assert_eq!(plan(&all, 24.0, Some(0.3)), ["opus-with-subagents"]);
@@ -464,8 +487,8 @@ mod tests {
     #[test]
     fn keeps_stepping_down_the_ranking_while_the_shed_isnt_covered() {
         let all = [
-            candidate("sonnet-alone", 3.0, 0.4),
-            candidate("opus-with-subagents", 20.0, 0.4),
+            candidate("sonnet-alone", SONNET_LOAD, MODEL_SAVING),
+            candidate("opus-with-subagents", OPUS_LOAD, MODEL_SAVING),
             candidate("haiku-resting", 1.0, 1.0),
         ];
         assert_eq!(
@@ -477,15 +500,15 @@ mod tests {
     #[test]
     fn steps_only_the_biggest_saving_while_the_shed_is_unknown() {
         let both = [
-            candidate("sonnet-alone", 3.0, 0.4),
-            candidate("opus-with-subagents", 20.0, 0.4),
+            candidate("sonnet-alone", SONNET_LOAD, MODEL_SAVING),
+            candidate("opus-with-subagents", OPUS_LOAD, MODEL_SAVING),
         ];
         assert_eq!(plan(&both, 23.0, None), ["opus-with-subagents"]);
     }
 
     #[test]
     fn never_picks_a_session_with_no_step_left() {
-        let none = [candidate("opus-with-subagents", 20.0, 0.0)];
+        let none = [candidate("opus-with-subagents", OPUS_LOAD, 0.0)];
         assert_eq!(plan(&none, 20.0, Some(0.5)), Vec::<&str>::new());
     }
 
@@ -494,7 +517,7 @@ mod tests {
         let heavy_and_light = [
             RestoreCandidate {
                 id: "heavy",
-                load: Load::new(9.0),
+                load: Load::new(LONE_LOAD),
             },
             RestoreCandidate {
                 id: "light",

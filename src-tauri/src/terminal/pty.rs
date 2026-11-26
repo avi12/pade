@@ -383,6 +383,8 @@ async fn reattach_at_startup(app: AppHandle) {
 mod tests {
     use crate::terminal::pty::*;
 
+    const SAMPLE_SEQUENCE: u64 = 7;
+
     /// The `pty://data` payload is the frontend contract; borrowing its fields
     /// must not change the wire shape.
     #[test]
@@ -390,7 +392,7 @@ mod tests {
         let chunk = Chunk {
             id: "session",
             data: "hello",
-            sequence: 7,
+            sequence: SAMPLE_SEQUENCE,
         };
         assert_eq!(
             serde_json::to_value(&chunk).expect("serializable"),

@@ -328,6 +328,9 @@ const LIGHT_CONSOLE_PREFIX: [&str; 4] = ["/c", "color", "F0", "&"];
 mod tests {
     use crate::terminal::session::launch::*;
 
+    const DEFAULT_COLUMNS: u16 = 120;
+    const DEFAULT_ROWS: u16 = 40;
+
     /// The Windows light-console wrapper must lead with `cmd /c color F0 &`, keep
     /// the agent's absolute path as ONE argv token even with spaces, and preserve
     /// every following arg verbatim - this is the quoting-risk surface the fix
@@ -400,8 +403,8 @@ mod tests {
         let launch = SessionLaunch {
             command: Some("claude".into()),
             cwd: Some(r"C:\work".into()),
-            columns: 120,
-            rows: 40,
+            columns: DEFAULT_COLUMNS,
+            rows: DEFAULT_ROWS,
             arguments: vec!["--flag".into()],
             scheme: Some(Scheme::Dark),
             conversation_id: Some("abc".into()),

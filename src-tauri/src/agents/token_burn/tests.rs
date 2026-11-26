@@ -1,6 +1,16 @@
 use crate::agents::token_burn::*;
 use std::io::Cursor;
 
+const INPUT_TOKENS_PER_REPLY: u64 = 10;
+const OUTPUT_TOKENS_PER_REPLY: u64 = 20;
+const CACHE_READ_TOKENS_PER_REPLY: u64 = 300;
+const FIVE_MINUTE_WRITES_PER_REPLY: u64 = 30;
+const HOUR_WRITES_PER_REPLY: u64 = 10;
+const TINY_CHUNK_BYTES: u64 = 3;
+const LINE_BYTES_LIMIT: usize = 1024;
+const SMALL_CHUNK_BYTES: u64 = 4;
+const TINY_LINE_BYTES_LIMIT: usize = 10;
+
 const NOW: &str = "2026-10-30T12:00:00.000Z";
 const EARLIER: &str = "2026-10-30T11:50:00.000Z";
 const LONG_AGO: &str = "2026-10-30T10:00:00.000Z";
@@ -33,11 +43,11 @@ fn totals(lines: &[String]) -> Vec<ModelTokenUsage> {
 fn usage(model: &str, replies: u64) -> ModelTokenUsage {
     ModelTokenUsage {
         model: model.to_string(),
-        input_tokens: 10 * replies,
-        output_tokens: 20 * replies,
-        cache_read_tokens: 300 * replies,
-        cache_write_five_minute_tokens: 30 * replies,
-        cache_write_one_hour_tokens: 10 * replies,
+        input_tokens: INPUT_TOKENS_PER_REPLY * replies,
+        output_tokens: OUTPUT_TOKENS_PER_REPLY * replies,
+        cache_read_tokens: CACHE_READ_TOKENS_PER_REPLY * replies,
+        cache_write_five_minute_tokens: FIVE_MINUTE_WRITES_PER_REPLY * replies,
+        cache_write_one_hour_tokens: HOUR_WRITES_PER_REPLY * replies,
     }
 }
 
@@ -110,8 +120,8 @@ fn a_cache_write_with_no_lifetime_split_lives_five_minutes() {
 fn lines_read_backwards_across_tiny_chunks_come_out_whole_newest_first() {
     let text = "first line\r\nsecond \u{05e9}\u{05dc}\u{05d5}\u{05dd}\n\nthird";
     let limits = ReadLimits {
-        chunk_bytes: 3,
-        maximum_line_bytes: 1024,
+        chunk_bytes: TINY_CHUNK_BYTES,
+        maximum_line_bytes: LINE_BYTES_LIMIT,
     };
     let lines: Vec<String> = ReverseLines::new(Cursor::new(text), limits)
         .expect("a seekable reader")
@@ -130,8 +140,8 @@ fn lines_read_backwards_across_tiny_chunks_come_out_whole_newest_first() {
 fn a_line_longer_than_the_limit_is_dropped_and_its_neighbours_kept() {
     let text = format!("before\n{}\nafter", "x".repeat(50));
     let limits = ReadLimits {
-        chunk_bytes: 4,
-        maximum_line_bytes: 10,
+        chunk_bytes: SMALL_CHUNK_BYTES,
+        maximum_line_bytes: TINY_LINE_BYTES_LIMIT,
     };
     let lines: Vec<String> = ReverseLines::new(Cursor::new(text), limits)
         .expect("a seekable reader")

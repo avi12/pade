@@ -178,6 +178,8 @@ mod tests {
     use crate::terminal::process_tree::*;
     use crate::test_support::assert_empty;
 
+    const SHELL_PROCESS_ID: u32 = 100;
+
     fn process(process_id: u32, parent_process_id: u32, command_line: &str) -> ProcessInfo {
         ProcessInfo {
             process_id,
@@ -232,6 +234,6 @@ mod tests {
     #[test]
     fn task_processes_never_returns_the_agent_root() {
         let processes = vec![process(100, 1, "claude pnpm dev")];
-        assert_empty(&task_processes(&processes, 100, "pnpm dev"));
+        assert_empty(&task_processes(&processes, SHELL_PROCESS_ID, "pnpm dev"));
     }
 }

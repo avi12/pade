@@ -274,6 +274,12 @@ pub(crate) fn is_same_token(presented: &str, expected: &str) -> bool {
 mod tests {
     use crate::terminal::pty_host::protocol::*;
 
+    const SAMPLE_COLUMNS: u16 = 80;
+    const SAMPLE_ROWS: u16 = 24;
+    const SAMPLE_REQUEST_ID: u64 = 7;
+    const SAMPLE_SEQUENCE: u64 = 3;
+    const SAMPLE_PROCESS_ID: u32 = 42;
+
     fn round_trip<T>(message: &T) -> T
     where
         T: Serialize + DeserializeOwned,
@@ -319,8 +325,8 @@ mod tests {
             Request::Resize {
                 owner: "main".into(),
                 id: "s".into(),
-                columns: 80,
-                rows: 24,
+                columns: SAMPLE_COLUMNS,
+                rows: SAMPLE_ROWS,
             },
             Request::List { owner: None },
             Request::Transfer {
@@ -332,7 +338,7 @@ mod tests {
         ];
         for request in requests {
             let frame = RequestFrame {
-                request_id: 7,
+                request_id: SAMPLE_REQUEST_ID,
                 request,
             };
             assert_eq!(round_trip(&frame), frame);
@@ -346,7 +352,7 @@ mod tests {
                 id: "s".into(),
                 owner: "main".into(),
                 data: "hi\r\n".into(),
-                sequence: 3,
+                sequence: SAMPLE_SEQUENCE,
             },
             HostMessage::Exited {
                 id: "s".into(),
@@ -361,7 +367,7 @@ mod tests {
             HostMessage::Reply {
                 request_id: 2,
                 outcome: Outcome::RootProcessId {
-                    process_id: Some(42),
+                    process_id: Some(SAMPLE_PROCESS_ID),
                 },
             },
         ];

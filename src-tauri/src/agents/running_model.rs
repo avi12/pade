@@ -57,6 +57,12 @@ use state::{
     Saved, SessionState, STATE_FILE_EXTENSION,
 };
 
+const MILLISECOND_DIGITS: usize = 3;
+const HOURS_PER_DAY: i64 = 24;
+const MINUTES_PER_HOUR: i64 = 60;
+const MILLISECONDS_PER_MINUTE: i64 = 60_000;
+const MILLISECONDS_PER_SECOND: i64 = 1000;
+
 /// The variable naming the PADE conversation a launch belongs to, inherited by
 /// every hook and plugin the agent runs.
 const CONVERSATION_VARIABLE: &str = "PADE_CONVERSATION_ID";
@@ -364,10 +370,16 @@ pub(super) fn timestamp_milliseconds(timestamp: &str) -> Option<u64> {
     let [year, month, day] = three_numbers(date, '-')?;
     let (clock, fraction) = time.split_once('.').unwrap_or((time, "0"));
     let [hour, minute, second] = three_numbers(clock, ':')?;
-    let milliseconds: i64 = format!("{fraction:0<3}").get(..3)?.parse().ok()?;
+    let milliseconds: i64 = format!("{fraction:0<3}")
+        .get(..MILLISECOND_DIGITS)?
+        .parse()
+        .ok()?;
 
     let days = days_since_epoch(year, month, day);
-    let total = ((days * 24 + hour) * 60 + minute) * 60_000 + second * 1000 + milliseconds;
+    let total = ((days * HOURS_PER_DAY + hour) * MINUTES_PER_HOUR + minute)
+        * MILLISECONDS_PER_MINUTE
+        + second * MILLISECONDS_PER_SECOND
+        + milliseconds;
     u64::try_from(total).ok()
 }
 

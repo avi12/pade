@@ -96,6 +96,12 @@ mod tests {
     use crate::pacing::test_support::{account, session_window, NOW};
     use crate::pacing::units::SpanMilliseconds;
 
+    const WINDOW_HOURS: f64 = 3.0;
+    const FEW_READINGS: u32 = 5;
+    const HOUR_OF_READINGS: u32 = 12;
+    const MILLISECONDS_PER_MINUTE: f64 = 60_000.0;
+    const SOME_READINGS: u32 = 10;
+
     fn key(name: &str) -> AccountKey {
         AccountKey::new(name)
     }
@@ -103,10 +109,10 @@ mod tests {
     /// A book with readings every minute, the window rising `rise` per minute.
     fn worked_book(account_key: &AccountKey, minutes: u32, rise: f64) -> (SampleBook, UsageWindow) {
         let mut book = SampleBook::default();
-        let mut last = session_window(0.0, SpanMilliseconds::from_hours(3.0));
+        let mut last = session_window(0.0, SpanMilliseconds::from_hours(WINDOW_HOURS));
         for minute in 0..=minutes {
             let used = f64::from(minute) * rise;
-            last = session_window(used, SpanMilliseconds::from_hours(3.0));
+            last = session_window(used, SpanMilliseconds::from_hours(WINDOW_HOURS));
             book.record(RecordParams {
                 account_key,
                 windows: std::slice::from_ref(&last),
@@ -119,20 +125,20 @@ mod tests {
     #[test]
     fn a_burn_rate_needs_ten_minutes_of_working_readings() {
         let account_key = key("anthropic");
-        let (short, window) = worked_book(&account_key, 5, 1.0);
+        let (short, window) = worked_book(&account_key, FEW_READINGS, 1.0);
         assert_eq!(short.rate_of(&account_key, &window), None);
-        let (long, window) = worked_book(&account_key, 12, 1.0);
+        let (long, window) = worked_book(&account_key, HOUR_OF_READINGS, 1.0);
         let rate = long
             .rate_of(&account_key, &window)
             .expect("a measured rate");
-        let per_minute = rate.get() * 60_000.0;
+        let per_minute = rate.get() * MILLISECONDS_PER_MINUTE;
         assert!((per_minute - 1.0).abs() < 1e-9, "got {per_minute}");
     }
 
     #[test]
     fn readings_older_than_the_history_are_forgotten() {
         let account_key = key("anthropic");
-        let (mut book, window) = worked_book(&account_key, 10, 1.0);
+        let (mut book, window) = worked_book(&account_key, SOME_READINGS, 1.0);
         let later = NOW + SpanMilliseconds::from_hours(2.0);
         book.record(RecordParams {
             account_key: &account_key,
@@ -147,7 +153,7 @@ mod tests {
     #[test]
     fn accounts_keep_separate_histories() {
         let anthropic = key("anthropic");
-        let (mut book, window) = worked_book(&anthropic, 12, 1.0);
+        let (mut book, window) = worked_book(&anthropic, HOUR_OF_READINGS, 1.0);
         let other = key("chatgpt");
         assert_eq!(book.rate_of(&other, &window), None);
         book.forget_account(&anthropic);
@@ -174,7 +180,7 @@ mod tests {
     #[test]
     fn the_book_survives_a_round_trip_through_a_file() {
         let account_key = key("anthropic");
-        let (book, window) = worked_book(&account_key, 12, 1.0);
+        let (book, window) = worked_book(&account_key, HOUR_OF_READINGS, 1.0);
         let directory = std::env::temp_dir().join(format!("pade-samples-{}", std::process::id()));
         std::fs::create_dir_all(&directory).expect("a scratch directory");
         let path = directory.join(SAMPLES_FILE_NAME);

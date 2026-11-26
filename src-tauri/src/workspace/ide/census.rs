@@ -11,6 +11,8 @@ use std::io::Read;
 use std::io::Write;
 use std::process::Stdio;
 
+const ATTRIBUTE_FIELDS: usize = 3;
+
 /// Census walk bounds - enough to weigh a real repo, bounded so the suggestion
 /// never stalls on a huge working tree.
 pub(super) const CENSUS_MAXIMUM_DEPTH: usize = 5;
@@ -303,7 +305,7 @@ pub(super) fn git_linguist_attributes(
     let listing = String::from_utf8_lossy(&output.stdout);
     let values: Vec<&str> = listing.split('\0').collect();
     let mut attributes = BTreeMap::new();
-    for record in values.as_chunks::<3>().0 {
+    for record in values.as_chunks::<ATTRIBUTE_FIELDS>().0 {
         attributes
             .entry(record[0].to_string())
             .or_insert_with(LinguistAttributes::default)

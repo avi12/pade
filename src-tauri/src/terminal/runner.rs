@@ -435,6 +435,8 @@ mod tests {
         collect_batch, last_carriage_frame, RunnerData, RunnerStream, MAXIMUM_BATCH_LINES,
     };
 
+    const LAST_LINE: u64 = 3;
+
     /// The `runner://data` payload is the frontend contract; borrowing its
     /// fields must not change the wire shape.
     #[test]
@@ -453,7 +455,7 @@ mod tests {
     #[test]
     fn a_burst_arrives_as_one_batch_in_order() {
         let (sender, receiver) = mpsc::channel();
-        for index in 1..=3 {
+        for index in 1..=LAST_LINE {
             sender.send(format!("line {index}")).expect("open channel");
         }
         assert_eq!(

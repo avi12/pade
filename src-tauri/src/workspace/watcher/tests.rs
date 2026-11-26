@@ -127,6 +127,8 @@ use std::sync::mpsc::channel;
 use std::sync::Mutex;
 use std::time::Duration;
 
+const SHORT_MILLISECONDS: u64 = 5;
+
 #[test]
 fn a_summary_says_what_happened_without_repeating_the_file_name() {
     assert_eq!(summarize(ChangeKind::Created, 0, 0), "New file");
@@ -534,7 +536,7 @@ fn a_quiet_channel_returns_the_first_message() {
     let burst = drain_burst(
         &receiver,
         GitStateMessage::StateTouched,
-        Duration::from_millis(5),
+        Duration::from_millis(SHORT_MILLISECONDS),
     );
     assert!(burst.state_touched);
     assert!(!burst.rearm);
@@ -556,7 +558,7 @@ fn a_burst_coalesces_every_distinct_effect() {
     let burst = drain_burst(
         &receiver,
         GitStateMessage::StateTouched,
-        Duration::from_millis(5),
+        Duration::from_millis(SHORT_MILLISECONDS),
     );
     assert!(burst.rearm);
     assert!(burst.state_touched);

@@ -2,6 +2,17 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+const YEARS_PER_ERA: i64 = 400;
+const DAYS_PER_MARCH_CYCLE: i64 = 153;
+const MARCH_MONTH_NUMBER: i64 = 3;
+const JANUARY_POINTER_OFFSET: i64 = 9;
+const MONTHS_PER_MARCH_CYCLE: i64 = 5;
+const DAYS_PER_COMMON_YEAR: i64 = 365;
+const YEARS_PER_LEAP_CYCLE: i64 = 4;
+const YEARS_PER_CENTURY: i64 = 100;
+const DAYS_PER_ERA: i64 = 146_097;
+const DAYS_FROM_ERA_ORIGIN_TO_UNIX_EPOCH: i64 = 719_468;
+
 /// The wall-clock time since the Unix epoch, or zero for a clock set before it -
 /// a timestamp, a nonce or an expiry check never has a better answer to give.
 pub(crate) fn since_unix_epoch() -> Duration {
@@ -33,20 +44,23 @@ pub(crate) fn days_since_epoch(year: i64, month: i64, day: i64) -> i64 {
     } else {
         year
     };
-    let era = shifted_year.div_euclid(400);
-    let year_of_era = shifted_year - era * 400;
-    let day_of_year =
-        (153 * (month + {
+    let era = shifted_year.div_euclid(YEARS_PER_ERA);
+    let year_of_era = shifted_year - era * YEARS_PER_ERA;
+    let day_of_year = (DAYS_PER_MARCH_CYCLE
+        * (month + {
             let is_after_february = month > 2;
             if is_after_february {
-                -3
+                -MARCH_MONTH_NUMBER
             } else {
-                9
+                JANUARY_POINTER_OFFSET
             }
-        }) + 2)
-            / 5
-            + day
-            - 1;
-    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * 146_097 + day_of_era - 719_468
+        })
+        + 2)
+        / MONTHS_PER_MARCH_CYCLE
+        + day
+        - 1;
+    let day_of_era = year_of_era * DAYS_PER_COMMON_YEAR + year_of_era / YEARS_PER_LEAP_CYCLE
+        - year_of_era / YEARS_PER_CENTURY
+        + day_of_year;
+    era * DAYS_PER_ERA + day_of_era - DAYS_FROM_ERA_ORIGIN_TO_UNIX_EPOCH
 }

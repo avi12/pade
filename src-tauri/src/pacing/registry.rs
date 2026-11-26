@@ -108,6 +108,11 @@ mod tests {
     use crate::pacing::registry::*;
     use crate::test_support::assert_empty;
 
+    const AFTER_EXPIRY_MINUTES: f64 = 2.6;
+    const SECOND_REPORT_MINUTES: f64 = 3.0;
+    const OBSERVED_MINUTES: f64 = 0.5;
+    const OVERFLOW_COUNT: usize = 10;
+
     const START: f64 = 1_000_000.0;
 
     fn epoch(offset_minutes: f64) -> EpochMilliseconds {
@@ -149,7 +154,7 @@ mod tests {
         registry.submit(report("main", epoch(0.0), &["a"]));
         assert_eq!(registry.live_sessions(epoch(0.0)).len(), 1);
         assert_eq!(registry.live_sessions(epoch(2.5)).len(), 1);
-        assert_empty(&registry.live_sessions(epoch(2.6)));
+        assert_empty(&registry.live_sessions(epoch(AFTER_EXPIRY_MINUTES)));
     }
 
     #[test]
@@ -167,8 +172,8 @@ mod tests {
     fn every_fresh_window_contributes_and_a_stale_one_does_not() {
         let mut registry = Registry::default();
         registry.submit(report("main", epoch(0.0), &["a"]));
-        registry.submit(report("second", epoch(3.0), &["b"]));
-        let live = registry.live_sessions(epoch(3.0));
+        registry.submit(report("second", epoch(SECOND_REPORT_MINUTES), &["b"]));
+        let live = registry.live_sessions(epoch(SECOND_REPORT_MINUTES));
         assert_eq!(live.len(), 1);
         assert_eq!(live[0].window.as_str(), "second");
     }
@@ -198,7 +203,7 @@ mod tests {
         let mut early = report("main", epoch(0.0), &["a"]);
         early
             .observed
-            .push(observed("a", epoch(0.5), ObservedKind::Rest));
+            .push(observed("a", epoch(OBSERVED_MINUTES), ObservedKind::Rest));
         registry.submit(early);
         assert_empty(&registry.drain_observed(epoch(0.0)));
         assert_eq!(registry.drain_observed(epoch(1.0)).len(), 1);
@@ -219,7 +224,7 @@ mod tests {
     fn the_observed_queue_is_bounded_keeping_the_newest() {
         let mut registry = Registry::default();
         let mut busy = report("main", epoch(0.0), &["a"]);
-        for index in 0..(OBSERVED_LIMIT + 10) {
+        for index in 0..(OBSERVED_LIMIT + OVERFLOW_COUNT) {
             let offset = f64::from(u32::try_from(index).expect("small"));
             busy.observed.push(observed(
                 "a",

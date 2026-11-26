@@ -317,9 +317,13 @@ impl Fraction {
 mod tests {
     use crate::pacing::units::*;
 
+    const START_MILLISECONDS: f64 = 1_000.0;
+    const RATE_PERCENT: f64 = 30.0;
+    const SAMPLE_MILLISECONDS: f64 = 5.0;
+
     #[test]
     fn a_time_minus_a_time_is_a_span_and_a_span_moves_a_time() {
-        let start = EpochMilliseconds::new(1_000.0);
+        let start = EpochMilliseconds::new(START_MILLISECONDS);
         let end = start + SpanMilliseconds::from_minutes(1.0);
         assert_eq!(end - start, SpanMilliseconds::new(60_000.0));
         assert_eq!(end - SpanMilliseconds::from_minutes(1.0), start);
@@ -328,7 +332,7 @@ mod tests {
     #[test]
     fn a_percentage_over_a_span_is_a_rate_and_over_a_rate_is_a_span() {
         let span = SpanMilliseconds::from_hours(2.0);
-        let rate = Percentage::new(30.0) / span;
+        let rate = Percentage::new(RATE_PERCENT) / span;
         assert_eq!(Percentage::new(30.0) / rate, span);
     }
 
@@ -353,7 +357,8 @@ mod tests {
 
     #[test]
     fn units_travel_as_bare_numbers() {
-        let json = serde_json::to_string(&EpochMilliseconds::new(5.0)).unwrap_or_default();
+        let json =
+            serde_json::to_string(&EpochMilliseconds::new(SAMPLE_MILLISECONDS)).unwrap_or_default();
         assert_eq!(json, "5.0");
     }
 }

@@ -18,6 +18,26 @@ use crate::workspace::ide::suggest::{
     editor_covers_project, preference_chain, ranked_editor_ids, suggestible_editor_ids,
 };
 
+const DOMINANT_BYTES: u64 = 10_000;
+const MAJORITY_BYTES: u64 = 9_000;
+const MINORITY_BYTES: u64 = 1_000;
+const GENERATED_BYTES: u64 = 20_000;
+const ANCILLARY_BYTES: u64 = 30_000;
+const SMALL_BYTES: u64 = 2_000;
+const PYTHON_BYTES: u64 = 310;
+const TYPESCRIPT_BYTES: u64 = 300;
+const SVELTE_BYTES: u64 = 180;
+const CSHARP_BYTES: u64 = 200;
+const RUST_BYTES: u64 = 10;
+const WEB_REPEATS: usize = 200;
+const RUST_REPEATS: usize = 260;
+const LONG_WEB_REPEATS: usize = 400;
+const OVERRIDDEN_REPEATS: usize = 20_000;
+const LONG_RUST_REPEATS: usize = 500;
+const BULK_REPEATS: usize = 120_000;
+const FEW_REPEATS: usize = 100;
+const MANY_FILES: u64 = 5000;
+
 fn is_general_purpose_editor(id: &str) -> bool {
     REGISTRY
         .iter()
@@ -58,15 +78,17 @@ fn rule_and_fallback_apply_only_while_they_cover_the_project() {
 
 #[test]
 fn coverage_ranking_prefers_a_specialist_for_one_language() {
-    let source_bytes = std::collections::BTreeMap::from([(ProjectKind::Rust, 10_000)]);
+    let source_bytes = std::collections::BTreeMap::from([(ProjectKind::Rust, DOMINANT_BYTES)]);
     let ranked = ranked_editor_ids(&source_bytes, &[ProjectKind::Rust]);
     assert_eq!(ranked.first().map(String::as_str), Some("rustrover"));
 }
 
 #[test]
 fn coverage_ranking_requires_full_coverage_for_a_hybrid() {
-    let source_bytes =
-        std::collections::BTreeMap::from([(ProjectKind::Web, 9_000), (ProjectKind::Rust, 1_000)]);
+    let source_bytes = std::collections::BTreeMap::from([
+        (ProjectKind::Web, MAJORITY_BYTES),
+        (ProjectKind::Rust, MINORITY_BYTES),
+    ]);
     let ranked = ranked_editor_ids(&source_bytes, &[ProjectKind::Web, ProjectKind::Rust]);
     assert!(ranked
         .first()
@@ -85,7 +107,7 @@ fn coverage_ranking_requires_full_coverage_for_a_hybrid() {
 
 #[test]
 fn android_studio_covers_android_but_not_plain_java() {
-    let java_sources = std::collections::BTreeMap::from([(ProjectKind::Java, 10_000)]);
+    let java_sources = std::collections::BTreeMap::from([(ProjectKind::Java, DOMINANT_BYTES)]);
     assert!(!editor_covers_project(
         "androidstudio",
         &java_sources,
@@ -105,15 +127,17 @@ fn android_studio_covers_android_but_not_plain_java() {
 
 #[test]
 fn a_web_rule_requires_complete_language_coverage() {
-    let web_monorepo = std::collections::BTreeMap::from([(ProjectKind::Web, 10_000)]);
+    let web_monorepo = std::collections::BTreeMap::from([(ProjectKind::Web, DOMINANT_BYTES)]);
     assert!(editor_covers_project(
         "webstorm",
         &web_monorepo,
         &[ProjectKind::Web]
     ));
 
-    let web_rust_project =
-        std::collections::BTreeMap::from([(ProjectKind::Web, 9_000), (ProjectKind::Rust, 1_000)]);
+    let web_rust_project = std::collections::BTreeMap::from([
+        (ProjectKind::Web, MAJORITY_BYTES),
+        (ProjectKind::Rust, MINORITY_BYTES),
+    ]);
     assert!(!editor_covers_project(
         "webstorm",
         &web_rust_project,
@@ -128,8 +152,10 @@ fn a_web_rule_requires_complete_language_coverage() {
 
 #[test]
 fn suggestions_omit_specialists_that_cannot_cover_the_project() {
-    let web_rust_project =
-        std::collections::BTreeMap::from([(ProjectKind::Web, 9_000), (ProjectKind::Rust, 1_000)]);
+    let web_rust_project = std::collections::BTreeMap::from([
+        (ProjectKind::Web, MAJORITY_BYTES),
+        (ProjectKind::Rust, MINORITY_BYTES),
+    ]);
     let suggested =
         suggestible_editor_ids(&web_rust_project, &[ProjectKind::Web, ProjectKind::Rust]);
     assert!(suggested
@@ -206,8 +232,8 @@ fn declared_project_kinds_ignore_ancillary_source_languages() {
 
     for (declared, primary_source, ancillary_source, expected) in cases {
         let source_bytes = std::collections::BTreeMap::from([
-            (primary_source, 20_000),
-            (ancillary_source, 30_000),
+            (primary_source, GENERATED_BYTES),
+            (ancillary_source, ANCILLARY_BYTES),
         ]);
         let suggested = suggestible_editor_ids(&source_bytes, &[declared]);
 
@@ -223,16 +249,20 @@ fn declared_project_kinds_ignore_ancillary_source_languages() {
 #[test]
 fn a_declared_project_requires_every_language_in_its_main_source_branch() {
     let mut profile = SourceProfile::default();
-    profile.record(source_file("project/src/app.ts", ProjectKind::Web, 10_000));
+    profile.record(source_file(
+        "project/src/app.ts",
+        ProjectKind::Web,
+        DOMINANT_BYTES,
+    ));
     profile.record(source_file(
         "project/src/native.rs",
         ProjectKind::Rust,
-        2_000,
+        SMALL_BYTES,
     ));
     profile.record(source_file(
         "project/scripts/automate.py",
         ProjectKind::Python,
-        20_000,
+        GENERATED_BYTES,
     ));
     let declarations = [ProjectDeclaration {
         root: std::path::PathBuf::from("project"),
@@ -255,11 +285,11 @@ fn declaration(root: &str, kinds: &[ProjectKind]) -> ProjectDeclaration {
 #[test]
 fn language_shares_drop_slivers_and_fill_the_bar_biggest_first() {
     let totals = std::collections::BTreeMap::from([
-        ("Python", 310),
-        ("TypeScript", 300),
-        ("Svelte", 180),
-        ("C#", 200),
-        ("Rust", 10),
+        ("Python", PYTHON_BYTES),
+        ("TypeScript", TYPESCRIPT_BYTES),
+        ("Svelte", SVELTE_BYTES),
+        ("C#", CSHARP_BYTES),
+        ("Rust", RUST_BYTES),
     ]);
     let shares: Vec<(String, String, u64)> = language_shares(&totals)
         .into_iter()
@@ -347,8 +377,10 @@ fn an_unrelated_json_manifest_does_not_declare_web() {
 
 #[test]
 fn unmarked_mixed_source_still_requires_a_generalist() {
-    let source_bytes =
-        std::collections::BTreeMap::from([(ProjectKind::Web, 9_000), (ProjectKind::Rust, 1_000)]);
+    let source_bytes = std::collections::BTreeMap::from([
+        (ProjectKind::Web, MAJORITY_BYTES),
+        (ProjectKind::Rust, MINORITY_BYTES),
+    ]);
     let suggested = suggestible_editor_ids(&source_bytes, &[]);
 
     assert!(suggested
@@ -372,9 +404,9 @@ fn generated_content_sits_out_the_census_without_a_path_rule() {
     let core = directory.join("src-tauri");
     std::fs::create_dir_all(&core).expect("test dirs");
 
-    let web_source = "const value = 1;\n".repeat(200);
+    let web_source = "const value = 1;\n".repeat(WEB_REPEATS);
     std::fs::write(directory.join("app.ts"), &web_source).expect("web file");
-    let rust_source = "fn main() {}\n".repeat(260);
+    let rust_source = "fn main() {}\n".repeat(RUST_REPEATS);
     std::fs::write(core.join("main.rs"), &rust_source).expect("rust file");
     std::fs::write(directory.join("bundle.unknown"), vec![b'a'; 4_000_000]).expect("bundle");
 
@@ -418,12 +450,16 @@ fn the_census_honors_git_attributes_and_ignores_ignored_junk() {
         return;
     }
 
-    let web_source = "const value = 1;\n".repeat(400);
-    let overridden_source = "m".repeat(20_000);
-    let rust_source = "fn main() {}\n".repeat(500);
+    let web_source = "const value = 1;\n".repeat(LONG_WEB_REPEATS);
+    let overridden_source = "m".repeat(OVERRIDDEN_REPEATS);
+    let rust_source = "fn main() {}\n".repeat(LONG_RUST_REPEATS);
     std::fs::write(directory.join("app.ts"), &web_source).expect("web file");
     std::fs::write(directory.join("custom.source"), &rust_source).expect("rust override");
-    std::fs::write(directory.join("generated.ts"), "x".repeat(20_000)).expect("generated file");
+    std::fs::write(
+        directory.join("generated.ts"),
+        "x".repeat(OVERRIDDEN_REPEATS),
+    )
+    .expect("generated file");
     std::fs::write(directory.join("manual.ts"), &overridden_source).expect("manual file");
     std::fs::write(
         directory.join(".gitattributes"),
@@ -437,11 +473,15 @@ fn the_census_honors_git_attributes_and_ignores_ignored_junk() {
         return;
     }
 
-    std::fs::write(directory.join("bundle.js"), "x = 1;\n".repeat(120_000)).expect("ignored blob");
+    std::fs::write(directory.join("bundle.js"), "x = 1;\n".repeat(BULK_REPEATS))
+        .expect("ignored blob");
     let dependencies = directory.join("node_modules").join("left-pad");
     std::fs::create_dir_all(&dependencies).expect("dependency dir");
-    std::fs::write(dependencies.join("index.js"), "x = 1;\n".repeat(120_000))
-        .expect("unignored dependency");
+    std::fs::write(
+        dependencies.join("index.js"),
+        "x = 1;\n".repeat(BULK_REPEATS),
+    )
+    .expect("unignored dependency");
     let totals = census(&directory);
     assert_eq!(
         totals.get(&ProjectKind::Web),
@@ -475,14 +515,14 @@ fn the_census_counts_an_untracked_file_nobody_has_staged_yet() {
         return;
     }
 
-    let web_source = "const value = 1;\n".repeat(100);
+    let web_source = "const value = 1;\n".repeat(FEW_REPEATS);
     std::fs::write(directory.join("app.ts"), &web_source).expect("web file");
     let add = git(&["add", "."]).expect("git add");
     if !add.status.success() {
         std::fs::remove_dir_all(&directory).ok();
         return;
     }
-    let rust_source = "fn main() {}\n".repeat(100);
+    let rust_source = "fn main() {}\n".repeat(FEW_REPEATS);
     std::fs::write(directory.join("written-by-an-agent.rs"), &rust_source)
         .expect("untracked rust file");
 
@@ -522,7 +562,9 @@ fn attributes_for_more_paths_than_a_pipe_holds_come_back_without_a_deadlock() {
     )
     .expect("attributes file");
 
-    let paths: Vec<String> = (0..5000).map(|i| format!("src/file-{i}.js")).collect();
+    let paths: Vec<String> = (0..MANY_FILES)
+        .map(|i| format!("src/file-{i}.js"))
+        .collect();
     let attributes = git_linguist_attributes(&directory, &paths);
     assert_eq!(attributes.len(), paths.len());
     assert_eq!(attributes[&paths[0]].generated, Some(true));
@@ -550,7 +592,11 @@ fn a_reported_working_tree_change_recounts_a_project_whose_index_never_moved() {
         std::fs::remove_dir_all(&directory).ok();
         return;
     }
-    std::fs::write(directory.join("app.ts"), "const value = 1;\n".repeat(100)).expect("web file");
+    std::fs::write(
+        directory.join("app.ts"),
+        "const value = 1;\n".repeat(FEW_REPEATS),
+    )
+    .expect("web file");
     let add = git(&["add", "."]).expect("git add");
     if !add.status.success() {
         std::fs::remove_dir_all(&directory).ok();
@@ -562,8 +608,11 @@ fn a_reported_working_tree_change_recounts_a_project_whose_index_never_moved() {
     };
     assert_eq!(languages(cached_language_shares(&path)), ["TypeScript"]);
 
-    std::fs::write(directory.join("main.rs"), "fn main() {}\n".repeat(100))
-        .expect("untracked rust file");
+    std::fs::write(
+        directory.join("main.rs"),
+        "fn main() {}\n".repeat(FEW_REPEATS),
+    )
+    .expect("untracked rust file");
     assert_eq!(
         languages(cached_language_shares(&path)),
         ["TypeScript"],

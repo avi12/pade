@@ -173,6 +173,8 @@ fn after_visible_characters(text: &str, budget: usize) -> Option<usize> {
 mod tests {
     use crate::agents::summary::{summary_prompt, tidy_summary, MAXIMUM_SUMMARY_LENGTH};
 
+    const REPEATED_WORDS: usize = 200;
+
     #[test]
     fn a_reply_becomes_one_line_without_its_wrapping() {
         assert_eq!(
@@ -206,7 +208,7 @@ mod tests {
 
     #[test]
     fn a_long_reply_is_cut_with_an_ellipsis() {
-        let summary = tidy_summary(&"word ".repeat(200)).unwrap_or_default();
+        let summary = tidy_summary(&"word ".repeat(REPEATED_WORDS)).unwrap_or_default();
         assert_eq!(summary.chars().count(), MAXIMUM_SUMMARY_LENGTH);
         assert!(summary.ends_with('…'));
     }

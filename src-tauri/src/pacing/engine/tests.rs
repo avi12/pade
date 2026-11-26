@@ -14,6 +14,28 @@ use crate::pacing::usage_pace::PacedWindowKind;
 use crate::test_support::assert_empty;
 use crate::usage::UsageWindow;
 
+const THIRTY_MINUTES: f64 = 30.0;
+const EFFORT_SAVING: f64 = 0.25;
+const MODEL_SAVING: f64 = 0.5;
+const ONE_HOUR_MINUTES: f64 = 60.0;
+const CONTINUE_MINUTES: f64 = 170.0;
+const FIVE_MINUTES: f64 = 5.0;
+const MILLISECONDS_PER_MINUTE: f64 = 60_000.0;
+const MILLISECONDS_PER_SECOND: f64 = 1_000.0;
+const WINDOW_HOURS: f64 = 3.0;
+const NEARLY_SPENT_PERCENT: f64 = 98.5;
+const MODERATE_PERCENT: f64 = 62.0;
+const MODERATE_RATE: f64 = 0.4;
+const HIGH_PERCENT: f64 = 80.0;
+const LOW_PERCENT: f64 = 30.0;
+const SLOW_RATE: f64 = 0.1;
+const VERY_HIGH_PERCENT: f64 = 90.0;
+const HEAVY_LOAD: f64 = 3.0;
+const TWO_HOURS_MINUTES: f64 = 120.0;
+const CALM_PERCENT: f64 = 40.0;
+const ELEVEN_MINUTES: f64 = 11.0;
+const HALF_PERCENT: f64 = 50.0;
+
 const ACCOUNT: &str = "anthropic";
 const AGENT: &str = "claude";
 const REPORTED_SECONDS_AGO: f64 = 10.0;
@@ -46,7 +68,7 @@ fn session(id: &str) -> SessionFacts {
         is_continued_run: false,
         is_shielded: false,
         is_model_switch_applying: false,
-        working_since: Some(NOW - minutes(30.0)),
+        working_since: Some(NOW - minutes(THIRTY_MINUTES)),
         working_share: Fraction::WHOLE,
         own_load: Load::new(1.0),
         subagents: Vec::new(),
@@ -66,8 +88,8 @@ fn choice(can_effort: bool, can_model: bool) -> ChoiceFacts {
         },
         can_step_up: false,
         restore_at: None,
-        effort_saving: Fraction::new(0.25),
-        model_saving: Fraction::new(0.5),
+        effort_saving: Fraction::new(EFFORT_SAVING),
+        model_saving: Fraction::new(MODEL_SAVING),
     }
 }
 
@@ -91,12 +113,12 @@ fn paused(phase: PacePhase) -> PaceFacts {
     PaceFacts {
         phase,
         window_kind: PacedWindowKind::Session,
-        ready_at: NOW + minutes(60.0),
-        continue_at: NOW + minutes(170.0),
+        ready_at: NOW + minutes(ONE_HOUR_MINUTES),
+        continue_at: NOW + minutes(CONTINUE_MINUTES),
         rest_until: None,
         has_stopped_work: true,
         is_held: false,
-        paused_at: NOW - minutes(5.0),
+        paused_at: NOW - minutes(FIVE_MINUTES),
         rates: BTreeMap::new(),
     }
 }
@@ -111,7 +133,7 @@ fn paused_session(id: &str, phase: PacePhase) -> SessionFacts {
 /// A pause remembering the burn rate of the five-hour window it was held at.
 fn paused_with_rate(id: &str, phase: PacePhase, per_minute: f64) -> SessionFacts {
     let mut held = paused_session(id, phase);
-    let rate = BurnRate::new(per_minute / 60_000.0);
+    let rate = BurnRate::new(per_minute / MILLISECONDS_PER_MINUTE);
     held.pace
         .as_mut()
         .expect("a pause")
@@ -123,7 +145,7 @@ fn paused_with_rate(id: &str, phase: PacePhase, per_minute: f64) -> SessionFacts
 fn live(facts: SessionFacts) -> LiveSession {
     LiveSession {
         window: WindowLabel::new("main"),
-        reported_at: NOW - SpanMilliseconds::new(REPORTED_SECONDS_AGO * 1_000.0),
+        reported_at: NOW - SpanMilliseconds::new(REPORTED_SECONDS_AGO * MILLISECONDS_PER_SECOND),
         facts,
     }
 }
@@ -165,7 +187,7 @@ fn measured(used: f64, per_minute: f64) -> SampleBook {
         let ago = f64::from(MEASURED_READINGS - reading);
         let window = session_window(
             per_minute.mul_add(-ago, used),
-            SpanMilliseconds::from_hours(3.0),
+            SpanMilliseconds::from_hours(WINDOW_HOURS),
         );
         book.record(RecordParams {
             account_key: &account_key(),
@@ -235,8 +257,8 @@ fn only(id: &str, kind: ObservedKind) -> Steps {
 fn a_session_with_next_to_nothing_left_and_no_cheaper_choice_is_stopped() {
     let outcome = run(
         vec![session("a")],
-        &session_account(98.5),
-        &measured(98.5, 1.0),
+        &session_account(NEARLY_SPENT_PERCENT),
+        &measured(NEARLY_SPENT_PERCENT, 1.0),
     );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Stop));
 }
@@ -245,8 +267,8 @@ fn a_session_with_next_to_nothing_left_and_no_cheaper_choice_is_stopped() {
 fn a_session_that_resting_can_save_rests_until_its_rhythm_ends() {
     let outcome = run(
         vec![session("a")],
-        &session_account(62.0),
-        &measured(62.0, 0.4),
+        &session_account(MODERATE_PERCENT),
+        &measured(MODERATE_PERCENT, MODERATE_RATE),
     );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Rest));
     let rest_end = outcome
@@ -265,7 +287,11 @@ fn a_session_that_resting_can_save_rests_until_its_rhythm_ends() {
 fn a_session_that_rested_just_now_works_its_stretch_before_resting_again() {
     let mut recent = session("a");
     recent.working_since = Some(NOW - minutes(1.0));
-    let outcome = run(vec![recent], &session_account(62.0), &measured(62.0, 0.4));
+    let outcome = run(
+        vec![recent],
+        &session_account(MODERATE_PERCENT),
+        &measured(MODERATE_PERCENT, MODERATE_RATE),
+    );
     assert_eq!(steps(&outcome), Steps::new());
 }
 
@@ -273,8 +299,8 @@ fn a_session_that_rested_just_now_works_its_stretch_before_resting_again() {
 fn a_session_with_room_left_to_spend_rests_rather_than_stops() {
     let outcome = run(
         vec![session("a")],
-        &session_account(80.0),
-        &measured(80.0, 1.0),
+        &session_account(HIGH_PERCENT),
+        &measured(HIGH_PERCENT, 1.0),
     );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Rest));
 }
@@ -283,7 +309,11 @@ fn a_session_with_room_left_to_spend_rests_rather_than_stops() {
 fn effort_steps_down_first() {
     let mut stepping = session("a");
     stepping.choice = Some(choice(true, true));
-    let outcome = run(vec![stepping], &session_account(80.0), &measured(80.0, 1.0));
+    let outcome = run(
+        vec![stepping],
+        &session_account(HIGH_PERCENT),
+        &measured(HIGH_PERCENT, 1.0),
+    );
     assert_eq!(steps(&outcome), only("a", ObservedKind::StepEffortDown));
 }
 
@@ -291,7 +321,11 @@ fn effort_steps_down_first() {
 fn the_model_steps_down_once_effort_has_nowhere_to_go() {
     let mut stepping = session("a");
     stepping.choice = Some(choice(false, true));
-    let outcome = run(vec![stepping], &session_account(80.0), &measured(80.0, 1.0));
+    let outcome = run(
+        vec![stepping],
+        &session_account(HIGH_PERCENT),
+        &measured(HIGH_PERCENT, 1.0),
+    );
     assert_eq!(steps(&outcome), only("a", ObservedKind::StepModelDown));
 }
 
@@ -299,7 +333,11 @@ fn the_model_steps_down_once_effort_has_nowhere_to_go() {
 fn a_bottomed_out_choice_goes_on_to_the_stop() {
     let mut bottomed = session("a");
     bottomed.choice = Some(choice(false, false));
-    let outcome = run(vec![bottomed], &session_account(98.5), &measured(98.5, 1.0));
+    let outcome = run(
+        vec![bottomed],
+        &session_account(NEARLY_SPENT_PERCENT),
+        &measured(NEARLY_SPENT_PERCENT, 1.0),
+    );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Stop));
 }
 
@@ -307,8 +345,8 @@ fn a_bottomed_out_choice_goes_on_to_the_stop() {
 fn an_account_on_pace_decides_nothing_for_a_working_session() {
     let outcome = run(
         vec![session("a")],
-        &session_account(30.0),
-        &measured(30.0, 0.1),
+        &session_account(LOW_PERCENT),
+        &measured(LOW_PERCENT, SLOW_RATE),
     );
     assert_empty(&outcome.decisions);
 }
@@ -317,7 +355,7 @@ fn an_account_on_pace_decides_nothing_for_a_working_session() {
 fn a_session_window_without_a_measured_burn_is_not_judged() {
     let outcome = run(
         vec![session("a")],
-        &session_account(90.0),
+        &session_account(VERY_HIGH_PERCENT),
         &SampleBook::default(),
     );
     assert_empty(&outcome.decisions);
@@ -339,7 +377,11 @@ fn an_agent_with_no_reading_at_all_decides_nothing() {
 fn an_idle_session_with_nothing_held_is_not_looked_at() {
     let mut idle = session("a");
     idle.is_working = false;
-    let outcome = run(vec![idle], &session_account(80.0), &measured(80.0, 1.0));
+    let outcome = run(
+        vec![idle],
+        &session_account(HIGH_PERCENT),
+        &measured(HIGH_PERCENT, 1.0),
+    );
     assert_empty(&outcome.decisions);
 }
 
@@ -348,11 +390,11 @@ fn the_account_sheds_through_its_heaviest_saver_first() {
     let mut light = session("light");
     light.own_load = Load::new(1.0);
     let mut heavy = session("heavy");
-    heavy.own_load = Load::new(3.0);
+    heavy.own_load = Load::new(HEAVY_LOAD);
     let outcome = run(
         vec![light, heavy],
-        &session_account(62.0),
-        &measured(62.0, 0.4),
+        &session_account(MODERATE_PERCENT),
+        &measured(MODERATE_PERCENT, MODERATE_RATE),
     );
     assert_eq!(steps(&outcome), only("heavy", ObservedKind::Rest));
 }
@@ -370,7 +412,11 @@ fn a_session_pacing_leaves_alone_is_never_stepped() {
     for tweak in leave_alone {
         let mut left = session("a");
         tweak(&mut left);
-        let outcome = run(vec![left], &session_account(80.0), &measured(80.0, 1.0));
+        let outcome = run(
+            vec![left],
+            &session_account(HIGH_PERCENT),
+            &measured(HIGH_PERCENT, 1.0),
+        );
         assert_empty(&outcome.decisions);
     }
 }
@@ -386,14 +432,18 @@ fn a_session_owned_elsewhere_gives_up_its_pause_and_is_otherwise_ignored() {
         owner(&mut paused_one);
         let outcome = run(
             vec![paused_one],
-            &session_account(80.0),
-            &measured(80.0, 1.0),
+            &session_account(HIGH_PERCENT),
+            &measured(HIGH_PERCENT, 1.0),
         );
         assert_eq!(steps(&outcome), only("a", ObservedKind::Release));
 
         let mut working = session("b");
         owner(&mut working);
-        let outcome = run(vec![working], &session_account(80.0), &measured(80.0, 1.0));
+        let outcome = run(
+            vec![working],
+            &session_account(HIGH_PERCENT),
+            &measured(HIGH_PERCENT, 1.0),
+        );
         assert_empty(&outcome.decisions);
     }
 }
@@ -402,14 +452,14 @@ fn a_session_owned_elsewhere_gives_up_its_pause_and_is_otherwise_ignored() {
 fn pacing_turned_off_continues_a_pause_and_restores_a_stepped_choice() {
     let mut held = paused_session("held", PacePhase::Paused);
     held.is_pacing_on = false;
-    let mut stepped = stepped_down("stepped", 1.0, NOW + minutes(60.0));
+    let mut stepped = stepped_down("stepped", 1.0, NOW + minutes(ONE_HOUR_MINUTES));
     stepped.is_pacing_on = false;
     let mut working = session("working");
     working.is_pacing_on = false;
     let outcome = run(
         vec![held, stepped, working],
-        &session_account(80.0),
-        &measured(80.0, 1.0),
+        &session_account(HIGH_PERCENT),
+        &measured(HIGH_PERCENT, 1.0),
     );
     assert_eq!(steps(&outcome), only("held", ObservedKind::Resume));
     assert_eq!(restored(&outcome), vec!["stepped".to_string()]);
@@ -420,26 +470,34 @@ fn pacing_turned_off_continues_a_pause_and_restores_a_stepped_choice() {
 #[test]
 fn a_stepped_choice_is_restored_as_its_window_is_about_to_reset() {
     let due = stepped_down("a", 1.0, NOW - minutes(1.0));
-    let outcome = run(vec![due], &session_account(80.0), &measured(80.0, 1.0));
+    let outcome = run(
+        vec![due],
+        &session_account(HIGH_PERCENT),
+        &measured(HIGH_PERCENT, 1.0),
+    );
     assert_eq!(restored(&outcome), vec!["a".to_string()]);
 }
 
 #[test]
 fn a_restored_choice_is_not_also_stepped_up() {
     let due = stepped_down("a", 1.0, NOW - minutes(1.0));
-    let outcome = run(vec![due], &session_account(30.0), &measured(30.0, 0.1));
+    let outcome = run(
+        vec![due],
+        &session_account(LOW_PERCENT),
+        &measured(LOW_PERCENT, SLOW_RATE),
+    );
     assert_eq!(restored(&outcome), vec!["a".to_string()]);
     assert_eq!(steps(&outcome), Steps::new());
 }
 
 #[test]
 fn with_room_to_spare_the_lightest_stepped_session_climbs_back_up() {
-    let heavy = stepped_down("heavy", 3.0, NOW + minutes(120.0));
-    let light = stepped_down("light", 1.0, NOW + minutes(120.0));
+    let heavy = stepped_down("heavy", HEAVY_LOAD, NOW + minutes(TWO_HOURS_MINUTES));
+    let light = stepped_down("light", 1.0, NOW + minutes(TWO_HOURS_MINUTES));
     let outcome = run(
         vec![heavy, light],
-        &session_account(30.0),
-        &measured(30.0, 0.1),
+        &session_account(LOW_PERCENT),
+        &measured(LOW_PERCENT, SLOW_RATE),
     );
     assert_eq!(steps(&outcome), only("light", ObservedKind::StepUp));
     assert_eq!(outcome.stepped_accounts, vec![account_key()]);
@@ -447,8 +505,12 @@ fn with_room_to_spare_the_lightest_stepped_session_climbs_back_up() {
 
 #[test]
 fn a_stepped_session_over_pace_does_not_climb_back() {
-    let stepped = stepped_down("a", 1.0, NOW + minutes(120.0));
-    let outcome = run(vec![stepped], &session_account(80.0), &measured(80.0, 1.0));
+    let stepped = stepped_down("a", 1.0, NOW + minutes(TWO_HOURS_MINUTES));
+    let outcome = run(
+        vec![stepped],
+        &session_account(HIGH_PERCENT),
+        &measured(HIGH_PERCENT, 1.0),
+    );
     assert_eq!(steps(&outcome), only("a", ObservedKind::StepEffortDown));
 }
 
@@ -456,8 +518,8 @@ fn a_stepped_session_over_pace_does_not_climb_back() {
 fn a_session_with_no_step_to_undo_does_not_step_up() {
     let outcome = run(
         vec![session("a")],
-        &session_account(30.0),
-        &measured(30.0, 0.1),
+        &session_account(LOW_PERCENT),
+        &measured(LOW_PERCENT, SLOW_RATE),
     );
     assert_empty(&outcome.decisions);
     assert_empty(&outcome.stepped_accounts);
@@ -465,9 +527,13 @@ fn a_session_with_no_step_to_undo_does_not_step_up() {
 
 #[test]
 fn an_idle_stepped_session_is_still_looked_at() {
-    let mut idle = stepped_down("a", 1.0, NOW + minutes(120.0));
+    let mut idle = stepped_down("a", 1.0, NOW + minutes(TWO_HOURS_MINUTES));
     idle.is_working = false;
-    let outcome = run(vec![idle], &session_account(30.0), &measured(30.0, 0.1));
+    let outcome = run(
+        vec![idle],
+        &session_account(LOW_PERCENT),
+        &measured(LOW_PERCENT, SLOW_RATE),
+    );
     assert_empty(&outcome.decisions);
 }
 
@@ -479,8 +545,8 @@ fn a_session_stepped_since_its_report_waits_for_a_fresh_one() {
     memory.stepped_at.insert("a".to_string(), NOW);
     let outcome = run_with(
         vec![session("a")],
-        &session_account(80.0),
-        &measured(80.0, 1.0),
+        &session_account(HIGH_PERCENT),
+        &measured(HIGH_PERCENT, 1.0),
         &memory,
     );
     assert_eq!(steps(&outcome), Steps::new());
@@ -490,8 +556,8 @@ fn a_session_stepped_since_its_report_waits_for_a_fresh_one() {
 fn a_climb_is_remembered_and_its_account_starts_its_burn_over() {
     let outcome = run(
         vec![session("a")],
-        &session_account(80.0),
-        &measured(80.0, 1.0),
+        &session_account(HIGH_PERCENT),
+        &measured(HIGH_PERCENT, 1.0),
     );
     assert_eq!(outcome.memory.stepped_at.get("a"), Some(&NOW));
     assert_eq!(outcome.stepped_accounts, vec![account_key()]);
@@ -503,7 +569,7 @@ fn the_memory_forgets_sessions_that_are_gone() {
     memory.stepped_at.insert("gone".to_string(), NOW);
     let outcome = run_with(
         vec![session("a")],
-        &session_account(30.0),
+        &session_account(LOW_PERCENT),
         &SampleBook::default(),
         &memory,
     );
@@ -518,7 +584,11 @@ fn running_subagents_of_a_session_over_pace_are_throttled() {
         description: Some("a search".to_string()),
         load: Load::new(2.0),
     }];
-    let outcome = run(vec![busy], &session_account(80.0), &measured(80.0, 1.0));
+    let outcome = run(
+        vec![busy],
+        &session_account(HIGH_PERCENT),
+        &measured(HIGH_PERCENT, 1.0),
+    );
     let throttle = outcome
         .decisions
         .iter()
@@ -538,7 +608,11 @@ fn running_subagents_of_a_session_over_pace_are_throttled() {
 fn a_pause_whose_window_has_come_back_continues() {
     let mut due = paused_session("a", PacePhase::Paused);
     due.pace.as_mut().expect("a pause").continue_at = NOW - minutes(1.0);
-    let outcome = run(vec![due], &session_account(80.0), &SampleBook::default());
+    let outcome = run(
+        vec![due],
+        &session_account(HIGH_PERCENT),
+        &SampleBook::default(),
+    );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Resume));
 }
 
@@ -546,7 +620,11 @@ fn a_pause_whose_window_has_come_back_continues() {
 fn an_overridden_pause_at_its_reset_is_released_not_continued() {
     let mut due = paused_session("a", PacePhase::Overridden);
     due.pace.as_mut().expect("a pause").continue_at = NOW - minutes(1.0);
-    let outcome = run(vec![due], &session_account(80.0), &SampleBook::default());
+    let outcome = run(
+        vec![due],
+        &session_account(HIGH_PERCENT),
+        &SampleBook::default(),
+    );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Release));
 }
 
@@ -556,7 +634,7 @@ fn a_rest_that_has_ended_continues() {
     resting.pace.as_mut().expect("a pause").rest_until = Some(NOW - minutes(1.0));
     let outcome = run(
         vec![resting],
-        &session_account(80.0),
+        &session_account(HIGH_PERCENT),
         &SampleBook::default(),
     );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Resume));
@@ -574,7 +652,11 @@ fn a_rest_not_yet_begun_is_not_over() {
 #[test]
 fn a_stop_with_next_to_nothing_left_stays_held() {
     let held = paused_with_rate("a", PacePhase::Paused, 1.0);
-    let outcome = run(vec![held], &session_account(98.5), &SampleBook::default());
+    let outcome = run(
+        vec![held],
+        &session_account(NEARLY_SPENT_PERCENT),
+        &SampleBook::default(),
+    );
     assert_empty(&outcome.decisions);
 }
 
@@ -583,7 +665,7 @@ fn a_stop_with_room_left_goes_back_to_work_however_far_over_pace() {
     let stopped = paused_with_rate("a", PacePhase::Paused, 1.0);
     let outcome = run(
         vec![stopped],
-        &session_account(80.0),
+        &session_account(HIGH_PERCENT),
         &SampleBook::default(),
     );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Resume));
@@ -592,10 +674,10 @@ fn a_stop_with_room_left_goes_back_to_work_however_far_over_pace() {
 #[test]
 fn a_rest_still_over_pace_stays_held() {
     let mut resting = paused_with_rate("a", PacePhase::Paused, 1.0);
-    resting.pace.as_mut().expect("a pause").rest_until = Some(NOW + minutes(30.0));
+    resting.pace.as_mut().expect("a pause").rest_until = Some(NOW + minutes(THIRTY_MINUTES));
     let outcome = run(
         vec![resting],
-        &session_account(80.0),
+        &session_account(HIGH_PERCENT),
         &SampleBook::default(),
     );
     assert_empty(&outcome.decisions);
@@ -604,7 +686,11 @@ fn a_rest_still_over_pace_stays_held() {
 #[test]
 fn a_pause_back_on_pace_continues() {
     let held = paused_with_rate("a", PacePhase::Paused, 1.0);
-    let outcome = run(vec![held], &session_account(40.0), &SampleBook::default());
+    let outcome = run(
+        vec![held],
+        &session_account(CALM_PERCENT),
+        &SampleBook::default(),
+    );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Resume));
     assert_eq!(
         outcome.memory.last_release_at.get(&account_key()),
@@ -615,7 +701,11 @@ fn a_pause_back_on_pace_continues() {
 #[test]
 fn an_overridden_pause_back_on_pace_is_released() {
     let held = paused_with_rate("a", PacePhase::Overridden, 1.0);
-    let outcome = run(vec![held], &session_account(40.0), &SampleBook::default());
+    let outcome = run(
+        vec![held],
+        &session_account(CALM_PERCENT),
+        &SampleBook::default(),
+    );
     assert_eq!(steps(&outcome), only("a", ObservedKind::Release));
     assert!(outcome.memory.last_release_at.is_empty());
 }
@@ -626,7 +716,7 @@ fn a_session_still_stopping_is_not_let_go_even_back_on_pace() {
     stopping.is_working = true;
     let outcome = run(
         vec![stopping],
-        &session_account(40.0),
+        &session_account(CALM_PERCENT),
         &SampleBook::default(),
     );
     assert_empty(&outcome.decisions);
@@ -642,12 +732,12 @@ fn an_unreadable_account_leaves_a_pause_be() {
 #[test]
 fn one_paused_session_per_account_is_let_go_the_lightest_first() {
     let mut heavy = paused_with_rate("heavy", PacePhase::Paused, 1.0);
-    heavy.own_load = Load::new(3.0);
+    heavy.own_load = Load::new(HEAVY_LOAD);
     let mut light = paused_with_rate("light", PacePhase::Paused, 1.0);
     light.own_load = Load::new(1.0);
     let outcome = run(
         vec![heavy, light],
-        &session_account(40.0),
+        &session_account(CALM_PERCENT),
         &SampleBook::default(),
     );
     assert_eq!(steps(&outcome), only("light", ObservedKind::Resume));
@@ -665,7 +755,7 @@ fn a_pauses_subagents_count_toward_how_light_it_is() {
     alone.own_load = Load::new(2.0);
     let outcome = run(
         vec![crowded, alone],
-        &session_account(40.0),
+        &session_account(CALM_PERCENT),
         &SampleBook::default(),
     );
     assert_eq!(steps(&outcome), only("alone", ObservedKind::Resume));
@@ -676,11 +766,11 @@ fn the_next_release_waits_for_the_account_to_show_what_the_last_one_spends() {
     let mut memory = EngineMemory::default();
     memory
         .last_release_at
-        .insert(account_key(), NOW - minutes(5.0));
+        .insert(account_key(), NOW - minutes(FIVE_MINUTES));
     let held = paused_with_rate("a", PacePhase::Paused, 1.0);
     let outcome = run_with(
         vec![held],
-        &session_account(40.0),
+        &session_account(CALM_PERCENT),
         &SampleBook::default(),
         &memory,
     );
@@ -688,11 +778,11 @@ fn the_next_release_waits_for_the_account_to_show_what_the_last_one_spends() {
 
     memory
         .last_release_at
-        .insert(account_key(), NOW - minutes(11.0));
+        .insert(account_key(), NOW - minutes(ELEVEN_MINUTES));
     let held = paused_with_rate("a", PacePhase::Paused, 1.0);
     let outcome = run_with(
         vec![held],
-        &session_account(40.0),
+        &session_account(CALM_PERCENT),
         &SampleBook::default(),
         &memory,
     );
@@ -711,7 +801,10 @@ fn sampled(
 
 #[test]
 fn an_account_is_sampled_once_however_many_sessions_work_on_it() {
-    let found = sampled(vec![session("a"), session("b")], &session_account(50.0));
+    let found = sampled(
+        vec![session("a"), session("b")],
+        &session_account(HALF_PERCENT),
+    );
     assert_eq!(found, vec![account_key()]);
 }
 
@@ -721,7 +814,7 @@ fn only_work_is_sampled_with_pacing_on_and_a_reading() {
     idle.is_working = false;
     let mut off = session("off");
     off.is_pacing_on = false;
-    assert_empty(&sampled(vec![idle, off], &session_account(50.0)));
+    assert_empty(&sampled(vec![idle, off], &session_account(HALF_PERCENT)));
     assert_empty(&sampled(vec![session("a")], &unread()));
     assert_empty(&sampled(vec![session("a")], &BTreeMap::new()));
 }

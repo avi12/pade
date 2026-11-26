@@ -1,6 +1,13 @@
 use crate::terminal::session::registry::*;
 use std::sync::mpsc;
 
+const SETTLE_MILLISECONDS: u64 = 100;
+const GENEROUS_SECONDS: u64 = 5;
+const SHORT_MILLISECONDS: u64 = 50;
+const SAMPLE_COLUMNS: u16 = 80;
+const SAMPLE_ROWS: u16 = 24;
+const DEADLINE_SECONDS: u64 = 20;
+
 #[test]
 fn a_moved_owner_is_seen_by_every_clone() {
     let owner = SessionOwner::new("w-1".to_string());
@@ -19,12 +26,12 @@ fn exit_waits_for_a_teardown_still_running() {
     let worker = {
         let is_finished = Arc::clone(&is_finished);
         std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(SETTLE_MILLISECONDS));
             is_finished.store(true, std::sync::atomic::Ordering::SeqCst);
             drop(teardown);
         })
     };
-    teardowns.wait_for_all(Duration::from_secs(5));
+    teardowns.wait_for_all(Duration::from_secs(GENEROUS_SECONDS));
     assert!(is_finished.load(std::sync::atomic::Ordering::SeqCst));
     worker.join().expect("worker thread");
 }
@@ -34,7 +41,7 @@ fn exit_never_waits_past_its_timeout() {
     let teardowns = Arc::new(Teardowns::default());
     let _stuck = teardowns.begin();
     let started = std::time::Instant::now();
-    teardowns.wait_for_all(Duration::from_millis(50));
+    teardowns.wait_for_all(Duration::from_millis(SHORT_MILLISECONDS));
     assert!(started.elapsed() < Duration::from_secs(2));
 }
 
@@ -87,8 +94,8 @@ fn a_real_command_streams_into_history_and_is_reaped() {
     let registry = SessionRegistry::new(Arc::new(Collector(Mutex::new(sender))));
     let launch = SessionLaunch {
         command: Some("cmd".into()),
-        columns: 80,
-        rows: 24,
+        columns: SAMPLE_COLUMNS,
+        rows: SAMPLE_ROWS,
         arguments: vec!["/c".into(), "echo pade-engine-test".into()],
         ..SessionLaunch::default()
     };
@@ -100,7 +107,7 @@ fn a_real_command_streams_into_history_and_is_reaped() {
     );
 
     let mut said = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(20);
+    let deadline = std::time::Instant::now() + Duration::from_secs(DEADLINE_SECONDS);
     loop {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
         match receiver.recv_timeout(remaining) {

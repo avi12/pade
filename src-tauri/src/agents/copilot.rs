@@ -27,6 +27,15 @@ use tungstenite::{client::IntoClientRequest, Message, WebSocket};
 
 use crate::agents::naming::{run_agent_reply, session_naming_prompt, NAME_TIMEOUT};
 
+const BASE64_INPUT_CHUNK: usize = 3;
+const BASE64_OUTPUT_CHUNK: usize = 4;
+const FIRST_BYTE_SHIFT: usize = 16;
+const BITS_PER_BYTE: usize = 8;
+const FIRST_SEXTET_SHIFT: usize = 18;
+const BITS_PER_SEXTET: usize = 6;
+const SEXTET_MASK: u32 = 0x3f;
+const HTTP_UNAUTHORIZED: u16 = 401;
+
 const HUB: &str = "wss://substrate.office.com";
 /// The chat page's own origin, which the hub checks.
 const ORIGIN: &str = "https://copilot.com";
@@ -179,18 +188,22 @@ fn windows_token() -> Option<String> {
 /// PowerShell's `-EncodedCommand` form: the script as UTF-16LE, in base64.
 fn encode_command(script: &str) -> String {
     let bytes: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
-    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
+    let mut encoded =
+        String::with_capacity(bytes.len().div_ceil(BASE64_INPUT_CHUNK) * BASE64_OUTPUT_CHUNK);
+    for chunk in bytes.chunks(BASE64_INPUT_CHUNK) {
         let group = chunk.iter().enumerate().fold(0u32, |bits, (i, byte)| {
-            bits | u32::from(*byte) << (16 - 8 * i)
+            bits | u32::from(*byte) << (FIRST_BYTE_SHIFT - BITS_PER_BYTE * i)
         });
         for sextet in 0..=chunk.len() {
-            let index = usize::try_from((group >> (18 - 6 * sextet)) & 0x3f).unwrap_or(0);
+            let index = usize::try_from(
+                (group >> (FIRST_SEXTET_SHIFT - BITS_PER_SEXTET * sextet)) & SEXTET_MASK,
+            )
+            .unwrap_or(0);
             encoded.push(char::from(
                 BASE64_ALPHABET.get(index).copied().unwrap_or(b'='),
             ));
         }
-        for _ in chunk.len()..3 {
+        for _ in chunk.len()..BASE64_INPUT_CHUNK {
             encoded.push('=');
         }
     }
@@ -303,7 +316,9 @@ fn chat(hub: &str, token: &str, prompt: &str) -> Result<String, ChatError> {
 
     let (mut socket, _response) = tungstenite::connect(request).map_err(|error| match error {
         // The hub turns away a token it doesn't take with a 401.
-        tungstenite::Error::Http(response) if response.status() == 401 => ChatError::TokenRefused,
+        tungstenite::Error::Http(response) if response.status() == HTTP_UNAUTHORIZED => {
+            ChatError::TokenRefused
+        }
         _ => ChatError::Failed,
     })?;
     arm_read_timeout(&mut socket);

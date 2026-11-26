@@ -3,6 +3,10 @@ use crate::pacing::shadow::*;
 use crate::pacing::units::SpanMilliseconds;
 use crate::test_support::assert_empty;
 
+const EARLY_MINUTES: f64 = 0.5;
+const LATER_MINUTES: f64 = 1.5;
+const MANY_DECISIONS: u32 = 30_u32;
+
 const START: f64 = 5_000_000.0;
 
 fn epoch(minutes: f64) -> EpochMilliseconds {
@@ -43,7 +47,7 @@ fn the_same_step_on_both_sides_agrees() {
         &mut state,
         1.0,
         &[stop("a")],
-        &[observed("a", 0.5, ObservedKind::Stop)],
+        &[observed("a", EARLY_MINUTES, ObservedKind::Stop)],
     );
     assert_eq!(verdicts.len(), 1);
     assert!(verdicts[0].is_agreement());
@@ -57,7 +61,7 @@ fn a_step_only_the_typescript_took_disagrees_at_once() {
         &mut state,
         1.0,
         &[],
-        &[observed("a", 0.5, ObservedKind::Rest)],
+        &[observed("a", EARLY_MINUTES, ObservedKind::Rest)],
     );
     assert_eq!(verdicts.len(), 1);
     assert_eq!(verdicts[0].observed, Some(ObservedKind::Rest));
@@ -89,7 +93,7 @@ fn a_step_that_shows_up_in_the_next_report_agrees_with_lag() {
         &mut state,
         2.0,
         &[],
-        &[observed("a", 1.5, ObservedKind::Stop)],
+        &[observed("a", LATER_MINUTES, ObservedKind::Stop)],
     );
     assert_eq!(second.len(), 1);
     assert!(second[0].is_agreement());
@@ -103,7 +107,7 @@ fn a_none_from_the_window_never_counts_on_its_own() {
         &mut state,
         1.0,
         &[],
-        &[observed("a", 0.5, ObservedKind::None)],
+        &[observed("a", EARLY_MINUTES, ObservedKind::None)],
     );
     assert_empty(&verdicts);
     assert!(state.summary().counts.is_empty());
@@ -116,7 +120,7 @@ fn the_same_kind_on_another_session_does_not_agree() {
         &mut state,
         1.0,
         &[stop("a")],
-        &[observed("b", 0.5, ObservedKind::Stop)],
+        &[observed("b", EARLY_MINUTES, ObservedKind::Stop)],
     );
     assert_eq!(verdicts.len(), 1);
     assert_eq!(verdicts[0].session_id.as_str(), "b");
@@ -130,7 +134,7 @@ fn a_different_kind_on_the_same_session_is_two_disagreements() {
         &mut state,
         1.0,
         &[stop("a")],
-        &[observed("a", 0.5, ObservedKind::Rest)],
+        &[observed("a", EARLY_MINUTES, ObservedKind::Rest)],
     );
     assert_eq!(first.len(), 1);
     assert_eq!(first[0].observed, Some(ObservedKind::Rest));
@@ -168,7 +172,7 @@ fn two_decisions_of_one_kind_claim_one_observation_each() {
         &mut state,
         1.0,
         &[stop("a"), stop("a")],
-        &[observed("a", 0.5, ObservedKind::Stop)],
+        &[observed("a", EARLY_MINUTES, ObservedKind::Stop)],
     );
     assert_eq!(verdicts.len(), 1);
     let next = compare(&mut state, 2.0, &[], &[]);
@@ -179,8 +183,8 @@ fn two_decisions_of_one_kind_claim_one_observation_each() {
 #[test]
 fn only_the_latest_disagreements_are_kept() {
     let mut state = ShadowState::default();
-    let many: Vec<ObservedDecision> = (0..30_u32)
-        .map(|index| observed(&format!("s{index}"), 0.5, ObservedKind::Resume))
+    let many: Vec<ObservedDecision> = (0..MANY_DECISIONS)
+        .map(|index| observed(&format!("s{index}"), EARLY_MINUTES, ObservedKind::Resume))
         .collect();
     let verdicts = compare(&mut state, 1.0, &[], &many);
     assert_eq!(verdicts.len(), 30);
@@ -197,13 +201,13 @@ fn the_summary_serializes_in_the_shape_the_frontend_reads() {
         &mut state,
         1.0,
         &[stop("a")],
-        &[observed("a", 0.5, ObservedKind::Stop)],
+        &[observed("a", EARLY_MINUTES, ObservedKind::Stop)],
     );
     compare(
         &mut state,
         1.0,
         &[],
-        &[observed("b", 0.5, ObservedKind::Release)],
+        &[observed("b", EARLY_MINUTES, ObservedKind::Release)],
     );
     let json = serde_json::to_value(state.summary()).expect("serializes");
     assert_eq!(json["counts"]["stop"]["agree"], 1);

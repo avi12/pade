@@ -3,6 +3,21 @@ use crate::pacing::subagent_steps::{
     hold_for_saving, HoldSeconds, MAXIMUM_HOLD_SECONDS, NO_SPAWN_SHED,
 };
 
+const STANDARD_LOAD: f64 = 10.0;
+const MINUTES_AGO: f64 = 10.0;
+const SHORT_LIFETIME_MS: f64 = 150_000.0;
+const SMALL_SHED: f64 = 0.1;
+const SMALL_PAUSE: f64 = 0.2;
+const HEAVY_LOAD: f64 = 40.0;
+const MEDIUM_LOAD: f64 = 25.0;
+const HALF_SHARE: f64 = 0.5;
+const LIGHT_LOAD: f64 = 5.0;
+const SHORT_HOLD_SECONDS: u32 = 10;
+const REPORT_AGE_MS: f64 = 30_000.0;
+const STEP_AGE_MS: f64 = 10_000.0;
+const LONG_HOLD_SECONDS: u32 = 20;
+const MODERATE_LOAD: f64 = 20.0;
+
 const NOW: EpochMilliseconds = EpochMilliseconds::new(1_794_052_800_000.0);
 const ACCOUNT: &str = "avi@example.com";
 
@@ -14,7 +29,7 @@ fn session(id: &str) -> SessionReport {
         command: "claude".to_string(),
         conversation_id: Some(format!("{id}-conversation")),
         reported_at: NOW,
-        load: Load::new(10.0),
+        load: Load::new(STANDARD_LOAD),
         over_pace: None,
         can_step_up: false,
         has_room: false,
@@ -94,14 +109,14 @@ fn the_leader_is_one_window_the_same_whichever_window_asks() {
 #[test]
 fn a_window_that_stopped_reporting_is_dropped_so_the_next_one_leads() {
     let stale = WindowReport {
-        time: NOW - SpanMilliseconds::from_minutes(10.0),
+        time: NOW - SpanMilliseconds::from_minutes(MINUTES_AGO),
         ..window_report("main", vec![])
     };
     let reports = [stale, window_report("window-1", vec![])];
     let fresh = fresh_reports(FreshReportsParams {
         reports: &reports,
         now: NOW,
-        lifetime: SpanMilliseconds::new(150_000.0),
+        lifetime: SpanMilliseconds::new(SHORT_LIFETIME_MS),
     });
     assert_eq!(round_leader(&fresh).as_deref(), Some("window-1"));
 }
@@ -117,13 +132,13 @@ fn a_report_lives_two_and_a_half_scans() {
 #[test]
 fn steps_the_biggest_saver_wherever_it_lives_not_the_leaders_own_session_first() {
     let front = SessionReport {
-        load: Load::new(10.0),
-        over_pace: Some(over(0.1, 0.2)),
+        load: Load::new(STANDARD_LOAD),
+        over_pace: Some(over(SMALL_SHED, SMALL_PAUSE)),
         ..session("front")
     };
     let background = SessionReport {
-        load: Load::new(40.0),
-        over_pace: Some(over(0.1, 0.2)),
+        load: Load::new(HEAVY_LOAD),
+        over_pace: Some(over(SMALL_SHED, SMALL_PAUSE)),
         ..session("background")
     };
     let outcome = round(&[
@@ -139,8 +154,8 @@ fn sheds_the_accounts_fraction_of_every_windows_load_once_not_once_per_window() 
     let sessions: Vec<SessionReport> = ["a", "b", "c", "d"]
         .into_iter()
         .map(|id| SessionReport {
-            load: Load::new(25.0),
-            over_pace: Some(over(0.2, 0.5)),
+            load: Load::new(MEDIUM_LOAD),
+            over_pace: Some(over(SMALL_PAUSE, HALF_SHARE)),
             ..session(id)
         })
         .collect();
@@ -155,12 +170,12 @@ fn sheds_the_accounts_fraction_of_every_windows_load_once_not_once_per_window() 
 #[test]
 fn ranks_a_background_sessions_running_subagent_against_the_sessions_by_its_own_load() {
     let front = SessionReport {
-        load: Load::new(5.0),
-        over_pace: Some(over(0.1, 0.2)),
+        load: Load::new(LIGHT_LOAD),
+        over_pace: Some(over(SMALL_SHED, SMALL_PAUSE)),
         ..session("front")
     };
     let background = SessionReport {
-        load: Load::new(5.0),
+        load: Load::new(LIGHT_LOAD),
         subagents: vec![subagent("a1", Some("Explore the repo"), 60.0)],
         ..session("background")
     };
@@ -201,7 +216,7 @@ fn wraps_up_a_subagent_already_held_the_longest_and_keeps_the_others_steps() {
                 hold_seconds: MAXIMUM_HOLD_SECONDS,
             },
         ),
-        (kept.clone(), gate(10)),
+        (kept.clone(), gate(SHORT_HOLD_SECONDS)),
     ]);
     let sessions = vec![SessionReport {
         load: Load::new(1.0),
@@ -222,7 +237,7 @@ fn wraps_up_a_subagent_already_held_the_longest_and_keeps_the_others_steps() {
 fn blocks_new_subagents_on_every_session_of_the_account_only_past_the_threshold() {
     let shedding = |shed: f64| -> Vec<bool> {
         let asking = SessionReport {
-            over_pace: Some(over(shed, 0.2)),
+            over_pace: Some(over(shed, SMALL_PAUSE)),
             ..session("a")
         };
         round(&[
@@ -247,7 +262,7 @@ fn keeps_other_accounts_out_of_the_round() {
         ..session("other")
     };
     let over_pace = SessionReport {
-        over_pace: Some(over(0.5, 0.5)),
+        over_pace: Some(over(HALF_SHARE, HALF_SHARE)),
         ..session("over")
     };
     let outcome = round(&[
@@ -267,11 +282,11 @@ fn keeps_other_accounts_out_of_the_round() {
 #[test]
 fn does_not_step_a_session_again_on_a_report_older_than_its_last_step() {
     let stale = SessionReport {
-        reported_at: NOW - SpanMilliseconds::new(30_000.0),
-        over_pace: Some(over(0.5, 0.5)),
+        reported_at: NOW - SpanMilliseconds::new(REPORT_AGE_MS),
+        over_pace: Some(over(HALF_SHARE, HALF_SHARE)),
         ..session("s")
     };
-    let stepped_at = HashMap::from([("s".to_string(), NOW - SpanMilliseconds::new(10_000.0))]);
+    let stepped_at = HashMap::from([("s".to_string(), NOW - SpanMilliseconds::new(STEP_AGE_MS))]);
     let outcome = round_with(
         &[window_report("window-1", vec![stale])],
         &SubagentSteps::new(),
@@ -283,7 +298,7 @@ fn does_not_step_a_session_again_on_a_report_older_than_its_last_step() {
 #[test]
 fn with_room_again_on_every_session_eases_holds_and_restores_the_lightest_stepped_down_session() {
     let steps = SubagentSteps::from([
-        (key("a", "a1"), gate(20)),
+        (key("a", "a1"), gate(LONG_HOLD_SECONDS)),
         (key("a", "finished"), SubagentStep::WrapUp),
     ]);
     let roomy = SessionReport {
@@ -298,7 +313,7 @@ fn with_room_again_on_every_session_eases_holds_and_restores_the_lightest_steppe
         ..session("light")
     };
     let heavy = SessionReport {
-        load: Load::new(20.0),
+        load: Load::new(MODERATE_LOAD),
         has_room: true,
         can_step_up: true,
         ..session("heavy")
@@ -320,7 +335,7 @@ fn with_room_again_on_every_session_eases_holds_and_restores_the_lightest_steppe
 
 #[test]
 fn holds_the_steps_while_some_session_on_the_account_has_no_room_yet() {
-    let steps = SubagentSteps::from([(key("a", "a1"), gate(20))]);
+    let steps = SubagentSteps::from([(key("a", "a1"), gate(LONG_HOLD_SECONDS))]);
     let roomy = SessionReport {
         has_room: true,
         subagents: vec![subagent("a1", None, 5.0)],

@@ -38,6 +38,8 @@ use windows::Win32::UI::Shell::{
 use windows_core::{w, Error, IUnknown, Interface, Ref, Result, BOOL, GUID, HRESULT, PWSTR};
 use windows_implement::implement;
 
+const FALLBACK_DWORD_SIZE: u32 = 4;
+
 /// PADE's fixed context-menu CLSID. **Authoritative copy** - the exact same GUID
 /// appears (with braces) in `../AppxManifest.xml` (`com:Class Id` and every
 /// `desktop5:Verb Clsid`) and in `src/contextmenu/modern.rs`. Change all three
@@ -214,7 +216,7 @@ fn to_wide(value: &str) -> Vec<u16> {
 /// toggle takes effect at once. Any read error falls back to shown.
 fn is_context_menu_hidden() -> bool {
     let mut value: u32 = 1;
-    let mut size = u32::try_from(size_of::<u32>()).unwrap_or(4);
+    let mut size = u32::try_from(size_of::<u32>()).unwrap_or(FALLBACK_DWORD_SIZE);
     // SAFETY: every pointer refers to a local that lives across the call.
     let status = unsafe {
         RegGetValueW(

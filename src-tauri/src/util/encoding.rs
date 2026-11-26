@@ -1,5 +1,10 @@
 //! Percent and hexadecimal encoding, one encoder for every `%XX` need.
 
+const NIBBLE_BITS: u64 = 4;
+const NIBBLE_MASK: u8 = 0x0f;
+const LAST_DECIMAL_NIBBLE: u8 = 9;
+const FIRST_LETTER_NIBBLE: u8 = 10;
+
 /// Percent-encode `value` per RFC 3986: the unreserved set (`A–Z a–z 0–9 - _ . ~`)
 /// and any bytes in `extra` stay literal, everything else becomes `%XX`. Callers
 /// pass `extra` for characters a target must keep verbatim (e.g. `/` and `:` in a
@@ -14,8 +19,8 @@ pub(crate) fn percent_encode(value: &str, extra: &[u8]) -> String {
             output.push(char::from(byte));
         } else {
             output.push('%');
-            output.push(char::from(hex_nibble(byte >> 4)));
-            output.push(char::from(hex_nibble(byte & 0x0f)));
+            output.push(char::from(hex_nibble(byte >> NIBBLE_BITS)));
+            output.push(char::from(hex_nibble(byte & NIBBLE_MASK)));
         }
     }
     output
@@ -35,7 +40,7 @@ pub(crate) fn lowercase_hex(bytes: &[u8]) -> String {
 /// The uppercase hex character for a nibble (0..=15).
 fn hex_nibble(nibble: u8) -> u8 {
     match nibble {
-        0..=9 => b'0' + nibble,
-        _ => b'A' + (nibble - 10),
+        0..=LAST_DECIMAL_NIBBLE => b'0' + nibble,
+        _ => b'A' + (nibble - FIRST_LETTER_NIBBLE),
     }
 }

@@ -3,6 +3,9 @@
 use serde::Deserialize;
 use serde::Serialize;
 
+const CREDITS_RANK: u8 = 3;
+const OPAQUE_RANK: u8 = 4;
+
 /// The two named top-level windows we give product names to; every other named
 /// window the endpoint returns is surfaced generically as
 /// [`UsageWindowKind::Opaque`].
@@ -43,8 +46,8 @@ impl UsageWindowKind {
             Self::Session => 0,
             Self::Weekly => 1,
             Self::Model => 2,
-            Self::Credits => 3,
-            Self::Opaque => 4,
+            Self::Credits => CREDITS_RANK,
+            Self::Opaque => OPAQUE_RANK,
         }
     }
 }

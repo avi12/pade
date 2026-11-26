@@ -94,6 +94,8 @@ mod tests {
     use crate::platform::clipboard::*;
     use crate::test_support::assert_empty;
 
+    const RECENT_SECONDS: u64 = 60;
+
     fn seconds(count: u64) -> Duration {
         Duration::from_secs(count)
     }
@@ -109,7 +111,7 @@ mod tests {
     fn a_paste_past_the_retention_window_is_stale() {
         let now = SystemTime::now();
         let old = now - (RETENTION_PERIOD + seconds(1));
-        let recent = now - seconds(60);
+        let recent = now - seconds(RECENT_SECONDS);
         let entries = vec![
             (PathBuf::from("paste-old.png"), old),
             (PathBuf::from("paste-new.png"), recent),

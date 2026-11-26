@@ -2,6 +2,19 @@
 
 use crate::usage::readings::UsageWindowKind;
 
+const LAST_DAY_OF_FOUR_YEARS: i64 = 1_460;
+const DAYS_PER_CENTURY: i64 = 36_524;
+const LAST_DAY_OF_ERA: i64 = 146_096;
+const DAYS_PER_COMMON_YEAR: i64 = 365;
+const YEARS_PER_LEAP_CYCLE: i64 = 4;
+const YEARS_PER_CENTURY: i64 = 100;
+const MONTHS_PER_MARCH_CYCLE: i64 = 5;
+const DAYS_PER_MARCH_CYCLE: i64 = 153;
+const FIRST_JANUARY_MONTH_POINTER: i64 = 10;
+const MARCH_MONTH_NUMBER: i64 = 3;
+const JANUARY_POINTER_OFFSET: i64 = 9;
+const YEARS_PER_ERA: i64 = 400;
+
 /// The two subscription window durations (Codex's account-wide caps, Muse's
 /// allowance), used to classify a window by its length into the same
 /// session/weekly kinds the meter and the auto-resume scheduler understand. Any
@@ -65,18 +78,22 @@ pub(crate) fn unix_seconds_to_iso8601(seconds: i64) -> String {
     let shifted = days + DAYS_FROM_MARCH_ZERO_TO_UNIX_EPOCH;
     let era = shifted.div_euclid(DAYS_PER_ERA);
     let day_of_era = shifted - era * DAYS_PER_ERA;
-    let year_of_era =
-        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_pointer = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * month_pointer + 2) / 5 + 1;
-    let is_march_to_december = month_pointer < 10;
+    let year_of_era = (day_of_era - day_of_era / LAST_DAY_OF_FOUR_YEARS
+        + day_of_era / DAYS_PER_CENTURY
+        - day_of_era / LAST_DAY_OF_ERA)
+        / DAYS_PER_COMMON_YEAR;
+    let day_of_year = day_of_era
+        - (DAYS_PER_COMMON_YEAR * year_of_era + year_of_era / YEARS_PER_LEAP_CYCLE
+            - year_of_era / YEARS_PER_CENTURY);
+    let month_pointer = (MONTHS_PER_MARCH_CYCLE * day_of_year + 2) / DAYS_PER_MARCH_CYCLE;
+    let day = day_of_year - (DAYS_PER_MARCH_CYCLE * month_pointer + 2) / MONTHS_PER_MARCH_CYCLE + 1;
+    let is_march_to_december = month_pointer < FIRST_JANUARY_MONTH_POINTER;
     let month = if is_march_to_december {
-        month_pointer + 3
+        month_pointer + MARCH_MONTH_NUMBER
     } else {
-        month_pointer - 9
+        month_pointer - JANUARY_POINTER_OFFSET
     };
-    let year = year_of_era + era * 400 + i64::from(month <= 2);
+    let year = year_of_era + era * YEARS_PER_ERA + i64::from(month <= 2);
 
     format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
 }

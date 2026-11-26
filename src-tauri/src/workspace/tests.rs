@@ -17,6 +17,11 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+const RETENTION_DAYS: u32 = 30;
+const UNEXPIRED_AGE_DAYS: u64 = 29;
+const YEAR_OLD_DAYS: u64 = 365;
+const CALLS_BEFORE_REPLACEMENT: u64 = 3;
+
 const TEMP_WORKSPACE: &str = r"C:\Users\avi\AppData\Roaming\pade\workspaces\temp-42";
 const NOW: u64 = 1000 * MILLISECONDS_PER_DAY;
 
@@ -89,12 +94,15 @@ fn a_temp_unused_past_the_window_expires() {
 
 #[test]
 fn a_temp_used_within_the_window_is_kept() {
-    assert_empty(&expired(&cleanup_settings(Some(30), 29), &[]));
+    assert_empty(&expired(
+        &cleanup_settings(Some(RETENTION_DAYS), UNEXPIRED_AGE_DAYS),
+        &[],
+    ));
 }
 
 #[test]
 fn cleanup_off_keeps_every_temp() {
-    assert_empty(&expired(&cleanup_settings(None, 365), &[]));
+    assert_empty(&expired(&cleanup_settings(None, YEAR_OLD_DAYS), &[]));
 }
 
 #[test]
@@ -107,9 +115,9 @@ fn a_temp_never_seen_used_is_kept() {
 #[test]
 fn an_open_or_pinned_temp_is_kept_however_old() {
     let open = [TEMP_WORKSPACE.to_string()];
-    assert_empty(&expired(&cleanup_settings(Some(1), 365), &open));
+    assert_empty(&expired(&cleanup_settings(Some(1), YEAR_OLD_DAYS), &open));
 
-    let mut pinned = cleanup_settings(Some(1), 365);
+    let mut pinned = cleanup_settings(Some(1), YEAR_OLD_DAYS);
     pinned.pinned_projects.push(TEMP_WORKSPACE.to_string());
     assert_empty(&expired(&pinned, &[]));
 }
@@ -353,7 +361,7 @@ fn the_sharing_race_retry_stops_at_the_first_success() {
     let mut calls = 0;
     let outcome = retry_through_sharing_race(|| {
         calls += 1;
-        let is_early_call = calls < 3;
+        let is_early_call = calls < CALLS_BEFORE_REPLACEMENT;
         if is_early_call {
             return Err(std::io::Error::other("still held"));
         }

@@ -18,6 +18,8 @@ use crate::vcs::{
     NumstatRow, StatusKind, FIELD_SEPARATOR,
 };
 
+const COMMIT_FIELD_COUNT: usize = 6;
+
 /// One file changed by a commit, with its per-file line counts.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,7 +56,7 @@ pub(crate) async fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail,
     let head = run_git(&cwd, &["show", "-s", &format, "--end-of-options", sha])?;
     let fields: Vec<&str> = head
         .trim_end_matches('\n')
-        .splitn(6, FIELD_SEPARATOR)
+        .splitn(COMMIT_FIELD_COUNT, FIELD_SEPARATOR)
         .collect();
     let Some((header, [body])) = CommitHeader::split_off(&fields) else {
         return Err("could not parse commit header".into());
@@ -289,6 +291,9 @@ mod tests {
         StatusKind,
     };
 
+    const BLOB_LIMIT_BYTES: u64 = 1024;
+    const TINY_LIMIT_BYTES: u64 = 4;
+
     /// A scratch repository with two commits: the first adds `logo.png` and
     /// `notes.md`, the second deletes `logo.png`. `None` without git.
     fn scratch_repository(name: &str) -> Option<(std::path::PathBuf, String, String)> {
@@ -321,9 +326,9 @@ mod tests {
             return;
         };
         let cwd = root.to_string_lossy().to_string();
-        let image = read_commit_blob(&cwd, &added, "logo.png", 1024);
-        let text = read_commit_blob(&cwd, &added, "notes.md", 1024);
-        let oversized = read_commit_blob(&cwd, &added, "logo.png", 4);
+        let image = read_commit_blob(&cwd, &added, "logo.png", BLOB_LIMIT_BYTES);
+        let text = read_commit_blob(&cwd, &added, "notes.md", BLOB_LIMIT_BYTES);
+        let oversized = read_commit_blob(&cwd, &added, "logo.png", TINY_LIMIT_BYTES);
         let _ = std::fs::remove_dir_all(&root);
 
         assert_eq!(image.as_deref(), Some(b"\x89PNG bytes".as_slice()));
@@ -337,8 +342,8 @@ mod tests {
             return;
         };
         let cwd = root.to_string_lossy().to_string();
-        let image = read_commit_blob(&cwd, &removed, "logo.png", 1024);
-        let missing = read_commit_blob(&cwd, &removed, "absent.png", 1024);
+        let image = read_commit_blob(&cwd, &removed, "logo.png", BLOB_LIMIT_BYTES);
+        let missing = read_commit_blob(&cwd, &removed, "absent.png", BLOB_LIMIT_BYTES);
         let _ = std::fs::remove_dir_all(&root);
 
         assert_eq!(image.as_deref(), Some(b"\x89PNG bytes".as_slice()));

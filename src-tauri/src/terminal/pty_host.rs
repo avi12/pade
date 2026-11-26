@@ -94,6 +94,12 @@ mod smoke {
     use crate::terminal::pty_host::transport::{self, ClientStream};
     use crate::terminal::session::launch::SessionLaunch;
 
+    const POLL_MILLISECONDS: u64 = 50;
+    const SAMPLE_COLUMNS: u16 = 80;
+    const SAMPLE_ROWS: u16 = 24;
+    const HOST_LINGER_SECONDS: u64 = 90;
+    const SETTLE_MILLISECONDS: u64 = 100;
+
     const SESSION: &str = "smoke-session";
     const OWNER: &str = "main";
     /// Long enough to outlive the client being killed between the phases.
@@ -143,7 +149,7 @@ mod smoke {
             if let Some(state) = read_state(&paths.state_file()) {
                 break state;
             }
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            tokio::time::sleep(Duration::from_millis(POLL_MILLISECONDS)).await;
         };
         let stream = transport::connect(&state.endpoint)
             .await
@@ -190,8 +196,8 @@ mod smoke {
             let (mut link, _) = attach(&paths).await;
             let launch = SessionLaunch {
                 command: Some("ping".into()),
-                columns: 80,
-                rows: 24,
+                columns: SAMPLE_COLUMNS,
+                rows: SAMPLE_ROWS,
                 arguments: vec!["-n".into(), PING_COUNT.into(), "127.0.0.1".into()],
                 environment: std::env::vars().collect(),
                 ..SessionLaunch::default()
@@ -215,7 +221,7 @@ mod smoke {
                 }
             }
             println!("SMOKE phase one: streaming; kill this process tree now");
-            tokio::time::sleep(Duration::from_secs(90)).await;
+            tokio::time::sleep(Duration::from_secs(HOST_LINGER_SECONDS)).await;
         });
     }
 
@@ -264,7 +270,7 @@ mod smoke {
                 if is_unexpected_greeting {
                     break greeting;
                 }
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                tokio::time::sleep(Duration::from_millis(SETTLE_MILLISECONDS)).await;
             };
             assert_eq!(greeting, Some(Greeting::Retired));
             println!("SMOKE phase two: host retired");

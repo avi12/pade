@@ -4,6 +4,20 @@ use crate::agents::session_context::{
 };
 use std::collections::HashMap;
 
+const LARGE_CACHE_READ_TOKENS: u64 = 472_681;
+const LARGE_CACHE_WRITE_TOKENS: u64 = 840;
+const LARGE_OUTPUT_TOKENS: u64 = 447;
+const LATER_INPUT_TOKENS: u64 = 5;
+const SMALL_CACHE_READ_TOKENS: u64 = 100_000;
+const SMALL_CACHE_WRITE_TOKENS: u64 = 500;
+const SMALL_OUTPUT_TOKENS: u64 = 900;
+const MEDIUM_CACHE_READ_TOKENS: u64 = 300_000;
+const MEDIUM_CACHE_WRITE_TOKENS: u64 = 700;
+const MEDIUM_OUTPUT_TOKENS: u64 = 300;
+const COMPLETE_CACHE_READ_TOKENS: u64 = 2_000;
+const COMPLETE_CACHE_WRITE_TOKENS: u64 = 10;
+const COMPLETE_OUTPUT_TOKENS: u64 = 30;
+
 fn assistant_line(input: u64, cache_read: u64, cache_write: u64, output: u64) -> String {
     format!(
         r#"{{"type":"assistant","message":{{"model":"claude-opus-5","usage":{{"input_tokens":{input},"cache_read_input_tokens":{cache_read},"cache_creation_input_tokens":{cache_write},"output_tokens":{output}}}}}}}"#
@@ -23,15 +37,30 @@ fn a_line_without_a_model_field_yields_none() {
 
 #[test]
 fn occupied_tokens_count_the_cached_prefix_not_just_what_streamed() {
-    let lines = assistant_line(2, 472_681, 840, 447);
+    let lines = assistant_line(
+        2,
+        LARGE_CACHE_READ_TOKENS,
+        LARGE_CACHE_WRITE_TOKENS,
+        LARGE_OUTPUT_TOKENS,
+    );
     assert_eq!(newest_occupied_in(&lines), Some(473_970));
 }
 
 #[test]
 fn the_newest_turn_wins_over_the_earlier_ones() {
     let lines = [
-        assistant_line(5, 100_000, 500, 900),
-        assistant_line(2, 300_000, 700, 300),
+        assistant_line(
+            LATER_INPUT_TOKENS,
+            SMALL_CACHE_READ_TOKENS,
+            SMALL_CACHE_WRITE_TOKENS,
+            SMALL_OUTPUT_TOKENS,
+        ),
+        assistant_line(
+            2,
+            MEDIUM_CACHE_READ_TOKENS,
+            MEDIUM_CACHE_WRITE_TOKENS,
+            MEDIUM_OUTPUT_TOKENS,
+        ),
         r#"{"type":"user","message":{"role":"user","content":"next"}}"#.to_string(),
     ]
     .join("\n");
@@ -40,7 +69,12 @@ fn the_newest_turn_wins_over_the_earlier_ones() {
 
 #[test]
 fn a_tail_starting_mid_line_skips_the_broken_first_line() {
-    let complete = assistant_line(1, 2_000, 10, 30);
+    let complete = assistant_line(
+        1,
+        COMPLETE_CACHE_READ_TOKENS,
+        COMPLETE_CACHE_WRITE_TOKENS,
+        COMPLETE_OUTPUT_TOKENS,
+    );
     let lines = format!("okens\":9999999}}}}}}\n{complete}");
     assert_eq!(newest_occupied_in(&lines), Some(2_041));
 }

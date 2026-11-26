@@ -5,6 +5,9 @@ use std::fmt::Write as _;
 use std::io::Write;
 use std::process::Stdio;
 
+const FIRST_SUCCESS_STATUS: u16 = 200;
+const LAST_SUCCESS_STATUS: u16 = 299;
+
 /// Whether `token` is safe to interpolate into a quoted `header = "…"` directive
 /// of a curl `--config` file.
 ///
@@ -105,7 +108,7 @@ pub(super) fn http_answer(output: &str) -> Result<String, RequestFailure> {
         .parse()
         .map_err(|_| RequestFailure::Unreachable)?;
     match status {
-        200..=299 => Ok(body.to_string()),
+        FIRST_SUCCESS_STATUS..=LAST_SUCCESS_STATUS => Ok(body.to_string()),
         UNAUTHORIZED_STATUS | FORBIDDEN_STATUS => Err(RequestFailure::Rejected),
         _ => Err(RequestFailure::Unreachable),
     }

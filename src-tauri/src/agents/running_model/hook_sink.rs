@@ -145,6 +145,9 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{Duration, SystemTime};
 
+    const OLDER_WRITE_SECONDS: u64 = 1_000;
+    const NEWER_WRITE_SECONDS: u64 = 2_000;
+
     fn scratch(name: &str) -> PathBuf {
         let directory =
             std::env::temp_dir().join(format!("pade-hook-sink-{name}-{}", std::process::id()));
@@ -168,12 +171,12 @@ mod tests {
         let source = directory.join("pade.exe");
         let target = directory.join("sink").join("pade-hook-sink.exe");
         std::fs::write(&source, "build one").expect("source");
-        written_at(&source, 1_000);
+        written_at(&source, OLDER_WRITE_SECONDS);
         place(&source, &target).expect("placed");
         assert_eq!(std::fs::read_to_string(&target).expect("read"), "build one");
 
         std::fs::write(&source, "build two!").expect("source");
-        written_at(&source, 2_000);
+        written_at(&source, NEWER_WRITE_SECONDS);
         place(&source, &target).expect("replaced");
         assert_eq!(
             std::fs::read_to_string(&target).expect("read"),
@@ -202,9 +205,9 @@ mod tests {
         let older = directory.join("older.exe");
         let target = directory.join("pade-hook-sink.exe");
         std::fs::write(&newer, "newer").expect("newer");
-        written_at(&newer, 2_000);
+        written_at(&newer, NEWER_WRITE_SECONDS);
         std::fs::write(&older, "older build").expect("older");
-        written_at(&older, 1_000);
+        written_at(&older, OLDER_WRITE_SECONDS);
         place(&newer, &target).expect("placed");
         place(&older, &target).expect("skipped");
         assert_eq!(std::fs::read_to_string(&target).expect("read"), "newer");

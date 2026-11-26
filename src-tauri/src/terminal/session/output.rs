@@ -315,6 +315,12 @@ mod tests {
     use crate::terminal::session::output::*;
     use crate::test_support::assert_empty;
 
+    const ENTER_SPLIT: usize = 4;
+    const LEAVE_SPLIT: usize = 5;
+    const CHARACTER_SPLIT: usize = 4;
+    const BYTES_PER_CHARACTER: usize = 3;
+    const EXTRA_CHARACTERS: usize = 10;
+
     fn history_with(chunks: &[&str]) -> (Mutex<History>, u64) {
         let history = Mutex::new(History::default());
         let mut sequence = 0;
@@ -358,11 +364,11 @@ mod tests {
 
     #[test]
     fn a_switch_split_across_two_reads_still_counts() {
-        let (enter_head, enter_tail) = ENTER_ALTERNATE_SCREEN.split_at(4);
+        let (enter_head, enter_tail) = ENTER_ALTERNATE_SCREEN.split_at(ENTER_SPLIT);
         let (history, _) = history_with(&[enter_head, enter_tail]);
         assert!(snapshot(&history).1, "split enter sequence must be seen");
 
-        let (leave_head, leave_tail) = LEAVE_ALTERNATE_SCREEN.split_at(5);
+        let (leave_head, leave_tail) = LEAVE_ALTERNATE_SCREEN.split_at(LEAVE_SPLIT);
         let (history, _) = history_with(&["\x1b[?1049h tui", leave_head, leave_tail]);
         assert!(!snapshot(&history).1, "split leave sequence must be seen");
     }
@@ -411,7 +417,7 @@ mod tests {
     #[test]
     fn drain_decoded_reassembles_a_character_split_across_reads() {
         let bytes = "caf\u{e9} au lait".as_bytes();
-        let (head, tail) = bytes.split_at(4); // splits the two-byte é
+        let (head, tail) = bytes.split_at(CHARACTER_SPLIT); // splits the two-byte é
         let mut pending = Vec::new();
 
         pending.extend_from_slice(head);
@@ -449,7 +455,7 @@ mod tests {
     #[test]
     fn transcript_trims_on_a_char_boundary() {
         let transcript = Mutex::new(String::new());
-        let multibyte = "日".repeat(TRANSCRIPT_CAPACITY / 3 + 10);
+        let multibyte = "日".repeat(TRANSCRIPT_CAPACITY / BYTES_PER_CHARACTER + EXTRA_CHARACTERS);
         append_transcript(&transcript, &multibyte);
         let tail = transcript.lock().expect("transcript lock").clone();
         assert!(tail.len() <= TRANSCRIPT_CAPACITY);

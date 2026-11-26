@@ -1,6 +1,9 @@
 use crate::terminal::pty_host::server::*;
 use crate::terminal::session::registry::SessionError;
 
+const POLL_MILLISECONDS: u64 = 20;
+const SERVE_TIMEOUT_SECONDS: u64 = 10;
+
 type Link = (
     BufReader<tokio::io::ReadHalf<transport::ClientStream>>,
     tokio::io::WriteHalf<transport::ClientStream>,
@@ -42,7 +45,7 @@ fn the_handshake_guards_the_host_and_a_retire_ends_it() {
             if let Some(state) = read_state(&paths.state_file()) {
                 break state;
             }
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            tokio::time::sleep(Duration::from_millis(POLL_MILLISECONDS)).await;
         };
         let hello = |token: &str| Opening::Hello {
             protocol_version: PROTOCOL_VERSION,
@@ -91,10 +94,10 @@ fn the_handshake_guards_the_host_and_a_retire_ends_it() {
             if is_unexpected_greeting {
                 break greeting;
             }
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            tokio::time::sleep(Duration::from_millis(POLL_MILLISECONDS)).await;
         };
         assert_eq!(retired, Some(Greeting::Retired));
-        tokio::time::timeout(Duration::from_secs(10), serving)
+        tokio::time::timeout(Duration::from_secs(SERVE_TIMEOUT_SECONDS), serving)
             .await
             .expect("the host stops serving")
             .expect("serve task");

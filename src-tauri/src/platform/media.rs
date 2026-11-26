@@ -161,6 +161,9 @@ mod tests {
     use crate::platform::media::{is_video, preview_clip, transcode_arguments, ClipError};
     use std::path::Path;
 
+    const BRAND_BOX_START: usize = 4;
+    const BRAND_BOX_END: usize = 8;
+
     #[test]
     fn video_extensions_match_case_insensitively() {
         assert!(is_video(Path::new("clips/demo.mp4")));
@@ -220,7 +223,7 @@ mod tests {
         let clip = preview_clip(&scratch);
         let _ = std::fs::remove_file(&scratch);
         let clip = clip.expect("transcode the generated video");
-        let file_type_box = clip.get(4..8);
+        let file_type_box = clip.get(BRAND_BOX_START..BRAND_BOX_END);
         assert_eq!(file_type_box, Some(b"ftyp".as_slice()));
     }
 }

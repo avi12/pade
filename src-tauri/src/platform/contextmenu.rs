@@ -22,6 +22,8 @@
 //! Windows 10 and 11 alike, so there the toggle only flips the show/hide flag.
 //! Windows-only; other platforms get inert stubs so `lib.rs` compiles everywhere.
 
+const HEXADECIMAL_RADIX: u32 = 16;
+
 #[cfg(windows)]
 mod modern;
 
@@ -118,7 +120,7 @@ fn is_menu_shown() -> bool {
         .split_whitespace()
         .next_back()
         .and_then(|token| token.strip_prefix("0x"))
-        .and_then(|hex| u32::from_str_radix(hex, 16).ok())
+        .and_then(|hex| u32::from_str_radix(hex, HEXADECIMAL_RADIX).ok())
         .is_some_and(|value| value == 0);
     !is_hidden
 }

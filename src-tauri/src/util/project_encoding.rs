@@ -1,5 +1,8 @@
 //! Claude Code's project-folder name for a path (its dash encoding and its length-cut hash).
 
+const HASH_SHIFT: u32 = 5;
+const HASH_RADIX: u32 = 36;
+
 /// Claude Code cuts a project-dir name this long and appends a hash of the path.
 const MAXIMUM_PROJECT_NAME: usize = 200;
 
@@ -36,7 +39,7 @@ fn java_string_hash(text: &str) -> i32 {
     let mut hash: i32 = 0;
     for unit in text.encode_utf16() {
         hash = hash
-            .wrapping_shl(5)
+            .wrapping_shl(HASH_SHIFT)
             .wrapping_sub(hash)
             .wrapping_add(i32::from(unit));
     }
@@ -50,11 +53,11 @@ fn base36(mut value: u32) -> String {
     loop {
         digits.push(
             DIGITS
-                .get(usize::try_from(value % 36).unwrap_or_default())
+                .get(usize::try_from(value % HASH_RADIX).unwrap_or_default())
                 .copied()
                 .unwrap_or(b'0'),
         );
-        value /= 36;
+        value /= HASH_RADIX;
         let is_zero = value == 0;
         if is_zero {
             break;

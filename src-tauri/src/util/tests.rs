@@ -61,7 +61,8 @@ fn scratch(name: &str, files: &[&str]) -> PathBuf {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&path, fs::Permissions::from_mode(0o755))
+            const EXECUTABLE_MODE: u32 = 0o755;
+            fs::set_permissions(&path, fs::Permissions::from_mode(EXECUTABLE_MODE))
                 .expect("mark scratch file executable");
         }
     }

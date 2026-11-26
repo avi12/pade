@@ -182,6 +182,11 @@ pub fn eased_subagent_step(current: SubagentStep) -> Option<SubagentStep> {
 mod tests {
     use crate::pacing::subagent_steps::*;
 
+    const HALF_SHED: f64 = 0.5;
+    const SHORT_HOLD_SECONDS: u32 = 10;
+    const PARTIAL_SHED: f64 = 0.4;
+    const LONG_HOLD_SECONDS: u32 = 40;
+
     fn gate(seconds: u32) -> SubagentStep {
         SubagentStep::Gate {
             hold_seconds: HoldSeconds::new(seconds).expect("a positive hold"),
@@ -218,7 +223,7 @@ mod tests {
     fn gates_first_sized_to_the_shed_and_the_shortest_hold_while_the_shed_is_unknown() {
         let sized = next_subagent_step(NextStepParams {
             current: None,
-            shed: Some(Fraction::new(0.5)),
+            shed: Some(Fraction::new(HALF_SHED)),
         });
         assert_eq!(
             sized.map(|next| next.step),
@@ -241,8 +246,8 @@ mod tests {
     #[test]
     fn doubles_the_hold_up_to_the_longest_saving_what_the_longer_hold_adds() {
         let next = next_subagent_step(NextStepParams {
-            current: Some(gate(10)),
-            shed: Some(Fraction::new(0.4)),
+            current: Some(gate(SHORT_HOLD_SECONDS)),
+            shed: Some(Fraction::new(PARTIAL_SHED)),
         })
         .expect("a next step");
         assert_eq!(next.step, gate(20));
@@ -252,8 +257,8 @@ mod tests {
             1e-9
         ));
         let capped = next_subagent_step(NextStepParams {
-            current: Some(gate(40)),
-            shed: Some(Fraction::new(0.4)),
+            current: Some(gate(LONG_HOLD_SECONDS)),
+            shed: Some(Fraction::new(PARTIAL_SHED)),
         });
         assert_eq!(
             capped.map(|next| next.step),
@@ -269,7 +274,7 @@ mod tests {
             current: Some(SubagentStep::Gate {
                 hold_seconds: MAXIMUM_HOLD_SECONDS,
             }),
-            shed: Some(Fraction::new(0.4)),
+            shed: Some(Fraction::new(PARTIAL_SHED)),
         });
         assert_eq!(
             next,
@@ -321,7 +326,7 @@ mod tests {
 
     #[test]
     fn a_step_travels_as_the_zod_schema_shapes_it() {
-        let wire = serde_json::to_value(gate(10)).expect("serializes");
+        let wire = serde_json::to_value(gate(SHORT_HOLD_SECONDS)).expect("serializes");
         assert_eq!(
             wire,
             serde_json::json!({ "step": "gate", "holdSeconds": 10 })

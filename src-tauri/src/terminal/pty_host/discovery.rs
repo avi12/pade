@@ -208,6 +208,9 @@ fn short_digest(bytes: &[u8]) -> String {
 mod tests {
     use crate::terminal::pty_host::discovery::*;
 
+    const FIRST_PROCESS_ID: u32 = 7;
+    const SECOND_PROCESS_ID: u32 = 8;
+
     fn scratch(name: &str) -> PathBuf {
         let directory =
             std::env::temp_dir().join(format!("pade-pty-host-{name}-{}", std::process::id()));
@@ -239,7 +242,7 @@ mod tests {
         let directory = scratch("state");
         let path = directory.join(STATE_FILE);
         assert_eq!(read_state(&path), None);
-        write_state(&path, &state(7)).expect("written");
+        write_state(&path, &state(FIRST_PROCESS_ID)).expect("written");
         assert_eq!(read_state(&path), Some(state(7)));
         std::fs::write(&path, "not json").expect("written");
         assert_eq!(read_state(&path), None);
@@ -250,14 +253,14 @@ mod tests {
     fn a_host_never_removes_its_successors_state() {
         let directory = scratch("successor");
         let path = directory.join(STATE_FILE);
-        write_state(&path, &state(8)).expect("written");
-        remove_state_if_owned(&path, 7);
+        write_state(&path, &state(SECOND_PROCESS_ID)).expect("written");
+        remove_state_if_owned(&path, FIRST_PROCESS_ID);
         assert_eq!(
             read_state(&path),
             Some(state(8)),
             "the successor's file stays"
         );
-        remove_state_if_owned(&path, 8);
+        remove_state_if_owned(&path, SECOND_PROCESS_ID);
         assert_eq!(read_state(&path), None);
         let _ = std::fs::remove_dir_all(&directory);
     }

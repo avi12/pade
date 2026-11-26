@@ -5,13 +5,17 @@
 
 use crate::pacing::model_cost::CostTier;
 
+const HAIKU_WEIGHT: f64 = 0.5;
+const OPUS_WEIGHT: f64 = 4.0;
+const FABLE_WEIGHT: f64 = 10.0;
+
 /// Dollars per million input tokens for a tier.
 const fn input_price(tier: CostTier) -> f64 {
     match tier {
-        CostTier::Haiku => 0.5,
+        CostTier::Haiku => HAIKU_WEIGHT,
         CostTier::Sonnet => 2.0,
-        CostTier::Opus => 4.0,
-        CostTier::Fable => 10.0,
+        CostTier::Opus => OPUS_WEIGHT,
+        CostTier::Fable => FABLE_WEIGHT,
     }
 }
 

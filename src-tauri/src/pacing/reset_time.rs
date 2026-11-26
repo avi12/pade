@@ -11,6 +11,20 @@
 use crate::pacing::units::EpochMilliseconds;
 use crate::util::days_since_epoch;
 
+const YEAR_DIGITS: usize = 4;
+const YEARS_PER_LEAP_CYCLE: i32 = 4;
+const YEARS_PER_CENTURY: i32 = 100;
+const YEARS_PER_ERA: i32 = 400;
+const LEAP_FEBRUARY_DAYS: u32 = 29;
+const FEBRUARY_DAYS: u32 = 28;
+const APRIL: u32 = 4;
+const JUNE: u32 = 6;
+const SEPTEMBER: u32 = 9;
+const NOVEMBER: u32 = 11;
+const SHORT_MONTH_DAYS: u32 = 30;
+const LONG_MONTH_DAYS: u32 = 31;
+const OFFSET_DIGITS: usize = 4;
+
 const MILLISECOND_DIGITS: usize = 3;
 const MILLISECONDS_PER_SECOND: u32 = 1_000;
 const MILLISECONDS_PER_MINUTE: u32 = 60_000;
@@ -65,7 +79,7 @@ fn trim_sub_millisecond_digits(iso: &str) -> String {
 fn parse_date(date: &str) -> Option<(i32, u32, u32)> {
     let parts: Vec<&str> = date.split('-').collect();
     let [year, month, day] = <[&str; DATE_PARTS]>::try_from(parts).ok()?;
-    let year = fixed_digits(year, 4).and_then(|digits| i32::try_from(digits).ok())?;
+    let year = fixed_digits(year, YEAR_DIGITS).and_then(|digits| i32::try_from(digits).ok())?;
     let month = fixed_digits(month, 2)?;
     let day = fixed_digits(day, 2)?;
     let is_real_day =
@@ -74,12 +88,13 @@ fn parse_date(date: &str) -> Option<(i32, u32, u32)> {
 }
 
 fn days_in_month(year: i32, month: u32) -> u32 {
-    let is_leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let is_leap_year = year % YEARS_PER_LEAP_CYCLE == 0
+        && (year % YEARS_PER_CENTURY != 0 || year % YEARS_PER_ERA == 0);
     match month {
-        2 if is_leap_year => 29,
-        2 => 28,
-        4 | 6 | 9 | 11 => 30,
-        _ => 31,
+        2 if is_leap_year => LEAP_FEBRUARY_DAYS,
+        2 => FEBRUARY_DAYS,
+        APRIL | JUNE | SEPTEMBER | NOVEMBER => SHORT_MONTH_DAYS,
+        _ => LONG_MONTH_DAYS,
     }
 }
 
@@ -96,8 +111,9 @@ fn split_zone(rest: &str) -> Option<(&str, i32)> {
     let digits = zone[1..].replace(':', "");
     let hours = fixed_digits(digits.get(..2)?, 2)?;
     let minutes = fixed_digits(digits.get(2..)?, 2)?;
-    let is_real_zone =
-        digits.len() == 4 && hours <= MAXIMUM_HOUR && minutes <= MAXIMUM_MINUTE_OR_SECOND;
+    let is_real_zone = digits.len() == OFFSET_DIGITS
+        && hours <= MAXIMUM_HOUR
+        && minutes <= MAXIMUM_MINUTE_OR_SECOND;
     let offset = i32::try_from(hours).ok()? * MINUTES_PER_HOUR + i32::try_from(minutes).ok()?;
     is_real_zone.then_some((clock, sign * offset))
 }

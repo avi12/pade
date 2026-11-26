@@ -18,6 +18,10 @@ use crate::usage::{
 use std::time::Duration;
 use std::time::Instant;
 
+const SAMPLE_USED_PERCENT: f64 = 12.5;
+const LONG_TIMEOUT_SECONDS: u32 = 20;
+const SHORT_TIMEOUT_SECONDS: u32 = 12;
+
 const ONE_SECOND: Duration = Duration::from_secs(1);
 
 fn reading(plan: &str) -> AccountUsage {
@@ -695,7 +699,7 @@ fn one_profile_read_answers_both_the_organization_and_the_version() {
 #[test]
 fn the_wire_names_stay_what_the_frontend_reads() {
     let usage = serde_json::to_value(Usage {
-        used_percentage: Some(12.5),
+        used_percentage: Some(SAMPLE_USED_PERCENT),
         label: "Codex".to_string(),
         resets_at: None,
         source: "local:.codex/auth.json".to_string(),
@@ -720,7 +724,7 @@ fn the_wire_names_stay_what_the_frontend_reads() {
 fn a_curl_config_carries_every_header_and_turns_a_body_into_a_quoted_post() {
     let config = curl_config(&CurlRequest {
         url: "https://example.com/reset",
-        timeout_seconds: 20,
+        timeout_seconds: LONG_TIMEOUT_SECONDS,
         headers: &[("Authorization", "Bearer abc"), ("User-Agent", "pade")],
         json_body: Some(r#"{"id":"a\b"}"#),
     });
@@ -739,7 +743,7 @@ fn a_curl_config_carries_every_header_and_turns_a_body_into_a_quoted_post() {
 fn a_curl_config_without_a_body_is_a_get() {
     let config = curl_config(&CurlRequest {
         url: "https://example.com/usage",
-        timeout_seconds: 12,
+        timeout_seconds: SHORT_TIMEOUT_SECONDS,
         headers: &[],
         json_body: None,
     });

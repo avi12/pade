@@ -1,5 +1,9 @@
 use crate::agents::conversation_watch::*;
 
+const INTERVAL_QUARTER: u32 = 4;
+const STEP_END: u32 = 5;
+const INTERVAL_TENTHS: u32 = 10;
+
 const PROJECT: &str = "C:/repositories/pade";
 
 fn root() -> PathBuf {
@@ -154,7 +158,7 @@ fn the_first_change_is_announced_at_once() {
 #[test]
 fn a_change_within_the_interval_waits_for_its_end() {
     let last = Instant::now();
-    let soon = last + EMISSION_INTERVAL / 4;
+    let soon = last + EMISSION_INTERVAL / INTERVAL_QUARTER;
     assert_eq!(
         next_emission(Some(last), soon),
         Emission::Deadline(last + EMISSION_INTERVAL)
@@ -167,8 +171,8 @@ fn a_burst_folds_into_one_trailing_announcement_per_scope() {
     let project = ChangeScope::Project(PROJECT.to_string());
     let mut throttle = Throttle::default();
     assert_eq!(throttle.note(project.clone(), start), Some(project.clone()));
-    for step in 1..5 {
-        let during = start + EMISSION_INTERVAL / 10 * step;
+    for step in 1..STEP_END {
+        let during = start + EMISSION_INTERVAL / INTERVAL_TENTHS * step;
         assert_eq!(throttle.note(project.clone(), during), None);
     }
     assert_eq!(

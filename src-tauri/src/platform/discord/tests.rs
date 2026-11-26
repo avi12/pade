@@ -3,6 +3,9 @@ use crate::platform::discord::{
     FRAME_HEADER_LENGTH,
 };
 
+const PARTIAL_PAYLOAD_BYTES: usize = 4;
+const SAMPLE_START_SECONDS: u64 = 1_700_000_000;
+
 #[test]
 fn frame_header_is_little_endian_opcode_then_length() {
     let payload: &[u8] = br#"{"v":1}"#;
@@ -31,7 +34,9 @@ fn reading_a_frame_drains_exactly_that_frame() {
 #[test]
 fn a_truncated_or_oversized_frame_is_an_error() {
     let mut truncated = framed(b"0123456789", b"");
-    truncated.get_mut().truncate(FRAME_HEADER_LENGTH + 4);
+    truncated
+        .get_mut()
+        .truncate(FRAME_HEADER_LENGTH + PARTIAL_PAYLOAD_BYTES);
     assert!(matches!(
         read_frame(&mut truncated),
         Err(DiscordError::Io(_))
@@ -68,7 +73,7 @@ fn activity_payload_omits_absent_fields_and_carries_the_start_time() {
         state: None,
         image: None,
         caption: None,
-        started_at: 1_700_000_000,
+        started_at: SAMPLE_START_SECONDS,
     });
     let value: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
     assert_eq!(value["cmd"], serde_json::json!("SET_ACTIVITY"));
@@ -92,7 +97,7 @@ fn activity_payload_carries_the_language_overlay_when_given() {
         state: Some("Rust"),
         image: Some("rust"),
         caption: Some("Rust"),
-        started_at: 1_700_000_000,
+        started_at: SAMPLE_START_SECONDS,
     });
     let value: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
     let assets = &value["args"]["activity"]["assets"];

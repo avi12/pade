@@ -7,6 +7,9 @@ use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
+const SHORT_HOLD_SECONDS: u64 = 12;
+const LONG_HOLD_SECONDS: u64 = 900;
+
 fn request(model: &str, allowed_models: &[&str]) -> SubagentCapRequest {
     SubagentCapRequest {
         model: model.to_string(),
@@ -103,7 +106,12 @@ fn each_part_is_replaced_on_its_own_and_round_trips_through_the_file_shape() {
             "claude",
             ControlPart::Throttle(throttle(
                 true,
-                &[("a1", SubagentStep::Gate { hold_seconds: 12 })],
+                &[(
+                    "a1",
+                    SubagentStep::Gate {
+                        hold_seconds: SHORT_HOLD_SECONDS,
+                    },
+                )],
             )),
         )
         .with_part("claude", ControlPart::Stop(true));
@@ -167,8 +175,18 @@ fn a_held_subagent_waits_before_its_call_and_the_hold_is_bounded() {
         throttle: throttle(
             false,
             &[
-                ("a1", SubagentStep::Gate { hold_seconds: 12 }),
-                ("a2", SubagentStep::Gate { hold_seconds: 900 }),
+                (
+                    "a1",
+                    SubagentStep::Gate {
+                        hold_seconds: SHORT_HOLD_SECONDS,
+                    },
+                ),
+                (
+                    "a2",
+                    SubagentStep::Gate {
+                        hold_seconds: LONG_HOLD_SECONDS,
+                    },
+                ),
             ],
         ),
         ..PacingControl::default()

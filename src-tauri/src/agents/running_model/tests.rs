@@ -4,6 +4,13 @@ use crate::agents::running_model::{
     SessionState,
 };
 
+const FIRST_REPORT_AT: u64 = 10;
+const SECOND_REPORT_AT: u64 = 20;
+const LATE_REPORT_AT: u64 = 50;
+const MIDDLE_REPORT_AT: u64 = 30;
+const EARLY_SAVE_AT: u64 = 5;
+const LATE_SAVE_AT: u64 = 25;
+
 fn choice(model: Option<&str>, effort: Option<&str>) -> ModelChoice {
     ModelChoice {
         model: model.map(str::to_string),
@@ -54,7 +61,7 @@ fn a_report_records_the_agents_own_session_id() {
     let state = fold(
         SessionState::default(),
         &serde_json::json!({ "session_id": "01a12d15", "model": "gpt-5.6-terra" }),
-        10,
+        FIRST_REPORT_AT,
     );
     assert_eq!(state.agent_session.as_deref(), Some("01a12d15"));
 }
@@ -66,7 +73,7 @@ fn a_start_report_names_the_model_and_transcript() {
         &report(
             r#"{"hook_event_name":"SessionStart","model":"gpt-5.6-terra","transcript_path":"C:\\x.jsonl"}"#,
         ),
-        10,
+        FIRST_REPORT_AT,
     );
     assert_eq!(state.model.as_deref(), Some("gpt-5.6-terra"));
     assert_eq!(state.model_at, 10);
@@ -78,7 +85,7 @@ fn a_model_switch_reports_the_new_model() {
     let state = fold(
         SessionState::default(),
         &report(r#"{"from_model":"claude-opus-5","to_model":"claude-sonnet-5-5"}"#),
-        20,
+        SECOND_REPORT_AT,
     );
     assert_eq!(state.model.as_deref(), Some("claude-sonnet-5-5"));
 }
@@ -87,10 +94,14 @@ fn a_model_switch_reports_the_new_model() {
 fn re_reporting_the_same_model_keeps_its_original_time() {
     let launched = SessionState {
         model: Some("claude-opus-5-5".to_string()),
-        model_at: 10,
+        model_at: FIRST_REPORT_AT,
         ..SessionState::default()
     };
-    let state = fold(launched, &report(r#"{"model":"claude-opus-5-5"}"#), 50);
+    let state = fold(
+        launched,
+        &report(r#"{"model":"claude-opus-5-5"}"#),
+        LATE_REPORT_AT,
+    );
     assert_eq!(state.model_at, 10);
 }
 
@@ -98,10 +109,14 @@ fn re_reporting_the_same_model_keeps_its_original_time() {
 fn a_turn_report_sets_the_effort_and_keeps_the_model() {
     let started = SessionState {
         model: Some("claude-opus-5".to_string()),
-        model_at: 10,
+        model_at: FIRST_REPORT_AT,
         ..SessionState::default()
     };
-    let state = fold(started, &report(r#"{"effort":{"level":"low"}}"#), 30);
+    let state = fold(
+        started,
+        &report(r#"{"effort":{"level":"low"}}"#),
+        MIDDLE_REPORT_AT,
+    );
     assert_eq!(state.model.as_deref(), Some("claude-opus-5"));
     assert_eq!(state.effort.as_deref(), Some("low"));
     assert_eq!(state.effort_at, 30);
@@ -111,7 +126,7 @@ fn a_turn_report_sets_the_effort_and_keeps_the_model() {
 fn with_nothing_reported_the_saved_value_speaks() {
     let saved = Saved {
         value: "high".to_string(),
-        saved_at: 5,
+        saved_at: EARLY_SAVE_AT,
     };
     assert_eq!(newer(None, Some(&saved), 0).as_deref(), Some("high"));
 }
@@ -120,7 +135,7 @@ fn with_nothing_reported_the_saved_value_speaks() {
 fn a_save_after_the_last_report_wins() {
     let saved = Saved {
         value: "low".to_string(),
-        saved_at: 25,
+        saved_at: LATE_SAVE_AT,
     };
     assert_eq!(
         newer(Some(("high", 20)), Some(&saved), 0).as_deref(),
@@ -132,7 +147,7 @@ fn a_save_after_the_last_report_wins() {
 fn a_report_after_the_save_wins() {
     let saved = Saved {
         value: "low".to_string(),
-        saved_at: 25,
+        saved_at: LATE_SAVE_AT,
     };
     assert_eq!(
         newer(Some(("medium", 30)), Some(&saved), 0).as_deref(),
@@ -144,7 +159,7 @@ fn a_report_after_the_save_wins() {
 fn a_model_switch_dates_the_saved_level_to_the_switch() {
     let saved = Saved {
         value: "low".to_string(),
-        saved_at: 5,
+        saved_at: EARLY_SAVE_AT,
     };
     assert_eq!(
         newer(Some(("high", 30)), Some(&saved), 40).as_deref(),

@@ -10,6 +10,12 @@ use serde::Serialize;
 
 use crate::platform::media::{preview_clip, ClipError, PREVIEW_CLIP_MIME};
 
+const SEXTET_MASK: u8 = 0x3f;
+const BASE64_INPUT_CHUNK: usize = 3;
+const BASE64_OUTPUT_CHUNK: usize = 4;
+const NIBBLE_BITS: u64 = 4;
+const SEXTET_BITS: u64 = 6;
+
 /// Largest file the Change Feed will snapshot for a baseline or read for a live
 /// preview, and the largest committed document the commit view renders. A few
 /// hundred KB covers real source files; past it the preview falls back to "No
@@ -60,23 +66,24 @@ fn base64_encode(bytes: &[u8]) -> String {
     let sextet = |value: u8| {
         char::from(
             ALPHABET
-                .get(usize::from(value & 0x3f))
+                .get(usize::from(value & SEXTET_MASK))
                 .copied()
                 .unwrap_or(b'='),
         )
     };
 
-    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
+    let mut encoded =
+        String::with_capacity(bytes.len().div_ceil(BASE64_INPUT_CHUNK) * BASE64_OUTPUT_CHUNK);
+    for chunk in bytes.chunks(BASE64_INPUT_CHUNK) {
         let first = chunk.first().copied().unwrap_or(0);
         let second = chunk.get(1).copied().unwrap_or(0);
         let third = chunk.get(2).copied().unwrap_or(0);
         encoded.push(sextet(first >> 2));
-        encoded.push(sextet((first << 4) | (second >> 4)));
+        encoded.push(sextet((first << NIBBLE_BITS) | (second >> NIBBLE_BITS)));
         encoded.push({
             let has_second_byte = chunk.len() > 1;
             if has_second_byte {
-                sextet((second << 2) | (third >> 6))
+                sextet((second << 2) | (third >> SEXTET_BITS))
             } else {
                 PAD
             }

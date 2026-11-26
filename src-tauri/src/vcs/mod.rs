@@ -24,6 +24,8 @@ pub(crate) mod worktree;
 
 use serde::Serialize;
 
+const NUMSTAT_COLUMNS: usize = 3;
+
 /// ASCII unit separator: splits the fields inside one `--format` record.
 const FIELD_SEPARATOR: char = '\u{1f}';
 /// ASCII record separator: marks the start of a log entry, so a header line
@@ -92,7 +94,7 @@ struct NumstatRow<'row> {
 impl<'row> NumstatRow<'row> {
     /// `None` for a line that isn't a numstat row (e.g. a blank separator).
     fn parse(row: &'row str) -> Option<Self> {
-        let mut columns = row.splitn(3, '\t');
+        let mut columns = row.splitn(NUMSTAT_COLUMNS, '\t');
         let additions = columns.next()?;
         let deletions = columns.next()?;
         let path = columns.next()?;

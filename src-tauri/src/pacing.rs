@@ -327,6 +327,12 @@ mod tests {
     use crate::pacing::*;
     use crate::test_support::assert_empty;
 
+    const WINDOW_HOURS: f64 = 3.0;
+    const NEARLY_SPENT_PERCENT: f64 = 98.5;
+    const HIGH_PERCENT: f64 = 80.0;
+    const LATER_MINUTES: f64 = 10.0;
+    const HALF_PERCENT: f64 = 50.0;
+
     const MEASURED_READINGS: u32 = 12;
 
     fn report(observed: &serde_json::Value) -> PacingReport {
@@ -364,7 +370,7 @@ mod tests {
         let mut book = SampleBook::default();
         for reading in 0..=MEASURED_READINGS {
             let ago = f64::from(MEASURED_READINGS - reading);
-            let window = session_window(used - ago, SpanMilliseconds::from_hours(3.0));
+            let window = session_window(used - ago, SpanMilliseconds::from_hours(WINDOW_HOURS));
             book.record(RecordParams {
                 account_key: &AccountKey::new("anthropic"),
                 windows: std::slice::from_ref(&window),
@@ -389,9 +395,9 @@ mod tests {
 
     #[test]
     fn a_stop_both_sides_took_is_an_agreement() {
-        let engine = engine_that_measured(98.5);
+        let engine = engine_that_measured(NEARLY_SPENT_PERCENT);
         engine.submit(report(&stop_observed(NOW)));
-        let writes = pass(&engine, NOW, 98.5);
+        let writes = pass(&engine, NOW, NEARLY_SPENT_PERCENT);
 
         let summary = engine.summary();
         assert_eq!(summary.counts[&ObservedKind::Stop].agree, 1);
@@ -402,16 +408,16 @@ mod tests {
 
     #[test]
     fn a_stop_the_window_never_reports_becomes_a_disagreement_a_tick_later() {
-        let engine = engine_that_measured(98.5);
+        let engine = engine_that_measured(NEARLY_SPENT_PERCENT);
         engine.submit(report(&serde_json::json!([])));
-        let first = pass(&engine, NOW, 98.5);
+        let first = pass(&engine, NOW, NEARLY_SPENT_PERCENT);
         assert_eq!(first.log_line, None);
 
         let later = NOW + SpanMilliseconds::from_minutes(1.0);
         let mut next = report(&serde_json::json!([]));
         next.time = later;
         engine.submit(next);
-        pass(&engine, later, 98.5);
+        pass(&engine, later, NEARLY_SPENT_PERCENT);
         let summary = engine.summary();
         assert_eq!(summary.counts[&ObservedKind::Stop].disagree, 1);
         assert_eq!(summary.last_disagreements[0].observed, None);
@@ -419,10 +425,10 @@ mod tests {
 
     #[test]
     fn a_report_that_has_expired_decides_nothing() {
-        let engine = engine_that_measured(80.0);
+        let engine = engine_that_measured(HIGH_PERCENT);
         engine.submit(report(&serde_json::json!([])));
-        let much_later = NOW + SpanMilliseconds::from_minutes(10.0);
-        let writes = pass(&engine, much_later, 80.0);
+        let much_later = NOW + SpanMilliseconds::from_minutes(LATER_MINUTES);
+        let writes = pass(&engine, much_later, HIGH_PERCENT);
         assert_eq!(writes, Writes::default());
     }
 
@@ -430,7 +436,7 @@ mod tests {
     fn a_working_account_is_sampled_and_the_book_is_handed_over_to_write() {
         let engine = PacingEngine::default();
         engine.submit(report(&serde_json::json!([])));
-        let writes = pass(&engine, NOW, 50.0);
+        let writes = pass(&engine, NOW, HALF_PERCENT);
         assert!(writes.samples.is_some());
 
         let prepared = engine.prepare(NOW);
@@ -439,9 +445,9 @@ mod tests {
 
     #[test]
     fn an_account_a_step_went_to_starts_its_burn_over() {
-        let engine = engine_that_measured(80.0);
+        let engine = engine_that_measured(HIGH_PERCENT);
         engine.submit(report(&serde_json::json!([])));
-        let writes = pass(&engine, NOW, 80.0);
+        let writes = pass(&engine, NOW, HIGH_PERCENT);
         let saved = writes.samples.expect("the forgotten book is written");
         assert_eq!(saved, SampleBook::default());
     }
