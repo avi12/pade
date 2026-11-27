@@ -38,7 +38,8 @@ function printableLength(text: string) {
  *  printable characters. */
 export function nextDraftLength({ length, data }: { length: number; data: string }) {
   const isSubmitted = data.endsWith(ENTER) && !data.startsWith(BRACKETED_PASTE_START);
-  if (isSubmitted || CLEARING_INPUTS.has(data)) {
+  const isComposerEmptied = isSubmitted || CLEARING_INPUTS.has(data);
+  if (isComposerEmptied) {
     return 0;
   }
 

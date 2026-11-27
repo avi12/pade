@@ -2,6 +2,8 @@
 // own prompt (a handoff request, pacing's "continue") over theirs: one landed
 // at the cursor mid-sentence and was submitted fused with the user's words.
 
+import { SvelteMap } from "svelte/reactivity";
+
 import { registerSessionState, SessionStateKey } from "@/lib/session/lifecycle/session-scope";
 import { nextDraftLength } from "@/lib/terminal/input/composer-draft";
 
@@ -14,7 +16,7 @@ const DRAFT_TRUST_MS = 5 * 60_000;
 /** How often a waiting prompt checks the composer again. */
 const COMPOSER_POLL_MS = 1_000;
 
-const drafts = new Map<
+const drafts = new SvelteMap<
   string,
   {
     length: number;

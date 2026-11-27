@@ -4,11 +4,14 @@ import { scanVerdict, ScanVerdict } from "@/lib/stores/agent/handoff/handoff-sca
 import { SessionStatus } from "@/lib/types/agent";
 import type { AgentSession } from "@/lib/types/agent";
 
-const facts = vi.hoisted(() => ({
-  percentage: 65 as number | null,
-  isBusy: true,
-  isGoalActive: false
-}));
+const facts = vi.hoisted(() => {
+  const percentage: number | null = 65;
+  return {
+    percentage,
+    isBusy: true,
+    isGoalActive: false
+  };
+});
 
 vi.mock("@/lib/stores/agent/context.svelte", () => ({
   measuredContextPercentage: () => facts.percentage,
@@ -30,7 +33,16 @@ vi.mock("@/lib/stores/session/sessions.svelte", () => ({
   sessionStatus: () => (facts.isBusy ? SessionStatus.enum.working : SessionStatus.enum.ready)
 }));
 
-const SESSION = { id: "goal-session" } as AgentSession;
+const SESSION: AgentSession = {
+  id: "goal-session",
+  agent: {
+    id: "claude",
+    label: "Claude Code",
+    command: "claude",
+    reordersBidi: false
+  },
+  project: "C:/project"
+};
 const THRESHOLD = 60;
 
 function verdict() {

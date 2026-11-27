@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as messagingModule from "@/lib/ipc/messaging";
 import { observeRunningModel } from "@/lib/stores/agent/context.svelte";
 import { adaptedChoice, adaptedSteps, createUsageAdapter } from "@/lib/stores/usage/usageAdapt.svelte";
 
@@ -7,7 +8,7 @@ vi.mock("@/lib/ipc/platform", () => ({
   windowLabel: () => "main"
 }));
 vi.mock("@/lib/ipc/messaging", async importOriginal => ({
-  ...(await importOriginal<typeof import("@/lib/ipc/messaging")>()),
+  ...(await importOriginal<typeof messagingModule>()),
   sendMessage: vi.fn(async () => null)
 }));
 
@@ -44,8 +45,8 @@ function storeRecord() {
     })
   );
   createUsageAdapter({
-    switchModel: async () => {},
-    announce: () => {}
+    async switchModel() {},
+    announce() {}
   });
 }
 

@@ -118,6 +118,7 @@ async function replaceWithSuccessor({
     directory: host.projectDirectory(session),
     name: doc
   });
+
   if (goal !== null) {
     await restoreGoal({
       context,

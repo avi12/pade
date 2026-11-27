@@ -82,7 +82,8 @@ export function scanVerdict({
   // A running goal keeps the agent from ever going quiet, so waiting for that
   // would hold the handoff for good: hand off mid-turn, which stops and clears
   // the goal first and sets it again in the successor (handoff-goal).
-  if (isCompactionImminent || isGoalActive(session.id)) {
+  const shouldHandOffMidTurn = isCompactionImminent || isGoalActive(session.id);
+  if (shouldHandOffMidTurn) {
     return ScanVerdict.HAND_OFF_MID_TURN;
   }
 
