@@ -237,6 +237,18 @@ writes.
   **or usage credits can carry it past that cap** - only an agent that truly
   cannot work hands its session to a different one.
   🔭 the CLI context parser is heuristic and should be tuned to the real output.
+- R1.6a.2c ✅ **A `/goal` survives the handoff.** A Claude goal keeps the agent
+  from ever settling, so a session whose footer shows "◎ /goal active" hands off
+  mid-turn once over the threshold: PADE reads the goal's condition from the
+  session log, stops the turn (Esc), types `/goal clear`, gets the doc written
+  and, once the successor has read it and settled, types `/goal <condition>`
+  into the successor. A handoff that stops short gives the goal back to the
+  session (`lib/stores/agent/handoff/handoff-goal.ts`).
+- R1.6a.2d ✅ **Only a fresh reading ends a session.** The fill a handoff acts on
+  comes from the session log (tokens over the model's window; a failed catalog
+  fetch keeps the last known window) and, without it, from an on-screen
+  percentage only while it was seen in the last 10 seconds - a stray "70% …
+  context" in output long gone once handed off a 47%-full session.
 - R1.6a.2b ✅ **PADE never types over the user's prompt.** Every request PADE
   types into an agent (the handoff doc request, pacing's "continue") waits until
   the user has stopped typing for 5 seconds and has no unsent draft in the

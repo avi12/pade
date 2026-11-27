@@ -182,6 +182,68 @@ pub(crate) async fn agent_session_context(
     .flatten()
 }
 
+/// The condition of the newest `/goal` the session set, or `None` when it set
+/// none or its newest `/goal` cleared one - what a handoff carries over to the
+/// successor after clearing it here. Off the UI thread: it reads the log.
+#[tauri::command]
+pub(crate) async fn agent_session_goal(
+    command: String,
+    conversation_id: Option<String>,
+) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let log = claude_session_log(&command, conversation_id.as_deref())?;
+        newest_goal_in(&std::fs::read_to_string(log).ok()?)
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// How Claude records a typed slash command in its log.
+const GOAL_COMMAND_NAME: &str = "<command-name>/goal</command-name>";
+const COMMAND_ARGUMENTS_START: &str = "<command-args>";
+const COMMAND_ARGUMENTS_END: &str = "</command-args>";
+/// The `/goal` arguments that clear a goal rather than set one.
+const GOAL_CLEARING_ARGUMENTS: &[&str] = &["clear", "stop", "off", "reset", "none", "cancel"];
+
+/// The newest `/goal` condition in a log's JSON lines, read from the user's own
+/// entries only - a tool result quoting a `/goal` line never counts.
+fn newest_goal_in(lines: &str) -> Option<String> {
+    let arguments = lines
+        .lines()
+        .rev()
+        .filter(|line| line.contains(GOAL_COMMAND_NAME))
+        .find_map(goal_arguments_of)?;
+    let is_clearing = arguments.is_empty()
+        || GOAL_CLEARING_ARGUMENTS
+            .iter()
+            .any(|clearing| arguments.eq_ignore_ascii_case(clearing));
+    (!is_clearing).then_some(arguments)
+}
+
+/// The arguments of the `/goal` command a user log entry records.
+fn goal_arguments_of(line: &str) -> Option<String> {
+    let entry: serde_json::Value = serde_json::from_str(line).ok()?;
+    let is_user_entry = entry.get("type")?.as_str()? == "user";
+    if !is_user_entry {
+        return None;
+    }
+    let content = entry.get("message")?.get("content")?;
+    let text = content.as_str().map(str::to_string).or_else(|| {
+        content
+            .as_array()?
+            .iter()
+            .filter_map(|block| block.get("text")?.as_str())
+            .find(|text| text.contains(GOAL_COMMAND_NAME))
+            .map(str::to_string)
+    })?;
+    let command_at = text.find(GOAL_COMMAND_NAME)?;
+    let after_command = &text[command_at..];
+    let start = after_command.find(COMMAND_ARGUMENTS_START)? + COMMAND_ARGUMENTS_START.len();
+    let end = after_command[start..].find(COMMAND_ARGUMENTS_END)? + start;
+    Some(after_command[start..end].trim().to_string())
+}
+
 /// The model and effort Claude's own log says the newest real turn of
 /// `conversation_id` ran on - the fallback for a session launched before PADE
 /// attached its hooks (see `running_model`).
@@ -445,8 +507,15 @@ fn window_for_model(model: &str) -> Option<u64> {
     // The fetch is a multi-megabyte network call; it runs with the cache
     // unlocked so a slow models.dev never queues every other session's read
     // behind it. Two sessions racing past a stale cache may both fetch - the
-    // later write simply wins, and both answers are equally fresh.
-    let windows = fetch_catalog()?;
+    // later write simply wins, and both answers are equally fresh. A failed
+    // fetch answers from the stale copy: a model's window doesn't change, and
+    // no window at all hands the session's fill to the screen's guesses.
+    let Some(windows) = fetch_catalog() else {
+        let cache = CATALOG.lock().ok()?;
+        return cache
+            .as_ref()
+            .and_then(|(_, windows)| windows.get(model).copied());
+    };
     let window = windows.get(model).copied();
     *CATALOG.lock().ok()? = Some((Instant::now(), windows));
     window

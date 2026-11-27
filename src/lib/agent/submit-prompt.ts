@@ -55,3 +55,35 @@ export async function submitPastedPrompt({
     }
   }
 }
+
+/** How long a typed slash command sits before its Enter, so the TUI's command
+ *  menu has caught up with the line. */
+const COMMAND_SETTLE_MS = 400;
+
+/** Type a slash command (`/goal clear`) into a session's composer and submit it
+ *  once - typed, not pasted, so the agent reads it as a command, and once the
+ *  composer is free like any request PADE types. A command may start no turn, so
+ *  there is no working state to wait for and re-send on. */
+export async function submitTypedCommand({
+  id,
+  command,
+  wait
+}: {
+  id: string;
+  command: string;
+  wait: (milliseconds: number) => Promise<unknown>;
+}) {
+  await whenComposerFree({
+    id,
+    wait
+  });
+  await sendMessage(Command.PTY_WRITE, {
+    id,
+    data: command
+  });
+  await wait(COMMAND_SETTLE_MS);
+  await sendMessage(Command.PTY_WRITE, {
+    id,
+    data: PROMPT_SUBMIT
+  });
+}

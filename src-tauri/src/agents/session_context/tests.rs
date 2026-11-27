@@ -1,6 +1,6 @@
 use crate::agents::session_context::{
-    addresses_in, is_conversation_entry, model_field, newest_occupied_in, newest_turn_in,
-    CatalogProvider, TurnProfile,
+    addresses_in, is_conversation_entry, model_field, newest_goal_in, newest_occupied_in,
+    newest_turn_in, CatalogProvider, TurnProfile,
 };
 use std::collections::HashMap;
 
@@ -165,4 +165,43 @@ fn only_the_conversations_own_entries_count() {
     assert!(!is_conversation_entry(
         r#"{"type":"user","message":"no link"}"#
     ));
+}
+
+/// A user log entry recording a typed `/goal` with `arguments`, in the shape
+/// Claude writes it.
+fn goal_entry(arguments: &str) -> String {
+    let content = format!(
+        "<command-name>/goal</command-name>\n<command-message>goal</command-message>\n<command-args>{arguments}</command-args>"
+    );
+    serde_json::json!({"type": "user", "message": {"role": "user", "content": content}}).to_string()
+}
+
+#[test]
+fn the_newest_goal_condition_is_read_from_the_users_own_entry() {
+    let log = [
+        goal_entry("ship the old thing"),
+        goal_entry("Run the tests and verify everything works"),
+    ]
+    .join("\n");
+    assert_eq!(
+        newest_goal_in(&log).as_deref(),
+        Some("Run the tests and verify everything works")
+    );
+}
+
+#[test]
+fn a_cleared_goal_leaves_none_to_carry_over() {
+    let log = [goal_entry("ship it"), goal_entry("clear")].join("\n");
+    assert_eq!(newest_goal_in(&log), None);
+}
+
+#[test]
+fn a_tool_result_quoting_a_goal_command_never_counts() {
+    let quoted = serde_json::json!({
+        "type": "assistant",
+        "message": {"content": "<command-name>/goal</command-name><command-args>fake</command-args>"}
+    })
+    .to_string();
+    let log = [goal_entry("the real goal"), quoted].join("\n");
+    assert_eq!(newest_goal_in(&log).as_deref(), Some("the real goal"));
 }

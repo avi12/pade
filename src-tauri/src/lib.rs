@@ -206,6 +206,7 @@ pub fn run() {
             agents::storage::chat_storage,
             agents::storage::chat_storage_delete,
             agents::session_context::agent_session_context,
+            agents::session_context::agent_session_goal,
             agents::token_burn::session_token_usage,
             agents::running_model::agent_running_model,
             agents::running_model::agent_model_options,

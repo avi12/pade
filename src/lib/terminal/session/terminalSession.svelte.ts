@@ -11,6 +11,7 @@ import { appearance } from "@/lib/settings/prefs.svelte";
 import { observeTurnOnScreen } from "@/lib/stores/agent/agentActivity.svelte";
 import { dismissApiError } from "@/lib/stores/agent/apiErrorRetry.svelte";
 import { observeContextScreen } from "@/lib/stores/agent/context.svelte";
+import { observeGoalScreen } from "@/lib/stores/agent/sessionGoals.svelte";
 import { noteComposerInput } from "@/lib/stores/session/composerDrafts.svelte";
 import { clearPendingPrompt, pendingPrompt } from "@/lib/stores/session/pendingPrompts.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
@@ -125,6 +126,10 @@ export function createTerminalSession({
       void delivery.answerTrustGate(rows);
       const screen = rows.join("\n");
       observeContextScreen({
+        id: session().id,
+        text: screen
+      });
+      observeGoalScreen({
         id: session().id,
         text: screen
       });

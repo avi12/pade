@@ -34,6 +34,7 @@ export const AGENT_COMMANDS = {
   CHAT_STORAGE: "chat_storage",
   CHAT_STORAGE_DELETE: "chat_storage_delete",
   AGENT_SESSION_CONTEXT: "agent_session_context",
+  AGENT_SESSION_GOAL: "agent_session_goal",
   SESSION_TOKEN_USAGE: "session_token_usage",
   AGENT_RUNNING_MODEL: "agent_running_model",
   PROJECT_AUTONAME: "project_autoname",
@@ -127,6 +128,9 @@ export interface AgentCommandProtocol {
   /** How full the session's context window is, read from the agent's own
    *  session log; `null` for an agent that keeps no readable log. */
   [AGENT_COMMANDS.AGENT_SESSION_CONTEXT]: (data: { command: string; conversationId?: string }) => SessionContext | null;
+  /** The condition of the newest `/goal` the session set, read from its log;
+   *  `null` when it set none or cleared it. */
+  [AGENT_COMMANDS.AGENT_SESSION_GOAL]: (data: { command: string; conversationId?: string }) => string | null;
   /** What the session and each of its subagents spent since `since` (epoch
    *  ms), one entry per model, read from the agent's own transcripts; empty
    *  for an agent that keeps none. */
@@ -169,6 +173,7 @@ export const AGENT_RESPONSE_SCHEMAS = {
   [AGENT_COMMANDS.CHAT_STORAGE]: ChatStorage,
   [AGENT_COMMANDS.CHAT_STORAGE_DELETE]: ChatStorage,
   [AGENT_COMMANDS.AGENT_SESSION_CONTEXT]: SessionContext.nullable(),
+  [AGENT_COMMANDS.AGENT_SESSION_GOAL]: z.string().nullable(),
   [AGENT_COMMANDS.SESSION_TOKEN_USAGE]: SessionTokenUsage,
   [AGENT_COMMANDS.AGENT_RUNNING_MODEL]: RunningModel.nullable(),
   [AGENT_COMMANDS.PROJECT_AUTONAME]: z.string().nullable(),

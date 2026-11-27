@@ -12,6 +12,7 @@ import {
 } from "@/lib/stores/agent/handoff/handoff-doc-request";
 import type { HandoffContext } from "@/lib/stores/agent/handoff/handoff-doc-request";
 import { waitForFirstTurn } from "@/lib/stores/agent/handoff/handoff-first-turn";
+import { restoreGoal, suspendGoal } from "@/lib/stores/agent/handoff/handoff-goal";
 import { handingOffNote } from "@/lib/stores/agent/handoff/handoff-notes";
 import { handoffDocName, HandoffReason, successorPrompt } from "@/lib/stores/agent/handoff/handoff-prompts";
 import { hasEnoughUsage, pickHandoffSuccessor } from "@/lib/stores/agent/handoff/handoff-successor";
@@ -67,12 +68,16 @@ async function replaceWithSuccessor({
   context,
   session,
   doc,
-  successorAgent
+  successorAgent,
+  goal
 }: {
   context: HandoffContext;
   session: AgentSession;
   doc: string;
   successorAgent: Agent;
+  /** The goal cleared on the way out, set again once the successor has read
+   *  the doc - or null when it ran none. */
+  goal: string | null;
 }) {
   const { host, state, timers } = context;
   const { cwd } = session;
@@ -105,10 +110,19 @@ async function replaceWithSuccessor({
       }),
     id: successorId
   });
-  if (isConsumed) {
-    await sendMessage(Command.HANDOFF_DOC_DELETE, {
-      directory: host.projectDirectory(session),
-      name: doc
+  if (!isConsumed) {
+    return;
+  }
+
+  await sendMessage(Command.HANDOFF_DOC_DELETE, {
+    directory: host.projectDirectory(session),
+    name: doc
+  });
+  if (goal !== null) {
+    await restoreGoal({
+      context,
+      id: successorId,
+      condition: goal
     });
   }
 }
@@ -146,6 +160,23 @@ export async function handoff({
     successorAgent
   });
 
+  // 0. A running goal would never let the agent settle to write its doc: stop
+  // and clear it now, to set it again in the successor.
+  const goal = await suspendGoal({
+    context,
+    session
+  });
+  // A handoff that stops short leaves the session running: its goal goes back.
+  async function giveGoalBack() {
+    if (goal !== null) {
+      await restoreGoal({
+        context,
+        id: session.id,
+        condition: goal
+      });
+    }
+  }
+
   // 1. Ask the agent to write the handoff doc, then wait for it to land.
   const hasDoc = await requestHandoffDoc({
     context,
@@ -155,6 +186,7 @@ export async function handoff({
   });
   if (!hasDoc) {
     state.note = "";
+    await giveGoalBack();
     return;
   }
 
@@ -168,6 +200,7 @@ export async function handoff({
   });
   if (!isStillHereBeforeEnd) {
     state.abandonHandoff(session.id);
+    await giveGoalBack();
     return;
   }
 
@@ -175,7 +208,8 @@ export async function handoff({
     context,
     session,
     doc,
-    successorAgent
+    successorAgent,
+    goal
   });
 }
 

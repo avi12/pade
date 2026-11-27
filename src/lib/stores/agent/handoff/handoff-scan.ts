@@ -1,6 +1,7 @@
 import { agentReportsBusy } from "@/lib/stores/agent/agentActivity.svelte";
 import { compactionHeadroom, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import { hasPersistentMarker } from "@/lib/stores/agent/handoff/handoff-markers";
+import { isGoalActive } from "@/lib/stores/agent/sessionGoals.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types/agent";
@@ -78,7 +79,10 @@ export function scanVerdict({
     return ScanVerdict.HOLD_BACK;
   }
 
-  if (isCompactionImminent) {
+  // A running goal keeps the agent from ever going quiet, so waiting for that
+  // would hold the handoff for good: hand off mid-turn, which stops and clears
+  // the goal first and sets it again in the successor (handoff-goal).
+  if (isCompactionImminent || isGoalActive(session.id)) {
     return ScanVerdict.HAND_OFF_MID_TURN;
   }
 
