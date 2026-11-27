@@ -507,7 +507,7 @@ const REQUEST_SUBMITTED_MS = 10_000;
 const CLOSED_SESSION_NOTICED_MS = 3_000;
 
 const WAITING_NOTE =
-  "Claude Code context at 100% - handing off once its running work finishes, or just before it auto-compacts…";
+  "pade · Claude Code context at 100% - handing off once its running work finishes, or just before it auto-compacts…";
 
 const scannedSession: AgentSession = {
   id: "mid-turn-session",

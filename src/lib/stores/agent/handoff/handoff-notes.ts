@@ -1,11 +1,23 @@
 import { measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import { HandoffReason } from "@/lib/stores/agent/handoff/handoff-prompts";
 import type { Agent, AgentSession } from "@/lib/types/agent";
+import { baseName } from "@/lib/util/paths";
+
+/** Whose handoff a note is about: the project, then the agent. The note shows
+ *  window-wide, over whichever project is in front, so a bare "Claude Code
+ *  context at 82%" read as the front session's while it was another's. */
+function whoseHandoff(session: AgentSession) {
+  if (session.cwd === undefined) {
+    return session.agent.label;
+  }
+
+  return `${baseName(session.cwd)} · ${session.agent.label}`;
+}
 
 /** The status line while a handoff waits for the agent's running work - a turn,
  *  background agents, a dynamic workflow - to finish. */
 export function waitingForWorkNote({ session, reason }: { session: AgentSession; reason: HandoffReason }) {
-  const agent = session.agent.label;
+  const agent = whoseHandoff(session);
   if (reason === HandoffReason.CONFIGURATION_CHANGE) {
     return `MCP servers changed - ${agent} restarts once its running work finishes…`;
   }
@@ -29,7 +41,7 @@ export function handingOffNote({
   isMidTurn: boolean;
   successorAgent: Agent;
 }) {
-  const agent = session.agent.label;
+  const agent = whoseHandoff(session);
   if (reason === HandoffReason.CONFIGURATION_CHANGE) {
     return `MCP servers changed - ${agent} is writing a handoff before restarting…`;
   }
