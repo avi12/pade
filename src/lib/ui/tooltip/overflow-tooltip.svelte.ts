@@ -27,9 +27,15 @@ export function showOverflowTooltip(tooltip: ActiveOverflowTooltip) {
 }
 
 /** Clear only if the given trigger still owns the bubble - a stale pointerleave
- *  from a trigger the pointer already moved off of never hides a newer one. */
+ *  from a trigger the pointer already moved off of never hides a newer one.
+ *  The write waits for a microtask: a focused trigger that a keyed list moves
+ *  (a project row jumping to the top when a chat opens) fires `focusout` in
+ *  the middle of Svelte's render, where writing state throws and aborts the
+ *  update that was showing the new chat. */
 export function clearOverflowTooltip(anchorName: string) {
-  if (overflowTooltipState.active?.anchorName === anchorName) {
-    overflowTooltipState.active = null;
-  }
+  queueMicrotask(() => {
+    if (overflowTooltipState.active?.anchorName === anchorName) {
+      overflowTooltipState.active = null;
+    }
+  });
 }
