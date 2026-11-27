@@ -149,14 +149,16 @@ impl IgnoreRules {
     /// Only git's real answers are memoized: when git fails (twice), the root
     /// `.gitignore` decides this once and the next change asks git again.
     fn git_excludes(&self, root: &Path, path: &Path) -> bool {
-        let folders = folders_between(root, path);
         let unknown_folders = {
             let Ok(cache) = self.git_ignore_cache.lock() else {
                 return false;
             };
+            // A memoized path is the common case: answer it before building
+            // the list of folders above it.
             if let Some(&is_ignored) = cache.get(path) {
                 return is_ignored;
             }
+            let folders = folders_between(root, path);
             if folders
                 .iter()
                 .any(|folder| cache.get(folder) == Some(&true))
@@ -169,10 +171,16 @@ impl IgnoreRules {
                 .collect::<Vec<_>>()
         };
 
+        // A path gone from disk may have been a folder - a deleted lock or
+        // cache folder that only a folder pattern (`.build-lock/`) ignores -
+        // so it is asked about as both.
+        let is_gone = !path.exists();
+        let path_as_folder = is_gone.then(|| CheckIgnoreQuestion::folder(root, path));
         let questions = unknown_folders
             .iter()
             .map(|folder| CheckIgnoreQuestion::folder(root, folder))
             .chain(std::iter::once(CheckIgnoreQuestion::file(root, path)))
+            .chain(path_as_folder)
             .collect::<Option<Vec<_>>>();
         let Some(questions) = questions else {
             return self.root_gitignore_excludes(path);
@@ -394,6 +402,7 @@ fn folders_between(root: &Path, path: &Path) -> Vec<PathBuf> {
 /// One path put to `git check-ignore`, spelled the way git takes it and echoes
 /// it back: relative to the work tree, `/`-separated, and a folder with a
 /// trailing `/` so folder-only patterns (`build/`) match it.
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct CheckIgnoreQuestion {
     spelling: String,
 }

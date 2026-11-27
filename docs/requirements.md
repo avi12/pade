@@ -132,7 +132,11 @@ writes.
   the repo), the root `.gitignore` decides and that non-answer isn't
   remembered. The feed keeps the newest 300 shown and 300 ignored changes
   apart, so ignored churn (a browser profile, a build cache) never pushes the
-  shown changes out.
+  shown changes out. A path gone from disk is asked about as a file and as a
+  folder, so a deleted lock folder only a folder pattern (`.build-lock/`)
+  ignores is ignored; a file's newest change carries its mark to the file's
+  earlier changes; and `sed -i`'s scratch file (`sed` + six characters) is
+  scratch, like an editor's.
 - R1.2.8 ✅ **Language logos on cards.** Each change card leads with the file's
   **brand logo** (a local `.svg` under `src/lib/icons/` - `languages/`, `formats/` and kin - rendered via `Icon.svelte`)
   instead of a text chip - multi-colour marks (TS/JS/Python…) keep their brand
@@ -251,6 +255,9 @@ writes.
   context" in output long gone once handed off a 47%-full session. The log is
   read again whenever the session goes quiet and every minute while it works,
   since a `/goal` keeps one turn running for hours.
+- R1.6a.2e ✅ **A handoff note names its session.** The note shows over
+  whichever project is in front, so it leads with the session's project ("youtube-time-manager
+  · Claude Code context at 82% …") - unnamed, it read as the front session's.
 - R1.6a.2b ✅ **PADE never types over the user's prompt.** Every request PADE
   types into an agent (the handoff doc request, pacing's "continue") waits until
   the user has stopped typing for 5 seconds and has no unsent draft in the
@@ -423,7 +430,10 @@ writes.
   goes on once its keep share is back to 1), and everything reverts as the window
   is about to reset; a choice the user makes in between is theirs to keep.
   While pacing holds an agent its tab shows **SLOWED** (**PAUSED** while it is
-  stopped); the badge opens why, what it runs now, when it reverts and what
+  stopped) - and only while the session still runs what pacing set: once the
+  user switches model or effort, pacing's record and its subagent cap are
+  dropped at the next scan, never shown as "Back to <the old model>" over a
+  session running something else. The badge opens why, what it runs now, when it reverts and what
   pacing did, with **Ease one step**, **Skip this window** and, when stopped or
   resting, **Resume now**. An override holds: an eased session takes no new
   step for 30 minutes, and a skipped one is left alone until its window (or,

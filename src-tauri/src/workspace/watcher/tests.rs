@@ -600,6 +600,33 @@ fn git_mode_falls_back_to_the_root_gitignore_when_git_gives_no_answer() {
 }
 
 #[test]
+fn a_deleted_folder_only_a_folder_pattern_ignores_is_ignored() {
+    // A build tool's lock folder comes and goes; once it is gone the path can't
+    // say it was a folder, and `.build-lock/` matches only a folder.
+    let root = std::env::temp_dir().join(format!("pade-ignore-gone-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).expect("a scratch repository");
+    let is_repository = crate::vcs::git_in(&root)
+        .args(["init", "-q"])
+        .status()
+        .is_ok_and(|status| status.success());
+    if !is_repository {
+        let _ = fs::remove_dir_all(&root);
+        return;
+    }
+    fs::write(root.join(".gitignore"), ".build-lock/\n").expect("root rules");
+    let ignore_rules = IgnoreRules::default();
+    ignore_rules.install(IgnorePolicy::Git {
+        root: root.clone(),
+        rules: crate::workspace::gitignore::Rules::default(),
+    });
+
+    assert!(ignore_rules.excludes(&root.join(".build-lock")));
+    assert!(!ignore_rules.excludes(&root.join("gone-file.txt")));
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
 fn git_mode_asks_git_once_and_answers_an_ignored_folder_from_memory() {
     let root = std::env::temp_dir().join(format!("pade-ignore-batch-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);

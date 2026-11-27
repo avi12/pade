@@ -21,8 +21,9 @@ import { baseName } from "@/lib/util/paths";
 // Editor/tool scratch files that churn during an atomic save (write to a temp
 // name, then rename over the target) - noise, not real changes. Match the shapes
 // the feed sees: a `.tmp.` infix, a `_tmp_` scratch name, a vim swap, a trailing
-// `~` backup, or a long numeric atomic-save suffix.
-const TEMP_FILE_RE = /^_tmp_|\.tmp\.|\.sw[a-z]$|~$|\.\d{7,}$/i;
+// `~` backup, a long numeric atomic-save suffix, or `sed -i`'s scratch file
+// (`sed` and six random characters, renamed over the file it edits).
+const TEMP_FILE_RE = /^_tmp_|\.tmp\.|\.sw[a-z]$|~$|\.\d{7,}$|^sed[a-z\d]{6}$/i;
 
 const NO_EVENTS: ChangeEvent[] = [];
 
@@ -136,7 +137,19 @@ function fileChange(event: ChangeEvent) {
     return;
   }
 
-  feedsByProject.set(event.root, cappedFeed([event, ...events]));
+  // A file is ignored or not as a whole, and the newest change knows best:
+  // its mark goes to every earlier change of the same file, so a mark that
+  // went wrong once is put right by the file's next change.
+  const remarked = events.map(earlier => {
+    const isSameFileMarkedOtherwise = earlier.path === event.path && earlier.isIgnored !== event.isIgnored;
+    return isSameFileMarkedOtherwise
+      ? {
+          ...earlier,
+          isIgnored: event.isIgnored
+        }
+      : earlier;
+  });
+  feedsByProject.set(event.root, cappedFeed([event, ...remarked]));
 
   // An event proves the watch is armed, so an identity missed when the project
   // was first held can be learned now.
