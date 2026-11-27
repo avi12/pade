@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { forgetSession } from "@/lib/session/lifecycle/session-scope";
 import {
@@ -251,6 +251,21 @@ describe("contextPercentage via observeContext", () => {
     });
 
     expect(contextPercentage("parsed-persists")).toBe(42);
+  });
+
+  it("lets a parsed percent go once it has not been seen for a while", () => {
+    // A stray "70% ... context" in output long gone once stood for a 47%-full
+    // session's fill and handed it off.
+    vi.useFakeTimers();
+    observeContextScreen({
+      id: "parsed-expires",
+      text: "the context reached 70% on that run"
+    });
+    expect(measuredContextPercentage("parsed-expires")).toBe(70);
+
+    vi.advanceTimersByTime(11_000);
+    expect(measuredContextPercentage("parsed-expires")).toBeNull();
+    vi.useRealTimers();
   });
 });
 

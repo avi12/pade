@@ -40,6 +40,8 @@ interface ContextSignal {
   loggedTokens: number | null;
   /** Percent of context used, parsed from the agent's own output (0..100). */
   parsedPercentage: number | null;
+  /** When that percent was last seen - it counts only while fresh. */
+  parsedAt: number;
   /** Percent left before the agent compacts its own conversation - Claude's
    *  "N% until auto-compact". It counts down to the compaction point, which can
    *  sit far below the window, so it is never read as a share of the window.
@@ -200,6 +202,7 @@ function parseRatioPercentage(lower: string) {
 const EMPTY_SIGNAL: ContextSignal = {
   loggedTokens: null,
   parsedPercentage: null,
+  parsedAt: 0,
   compactionHeadroom: null,
   windowTokens: null,
   reportedTokens: 0,
@@ -248,6 +251,7 @@ function absorb({ id, text, characters }: { id: string; text: string; characters
   signals.set(id, {
     ...previous,
     parsedPercentage: parsed ?? previous.parsedPercentage,
+    parsedAt: parsed === null ? previous.parsedAt : Date.now(),
     windowTokens: tokens.windowTokens ?? previous.windowTokens,
     reportedTokens: Math.max(tokens.reportedTokens, previous.reportedTokens),
     characters: previous.characters + characters
@@ -351,6 +355,19 @@ function loggedPercentage(signal: ContextSignal) {
   });
 }
 
+/** How long a parsed percent counts after it was last seen. The screen is
+ *  sampled every second, so an indicator the agent still shows stays fresh; a
+ *  stray match - a percent beside the word "context" in some output long gone -
+ *  stops counting instead of standing for the session's fill for good, which
+ *  once read a 47%-full session as 70% and handed it off. */
+const PARSED_FRESH_MS = 10_000;
+
+/** The parsed percent while it is fresh, else null. */
+function freshParsedPercentage(signal: ContextSignal) {
+  const isFresh = Date.now() - signal.parsedAt < PARSED_FRESH_MS;
+  return isFresh ? signal.parsedPercentage : null;
+}
+
 /** The rough fill the PTY bytes alone imply, or null before any output. */
 function estimatedPercentage(signal: ContextSignal) {
   if (signal.characters === 0) {
@@ -373,7 +390,7 @@ export function contextPercentage(id: string) {
 
   return (
     loggedPercentage(signal) ??
-    signal.parsedPercentage ??
+    freshParsedPercentage(signal) ??
     tokensDerivedPercentage({
       signal,
       canFallBack: true
@@ -405,7 +422,7 @@ export function measuredContextPercentage(id: string) {
 
   return (
     loggedPercentage(signal) ??
-    signal.parsedPercentage ??
+    freshParsedPercentage(signal) ??
     tokensDerivedPercentage({
       signal,
       canFallBack: false
