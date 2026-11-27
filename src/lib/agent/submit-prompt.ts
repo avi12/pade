@@ -10,6 +10,7 @@
 // queues the request between its steps.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { whenComposerFree } from "@/lib/stores/session/composerDrafts.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SUBMIT_VERIFY_MS } from "@/lib/terminal/activity/activity-timing";
 import { pastedText, PROMPT_SUBMIT } from "@/lib/terminal/input/terminal-input";
@@ -18,8 +19,11 @@ import { SessionStatus } from "@/lib/types/agent";
 const SUBMIT_SETTLE_MS = 1_200;
 const SUBMIT_ATTEMPTS = 6;
 
-/** Paste `text` into a session's composer and submit it. `wait` is the caller's
- *  delay, so one that tears down its timers on dispose can cancel the retries. */
+/** Paste `text` into a session's composer and submit it - once the composer is
+ *  free: never into the middle of what the user is typing, nor over a draft
+ *  they left, where it would be submitted fused with their words. `wait` is the
+ *  caller's delay, so one that tears down its timers on dispose can cancel the
+ *  wait and the retries. */
 export async function submitPastedPrompt({
   id,
   text,
@@ -29,6 +33,10 @@ export async function submitPastedPrompt({
   text: string;
   wait: (milliseconds: number) => Promise<unknown>;
 }) {
+  await whenComposerFree({
+    id,
+    wait
+  });
   await sendMessage(Command.PTY_WRITE, {
     id,
     data: pastedText(text)

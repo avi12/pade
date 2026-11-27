@@ -237,6 +237,13 @@ writes.
   **or usage credits can carry it past that cap** - only an agent that truly
   cannot work hands its session to a different one.
   🔭 the CLI context parser is heuristic and should be tuned to the real output.
+- R1.6a.2b ✅ **PADE never types over the user's prompt.** Every request PADE
+  types into an agent (the handoff doc request, pacing's "continue") waits until
+  the user has stopped typing for 5 seconds and has no unsent draft in the
+  composer - estimated from the keystrokes the pane sent (typing and pastes add,
+  Backspace takes away, Enter, Ctrl+C, Ctrl+U and a double Esc empty it). A draft
+  untouched for 5 minutes no longer holds it back, since the estimate may have
+  missed how it was cleared (`lib/stores/session/composerDrafts.svelte.ts`).
 - R1.6a.2a ✅ **A handoff never severs background work.** Idle means the agent
   itself reports nothing in flight - no turn, background agent or dynamic
   workflow - read from its terminal title (`lib/stores/agent/agentActivity.svelte.ts`;

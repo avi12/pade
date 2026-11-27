@@ -24,7 +24,8 @@ export const SessionStateKey = z.enum([
   "usageAdapt",
   "modelSwitch",
   "retheme",
-  "pendingPrompt"
+  "pendingPrompt",
+  "composerDraft"
 ]);
 export type SessionStateKey = z.infer<typeof SessionStateKey>;
 
