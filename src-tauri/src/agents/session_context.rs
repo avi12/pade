@@ -223,25 +223,51 @@ fn newest_goal_in(lines: &str) -> Option<String> {
 
 /// The arguments of the `/goal` command a user log entry records.
 fn goal_arguments_of(line: &str) -> Option<String> {
-    let entry: serde_json::Value = serde_json::from_str(line).ok()?;
-    let is_user_entry = entry.get("type")?.as_str()? == "user";
+    let entry: UserEntry = serde_json::from_str(line).ok()?;
+    let is_user_entry = entry.kind == USER_ENTRY_KIND;
     if !is_user_entry {
         return None;
     }
-    let content = entry.get("message")?.get("content")?;
-    let text = content.as_str().map(str::to_string).or_else(|| {
-        content
-            .as_array()?
+    let text = match &entry.message.content {
+        UserContent::Text(text) => text.as_str(),
+        UserContent::Blocks(blocks) => blocks
             .iter()
-            .filter_map(|block| block.get("text")?.as_str())
-            .find(|text| text.contains(GOAL_COMMAND_NAME))
-            .map(str::to_string)
-    })?;
-    let command_at = text.find(GOAL_COMMAND_NAME)?;
-    let after_command = &text[command_at..];
-    let start = after_command.find(COMMAND_ARGUMENTS_START)? + COMMAND_ARGUMENTS_START.len();
-    let end = after_command[start..].find(COMMAND_ARGUMENTS_END)? + start;
-    Some(after_command[start..end].trim().to_string())
+            .filter_map(|block| block.text.as_deref())
+            .find(|text| text.contains(GOAL_COMMAND_NAME))?,
+    };
+    let (_, after_command) = text.split_once(GOAL_COMMAND_NAME)?;
+    let (_, after_start) = after_command.split_once(COMMAND_ARGUMENTS_START)?;
+    let (arguments, _) = after_start.split_once(COMMAND_ARGUMENTS_END)?;
+    Some(arguments.trim().to_string())
+}
+
+/// The kind of log entry the user's own turns are.
+const USER_ENTRY_KIND: &str = "user";
+
+/// A log entry, as far as a typed command in it goes.
+#[derive(Debug, Deserialize)]
+struct UserEntry {
+    #[serde(rename = "type")]
+    kind: String,
+    message: UserMessage,
+}
+
+#[derive(Debug, Deserialize)]
+struct UserMessage {
+    content: UserContent,
+}
+
+/// A user turn's content: plain text, or blocks of which the text ones count.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum UserContent {
+    Text(String),
+    Blocks(Vec<ContentBlock>),
+}
+
+#[derive(Debug, Deserialize)]
+struct ContentBlock {
+    text: Option<String>,
 }
 
 /// The model and effort Claude's own log says the newest real turn of
@@ -256,7 +282,7 @@ pub(crate) fn logged_claude_turn(conversation_id: &str) -> Option<TurnProfile> {
 /// what the tools returned, and the links Claude recorded (`pr-link`). The
 /// rest of a log (tool schemas, system attachments, settings) is the app's
 /// own furniture and full of addresses no one worked with.
-const CONVERSATION_ENTRY_KINDS: &[&str] = &["user", "assistant", "pr-link"];
+const CONVERSATION_ENTRY_KINDS: &[&str] = &[USER_ENTRY_KIND, "assistant", "pr-link"];
 /// How many of a project's most recent other session logs on the same branch
 /// add their links - a resumed session continues in a fresh log that doesn't
 /// carry the earlier ones.

@@ -54,7 +54,7 @@ pub(super) async fn establish(app: &AppHandle) -> Result<Arc<Connection>, HostEr
             tauri::async_runtime::spawn_blocking(crate::workspace::canonical_launch_directory)
                 .await
                 .map_err(|error| HostError::Unavailable(error.to_string()))?;
-        instance_key(&launch)
+        instance_key(launch)
     };
 
     // A host attached to another live app of this same instance (the same

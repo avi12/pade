@@ -43,26 +43,27 @@ pub(crate) struct WatchStatus {
 }
 
 /// The live watch state of `root` in this window (see [`WatchStatus`]); the
-/// default, empty status when the window doesn't watch that root. A pure
-/// in-memory registry read, so it stays synchronous.
+/// default, empty status when the window doesn't watch that root. `async`:
+/// whether the root has a `.gitignore` is a filesystem check, which must not
+/// run on the main thread a synchronous command runs on.
 #[tauri::command]
-pub(crate) fn watch_status(
+pub(crate) async fn watch_status(
     window: WebviewWindow,
     state: State<'_, WatcherState>,
     root: String,
-) -> WatchStatus {
+) -> Result<WatchStatus, String> {
     let Some(watch) =
         window_watches(&state, window.label()).and_then(|watches| watches.find(&root))
     else {
-        return WatchStatus::default();
+        return Ok(WatchStatus::default());
     };
-    WatchStatus {
+    Ok(WatchStatus {
         root: Some(watch.root.to_string_lossy().into_owned()),
         armed_at: Some(watch.armed_at),
         surfaced: watch.surfaced.load(Ordering::Relaxed),
         ignored: watch.ignored.load(Ordering::Relaxed),
         has_gitignore: watch.root.join(GITIGNORE_FILE_NAME).is_file(),
-    }
+    })
 }
 
 /// The window's project watch that owns `path` (see [`WindowWatches::owner_of`]).

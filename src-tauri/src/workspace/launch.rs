@@ -46,14 +46,12 @@ pub(crate) fn launch_directory() -> LaunchDirectory {
 /// and opening a project moves that (`workspace_open`). Read again later, a
 /// reconnect to the PTY host would look for another project's host, start an
 /// empty one and lose every running agent.
-pub(crate) fn canonical_launch_directory() -> PathBuf {
+pub(crate) fn canonical_launch_directory() -> &'static Path {
     static IDENTITY: OnceLock<PathBuf> = OnceLock::new();
-    IDENTITY
-        .get_or_init(|| {
-            let launch = launch_directory().path;
-            std::fs::canonicalize(&launch).unwrap_or(launch)
-        })
-        .clone()
+    IDENTITY.get_or_init(|| {
+        let launch = launch_directory().path;
+        std::fs::canonicalize(&launch).unwrap_or(launch)
+    })
 }
 
 /// This instance's `WebView2` user-data folder, keyed by the launch project so two
