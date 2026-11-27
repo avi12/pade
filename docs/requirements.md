@@ -248,7 +248,9 @@ writes.
   comes from the session log (tokens over the model's window; a failed catalog
   fetch keeps the last known window) and, without it, from an on-screen
   percentage only while it was seen in the last 10 seconds - a stray "70% …
-  context" in output long gone once handed off a 47%-full session.
+  context" in output long gone once handed off a 47%-full session. The log is
+  read again whenever the session goes quiet and every minute while it works,
+  since a `/goal` keeps one turn running for hours.
 - R1.6a.2b ✅ **PADE never types over the user's prompt.** Every request PADE
   types into an agent (the handoff doc request, pacing's "continue") waits until
   the user has stopped typing for 5 seconds and has no unsent draft in the

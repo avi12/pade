@@ -21,6 +21,9 @@
   import "@xterm/xterm/css/xterm.css";
   import { onDestroy, onMount, untrack } from "svelte";
 
+  /** How often a working session's context fill is read off its log again. */
+  const WORKING_CONTEXT_REREAD_MS = 60_000;
+
   const {
     session, isActive = false, isShown = true, isRemovable = false,
     onremove, onpopout, onreorder, onexit, ondraghint
@@ -108,6 +111,21 @@
     }
 
     untrack(pane.readings.readContextFromSessionLog);
+  });
+
+  // Nor is that countdown enough: on a 1M window it shows only far past any
+  // handoff threshold, and a `/goal` keeps one turn running for hours - a
+  // reading taken as it started stood for its fill until long after it was
+  // over the threshold. While the session works, the log is read again every
+  // so often; its growth sends no event to hang this off, and the read takes
+  // only the log's tail.
+  $effect(() => {
+    if (pane.activity.status !== SessionStatus.enum.working) {
+      return;
+    }
+
+    const timer = setInterval(() => untrack(pane.readings.readContextFromSessionLog), WORKING_CONTEXT_REREAD_MS);
+    return () => clearInterval(timer);
   });
 
   // Live-update the terminal font (family + zoom) when the preference changes.
