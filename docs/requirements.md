@@ -425,7 +425,11 @@ writes.
   over the last day, nights included, so a burst early in the week that pacing
   has since slowed doesn't forecast a run-out it won't reach; its average since
   the week started until a day of readings, at least 6 hours, is behind it),
-  and how many sessions pacing slows. Every step undoes itself as room comes back (a cheaper effort or
+  and how many sessions pacing slows. A model step reaches the session's
+  subagents too: a new one starts on the cheaper model, and one already
+  running a dearer model - which can't change model mid-run - is stopped at
+  its next tool call and asked to report what is left, so the main agent
+  continues it in a new subagent on the cheaper model. Every step undoes itself as room comes back (a cheaper effort or
   model steps back up once every paced window keeps 1.3 times the account's
   spend, clear of what one step saves so it doesn't see-saw; a paused session
   goes on once its keep share is back to 1), and everything reverts as the window

@@ -202,3 +202,30 @@ fn an_agent_without_a_readable_log_measures_nothing() {
         SessionTokenUsage::default()
     );
 }
+
+#[test]
+fn a_subagents_model_is_its_newest_reply_s() {
+    let folder = std::env::temp_dir().join(format!("pade-subagent-model-{}", std::process::id()));
+    let subagents = folder.join("conversation").join(SUBAGENTS_DIRECTORY);
+    std::fs::create_dir_all(&subagents).expect("a scratch folder");
+    let log = folder.join("conversation.jsonl");
+    let transcript = subagents.join("agent-a.jsonl");
+    std::fs::write(
+        &transcript,
+        [
+            reply(EARLIER, "claude-opus-5-5", "message-1", "request-1"),
+            reply(NOW, "claude-fable-5-2", "message-2", "request-2"),
+            user(NOW),
+        ]
+        .join("\n"),
+    )
+    .expect("a subagent's transcript");
+
+    let beside_the_session = subagent_model(&log, "a");
+    let from_its_own_transcript = subagent_model(&transcript, "a");
+    let unknown = subagent_model(&log, "b");
+    std::fs::remove_dir_all(&folder).expect("cleanup");
+    assert_eq!(beside_the_session.as_deref(), Some("claude-fable-5-2"));
+    assert_eq!(from_its_own_transcript.as_deref(), Some("claude-fable-5-2"));
+    assert_eq!(unknown, None);
+}

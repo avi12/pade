@@ -1,7 +1,8 @@
 use crate::agents::running_model::pacing_control::{
-    capped_input, decide, hold_through_rest, spawn_cap, ControlPart, EpochMilliseconds,
-    PacingControl, RestClock, SubagentCap, SubagentCapRequest, SubagentStep, Throttle, ToolAnswer,
-    MAXIMUM_HOLD_SECONDS, MAXIMUM_REST_HOLD, SPAWN_REASON, STOP_REASON, WRAP_UP_REASON,
+    capped_input, decide, hold_through_rest, is_above_cap, spawn_cap, ControlPart,
+    EpochMilliseconds, PacingControl, RestClock, SubagentCap, SubagentCapRequest, SubagentStep,
+    Throttle, ToolAnswer, MAXIMUM_HOLD_SECONDS, MAXIMUM_REST_HOLD, SPAWN_REASON, STOP_REASON,
+    WRAP_UP_REASON,
 };
 use std::cell::Cell;
 use std::collections::BTreeMap;
@@ -398,4 +399,14 @@ fn a_call_no_rest_holds_runs_without_waiting() {
     let (control, waited) = held_for(PacingControl::default(), vec![]);
     assert_eq!(waited, Duration::ZERO);
     assert_eq!(control, Some(PacingControl::default()));
+}
+
+#[test]
+fn a_subagent_on_a_model_dearer_than_the_cap_is_above_it() {
+    let cap = sonnet_cap();
+    assert!(is_above_cap(&cap, "claude-fable-5-2"));
+    assert!(is_above_cap(&cap, "claude-opus-5-5"));
+    assert!(!is_above_cap(&cap, "claude-sonnet-5-5"));
+    assert!(!is_above_cap(&cap, "claude-haiku-5-5"));
+    assert!(!is_above_cap(&cap, "an-unknown-model"));
 }

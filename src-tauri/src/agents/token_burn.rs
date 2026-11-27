@@ -186,6 +186,35 @@ fn subagent_transcripts(log: &Path) -> Vec<(String, PathBuf)> {
         .collect()
 }
 
+/// The model a session's subagent `subagent_id` last replied with, read off
+/// its transcript beside the session's `log` - `None` before its first reply.
+/// `log` may also be the subagent's own transcript.
+pub(crate) fn subagent_model(log: &Path, subagent_id: &str) -> Option<String> {
+    let transcript_name =
+        format!("{SUBAGENT_TRANSCRIPT_PREFIX}{subagent_id}.{TRANSCRIPT_EXTENSION}");
+    let is_own_transcript = log
+        .file_name()
+        .is_some_and(|name| name.to_string_lossy() == transcript_name);
+    let transcript = if is_own_transcript {
+        log.to_path_buf()
+    } else {
+        log.with_extension("")
+            .join(SUBAGENTS_DIRECTORY)
+            .join(transcript_name)
+    };
+    newest_reply_model(File::open(transcript).ok()?, READ_LIMITS)
+}
+
+/// The model of a transcript's newest reply. The read runs backwards and stops
+/// at that reply, so it costs the transcript's tail, never the whole file.
+fn newest_reply_model(reader: impl Read + Seek, limits: ReadLimits) -> Option<String> {
+    ReverseLines::new(reader, limits)
+        .ok()?
+        .filter_map(|text| serde_json::from_str::<LogLine>(&text).ok())
+        .find_map(Reply::from_line)
+        .map(|reply| reply.model)
+}
+
 /// What the subagent was asked to do, from the metadata Claude keeps beside
 /// its transcript (`agent-<id>.meta.json`): the spawn's description, else its
 /// agent type.

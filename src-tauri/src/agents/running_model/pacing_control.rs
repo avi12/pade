@@ -8,7 +8,9 @@
 //! written by its own owner and replaced whole (`agent_set_pacing_control`):
 //!
 //!   * `cap` - the model a subagent may spawn on while the session is stepped
-//!     down (the owning window's model steps);
+//!     down (the owning window's model steps). A subagent already running a
+//!     dearer model can't switch, so its next tool call is refused with a
+//!     request to report what is left, for a new subagent on the cap;
 //!   * `isStopped` - the session is being stopped (pacing's stop or rest step):
 //!     every tool call of the session and of each of its subagents is denied
 //!     until it is let go, so the stop lands mid-turn, not only at its end;
@@ -112,6 +114,13 @@ const WRAP_UP_REASON: &str = "PADE usage pacing: the usage limit is close. Finis
     you have: make no more tool calls and report back what you found and what is left.";
 const SPAWN_REASON: &str = "PADE usage pacing: the usage limit is close, so no new subagents \
     can start right now. Do this work yourself, or wait for the subagents already running.";
+/// A running subagent can't change model, so one on a dearer model than its
+/// session was stepped down to hands its work back, to go on in a new subagent
+/// that starts on the cheaper one (the cap).
+const HANDOVER_REASON: &str = "PADE usage pacing moved this session to a cheaper model, and \
+    this subagent still runs a dearer one. Stop now: make no more tool calls, and report back \
+    what you found and exactly what is left, so the main agent can continue the rest in a new \
+    subagent.";
 
 /// One read-modify-write of a control file at a time - every window writes
 /// through this one backend, each its own part.
@@ -300,7 +309,12 @@ pub(super) fn answer_tool_use(conversation_id: &str, report: &serde_json::Value)
     ) else {
         return;
     };
-    let decision = decide(&control, report);
+    let is_handing_over = !control.is_stopped && runs_above_cap(&control, report);
+    let decision = if is_handing_over {
+        ToolAnswer::deny(HANDOVER_REASON)
+    } else {
+        decide(&control, report)
+    };
     if control.is_stopped {
         stamp_stop_seen(conversation_id);
     }
@@ -342,6 +356,30 @@ fn hold_through_rest(
         (clock.pause)(REST_POLL_INTERVAL);
         control = (clock.reread)()?;
     }
+}
+
+/// Whether the call comes from a subagent still running a model its session's
+/// cap no longer allows - one that started before pacing stepped the session
+/// down. Read only while a cap stands, off the subagent's transcript tail.
+fn runs_above_cap(control: &PacingControl, report: &serde_json::Value) -> bool {
+    let Some(cap) = control.cap.as_ref() else {
+        return false;
+    };
+    let subagent = report.get("agent_id").and_then(serde_json::Value::as_str);
+    let log = report
+        .get("transcript_path")
+        .and_then(serde_json::Value::as_str);
+    let Some((subagent, log)) = subagent.zip(log) else {
+        return false;
+    };
+    crate::agents::token_burn::subagent_model(std::path::Path::new(log), subagent)
+        .is_some_and(|model| is_above_cap(cap, &model))
+}
+
+/// Whether `model` (a catalog id) is dearer than everything `cap` allows. A
+/// model of no known family is let be.
+fn is_above_cap(cap: &SubagentCap, model: &str) -> bool {
+    spawn_model(ID_CLAUDE, model).is_some_and(|family| !cap.allowed.contains(&family))
 }
 
 fn tool_name(report: &serde_json::Value) -> String {
