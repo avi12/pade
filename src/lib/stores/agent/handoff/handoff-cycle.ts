@@ -99,7 +99,7 @@ async function replaceWithSuccessor({
   shieldHandoffSuccessor(successorId);
   host.removeSession(session.id);
   state.unmarkHandingOff(session.id);
-  state.note = "";
+  state.note = null;
 
   const isConsumed = await waitForFirstTurn({
     timers,
@@ -186,7 +186,7 @@ export async function handoff({
     reason
   });
   if (!hasDoc) {
-    state.note = "";
+    state.note = null;
     await giveGoalBack();
     return;
   }

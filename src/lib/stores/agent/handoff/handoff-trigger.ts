@@ -4,6 +4,7 @@
 
 import type { HandoffContext } from "@/lib/stores/agent/handoff/handoff-doc-request";
 import { waitingForWorkNote } from "@/lib/stores/agent/handoff/handoff-notes";
+import type { HandoffNote } from "@/lib/stores/agent/handoff/handoff-notes";
 import { HandoffReason } from "@/lib/stores/agent/handoff/handoff-prompts";
 import { ScanVerdict, scanVerdict } from "@/lib/stores/agent/handoff/handoff-scan";
 import type { AgentSession } from "@/lib/types/agent";
@@ -13,11 +14,11 @@ import type { AgentSession } from "@/lib/types/agent";
 export function scanForHandoffs(context: HandoffContext) {
   const { host, state } = context;
   if (host.isOptedOut()) {
-    state.deferredNote = "";
+    state.deferredNote = null;
     return;
   }
 
-  let heldBackNote = "";
+  let heldBackNote: HandoffNote | null = null;
   for (const session of host.sessions()) {
     const verdict = scanVerdict({
       session,
@@ -25,7 +26,7 @@ export function scanForHandoffs(context: HandoffContext) {
       thresholdPercentage: host.thresholdPercentage()
     });
     if (verdict === ScanVerdict.HOLD_BACK) {
-      heldBackNote ||= waitingForWorkNote({
+      heldBackNote ??= waitingForWorkNote({
         session,
         reason: HandoffReason.CONTEXT_LIMIT
       });

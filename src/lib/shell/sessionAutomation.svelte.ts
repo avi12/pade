@@ -235,9 +235,10 @@ export function createSessionAutomation({
     /** Apply a model / effort picked from a tab. */
     requestModel: modelSwitcher.request,
     usagePacing,
-    /** The status line of whichever automatic recovery is running, if any. */
-    get note() {
-      return autoHandoff.note || usageResume.note || apiErrorRetry.note;
+    /** The status line of whichever automatic recovery is running, if any - a
+     *  handoff's only while its project is the one in front. */
+    noteFor(project: string) {
+      return autoHandoff.noteFor(project) || usageResume.note || apiErrorRetry.note;
     }
   };
 }

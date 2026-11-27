@@ -67,10 +67,11 @@ export function createAutoHandoff(host: HandoffHost) {
   }
 
   return {
-    /** Status line shown while a handoff is in flight or held back for the agent's
-     *  running work ("" when idle). */
-    get note() {
-      return state.note || state.deferredNote;
+    /** Status line shown while a handoff of `project` is in flight or held back
+     *  for the agent's running work ("" when none is). */
+    noteFor(project: string) {
+      const note = [state.note, state.deferredNote].find(each => each?.project === project);
+      return note?.text ?? "";
     },
     check: () => scanForHandoffs(context),
     force: (session: AgentSession) =>

@@ -10,14 +10,15 @@ import {
   hasPersistentMarker,
   storePersistentMarker
 } from "@/lib/stores/agent/handoff/handoff-markers";
+import type { HandoffNote } from "@/lib/stores/agent/handoff/handoff-notes";
 
 export function createHandoffState() {
   const handingOff = new SvelteSet<string>();
   const handoffAttempts = new SvelteMap<string, number>();
-  let note = $state("");
+  let note = $state<HandoffNote | null>(null);
   // The scan's own line for a session over threshold that it holds back because
   // the agent still has work running; an in-flight handoff's `note` wins over it.
-  let deferredNote = $state("");
+  let deferredNote = $state<HandoffNote | null>(null);
 
   function markHandingOff(sessionId: string) {
     handingOff.add(sessionId);
@@ -32,7 +33,7 @@ export function createHandoffState() {
   return {
     handingOff,
     handoffAttempts,
-    /** The status line while a handoff is in flight ("" when idle). */
+    /** The status line while a handoff is in flight (null when idle). */
     get note() {
       return note;
     },
@@ -53,7 +54,7 @@ export function createHandoffState() {
     // Give up on this handoff for now, leaving the session free for a later scan.
     abandonHandoff(sessionId: string) {
       unmarkHandingOff(sessionId);
-      note = "";
+      note = null;
     }
   };
 }

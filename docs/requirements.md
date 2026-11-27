@@ -255,9 +255,10 @@ writes.
   context" in output long gone once handed off a 47%-full session. The log is
   read again whenever the session goes quiet and every minute while it works,
   since a `/goal` keeps one turn running for hours.
-- R1.6a.2e ✅ **A handoff note names its session.** The note shows over
-  whichever project is in front, so it leads with the session's project ("youtube-time-manager
-  · Claude Code context at 82% …") - unnamed, it read as the front session's.
+- R1.6a.2e ✅ **A handoff note shows only in its own project.** It appears
+  while the session's project is in front and hides over any other, so
+  another project's handoff never reads as the front session's - and, shown
+  only there, it needs no project name ("Claude Code context at 61% …").
 - R1.6a.2b ✅ **PADE never types over the user's prompt.** Every request PADE
   types into an agent (the handoff doc request, pacing's "continue") waits until
   the user has stopped typing for 5 seconds and has no unsent draft in the

@@ -1,23 +1,17 @@
 import { measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import { HandoffReason } from "@/lib/stores/agent/handoff/handoff-prompts";
 import type { Agent, AgentSession } from "@/lib/types/agent";
-import { baseName } from "@/lib/util/paths";
 
-/** Whose handoff a note is about: the project, then the agent. The note shows
- *  window-wide, over whichever project is in front, so a bare "Claude Code
- *  context at 82%" read as the front session's while it was another's. */
-function whoseHandoff(session: AgentSession) {
-  if (session.cwd === undefined) {
-    return session.agent.label;
-  }
-
-  return `${baseName(session.cwd)} · ${session.agent.label}`;
+/** A handoff's status line and the project it is about: it shows only while
+ *  that project is in front, so another project's handoff never reads as the
+ *  front session's. */
+export interface HandoffNote {
+  project: string;
+  text: string;
 }
 
-/** The status line while a handoff waits for the agent's running work - a turn,
- *  background agents, a dynamic workflow - to finish. */
-export function waitingForWorkNote({ session, reason }: { session: AgentSession; reason: HandoffReason }) {
-  const agent = whoseHandoff(session);
+function waitingForWorkText({ session, reason }: { session: AgentSession; reason: HandoffReason }) {
+  const agent = session.agent.label;
   if (reason === HandoffReason.CONFIGURATION_CHANGE) {
     return `MCP servers changed - ${agent} restarts once its running work finishes…`;
   }
@@ -26,11 +20,19 @@ export function waitingForWorkNote({ session, reason }: { session: AgentSession;
   return `${agent} context at ${measuredPercentage}% - handing off once its running work finishes, or just before it auto-compacts…`;
 }
 
-/** The status line while a handoff is under way. The context note states the
- *  measured number: an unquantified "nearly full" reads as a lie whenever the
- *  user is looking at a different (or fresher) session than the one that hit
- *  the threshold. */
-export function handingOffNote({
+/** The status line while a handoff waits for the agent's running work - a turn,
+ *  background agents, a dynamic workflow - to finish. */
+export function waitingForWorkNote({ session, reason }: { session: AgentSession; reason: HandoffReason }) {
+  return {
+    project: session.project,
+    text: waitingForWorkText({
+      session,
+      reason
+    })
+  } satisfies HandoffNote;
+}
+
+function handingOffText({
   session,
   reason,
   isMidTurn,
@@ -41,7 +43,7 @@ export function handingOffNote({
   isMidTurn: boolean;
   successorAgent: Agent;
 }) {
-  const agent = whoseHandoff(session);
+  const agent = session.agent.label;
   if (reason === HandoffReason.CONFIGURATION_CHANGE) {
     return `MCP servers changed - ${agent} is writing a handoff before restarting…`;
   }
@@ -57,4 +59,20 @@ export function handingOffNote({
 
   const measuredPercentage = Math.round(measuredContextPercentage(session.id) ?? 0);
   return `${agent} context at ${measuredPercentage}% - handing off to a fresh agent…`;
+}
+
+/** The status line while a handoff is under way. The context note states the
+ *  measured number: an unquantified "nearly full" reads as a lie whenever the
+ *  user is looking at a different (or fresher) session than the one that hit
+ *  the threshold. */
+export function handingOffNote(facts: {
+  session: AgentSession;
+  reason: HandoffReason;
+  isMidTurn: boolean;
+  successorAgent: Agent;
+}) {
+  return {
+    project: facts.session.project,
+    text: handingOffText(facts)
+  } satisfies HandoffNote;
 }

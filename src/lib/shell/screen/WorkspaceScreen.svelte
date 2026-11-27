@@ -285,7 +285,7 @@
       onchoose={async pick => await automation.requestModel(pick)}
       sessions={windowSessions.sessions}
     />
-    <RecoveryNotes note={automation.note} />
+    <RecoveryNotes note={automation.noteFor(windowSessions.activeProject)} />
     <ShellToast />
     <SendSelectionButton activeId={windowSessions.activeId} />
   </div>

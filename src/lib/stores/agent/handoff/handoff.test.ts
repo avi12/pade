@@ -279,7 +279,7 @@ describe("createAutoHandoff", () => {
     });
 
     handoff.force(predecessor);
-    await vi.waitFor(() => expect(handoff.note).toContain("once its running work finishes"));
+    await vi.waitFor(() => expect(handoff.noteFor(PROJECT)).toContain("once its running work finishes"));
     expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.PTY_WRITE, expect.anything());
     expect(mocks.kill).not.toHaveBeenCalled();
 
@@ -419,7 +419,7 @@ describe("createAutoHandoff", () => {
     });
 
     handoff.check();
-    expect(handoff.note).toBe(WAITING_NOTE);
+    expect(handoff.noteFor(PROJECT)).toBe(WAITING_NOTE);
     await Promise.resolve();
     expect(mocks.kill).not.toHaveBeenCalled();
     expect(launched).toEqual([]);
@@ -442,7 +442,8 @@ describe("createAutoHandoff", () => {
 
     handoff.check();
 
-    expect(handoff.note).toBe(WAITING_NOTE);
+    expect(handoff.noteFor(PROJECT)).toBe(WAITING_NOTE);
+    expect(handoff.noteFor(OTHER_PROJECT)).toBe("");
     expect(mocks.kill).not.toHaveBeenCalled();
     handoff.dispose();
     vi.mocked(sessionStatus).mockReturnValue(SessionStatus.enum.ready);
@@ -487,11 +488,11 @@ describe("createAutoHandoff", () => {
 
     handoff.check();
     await vi.advanceTimersByTimeAsync(REQUEST_SUBMITTED_MS);
-    expect(handoff.note).toContain("handing off to a fresh agent");
+    expect(handoff.noteFor(PROJECT)).toContain("handing off to a fresh agent");
     sessions = [];
     await vi.advanceTimersByTimeAsync(CLOSED_SESSION_NOTICED_MS);
 
-    expect(handoff.note).toBe("");
+    expect(handoff.noteFor(PROJECT)).toBe("");
     expect(handoff.isHandingOff(scannedSession.id)).toBe(false);
     expect(mocks.kill).not.toHaveBeenCalled();
     handoff.dispose();
@@ -506,8 +507,12 @@ const REQUEST_SUBMITTED_MS = 10_000;
 /** A couple of the doc wait's disk polls - far short of its own timeout. */
 const CLOSED_SESSION_NOTICED_MS = 3_000;
 
+const PROJECT = "C:/repositories/pade";
+/** A handoff's note never shows over another project. */
+const OTHER_PROJECT = "C:/repositories/other";
+
 const WAITING_NOTE =
-  "pade · Claude Code context at 100% - handing off once its running work finishes, or just before it auto-compacts…";
+  "Claude Code context at 100% - handing off once its running work finishes, or just before it auto-compacts…";
 
 const scannedSession: AgentSession = {
   id: "mid-turn-session",
