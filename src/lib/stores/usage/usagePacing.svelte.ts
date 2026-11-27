@@ -1920,6 +1920,7 @@ export function createUsagePacing(host: PacingHost) {
     const sampled = new SvelteSet<string>();
     assessed.clear();
     for (const session of sessions) {
+      adapter.dropOutrun(session);
       const isWorthALook = paced.has(session.id) || isWorking(session.id) || adapter.isSteppedDown(session.id);
       const assessment = isWorthALook
         ? await lookAt({

@@ -81,15 +81,31 @@ registerSessionState({
   }
 });
 
+/** Pacing's record for a session while it still stands - not once the session
+ *  runs something else (the user switched model or effort since): a badge
+ *  read "Back to Sonnet 5.5 · medium" over a session running Opus 5.5 xhigh.
+ *  A session whose model isn't reported yet keeps its record. */
+function standingRecord(id: string) {
+  const choice = adapted.get(id);
+  const isOutrun =
+    choice !== undefined &&
+    runningChoice(id) !== null &&
+    !isStillPacingsChoice({
+      id,
+      choice
+    });
+  return isOutrun ? undefined : choice;
+}
+
 /** The steps pacing has taken on a session, oldest first (reactive). */
 export function adaptedSteps(id: string) {
-  return adapted.get(id)?.trail.map(taken => taken.step) ?? [];
+  return standingRecord(id)?.trail.map(taken => taken.step) ?? [];
 }
 
 /** What pacing has the session run now and what it ran before, as a person
  *  reads them - null when pacing hasn't stepped it (reactive). */
 export function adaptedChoice(id: string) {
-  const choice = adapted.get(id);
+  const choice = standingRecord(id);
   if (choice === undefined) {
     return null;
   }
@@ -104,7 +120,7 @@ export function adaptedChoice(id: string) {
 /** What the session ran before pacing first stepped it, null when pacing
  *  hasn't (reactive). */
 export function originalChoice(id: string) {
-  return adapted.get(id)?.trail[0].previous ?? null;
+  return standingRecord(id)?.trail[0].previous ?? null;
 }
 
 /** What the session runs, as its agent last reported it. */
@@ -359,7 +375,15 @@ export function createUsageAdapter(host: AdaptHost) {
 
   return {
     /** Whether pacing has stepped this session down. */
-    isSteppedDown: (id: string) => adapted.has(id),
+    isSteppedDown: (id: string) => standingRecord(id) !== undefined,
+    /** Drop a record the session has outrun - with its subagents' cap, which
+     *  otherwise kept a session the user put back on Opus spawning on Sonnet. */
+    dropOutrun(session: AgentSession) {
+      const isOutrun = adapted.has(session.id) && standingRecord(session.id) === undefined;
+      if (isOutrun) {
+        pacingRecord(session);
+      }
+    },
     stepDown,
     stepUp,
     restoreSession,
