@@ -17,6 +17,7 @@ import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import type { AgentSession } from "@/lib/types/agent";
 import { RUNNING_SUBAGENT_MS, subagentsWrittenSince } from "@/lib/usage/pacing/session-control/measured-burn";
 import { isHoldFallbackDue } from "@/lib/usage/pacing/session-control/rest-hold";
+import type { StoppedSubagent } from "@/lib/usage/pacing/session-control/resume-request";
 import {
   interruptPresses,
   isHookTakingStop,
@@ -63,6 +64,8 @@ const unstopped = new SvelteMap<
 >();
 /** Each session's current run, so a newer stop or a resume ends an older one. */
 const runs = new SvelteMap<string, symbol>();
+/** Each session's subagents the keys ended, until its resume names them. */
+const stoppedByKeys = new SvelteMap<string, readonly StoppedSubagent[]>();
 
 /** The subagents pacing couldn't stop, per session, across this window. */
 export function unstoppedSubagents() {
@@ -76,6 +79,7 @@ export function unstoppedSubagents() {
 export function forgetTerminalStop(id: string) {
   runs.delete(id);
   unstopped.delete(id);
+  stoppedByKeys.delete(id);
 }
 
 async function press({ id, keyPress }: { id: string; keyPress: KeyPress }) {
@@ -191,10 +195,11 @@ export async function hasRunningSubagents({
  *  when no subagent was running. */
 async function pressAndVerify({ request, keys }: { request: TerminalStopRequest; keys: InterruptKeys }) {
   const { session } = request;
-  const isAnySubagentRunning = await hasRunningSubagents({
+  const running = await subagentsWrittenSince({
     session,
-    hasBackgroundAgents: request.hasBackgroundAgents()
+    since: Date.now() - RUNNING_SUBAGENT_MS
   });
+  const isAnySubagentRunning = request.hasBackgroundAgents() || running.length > 0;
   const interruptedAt = Date.now();
   await pressAll({
     id: session.id,
@@ -210,13 +215,44 @@ async function pressAndVerify({ request, keys }: { request: TerminalStopRequest;
   }
 
   await afterDelay(VERIFY_GRACE_MS);
-  return stillWritingSubagents({
+  const stillWriting = stillWritingSubagents({
     subagents: await subagentsWrittenSince({
       session,
       since: interruptedAt
     }),
     interruptedAt
   });
+  noteStoppedSubagents({
+    id: session.id,
+    subagents: running.filter(subagent => !stillWriting.some(each => each.id === subagent.id))
+  });
+  return stillWriting;
+}
+
+/** Remember the subagents a press ended, so the resume can ask for each to be
+ *  restarted - added to any an earlier press of the same stop ended. */
+function noteStoppedSubagents({ id, subagents }: { id: string; subagents: readonly StoppedSubagent[] }) {
+  const earlier = stoppedByKeys.get(id) ?? [];
+  stoppedByKeys.set(id, [
+    ...earlier,
+    ...subagents
+      .filter(subagent => !earlier.some(each => each.id === subagent.id))
+      .map(({ id: subagentId, description }) => ({
+        id: subagentId,
+        description
+      }))
+  ]);
+}
+
+/** The subagents the keys ended since the session was last picked up, for
+ *  the request that resumes it - each handed out once. */
+export function takeStoppedSubagents(id: string) {
+  const subagents = stoppedByKeys.get(id);
+  stoppedByKeys.delete(id);
+  return {
+    subagents: subagents ?? [],
+    hasStoppedSubagents: subagents !== undefined
+  };
 }
 
 /** Stop the session through its terminal unless its hook takes the stop

@@ -624,7 +624,3 @@ export function isNearlySpent(window: UsageWindow) {
 export function slowRestUntil({ keep, readyAt, now }: { keep: number; readyAt: number; now: number }) {
   return Math.min(readyAt, now + workRhythm(keep).rest);
 }
-
-/** What picks a paused agent back up - pacing's own resume and the user's
- *  "Continue anyway" alike. */
-export const CONTINUE_REQUEST = "continue";

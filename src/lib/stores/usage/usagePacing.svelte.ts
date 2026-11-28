@@ -71,7 +71,8 @@ import {
   forgetTerminalStop,
   hasRunningSubagents,
   isRestIgnoredByHook,
-  stopThroughTerminal
+  stopThroughTerminal,
+  takeStoppedSubagents
 } from "@/lib/stores/usage/pacingInterrupt.svelte";
 import { markJudged, recordObserved, sendPacingReport } from "@/lib/stores/usage/pacingReport.svelte";
 import { createAccountRound } from "@/lib/stores/usage/usageAccountRound.svelte";
@@ -95,7 +96,6 @@ import { MILLISECONDS_PER_MINUTE, PACING_STEP_ORDER, spokenTime } from "@/lib/us
 import {
   assessPace,
   burnRate,
-  CONTINUE_REQUEST,
   dailyRate,
   hasRoomToSpare,
   isNearlySpent,
@@ -113,6 +113,7 @@ import type { PaceForecast, UsageSample } from "@/lib/usage/pacing/engine/usage-
 import { measuredBurn } from "@/lib/usage/pacing/session-control/measured-burn";
 import type { MeasuredBurn } from "@/lib/usage/pacing/session-control/measured-burn";
 import { canHoldRest, heldRestUntil } from "@/lib/usage/pacing/session-control/rest-hold";
+import { resumeRequest } from "@/lib/usage/pacing/session-control/resume-request";
 import { ObservedKind, PacePhase } from "@/lib/usage/pacing/shadow-report/pacing-report";
 import { paceFactsOf } from "@/lib/usage/pacing/shadow-report/report-facts";
 import { afterDelay } from "@/lib/util/async/delay";
@@ -1002,9 +1003,10 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
-  // Pick a paused session back up with a plain "continue" - unless it is
+  // Pick a paused session back up with a request saying PADE paused it and
+  // naming the subagents the stop ended (`resumeRequest`) - unless it is
   // already working: one typed into a running turn would queue a stray one
-  // behind it. Pacing's own continue goes only to work it stopped; an agent
+  // behind it. Pacing's own resume goes only to work it stopped; an agent
   // that was idle stays so.
   async function pickUp({ id, isOnlyAfterStoppedWork }: { id: string; isOnlyAfterStoppedWork: boolean }) {
     const state = paced.get(id);
@@ -1012,6 +1014,7 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
+    const stopped = takeStoppedSubagents(id);
     await liftPause(id);
 
     const isNothingToContinue = isOnlyAfterStoppedWork && !state.hasStoppedWork;
@@ -1022,7 +1025,7 @@ export function createUsagePacing(host: PacingHost) {
 
     await submitPastedPrompt({
       id,
-      text: CONTINUE_REQUEST,
+      text: resumeRequest(stopped),
       wait: afterDelay
     });
   }
