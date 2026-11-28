@@ -301,6 +301,12 @@ and once rebuilt a crashed window onto `about:blank`). When the webview's
 browser process dies under load, the window is destroyed and rebuilt with the
 same label and that URL; the fresh frontend re-adopts the label's
 still-running sessions exactly as a manual reload would, and re-arms itself.
+Arming also starts a **hang watchdog** (`watch_for_hang`, pinging through
+`webview-recovery`'s `hang::ping`): every 10 s a visible window's page is sent a
+no-op script, and a page that leaves four in a row unanswered has its main
+frame's renderer ended, so the renderer-exit path reloads it. `WebView2`'s own
+unresponsive report needs user input to fire, and a renderer once spun for
+minutes inside Blink during an OS light/dark flip with nothing reporting it.
 A webview is subscribed once: the armed address lives in one registry keyed by
 window label, so arming again (a reload, a project switch) only moves the
 address, and the crash that takes the entry is the one rebuild.

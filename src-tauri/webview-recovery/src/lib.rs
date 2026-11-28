@@ -13,6 +13,10 @@
 //! Every failure logs its kind/reason pair; crash dumps land in the user data
 //! folder's failure-report directory for deeper diagnosis.
 
+mod hang;
+
+pub use hang::{ping, HangWatch, PingOutcome};
+
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use webview2_com::Microsoft::Web::WebView2::Win32::{

@@ -126,7 +126,52 @@ pub(crate) fn recovery_arm(window: WebviewWindow, url: String) {
     if let Err(error) = subscribed {
         eprintln!("webview crash recovery not armed for {label}: {error}");
         disarm(&label);
+        return;
     }
+
+    watch_for_hang(window);
+}
+
+/// How often a window's page is pinged by the hang watchdog.
+#[cfg(windows)]
+const HANG_PING_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Ping `window`'s page on a steady interval for as long as the window lives
+/// (`webview_recovery::ping`); a page that stops answering has its renderer
+/// ended, and the renderer's exit reloads the page through the subscription
+/// above. A destroyed window refuses `with_webview`, which ends the loop - a
+/// rebuilt window starts its own.
+#[cfg(windows)]
+fn watch_for_hang(window: WebviewWindow) {
+    let watch = webview_recovery::HangWatch::default();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(HANG_PING_INTERVAL);
+        let label = window.label().to_string();
+        let watch = watch.clone();
+        let pinged = window.with_webview(move |platform_webview| {
+            let outcome = webview_recovery::ping(
+                &platform_webview.controller(),
+                &watch,
+                Box::new(move |process_id| end_hung_renderer(&label, process_id)),
+            );
+            if let Err(error) = outcome {
+                eprintln!("webview hang watchdog: ping failed: {error}");
+            }
+        });
+        if pinged.is_err() {
+            return;
+        }
+    });
+}
+
+/// End a renderer the watchdog found hung. Off the UI thread: the kill shells
+/// out and waits for it.
+#[cfg(windows)]
+fn end_hung_renderer(label: &str, process_id: u32) {
+    eprintln!(
+        "webview hang watchdog: {label}'s renderer {process_id} stopped answering - ending it so the page reloads"
+    );
+    std::thread::spawn(move || crate::terminal::process_tree::kill_process_tree(process_id));
 }
 
 /// The still-live native window's placement, carried over to its replacement
