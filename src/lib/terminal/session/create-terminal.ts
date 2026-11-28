@@ -25,6 +25,21 @@ export function terminalFontSize() {
  *  lib/terminal/theme/terminal-theme, which also documents the app↔agent theme-sync
  *  decision. */
 export function currentXtermTheme() {
+  sharedTheme ??= readSharedTheme();
+  return sharedTheme;
+}
+
+// Read once per task and shared: a light/dark flip re-themes every terminal in
+// one flush, and each `options.theme` write restyles the document (xterm's dim
+// rule), so a read per terminal forced a full style recalc per terminal - the
+// burst a WebView2 renderer once hung in for good. Dropped at the end of the
+// task, so a later change of tokens is always read afresh.
+let sharedTheme: ReturnType<typeof xtermTheme> | undefined;
+
+function readSharedTheme() {
+  queueMicrotask(() => {
+    sharedTheme = undefined;
+  });
   return xtermTheme({ readToken: rootTokenReader() });
 }
 
